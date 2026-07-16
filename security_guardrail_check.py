@@ -84,15 +84,16 @@ def check_api_error_sanitization() -> None:
 
 
 def check_admin_token_guard() -> None:
-    source = read_text("app.py")
-    assert_true("DERIVATIVES_ADMIN_TOKEN" in source, "Admin token must come from environment")
-    assert_true("hmac.compare_digest" in source, "Admin token comparison must use constant-time compare")
-    assert_true('request.args.get("admin_token")' not in source, "Admin token must not be accepted in query string")
-    assert_true('request.values.get("admin_token")' not in source, "Admin token must not be accepted from request values")
+    app_source = read_text("app.py")
+    security_source = read_text("security.py")
+    assert_true("DERIVATIVES_ADMIN_TOKEN" in security_source, "Admin token must come from environment")
+    assert_true("hmac.compare_digest" in security_source, "Admin token comparison must use constant-time compare")
+    assert_true('request.args.get("admin_token")' not in app_source and 'request.args.get("admin_token")' not in security_source, "Admin token must not be accepted in query string")
+    assert_true('request.values.get("admin_token")' not in app_source and 'request.values.get("admin_token")' not in security_source, "Admin token must not be accepted from request values")
 
 
 def check_security_headers_static() -> None:
-    source = read_text("app.py")
+    source = read_text("security.py")
     for header in (
         "X-Content-Type-Options",
         "X-Frame-Options",
@@ -121,24 +122,26 @@ def check_static_whitelist_static() -> None:
 
 
 def check_rate_limit_static() -> None:
-    source = read_text("app.py")
+    app_source = read_text("app.py")
+    security_source = read_text("security.py")
     for required in (
         "API_RATE_LIMIT_PER_WINDOW",
         "API_RATE_LIMIT_WINDOW_SECONDS",
         "cleanup_api_rate_limit_state",
         "RATE_LIMITED",
         "Retry-After",
-        "ProxyFix",
     ):
-        assert_true(required in source, f"Missing rate-limit guard: {required}")
-    assert_true('request.headers.get("X-Forwarded-For")' not in source, "Rate limit must not trust X-Forwarded-For directly")
+        assert_true(required in security_source, f"Missing rate-limit guard: {required}")
+    assert_true("ProxyFix" in app_source, "Missing rate-limit guard: ProxyFix")
+    assert_true('request.headers.get("X-Forwarded-For")' not in security_source, "Rate limit must not trust X-Forwarded-For directly")
 
 
 def check_environment_and_persistence_static() -> None:
     app_source = read_text("app.py")
+    security_source = read_text("security.py")
     store_source = read_text("derivatives_store.py")
     assert_true('os.environ.get("DERIVATIVES_DB_PATH"' in app_source, "Database path must be configurable by environment")
-    assert_true('os.environ.get("DERIVATIVES_ADMIN_TOKEN")' in app_source, "Admin token must be configured by environment")
+    assert_true('os.environ.get("DERIVATIVES_ADMIN_TOKEN")' in security_source, "Admin token must be configured by environment")
     assert_true("self.path.parent.mkdir(parents=True, exist_ok=True)" in store_source, "DB directory must be created for portable persistence")
     assert_true("PRAGMA journal_mode = WAL" in store_source, "SQLite WAL mode must be enabled")
     assert_true("_PRUNE_ALLOWLIST" in store_source, "Dynamic prune SQL must use an allowlist")
@@ -203,7 +206,7 @@ def check_sql_parameterization() -> None:
 
 def check_dangerous_functions() -> None:
     python_forbidden = {"eval", "exec", "os.system", "os.popen", "pickle.loads", "pickle.load"}
-    for filename in ("app.py", "derivatives_store.py", "market_config.py"):
+    for filename in ("app.py", "security.py", "derivatives_store.py", "market_config.py"):
         tree = ast.parse(read_text(filename), filename=filename)
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
@@ -225,7 +228,7 @@ def check_dangerous_functions() -> None:
 
 
 def check_hardcoded_secrets() -> None:
-    candidates = ["app.py", "market_config.py", "derivatives_store.py", "app.js", "derivatives-ui.js"]
+    candidates = ["app.py", "security.py", "market_config.py", "derivatives_store.py", "app.js", "derivatives-ui.js"]
     secret_assignment = re.compile(
         r"(?i)\b(api[_-]?key|secret|password|token)\b\s*[:=]\s*['\"]([^'\"]{8,})['\"]"
     )
@@ -260,6 +263,7 @@ def load_app_with_temp_db() -> tuple[Any, tempfile.TemporaryDirectory[str]]:
 
 def check_runtime_security_behaviour() -> None:
     app_module, tempdir = load_app_with_temp_db()
+    security_module = importlib.import_module("security")
     try:
         client = app_module.app.test_client()
 
@@ -288,20 +292,20 @@ def check_runtime_security_behaviour() -> None:
         imported = client.post("/api/institution/import", json=payload, headers={"X-Admin-Token": "guardrail-admin-token"})
         assert_true(imported.status_code == 200, f"Admin header token should be accepted, got {imported.status_code}")
 
-        original_limit = app_module.API_RATE_LIMIT_PER_WINDOW
-        app_module.API_RATE_LIMIT_PER_WINDOW = 2
+        original_limit = security_module.API_RATE_LIMIT_PER_WINDOW
+        security_module.API_RATE_LIMIT_PER_WINDOW = 2
         try:
-            with app_module.API_RATE_LIMIT_LOCK:
-                app_module.API_RATE_LIMIT_STATE.clear()
+            with security_module.API_RATE_LIMIT_LOCK:
+                security_module.API_RATE_LIMIT_STATE.clear()
             assert_true(client.get("/api/derivatives/v1-status", headers={"X-Forwarded-For": "203.0.113.1"}).status_code == 200, "Rate limit first request failed")
             assert_true(client.get("/api/derivatives/v1-status", headers={"X-Forwarded-For": "203.0.113.2"}).status_code == 200, "Rate limit second request failed")
             limited = client.get("/api/derivatives/v1-status", headers={"X-Forwarded-For": "203.0.113.3"})
             assert_true(limited.status_code == 429, "Rate limit must ignore spoofed X-Forwarded-For and return 429")
             assert_true("Retry-After" in limited.headers, "Rate limit response must include Retry-After")
         finally:
-            app_module.API_RATE_LIMIT_PER_WINDOW = original_limit
-            with app_module.API_RATE_LIMIT_LOCK:
-                app_module.API_RATE_LIMIT_STATE.clear()
+            security_module.API_RATE_LIMIT_PER_WINDOW = original_limit
+            with security_module.API_RATE_LIMIT_LOCK:
+                security_module.API_RATE_LIMIT_STATE.clear()
 
         db_path = Path(os.environ["DERIVATIVES_DB_PATH"])
         assert_true(db_path.exists(), "Guardrail temp database was not created")

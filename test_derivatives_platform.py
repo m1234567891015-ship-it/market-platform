@@ -1,4 +1,5 @@
 import sqlite3
+import ssl
 import tempfile
 import threading
 import time
@@ -10,11 +11,14 @@ import sys
 from pathlib import Path
 from datetime import datetime, timedelta
 from unittest.mock import patch
+from urllib.error import URLError
+from urllib.request import Request
 
 os.environ.setdefault("MARKET_PULSE_DISABLE_BACKGROUND", "1")
 os.environ.setdefault("MARKET_PULSE_LOG_LEVEL", "CRITICAL")
 
 import app
+import security
 from derivatives_store import DerivativesStore
 
 
@@ -748,10 +752,10 @@ class DerivativesPlatformApiTests(unittest.TestCase):
             app.DERIVATIVES_STORE.MARKET_NEWS_RETENTION = original_retention
 
     def test_api_rate_limit_returns_standard_429(self):
-        original_limit = app.API_RATE_LIMIT_PER_WINDOW
-        app.API_RATE_LIMIT_PER_WINDOW = 2
-        with app.API_RATE_LIMIT_LOCK:
-            app.API_RATE_LIMIT_STATE.clear()
+        original_limit = security.API_RATE_LIMIT_PER_WINDOW
+        security.API_RATE_LIMIT_PER_WINDOW = 2
+        with security.API_RATE_LIMIT_LOCK:
+            security.API_RATE_LIMIT_STATE.clear()
         try:
             self.assertEqual(self.client.get("/api/derivatives/v1-status", headers={"X-Forwarded-For": "203.0.113.1"}).status_code, 200)
             self.assertEqual(self.client.get("/api/derivatives/v1-status", headers={"X-Forwarded-For": "203.0.113.2"}).status_code, 200)
@@ -762,30 +766,31 @@ class DerivativesPlatformApiTests(unittest.TestCase):
             self.assertEqual(body["error_code"], "RATE_LIMITED")
             self.assertIn("Retry-After", response.headers)
         finally:
-            app.API_RATE_LIMIT_PER_WINDOW = original_limit
-            with app.API_RATE_LIMIT_LOCK:
-                app.API_RATE_LIMIT_STATE.clear()
+            security.API_RATE_LIMIT_PER_WINDOW = original_limit
+            with security.API_RATE_LIMIT_LOCK:
+                security.API_RATE_LIMIT_STATE.clear()
 
     def test_api_rate_limit_state_discards_expired_clients(self):
-        original_cleanup = app.API_RATE_LIMIT_LAST_CLEANUP
+        original_cleanup = security.API_RATE_LIMIT_LAST_CLEANUP
         try:
-            with app.API_RATE_LIMIT_LOCK:
-                app.API_RATE_LIMIT_STATE.clear()
-                app.API_RATE_LIMIT_STATE["stale-client"] = [0.0]
-                app.API_RATE_LIMIT_LAST_CLEANUP = -app.API_RATE_LIMIT_WINDOW_SECONDS * 2
+            with security.API_RATE_LIMIT_LOCK:
+                security.API_RATE_LIMIT_STATE.clear()
+                security.API_RATE_LIMIT_STATE["stale-client"] = [0.0]
+                security.API_RATE_LIMIT_LAST_CLEANUP = -security.API_RATE_LIMIT_WINDOW_SECONDS * 2
             response = self.client.get("/api/derivatives/v1-status")
             self.assertEqual(response.status_code, 200)
-            with app.API_RATE_LIMIT_LOCK:
-                self.assertNotIn("stale-client", app.API_RATE_LIMIT_STATE)
+            with security.API_RATE_LIMIT_LOCK:
+                self.assertNotIn("stale-client", security.API_RATE_LIMIT_STATE)
         finally:
-            with app.API_RATE_LIMIT_LOCK:
-                app.API_RATE_LIMIT_LAST_CLEANUP = original_cleanup
-                app.API_RATE_LIMIT_STATE.clear()
+            with security.API_RATE_LIMIT_LOCK:
+                security.API_RATE_LIMIT_LAST_CLEANUP = original_cleanup
+                security.API_RATE_LIMIT_STATE.clear()
 
     def test_rate_limit_identity_ignores_untrusted_forwarded_for(self):
-        source = Path("app.py").read_text(encoding="utf-8")
-        self.assertNotIn('request.headers.get("X-Forwarded-For")', source)
-        self.assertIn("ProxyFix", source)
+        app_source = Path("app.py").read_text(encoding="utf-8")
+        security_source = Path("security.py").read_text(encoding="utf-8")
+        self.assertNotIn('request.headers.get("X-Forwarded-For")', security_source)
+        self.assertIn("ProxyFix", app_source)
 
     def test_api_404_uses_standard_error_payload(self):
         response = self.client.get("/api/does-not-exist")
@@ -871,6 +876,80 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertFalse(body["success"])
         self.assertEqual(body["error_code"], "INVALID_SYMBOL")
         self.assertIn("message", body["error"])
+
+    # --- Characterization tests for TD-01 slice 1 (security.py extraction) ---
+    # Golden-output tests written against the current app.py, before
+    # add_security_headers / enforce_api_rate_limit / the SSL fallback cluster
+    # move to security.py. Must stay green after the move.
+
+    def test_security_headers_have_expected_values(self):
+        response = self.client.get("/api/health")
+        self.assertEqual(response.headers.get("X-Frame-Options"), "DENY")
+        self.assertEqual(response.headers.get("X-Content-Type-Options"), "nosniff")
+        self.assertEqual(response.headers.get("Referrer-Policy"), "strict-origin-when-cross-origin")
+        self.assertEqual(response.headers.get("Permissions-Policy"), "camera=(), microphone=(), geolocation=()")
+        self.assertEqual(
+            response.headers.get("Content-Security-Policy"),
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; "
+            "worker-src 'self'; base-uri 'self'; frame-ancestors 'none'",
+        )
+        self.assertEqual(response.headers.get("Strict-Transport-Security"), "max-age=31536000; includeSubDomains")
+
+    def test_is_ssl_error_classifies_cert_verification_failures(self):
+        self.assertTrue(security._is_ssl_error(ssl.SSLCertVerificationError("certificate verify failed")))
+        self.assertTrue(security._is_ssl_error(URLError(ssl.SSLCertVerificationError("certificate verify failed"))))
+        self.assertFalse(security._is_ssl_error(ValueError("unrelated error")))
+
+    def test_is_production_environment_reads_env_vars(self):
+        with patch.dict(os.environ, {"MARKET_PULSE_ENV": "production"}, clear=False):
+            self.assertTrue(security._is_production_environment())
+        removed = {name: os.environ.pop(name, None) for name in ("MARKET_PULSE_ENV", "FLASK_ENV", "RENDER", "RENDER_SERVICE_ID", "RENDER_EXTERNAL_URL")}
+        try:
+            self.assertFalse(security._is_production_environment())
+        finally:
+            for name, value in removed.items():
+                if value is not None:
+                    os.environ[name] = value
+
+    def test_urlopen_with_ssl_fallback_falls_back_for_allowed_host_in_non_production(self):
+        request = Request("https://www.twse.com.tw/some/path")
+        cert_error = ssl.SSLCertVerificationError("certificate verify failed")
+        sentinel = object()
+        calls = {"count": 0}
+
+        def fake_urlopen(_req, timeout=None, context=None):
+            calls["count"] += 1
+            if calls["count"] == 1:
+                raise cert_error
+            return sentinel
+
+        with patch.object(security, "urlopen", side_effect=fake_urlopen), patch.object(security, "_is_production_environment", return_value=False):
+            result = security._urlopen_with_ssl_fallback(request, timeout=5)
+        self.assertIs(result, sentinel)
+        self.assertEqual(calls["count"], 2)
+
+    def test_urlopen_with_ssl_fallback_blocks_in_production(self):
+        request = Request("https://www.twse.com.tw/some/path")
+        cert_error = ssl.SSLCertVerificationError("certificate verify failed")
+
+        def fake_urlopen(_req, timeout=None, context=None):
+            raise cert_error
+
+        with patch.object(security, "urlopen", side_effect=fake_urlopen), patch.object(security, "_is_production_environment", return_value=True):
+            with self.assertRaises(ssl.SSLCertVerificationError):
+                security._urlopen_with_ssl_fallback(request, timeout=5)
+
+    def test_urlopen_with_ssl_fallback_rejects_non_allowlisted_host(self):
+        request = Request("https://not-allowed.example.com/some/path")
+        cert_error = ssl.SSLCertVerificationError("certificate verify failed")
+
+        def fake_urlopen(_req, timeout=None, context=None):
+            raise cert_error
+
+        with patch.object(security, "urlopen", side_effect=fake_urlopen), patch.object(security, "_is_production_environment", return_value=False):
+            with self.assertRaises(ssl.SSLCertVerificationError):
+                security._urlopen_with_ssl_fallback(request, timeout=5)
 
 
 if __name__ == "__main__":
