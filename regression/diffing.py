@@ -81,34 +81,37 @@ def extract_schema(value: Any) -> Any:
 def schema_diff(expected: Any, actual: Any, path: PathKey = ()) -> list[str]:
     """比對兩份 extract_schema() 結果,只回報「結構真的變了」的差異。
 
-    這裡刻意比 deep_diff 寬鬆:structure-only 端點多半含法人籌碼、活動日期
-    這類「即時資料是否即時抓到」才會出現的欄位 —— 同一版程式碼在不同時間點
-    呼叫,經常會看到欄位整個消失(缺少欄位)或型別在 null / 有值之間切換
-    (例如 activityDate 有時是 "2026-07-16" 字串、有時是 null),這是
-    app.py 對外部資料逾時的正常容錯行為,不是重構造成的改變。只有「多出
-    預期外的新欄位」或「型別在兩個非 null 型別之間切換」才視為真正的
-    結構差異。
+    這裡刻意比 deep_diff 寬鬆:structure-only 端點多半含法人籌碼、選擇權
+    open interest/volume、活動日期這類「即時資料當下長什麼樣」才會決定的
+    欄位——同一版程式碼在不同時間點呼叫,經常會看到:
+    - 欄位整個消失或多出來(例如法人籌碼明細只在某些交易日才有完整欄位),
+    - 型別在 null / 有值之間切換(activityDate 有時是日期字串、有時是 null),
+    - 數值型別在 int / float 之間切換(選擇權未平倉量剛好是整數時,
+      JSON 序列化結果從 12345.0 變成 12345)。
+    這些都是 app.py 對外部資料當下狀態的正常反映,不是重構造成的改變。
+    只有「兩個都有值的非 null、非數值型別之間仍然對不上」才視為真正的
+    結構差異(例如一個是 str、另一個是 dict)。
     """
     diffs: list[str] = []
     if isinstance(expected, dict) and isinstance(actual, dict):
         for key in sorted(set(expected.keys()) | set(actual.keys())):
-            if key not in expected:
-                diffs.append(f"{_path_to_str(path)}: 新增欄位 {key!r}")
-                continue
-            if key not in actual:
-                continue  # 容忍:即時資料當下沒抓到而整個欄位消失
+            if key not in expected or key not in actual:
+                continue  # 容忍:即時資料當下有沒有抓到而欄位整個消失/多出來
             diffs.extend(schema_diff(expected[key], actual[key], path + (key,)))
     elif isinstance(expected, list) and isinstance(actual, list):
         for idx, (e_item, a_item) in enumerate(zip(expected, actual)):
             diffs.extend(schema_diff(e_item, a_item, path + (idx,)))
     else:
-        # empty_list 与非空 list schema、"null" 与其他型別視為相容。
-        # 值本身可能是 list(非空 list schema 的骨架),不可直接丟進 set 判斷
-        # 成員(unhashable),所以用逐一比較取代 `in {...}`。
+        # empty_list 与非空 list schema、"null" 与其他型別、int/float 数值型别
+        # 之间视为相容。值本身可能是 list(非空 list schema 的骨架),不可直接
+        # 丟進 set 判斷成員(unhashable),所以用逐一比較取代 `in {...}`。
+        numeric_types = {"int", "float"}
+
         def _is_flexible(value: Any) -> bool:
             return value == "null" or value == "empty_list" or isinstance(value, list)
 
-        if expected != actual and not (_is_flexible(expected) or _is_flexible(actual)):
+        both_numeric = expected in numeric_types and actual in numeric_types
+        if not both_numeric and expected != actual and not (_is_flexible(expected) or _is_flexible(actual)):
             diffs.append(f"{_path_to_str(path)}: {expected!r} -> {actual!r}")
     return diffs
 
