@@ -1,0 +1,36 @@
+# ===== 執行期資料(TD-04:資料與程式碼分離)=====
+# SQLite 資料庫(含 WAL 模式的附屬檔)
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.db
+
+# TWSE 執行期快取(可由 MARKET_PULSE_CACHE_FILE 覆寫路徑)
+twse-cache.json
+
+# 未來若改用 data/ 目錄(設定 DERIVATIVES_DB_PATH / MARKET_PULSE_CACHE_FILE)
+data/
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# ===== 打包與發佈產物 =====
+# build_portable_package.py 的輸出
+portable/
+dist/
+build/
+*.zip
+
+# ===== 日誌與暫存 =====
+*.log
+.tmp/
+
+# ===== 編輯器 / OS =====
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

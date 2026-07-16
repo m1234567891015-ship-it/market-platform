@@ -1,0 +1,19 @@
+# 讓編輯器層面就寫出正確行尾,避免 commit 時才轉換
+root = true
+
+[*]
+end_of_line = lf
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{js,css,html,json,yaml,yml}]
+indent_size = 2
+
+[*.bat]
+end_of_line = crlf
+
+[*.md]
+trim_trailing_whitespace = false

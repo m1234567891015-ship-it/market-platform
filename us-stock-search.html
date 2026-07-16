@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#071426">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Market Pulse">
+  <title>Market Pulse | 美股搜尋</title>
+  <link rel="manifest" href="manifest.webmanifest?v=pwa-20260621-us-pages-encoding-1">
+  <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/app-icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=technical-summary-forecast-20260707-1">
+</head>
+<body data-page="us-stock-search">
+  <div class="page-shell">
+    <header class="site-header">
+      <nav class="navbar">
+        <a class="brand" href="index.html">
+          <span class="brand-mark">MP</span>
+          <span>Market Pulse</span>
+        </a>
+        <div class="nav-links">
+          <a href="market-overview.html">台股盤勢</a>
+          <a href="tw-stocks.html">台股類股</a>
+          <a href="tw-etf.html">台股 ETF</a>
+          <a href="tw-stock-search.html">個股搜尋</a>
+          <a href="tw-Optional-stocks.html">自選股</a>
+          <a href="us-market-overview.html">美股盤勢</a>
+          <a href="us-stocks.html">美股市場</a>
+          <a href="us-etf.html">美股ETF</a>
+          <a href="us-stock-search.html">美股搜尋</a>
+          <a href="us-watchlist.html">美股自選</a>
+          <a href="international-finance.html">貴金屬與債券</a>
+          <a href="derivatives-assets.html">期權</a>
+          <a href="futures.html">期貨</a>
+          <a href="options.html">選擇權</a>
+          <a href="derivatives-analytics.html">期權分析</a>
+          <a href="derivatives-ai.html">期權 AI</a>
+          <a href="derivatives-status.html">系統狀態</a>
+        </div>
+      </nav>
+    </header>
+    <main>
+      <section class="section search-section">
+        <article class="panel-card">
+          <div class="card-title-row">
+            <div>
+              <p class="panel-kicker">US stock search</p>
+              <h1>美股與 ETF 搜尋</h1>
+            </div>
+            <span class="chip chip-blue">Yahoo / Nasdaq / NYSE</span>
+          </div>
+          <form id="us-stock-search-form" class="search-form us-stock-search-form">
+            <input id="us-stock-search-input" class="search-input us-stock-search-input" type="search" name="q" placeholder="輸入 AAPL、MSFT、ETF 或公司名稱" autocomplete="off">
+            <button class="btn" type="submit">搜尋</button>
+          </form>
+          <p id="us-stock-search-status" class="source-note">請輸入美股或 ETF 代號 / 名稱後開始搜尋。</p>
+          <div id="us-search-results" class="search-results"></div>
+        </article>
+      </section>
+      <section class="section search-detail-section">
+        <article class="panel-card detail-panel-card">
+          <div class="card-title-row">
+            <h3>美股個股詳情</h3>
+            <span class="chip chip-gold">報價 / 技術 / AI 摘要</span>
+          </div>
+          <div id="us-stock-detail" class="stock-detail-empty">選擇一檔美股或 ETF 後，這裡會顯示行情與分析。</div>
+        </article>
+      </section>
+    </main>
+  </div>
+  <script src="pwa.js?v=pwa-no-forced-reload-20260703-1"></script>
+  <script src="app.js?v=technical-chart-20260707-17"></script>
+</body>
+</html>

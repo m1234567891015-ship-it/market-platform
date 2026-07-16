@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#071426">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="台股脈動">
+  <title>台股脈動 | 台股指數總覽</title>
+  <link rel="manifest" href="manifest.webmanifest?v=pwa-20260615-1">
+  <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/app-icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=scroll-table-20260704-1">
+</head>
+<body data-page="sectors">
+  <div class="page-shell">
+    <header class="site-header">
+      <nav class="navbar">
+        <a class="brand" href="index.html">
+          <span class="brand-mark">MP</span>
+          <span>台股脈動</span>
+        </a>
+        <div class="nav-links">
+          <a href="market-overview.html">台股盤勢</a>
+          <a href="tw-stocks.html">台股類股</a>
+          <a href="tw-etf.html">台股 ETF</a>
+          <a href="tw-stock-search.html">個股搜尋</a>
+          <a href="tw-Optional-stocks.html">自選股</a>
+          <a href="us-market-overview.html">美股盤勢</a>
+          <a href="us-stocks.html">美股市場</a>
+          <a href="us-etf.html">美股ETF</a>
+          <a href="us-stock-search.html">美股搜尋</a>
+          <a href="us-watchlist.html">美股自選</a>
+          <a href="international-finance.html">貴金屬與債券</a>
+          <a href="derivatives-assets.html">期權</a>
+          <a href="futures.html">期貨</a>
+          <a href="options.html">選擇權</a>
+          <a href="derivatives-analytics.html">期權分析</a>
+          <a href="derivatives-ai.html">期權AI</a>
+          <a href="derivatives-status.html">系統維護</a>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="subpage-hero">
+        <p class="eyebrow">台股指數總覽</p>
+        <h1>類股輪動與同步走勢</h1>
+        <p class="hero-text">整合上市、上櫃、興櫃與主題類股的即時走勢，快速掌握市場輪動與熱門族群變化。</p>
+        <p class="source-note" id="sector-source-note">資料載入中…</p>
+      </section>
+
+      <section class="section">
+        <div class="class-shell">
+          <section class="sector-sync-panel panel-card" id="weighted-index-panel"></section>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="class-shell">
+          <div class="class-tabs">
+            <span class="class-tab is-active">上市類股</span>
+            <span class="class-tab">上櫃類股</span>
+            <span class="class-tab">興櫃類股</span>
+            <span class="class-tab">電子產業</span>
+            <span class="class-tab">概念股</span>
+            <span class="class-tab">集團股</span>
+          </div>
+
+          <div class="class-links" id="class-links"></div>
+
+          <section class="class-summary">
+            <article class="class-hero panel-card" id="class-hero-card"></article>
+            <article class="class-overview panel-card">
+              <div class="class-board-head">
+                <div>
+                  <p class="eyebrow">類股摘要</p>
+                  <h3>熱門族群概覽</h3>
+                </div>
+              </div>
+              <div class="class-overview-grid" id="sector-overview-grid"></div>
+            </article>
+          </section>
+
+          <section class="sector-sync-panel panel-card">
+            <div class="class-board-head">
+              <div>
+                <p class="eyebrow">同步技術走勢</p>
+                <h3>主圖 + 比較線 + 提示框</h3>
+              </div>
+            </div>
+            <div id="sector-sync-view"></div>
+          </section>
+
+          <section class="class-board panel-card">
+            <div class="class-board-head">
+              <div>
+                <p class="eyebrow">族群走勢</p>
+                <h3 id="sector-board-title">類股成分股排行</h3>
+              </div>
+              <div class="sector-sort-slot" id="sector-sort-slot"></div>
+            </div>
+            <div class="class-table" id="sector-grid"></div>
+          </section>
+
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="pwa.js?v=pwa-no-cache-20260701-2"></script>
+<script src="app.js?v=international-index-recovery-20260709-1"></script>
+</body>
+</html>
