@@ -110,7 +110,10 @@ def schema_diff(expected: Any, actual: Any, path: PathKey = ()) -> list[str]:
         def _is_flexible(value: Any) -> bool:
             return value == "null" or value == "empty_list" or isinstance(value, list)
 
-        both_numeric = expected in numeric_types and actual in numeric_types
+        both_numeric = (
+            isinstance(expected, str) and isinstance(actual, str)
+            and expected in numeric_types and actual in numeric_types
+        )
         if not both_numeric and expected != actual and not (_is_flexible(expected) or _is_flexible(actual)):
             diffs.append(f"{_path_to_str(path)}: {expected!r} -> {actual!r}")
     return diffs
