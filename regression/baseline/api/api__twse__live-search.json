@@ -1,0 +1,10 @@
+{
+  "count": "int",
+  "query": "str",
+  "refreshedAt": "str",
+  "results": "empty_list",
+  "snapshotDate": "null",
+  "source": "str",
+  "sources": "empty_list",
+  "tpexStockDate": "null"
+}

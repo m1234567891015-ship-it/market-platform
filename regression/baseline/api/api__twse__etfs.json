@@ -1,0 +1,278 @@
+{
+  "cachedAt": "str",
+  "categories": [
+    {
+      "count": "int",
+      "key": "str",
+      "label": "str"
+    }
+  ],
+  "category": "str",
+  "compare": [
+    {
+      "category": "str",
+      "categoryLabel": "str",
+      "change": "str",
+      "close": "str",
+      "code": "str",
+      "detailUrl": "str",
+      "dividendProfile": "str",
+      "high": "str",
+      "low": "str",
+      "market": "str",
+      "marketLabel": "str",
+      "name": "str",
+      "open": "str",
+      "pct": "str",
+      "pctValue": "null",
+      "riskLevel": "str",
+      "riskScore": "float",
+      "technicalAnalysis": {
+        "bias": "str",
+        "candle": "str",
+        "signal": "str",
+        "strength": "str",
+        "volatilityPct": "str"
+      },
+      "tone": "str",
+      "trades": "str",
+      "turnover": "str",
+      "turnoverValue": "float",
+      "volatilityPct": "float",
+      "volume": "str",
+      "volumeValue": "float"
+    }
+  ],
+  "count": "int",
+  "items": [
+    {
+      "category": "str",
+      "categoryLabel": "str",
+      "change": "str",
+      "close": "str",
+      "code": "str",
+      "detailUrl": "str",
+      "dividendProfile": "str",
+      "high": "str",
+      "low": "str",
+      "market": "str",
+      "marketLabel": "str",
+      "name": "str",
+      "open": "str",
+      "pct": "str",
+      "pctValue": "null",
+      "riskLevel": "str",
+      "riskScore": "float",
+      "technicalAnalysis": {
+        "bias": "str",
+        "candle": "str",
+        "signal": "str",
+        "strength": "str",
+        "volatilityPct": "str"
+      },
+      "tone": "str",
+      "trades": "str",
+      "turnover": "str",
+      "turnoverValue": "float",
+      "volatilityPct": "float",
+      "volume": "str",
+      "volumeValue": "float"
+    }
+  ],
+  "query": "str",
+  "rankings": {
+    "highDividend": [
+      {
+        "category": "str",
+        "categoryLabel": "str",
+        "change": "str",
+        "close": "str",
+        "code": "str",
+        "detailUrl": "str",
+        "dividendProfile": "str",
+        "high": "str",
+        "low": "str",
+        "market": "str",
+        "marketLabel": "str",
+        "name": "str",
+        "open": "str",
+        "pct": "str",
+        "pctValue": "null",
+        "riskLevel": "str",
+        "riskScore": "float",
+        "technicalAnalysis": {
+          "bias": "str",
+          "candle": "str",
+          "signal": "str",
+          "strength": "str",
+          "volatilityPct": "str"
+        },
+        "tone": "str",
+        "trades": "str",
+        "turnover": "str",
+        "turnoverValue": "float",
+        "volatilityPct": "float",
+        "volume": "str",
+        "volumeValue": "float"
+      }
+    ],
+    "highRisk": [
+      {
+        "category": "str",
+        "categoryLabel": "str",
+        "change": "str",
+        "close": "str",
+        "code": "str",
+        "detailUrl": "str",
+        "dividendProfile": "str",
+        "high": "str",
+        "low": "str",
+        "market": "str",
+        "marketLabel": "str",
+        "name": "str",
+        "open": "str",
+        "pct": "str",
+        "pctValue": "null",
+        "riskLevel": "str",
+        "riskScore": "float",
+        "technicalAnalysis": {
+          "bias": "str",
+          "candle": "str",
+          "signal": "str",
+          "strength": "str",
+          "volatilityPct": "str"
+        },
+        "tone": "str",
+        "trades": "str",
+        "turnover": "str",
+        "turnoverValue": "float",
+        "volatilityPct": "float",
+        "volume": "str",
+        "volumeValue": "float"
+      }
+    ],
+    "topReturn": [
+      {
+        "category": "str",
+        "categoryLabel": "str",
+        "change": "str",
+        "close": "str",
+        "code": "str",
+        "detailUrl": "str",
+        "dividendProfile": "str",
+        "high": "str",
+        "low": "str",
+        "market": "str",
+        "marketLabel": "str",
+        "name": "str",
+        "open": "str",
+        "pct": "str",
+        "pctValue": "null",
+        "riskLevel": "str",
+        "riskScore": "float",
+        "technicalAnalysis": {
+          "bias": "str",
+          "candle": "str",
+          "signal": "str",
+          "strength": "str",
+          "volatilityPct": "str"
+        },
+        "tone": "str",
+        "trades": "str",
+        "turnover": "str",
+        "turnoverValue": "float",
+        "volatilityPct": "float",
+        "volume": "str",
+        "volumeValue": "float"
+      }
+    ],
+    "topVolume": [
+      {
+        "category": "str",
+        "categoryLabel": "str",
+        "change": "str",
+        "close": "str",
+        "code": "str",
+        "detailUrl": "str",
+        "dividendProfile": "str",
+        "high": "str",
+        "low": "str",
+        "market": "str",
+        "marketLabel": "str",
+        "name": "str",
+        "open": "str",
+        "pct": "str",
+        "pctValue": "null",
+        "riskLevel": "str",
+        "riskScore": "float",
+        "technicalAnalysis": {
+          "bias": "str",
+          "candle": "str",
+          "signal": "str",
+          "strength": "str",
+          "volatilityPct": "str"
+        },
+        "tone": "str",
+        "trades": "str",
+        "turnover": "str",
+        "turnoverValue": "float",
+        "volatilityPct": "float",
+        "volume": "str",
+        "volumeValue": "float"
+      }
+    ],
+    "weakReturn": [
+      {
+        "category": "str",
+        "categoryLabel": "str",
+        "change": "str",
+        "close": "str",
+        "code": "str",
+        "detailUrl": "str",
+        "dividendProfile": "str",
+        "high": "str",
+        "low": "str",
+        "market": "str",
+        "marketLabel": "str",
+        "name": "str",
+        "open": "str",
+        "pct": "str",
+        "pctValue": "null",
+        "riskLevel": "str",
+        "riskScore": "float",
+        "technicalAnalysis": {
+          "bias": "str",
+          "candle": "str",
+          "signal": "str",
+          "strength": "str",
+          "volatilityPct": "str"
+        },
+        "tone": "str",
+        "trades": "str",
+        "turnover": "str",
+        "turnoverValue": "float",
+        "volatilityPct": "float",
+        "volume": "str",
+        "volumeValue": "float"
+      }
+    ]
+  },
+  "returned": "int",
+  "snapshotDate": "str",
+  "sort": "str",
+  "sourceLinks": {
+    "tpexEtf": "str",
+    "twseEtf": "str"
+  },
+  "summary": {
+    "averageReturnPct": "null",
+    "bondCount": "int",
+    "highDividendCount": "int",
+    "leveragedInverseCount": "int",
+    "totalTurnover": "float",
+    "totalVolume": "float",
+    "tpexCount": "int",
+    "twseCount": "int"
+  },
+  "totalCount": "int"
+}

@@ -1,0 +1,4 @@
+# regression/ 迴歸驗證系統專用依賴,不進生產環境 requirements.txt。
+playwright==1.61.0
+pillow==12.3.0
+numpy==2.5.1

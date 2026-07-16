@@ -1,0 +1,22 @@
+{
+  "count": "int",
+  "error": "str",
+  "group": "str",
+  "instrumentType": "str",
+  "kind": "str",
+  "query": "str",
+  "results": [
+    {
+      "exchange": "str",
+      "group": "str",
+      "name": "str",
+      "nyseUrl": "str",
+      "source": "str",
+      "symbol": "str",
+      "type": "str"
+    }
+  ],
+  "returned": "int",
+  "source": "str",
+  "total": "int"
+}

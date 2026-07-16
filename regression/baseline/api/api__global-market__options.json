@@ -1,0 +1,378 @@
+{
+  "cached": "bool",
+  "catalogCount": "int",
+  "catalogRegionBreakdown": [
+    {
+      "region": "str",
+      "total": "int",
+      "usable": "int"
+    }
+  ],
+  "category": "str",
+  "items": [
+    {
+      "atmStrike": "float",
+      "callOpenInterest": "float",
+      "callVolume": "float",
+      "change": "str",
+      "close": "str",
+      "currency": "str",
+      "dataSource": "str",
+      "dataSymbol": "str",
+      "date": "str",
+      "exchange": "str",
+      "group": "str",
+      "high": "str",
+      "low": "str",
+      "market": "str",
+      "maxPain": "float",
+      "metricLabel": "str",
+      "name": "str",
+      "open": "str",
+      "openInterest": "str",
+      "openInterestValue": "float",
+      "optionCategory": "str",
+      "optionChainSymbol": "str",
+      "optionChainUnavailableReason": "str",
+      "optionSourceRole": "str",
+      "optionSubcategory": "str",
+      "pct": "str",
+      "periodReturn": "str",
+      "previousClose": "str",
+      "putCallRatio": "float",
+      "putOpenInterest": "float",
+      "putVolume": "float",
+      "quoteStatus": "str",
+      "referenceSource": "str",
+      "region": "str",
+      "selectedExpiry": "str",
+      "selectedExpiryDate": "str",
+      "series": [
+        {
+          "close": "str",
+          "date": "str",
+          "high": "str",
+          "low": "str",
+          "open": "str",
+          "openInterest": "float",
+          "source": "str",
+          "volume": "str",
+          "volumeValue": "float"
+        }
+      ],
+      "source": "str",
+      "sourceLink": "str",
+      "sourceNote": "str",
+      "sourceUrl": "str",
+      "symbol": "str",
+      "taifexCommodity": "str",
+      "type": "str",
+      "verification": {
+        "checks": {
+          "closeMatch": "bool",
+          "fresh": "bool",
+          "history": "bool",
+          "ohlc": "bool"
+        },
+        "primarySource": "str",
+        "referenceSource": "str",
+        "referenceUrl": "str",
+        "status": "str"
+      },
+      "volume": "str",
+      "volumePutCallRatio": "float",
+      "volumeValue": "float"
+    }
+  ],
+  "kicker": "str",
+  "loadLimit": "int",
+  "loadedCount": "int",
+  "macroSchema": {
+    "automation": "str",
+    "dashboardSignals": [
+      "str"
+    ],
+    "sources": [
+      {
+        "name": "str",
+        "role": "str"
+      }
+    ],
+    "tables": [
+      {
+        "label": "str",
+        "name": "str"
+      }
+    ]
+  },
+  "regionBreakdown": [
+    {
+      "region": "str",
+      "total": "int",
+      "usable": "int"
+    }
+  ],
+  "source": "str",
+  "sourceInfo": {
+    "primary": "str",
+    "reference": "str",
+    "referenceUrl": "str"
+  },
+  "subtitle": "str",
+  "summary": {
+    "advancers": "int",
+    "avgPct": "str",
+    "count": "int",
+    "decliners": "int",
+    "strongest": "str",
+    "strongestPct": "str",
+    "weakest": "str",
+    "weakestPct": "str"
+  },
+  "taiwanOptionChain": {
+    "analysis": {
+      "bias": "str",
+      "confidenceScore": "int",
+      "crossValidation": [
+        {
+          "name": "str",
+          "signal": "str",
+          "status": "str"
+        }
+      ],
+      "disclaimer": "str",
+      "marketScore": "int",
+      "maxPain": "float",
+      "reasons": [
+        "str"
+      ],
+      "resistanceLevel": "float",
+      "riskLevel": "str",
+      "riskScore": "int",
+      "scenarios": [
+        {
+          "condition": "str",
+          "name": "str",
+          "view": "str"
+        }
+      ],
+      "scoreFormula": {
+        "confidenceScore": "str",
+        "evidenceLayers": [
+          "str"
+        ],
+        "marketScore": "str",
+        "riskScore": "str"
+      },
+      "scoreLabels": {
+        "confidence": "str",
+        "market": "str",
+        "risk": "str"
+      },
+      "strategySuggestion": "str",
+      "supportLevel": "float"
+    },
+    "availableProducts": [
+      {
+        "name": "str",
+        "shortName": "str",
+        "symbol": "str"
+      }
+    ],
+    "cached": "bool",
+    "chain": [
+      {
+        "call": {
+          "afterHoursVolume": "int",
+          "ask": "null",
+          "bid": "float",
+          "change": "null",
+          "changePct": "null",
+          "expiry": "str",
+          "expiryDate": "str",
+          "high": "null",
+          "historicalHigh": "null",
+          "historicalLow": "null",
+          "impliedVolatility": "null",
+          "ivSource": "str",
+          "last": "null",
+          "low": "null",
+          "open": "null",
+          "openInterest": "int",
+          "optionType": "str",
+          "regularVolume": "int",
+          "settlement": "float",
+          "strike": "float",
+          "symbol": "str",
+          "underlying": "str",
+          "volume": "int"
+        },
+        "callOpenInterest": "float",
+        "callVolume": "float",
+        "put": {
+          "afterHoursVolume": "float",
+          "ask": "float",
+          "bid": "float",
+          "change": "float",
+          "changePct": "float",
+          "expiry": "str",
+          "expiryDate": "str",
+          "high": "float",
+          "historicalHigh": "float",
+          "historicalLow": "float",
+          "impliedVolatility": "float",
+          "ivSource": "str",
+          "last": "float",
+          "low": "float",
+          "open": "float",
+          "openInterest": "float",
+          "optionType": "str",
+          "regularVolume": "float",
+          "settlement": "float",
+          "strike": "float",
+          "symbol": "str",
+          "underlying": "str",
+          "volume": "float"
+        },
+        "putOpenInterest": "float",
+        "putVolume": "float",
+        "strike": "float"
+      }
+    ],
+    "distribution": [
+      {
+        "callOpenInterest": "int",
+        "callVolume": "int",
+        "putOpenInterest": "float",
+        "putVolume": "float",
+        "strike": "float"
+      }
+    ],
+    "exchange": "str",
+    "expirations": [
+      {
+        "callCount": "int",
+        "callOpenInterest": "float",
+        "callVolume": "float",
+        "code": "str",
+        "contractCount": "int",
+        "expiryDate": "str",
+        "putCallRatio": "float",
+        "putCount": "int",
+        "putOpenInterest": "float",
+        "putVolume": "float",
+        "totalOpenInterest": "float",
+        "totalVolume": "float",
+        "volumePutCallRatio": "float"
+      }
+    ],
+    "market": "str",
+    "name": "str",
+    "schema": {
+      "analysisFields": [
+        "str"
+      ],
+      "optionsContractKey": "str",
+      "optionsProduct": "str",
+      "optionsQuoteFields": [
+        "str"
+      ]
+    },
+    "selectedExpiry": "str",
+    "selectedExpiryDate": "str",
+    "shortName": "str",
+    "source": {
+      "displayProduct": "str",
+      "ivNote": "str",
+      "mode": "str",
+      "pcrUrl": "str",
+      "primary": "str",
+      "primaryUrl": "str",
+      "sourceContract": "str",
+      "spotProvider": "str",
+      "spotUrl": "str"
+    },
+    "spot": {
+      "change": "float",
+      "date": "str",
+      "high": "float",
+      "low": "float",
+      "name": "str",
+      "pct": "float",
+      "previousValue": "float",
+      "source": "str",
+      "symbol": "str",
+      "value": "float",
+      "volume": "float",
+      "volumeBillion": "float"
+    },
+    "spotSupplement": {
+      "fields": [
+        "str"
+      ],
+      "provider": "str",
+      "sourceUrl": "str"
+    },
+    "summary": {
+      "atmStrike": "float",
+      "callCount": "int",
+      "callOpenInterest": "float",
+      "callVolume": "float",
+      "contractCount": "int",
+      "maxPain": "float",
+      "maxPainLoss": "float",
+      "putCallRatio": "float",
+      "putCount": "int",
+      "putOpenInterest": "float",
+      "putVolume": "float",
+      "totalOpenInterest": "float",
+      "totalVolume": "float",
+      "volumePutCallRatio": "float"
+    },
+    "tradeDate": "str",
+    "underlying": "str"
+  },
+  "title": "str",
+  "updatedAt": "str",
+  "v1ProductStatus": {
+    "futures": {
+      "connected": "int",
+      "items": [
+        {
+          "dataStatus": "str",
+          "group": "str",
+          "name": "str",
+          "status": "str",
+          "symbol": "str"
+        }
+      ],
+      "sourcePending": "int",
+      "total": "int"
+    },
+    "options": {
+      "connected": "int",
+      "items": [
+        {
+          "dataStatus": "str",
+          "group": "str",
+          "name": "str",
+          "status": "str",
+          "symbol": "str"
+        }
+      ],
+      "sourcePending": "int",
+      "total": "int"
+    }
+  },
+  "v1Scope": "str",
+  "validation": {
+    "failedCount": "int",
+    "limitedCount": "int",
+    "primary": "str",
+    "reference": "str",
+    "referenceUrl": "str",
+    "secondaryMatchedCount": "int",
+    "treasuryCurve": {},
+    "verifiedCount": "int"
+  }
+}

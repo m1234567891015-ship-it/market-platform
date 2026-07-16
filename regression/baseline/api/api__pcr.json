@@ -1,0 +1,24 @@
+{
+  "data": {
+    "callOpenInterest": "float",
+    "expiry": "str",
+    "history": [
+      {
+        "expiry": "str",
+        "maxPain": "float",
+        "putCallRatio": "float",
+        "spot": "float",
+        "tradeDate": "str",
+        "volumePutCallRatio": "float"
+      }
+    ],
+    "putCallRatio": "float",
+    "putOpenInterest": "float",
+    "source": "str",
+    "tradeDate": "str",
+    "underlying": "str",
+    "volumePutCallRatio": "float"
+  },
+  "success": "bool",
+  "updated_at": "str"
+}

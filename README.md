@@ -28,6 +28,43 @@ python e2e_smoke.py
 python verify_release_integrity.py
 ```
 
+## Regression Baseline System (TD refactor gate)
+
+Before any TD-01~TD-13 refactor ticket, `regression/` captures a full behavior
+snapshot of the current app so later changes can be checked for parity.
+Details: `docs/工單00_行為基準驗證系統.md`.
+
+```bash
+# One-time, only on the pre-refactor original code:
+pip install -r regression/requirements-regression.txt
+playwright install chromium
+python regression/capture_baseline.py     # -> regression/baseline/api/*.json, manifest.json
+python regression/frontend_check.py --capture   # -> regression/baseline/screenshots/*.png
+
+# Repeated during refactor work, to check for behavior drift:
+python regression/verify_against_baseline.py --quick   # API + security checks (~1 min)
+python regression/verify_against_baseline.py --full    # quick + Playwright frontend compare
+```
+
+Each TD ticket's definition of done requires both `python -m unittest
+test_derivatives_platform.py` and `python regression/verify_against_baseline.py --full`
+to pass. A `Stop` hook in `.claude/settings.json` also runs `--quick`
+automatically after each turn and reports PASS/FAIL without blocking.
+
+Notes:
+- `regression/baseline/` is frozen once captured — do not regenerate it during
+  a refactor. If a compare fails, fix the code, not the baseline (the one
+  exception is a genuine baseline-capture defect, e.g. a missed dynamic-field
+  mask, which should be explained in the commit message).
+- Most API endpoints serve live TWSE/TAIFEX/Yahoo data that keeps changing
+  independently of any code change, so `capture_baseline.py` marks nearly all
+  of them `structure_only` (JSON shape/schema comparison only). Only a couple
+  of static endpoints (`/api/health`, `/api/derivatives/v1-status`) get full
+  value comparison with masked timestamps.
+- `verify_against_baseline.py` retries a failing endpoint once after a short
+  delay before treating it as a real failure, to absorb transient external
+  data source outages.
+
 Build a clean portable package:
 
 ```bash

@@ -1,0 +1,28 @@
+{
+  "data": {
+    "basis": "float",
+    "basisPct": "float",
+    "date": "str",
+    "future": "str",
+    "futurePrice": "float",
+    "history": [
+      {
+        "basis": "float",
+        "basisPct": "float",
+        "date": "str",
+        "futurePrice": "float",
+        "spotPrice": "float"
+      }
+    ],
+    "message": "str",
+    "source": {
+      "future": "str",
+      "spot": "str"
+    },
+    "spot": "str",
+    "spotPrice": "float",
+    "status": "str"
+  },
+  "success": "bool",
+  "updated_at": "str"
+}

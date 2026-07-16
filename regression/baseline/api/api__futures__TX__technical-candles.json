@@ -1,0 +1,34 @@
+{
+  "data": {
+    "candles": [
+      {
+        "close": "float",
+        "high": "float",
+        "low": "float",
+        "open": "float",
+        "openInterest": "float",
+        "settlement": "float",
+        "time": "str",
+        "volume": "float"
+      }
+    ],
+    "code": "str",
+    "contract": {
+      "code": "str",
+      "contractMonth": "str",
+      "isPrimary": "bool",
+      "kind": "str",
+      "label": "str",
+      "url": "str"
+    },
+    "contractMonth": "str",
+    "count": "int",
+    "interval": "str",
+    "source": "str",
+    "sourceUrl": "str",
+    "symbol": "str",
+    "technicalAnalysisUrl": "str"
+  },
+  "success": "bool",
+  "updated_at": "str"
+}

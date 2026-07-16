@@ -1,0 +1,25 @@
+{
+  "data": {
+    "candles": [
+      {
+        "change": "float",
+        "changePct": "float",
+        "close": "float",
+        "contractMonth": "str",
+        "high": "float",
+        "low": "float",
+        "open": "float",
+        "openInterest": "float",
+        "settlement": "float",
+        "source": "str",
+        "time": "str",
+        "volume": "float"
+      }
+    ],
+    "interval": "str",
+    "source": "str",
+    "symbol": "str"
+  },
+  "success": "bool",
+  "updated_at": "str"
+}

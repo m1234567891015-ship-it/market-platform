@@ -1,0 +1,14 @@
+{
+  "cachedAt": "str",
+  "code": "str",
+  "shareholderDistribution": {
+    "date": "str",
+    "largeHolderRatio": "float",
+    "largeHolderThreshold": "str",
+    "otherHolderRatio": "float",
+    "retailHolderRatio": "float",
+    "retailHolderThreshold": "str",
+    "source": "str",
+    "sourceLink": "str"
+  }
+}

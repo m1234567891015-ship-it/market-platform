@@ -1,0 +1,18 @@
+{
+  "data": {
+    "category": "str",
+    "count": "int",
+    "items": [
+      {
+        "link": "str",
+        "publishedAt": "str",
+        "source": "str",
+        "summary": "str",
+        "title": "str"
+      }
+    ],
+    "symbol": "str"
+  },
+  "success": "bool",
+  "updated_at": "str"
+}

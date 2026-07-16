@@ -1,0 +1,185 @@
+{
+  "data": {
+    "catalogCount": "int",
+    "catalogRegionBreakdown": [
+      {
+        "region": "str",
+        "total": "int",
+        "usable": "int"
+      }
+    ],
+    "category": "str",
+    "count": "int",
+    "futuresMarketBreakdown": [
+      {
+        "key": "str",
+        "label": "str",
+        "loaded": "int",
+        "total": "int",
+        "usable": "int"
+      }
+    ],
+    "items": [
+      {
+        "activeContractCount": "int",
+        "change": "str",
+        "close": "str",
+        "contractCount": "int",
+        "currency": "str",
+        "dataSource": "str",
+        "dataStatus": "str",
+        "dataSymbol": "str",
+        "date": "str",
+        "exchange": "str",
+        "group": "str",
+        "high": "str",
+        "leaderClose": "str",
+        "leaderContract": "str",
+        "leaderStockCode": "str",
+        "leaderStockName": "str",
+        "low": "str",
+        "market": "str",
+        "metricLabel": "str",
+        "name": "str",
+        "open": "str",
+        "openInterest": "str",
+        "openInterestValue": "float",
+        "optionCategory": "str",
+        "optionChainSymbol": "str",
+        "optionChainUnavailableReason": "str",
+        "optionSourceRole": "str",
+        "optionSubcategory": "str",
+        "pct": "str",
+        "periodReturn": "str",
+        "referenceSource": "str",
+        "region": "str",
+        "series": [
+          {
+            "close": "str",
+            "date": "str",
+            "high": "str",
+            "low": "str",
+            "open": "str",
+            "openInterest": "float",
+            "source": "str",
+            "volume": "str",
+            "volumeValue": "float"
+          }
+        ],
+        "source": "str",
+        "sourceLink": "str",
+        "sourceNote": "str",
+        "sourceUrl": "str",
+        "status": "str",
+        "symbol": "str",
+        "taifexCommodity": "str",
+        "type": "str",
+        "v1Status": "str",
+        "verification": {
+          "checks": {
+            "closeMatch": "bool",
+            "fresh": "bool",
+            "history": "bool",
+            "ohlc": "bool"
+          },
+          "primarySource": "str",
+          "referenceSource": "str",
+          "referenceUrl": "str",
+          "status": "str"
+        },
+        "volume": "str",
+        "volumeValue": "float"
+      }
+    ],
+    "kicker": "str",
+    "loadLimit": "int",
+    "loadedCount": "int",
+    "macroSchema": {
+      "automation": "str",
+      "dashboardSignals": [
+        "str"
+      ],
+      "sources": [
+        {
+          "name": "str",
+          "role": "str"
+        }
+      ],
+      "tables": [
+        {
+          "label": "str",
+          "name": "str"
+        }
+      ]
+    },
+    "regionBreakdown": [
+      {
+        "region": "str",
+        "total": "int",
+        "usable": "int"
+      }
+    ],
+    "source": "str",
+    "sourceInfo": {
+      "primary": "str",
+      "reference": "str",
+      "referenceUrl": "str"
+    },
+    "subtitle": "str",
+    "summary": {
+      "advancers": "int",
+      "avgPct": "str",
+      "count": "int",
+      "decliners": "int",
+      "strongest": "str",
+      "strongestPct": "str",
+      "weakest": "str",
+      "weakestPct": "str"
+    },
+    "title": "str",
+    "updatedAt": "str",
+    "v1ProductStatus": {
+      "futures": {
+        "connected": "int",
+        "items": [
+          {
+            "dataStatus": "str",
+            "group": "str",
+            "name": "str",
+            "status": "str",
+            "symbol": "str"
+          }
+        ],
+        "sourcePending": "int",
+        "total": "int"
+      },
+      "options": {
+        "connected": "int",
+        "items": [
+          {
+            "dataStatus": "str",
+            "group": "str",
+            "name": "str",
+            "status": "str",
+            "symbol": "str"
+          }
+        ],
+        "sourcePending": "int",
+        "total": "int"
+      }
+    },
+    "v1Scope": "str",
+    "validation": {
+      "failedCount": "int",
+      "limitedCount": "int",
+      "primary": "str",
+      "reference": "str",
+      "referenceUrl": "str",
+      "secondaryMatchedCount": "int",
+      "treasuryCurve": {},
+      "verifiedCount": "int"
+    }
+  },
+  "success": "bool",
+  "updated_at": "str"
+}

@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$output = & python regression/verify_against_baseline.py --quick 2>&1 | Out-String; $status = if ($LASTEXITCODE -eq 0) { \"PASS\" } else { \"FAIL\" }; $tail = ($output -split \"`r?`n\" | Select-Object -Last 15) -join \"`n\"; $msg = \"[regression] verify --quick: $status`n$tail\"; @{ systemMessage = $msg } | ConvertTo-Json -Compress; exit 0",
+            "shell": "powershell",
+            "timeout": 120,
+            "statusMessage": "執行行為基準快速驗證(regression/verify_against_baseline.py --quick)..."
+          }
+        ]
+      }
+    ]
+  }
+}

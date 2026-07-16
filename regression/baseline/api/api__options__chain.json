@@ -1,0 +1,207 @@
+{
+  "data": {
+    "analysis": {
+      "bias": "str",
+      "confidenceScore": "int",
+      "crossValidation": [
+        {
+          "name": "str",
+          "signal": "str",
+          "status": "str"
+        }
+      ],
+      "disclaimer": "str",
+      "marketScore": "int",
+      "maxPain": "float",
+      "reasons": [
+        "str"
+      ],
+      "resistanceLevel": "float",
+      "riskLevel": "str",
+      "riskScore": "int",
+      "scenarios": [
+        {
+          "condition": "str",
+          "name": "str",
+          "view": "str"
+        }
+      ],
+      "scoreFormula": {
+        "confidenceScore": "str",
+        "evidenceLayers": [
+          "str"
+        ],
+        "marketScore": "str",
+        "riskScore": "str"
+      },
+      "scoreLabels": {
+        "confidence": "str",
+        "market": "str",
+        "risk": "str"
+      },
+      "strategySuggestion": "str",
+      "supportLevel": "float"
+    },
+    "availableProducts": [
+      {
+        "name": "str",
+        "shortName": "str",
+        "symbol": "str"
+      }
+    ],
+    "cached": "bool",
+    "chain": [
+      {
+        "call": {
+          "afterHoursVolume": "int",
+          "ask": "null",
+          "bid": "float",
+          "change": "null",
+          "changePct": "null",
+          "expiry": "str",
+          "expiryDate": "str",
+          "high": "null",
+          "historicalHigh": "null",
+          "historicalLow": "null",
+          "impliedVolatility": "null",
+          "ivSource": "str",
+          "last": "null",
+          "low": "null",
+          "open": "null",
+          "openInterest": "int",
+          "optionType": "str",
+          "regularVolume": "int",
+          "settlement": "float",
+          "strike": "float",
+          "symbol": "str",
+          "underlying": "str",
+          "volume": "int"
+        },
+        "callOpenInterest": "float",
+        "callVolume": "float",
+        "put": {
+          "afterHoursVolume": "float",
+          "ask": "float",
+          "bid": "float",
+          "change": "float",
+          "changePct": "float",
+          "expiry": "str",
+          "expiryDate": "str",
+          "high": "float",
+          "historicalHigh": "float",
+          "historicalLow": "float",
+          "impliedVolatility": "float",
+          "ivSource": "str",
+          "last": "float",
+          "low": "float",
+          "open": "float",
+          "openInterest": "float",
+          "optionType": "str",
+          "regularVolume": "float",
+          "settlement": "float",
+          "strike": "float",
+          "symbol": "str",
+          "underlying": "str",
+          "volume": "float"
+        },
+        "putOpenInterest": "float",
+        "putVolume": "float",
+        "strike": "float"
+      }
+    ],
+    "distribution": [
+      {
+        "callOpenInterest": "int",
+        "callVolume": "int",
+        "putOpenInterest": "float",
+        "putVolume": "float",
+        "strike": "float"
+      }
+    ],
+    "exchange": "str",
+    "expirations": [
+      {
+        "callCount": "int",
+        "callOpenInterest": "float",
+        "callVolume": "float",
+        "code": "str",
+        "contractCount": "int",
+        "expiryDate": "str",
+        "putCallRatio": "float",
+        "putCount": "int",
+        "putOpenInterest": "float",
+        "putVolume": "float",
+        "totalOpenInterest": "float",
+        "totalVolume": "float",
+        "volumePutCallRatio": "float"
+      }
+    ],
+    "market": "str",
+    "name": "str",
+    "schema": {
+      "analysisFields": [
+        "str"
+      ],
+      "optionsContractKey": "str",
+      "optionsProduct": "str",
+      "optionsQuoteFields": [
+        "str"
+      ]
+    },
+    "selectedExpiry": "str",
+    "selectedExpiryDate": "str",
+    "shortName": "str",
+    "source": {
+      "displayProduct": "str",
+      "ivNote": "str",
+      "mode": "str",
+      "pcrUrl": "str",
+      "primary": "str",
+      "primaryUrl": "str",
+      "sourceContract": "str",
+      "spotProvider": "str",
+      "spotUrl": "str"
+    },
+    "spot": {
+      "change": "float",
+      "date": "str",
+      "high": "float",
+      "low": "float",
+      "name": "str",
+      "pct": "float",
+      "previousValue": "float",
+      "source": "str",
+      "symbol": "str",
+      "value": "float",
+      "volume": "float",
+      "volumeBillion": "float"
+    },
+    "spotSupplement": {
+      "fields": [
+        "str"
+      ],
+      "provider": "str",
+      "sourceUrl": "str"
+    },
+    "summary": {
+      "atmStrike": "float",
+      "callCount": "int",
+      "callOpenInterest": "float",
+      "callVolume": "float",
+      "contractCount": "int",
+      "maxPain": "float",
+      "maxPainLoss": "float",
+      "putCallRatio": "float",
+      "putCount": "int",
+      "putOpenInterest": "float",
+      "putVolume": "float",
+      "totalOpenInterest": "float",
+      "totalVolume": "float",
+      "volumePutCallRatio": "float"
+    },
+    "tradeDate": "str",
+    "underlying": "str"
+  },
+  "success": "bool",
+  "updated_at": "str"
+}

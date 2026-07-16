@@ -1,0 +1,127 @@
+{
+  "cached": "bool",
+  "catalogCount": "int",
+  "catalogRegionBreakdown": [
+    {
+      "region": "str",
+      "total": "int",
+      "usable": "int"
+    }
+  ],
+  "category": "str",
+  "items": [
+    {
+      "change": "str",
+      "close": "str",
+      "currency": "str",
+      "dataSource": "str",
+      "dataSymbol": "str",
+      "date": "str",
+      "documentCategory": "str",
+      "exchange": "str",
+      "group": "str",
+      "high": "str",
+      "low": "str",
+      "market": "str",
+      "metricLabel": "str",
+      "name": "str",
+      "open": "str",
+      "optionCategory": "str",
+      "optionChainSymbol": "str",
+      "optionChainUnavailableReason": "str",
+      "optionSourceRole": "str",
+      "optionSubcategory": "str",
+      "pct": "str",
+      "periodReturn": "str",
+      "previousClose": "str",
+      "referenceSource": "str",
+      "region": "str",
+      "series": [
+        {
+          "close": "str",
+          "date": "str",
+          "high": "str",
+          "low": "str",
+          "open": "str",
+          "volume": "str",
+          "volumeValue": "str"
+        }
+      ],
+      "source": "str",
+      "sourceUrl": "str",
+      "symbol": "str",
+      "taifexCommodity": "str",
+      "type": "str",
+      "verification": {
+        "checks": {
+          "closeMatch": "bool",
+          "fresh": "bool",
+          "history": "bool",
+          "ohlc": "bool"
+        },
+        "primarySource": "str",
+        "referenceSource": "str",
+        "referenceUrl": "str",
+        "status": "str"
+      },
+      "volume": "str"
+    }
+  ],
+  "kicker": "str",
+  "loadLimit": "int",
+  "loadedCount": "int",
+  "macroSchema": {
+    "automation": "str",
+    "dashboardSignals": [
+      "str"
+    ],
+    "sources": [
+      {
+        "name": "str",
+        "role": "str"
+      }
+    ],
+    "tables": [
+      {
+        "label": "str",
+        "name": "str"
+      }
+    ]
+  },
+  "regionBreakdown": [
+    {
+      "region": "str",
+      "total": "int",
+      "usable": "int"
+    }
+  ],
+  "source": "str",
+  "sourceInfo": {
+    "primary": "str",
+    "reference": "str",
+    "referenceUrl": "str"
+  },
+  "subtitle": "str",
+  "summary": {
+    "advancers": "int",
+    "avgPct": "str",
+    "count": "int",
+    "decliners": "int",
+    "strongest": "str",
+    "strongestPct": "str",
+    "weakest": "str",
+    "weakestPct": "str"
+  },
+  "title": "str",
+  "updatedAt": "str",
+  "validation": {
+    "failedCount": "int",
+    "limitedCount": "int",
+    "primary": "str",
+    "reference": "str",
+    "referenceUrl": "str",
+    "secondaryMatchedCount": "int",
+    "treasuryCurve": {},
+    "verifiedCount": "int"
+  }
+}

@@ -1,0 +1,174 @@
+{
+  "change": "str",
+  "close": "str",
+  "companyNews": [
+    {
+      "link": "str",
+      "publishedAt": "str",
+      "source": "str",
+      "title": "str"
+    }
+  ],
+  "companyProfile": {
+    "address": "str",
+    "businessSummary": "str",
+    "country": "str",
+    "employees": "str",
+    "exchange": "str",
+    "fullName": "str",
+    "industry": "str",
+    "sector": "str",
+    "telephone": "str",
+    "website": "str"
+  },
+  "currency": "str",
+  "dataSource": "str",
+  "dataSymbol": "str",
+  "date": "str",
+  "detailMode": "str",
+  "documentCategory": "str",
+  "etfComponents": {},
+  "exchange": "str",
+  "group": "str",
+  "high": "str",
+  "historyRange": "str",
+  "isEtf": "bool",
+  "low": "str",
+  "marginTrading": {
+    "date": "str",
+    "floatShares": "str",
+    "sharesOutstanding": "str",
+    "shortInterest": "str",
+    "shortInterestChange": "str",
+    "shortInterestPrior": "str",
+    "shortPercentOfFloat": "str",
+    "shortPercentOfSharesOutstanding": "str",
+    "shortRatio": "str",
+    "sourceNote": "str"
+  },
+  "market": "str",
+  "metricLabel": "str",
+  "name": "str",
+  "newsLinks": {
+    "profile": "str",
+    "sec": "str",
+    "yahoo": "str"
+  },
+  "open": "str",
+  "optionCategory": "str",
+  "optionChainSymbol": "str",
+  "optionChainUnavailableReason": "str",
+  "optionSourceRole": "str",
+  "optionSubcategory": "str",
+  "ownershipTrading": {
+    "date": "str",
+    "fundOwners": "empty_list",
+    "insiderHolders": [
+      {
+        "directShares": "str",
+        "indirectShares": "str",
+        "latestDate": "str",
+        "name": "str",
+        "relation": "str"
+      }
+    ],
+    "insiderTransactions": [
+      {
+        "date": "str",
+        "name": "str",
+        "ownership": "str",
+        "relation": "str",
+        "shares": "str",
+        "transaction": "str",
+        "value": "str"
+      }
+    ],
+    "institutionOwners": [
+      {
+        "changePct": "str",
+        "changeShares": "str",
+        "name": "str",
+        "pctHeld": "str",
+        "position": "str",
+        "reportDate": "str",
+        "value": "str"
+      }
+    ],
+    "metrics": {
+      "buyInsiderShares": "str",
+      "insiderHeldPct": "str",
+      "institutionsCount": "str",
+      "institutionsFloatPct": "str",
+      "institutionsHeldPct": "str",
+      "netInsiderPct": "str",
+      "netInsiderShares": "str",
+      "period": "str",
+      "sellInsiderShares": "str",
+      "sharesOutstanding": "str",
+      "totalInsiderShares": "str",
+      "totalInstitutionalValue": "str"
+    },
+    "positionActivity": [
+      {
+        "name": "str",
+        "pctHeld": "str",
+        "position": "str",
+        "reportDate": "str",
+        "value": "str"
+      }
+    ],
+    "sourceLink": "str",
+    "sourceNote": "str"
+  },
+  "pct": "str",
+  "periodReturn": "str",
+  "previousClose": "str",
+  "referenceSource": "str",
+  "region": "str",
+  "series": [
+    {
+      "close": "str",
+      "date": "str",
+      "high": "str",
+      "low": "str",
+      "open": "str",
+      "volume": "str",
+      "volumeValue": "str"
+    }
+  ],
+  "source": "str",
+  "sourceUrl": "str",
+  "symbol": "str",
+  "taifexCommodity": "str",
+  "type": "str",
+  "valuation": {
+    "averageVolume": "str",
+    "beta": "str",
+    "date": "str",
+    "dividendPerShare": "str",
+    "dividendYield": "str",
+    "enterpriseValue": "str",
+    "fiftyTwoWeekRange": "str",
+    "forwardPE": "str",
+    "marketCap": "str",
+    "oneYearTarget": "str",
+    "pbRatio": "str",
+    "peRatio": "str",
+    "priceToSales": "str",
+    "profitMargins": "str",
+    "revenueGrowth": "str",
+    "sourceNote": "str",
+    "trailingEps": "str"
+  },
+  "valuationHistory": [
+    {
+      "close": "float",
+      "date": "str",
+      "dividendPerShare": "float",
+      "dividendYield": "float",
+      "pbRatio": "float",
+      "peRatio": "float"
+    }
+  ],
+  "volume": "str"
+}

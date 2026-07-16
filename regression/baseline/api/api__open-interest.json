@@ -1,0 +1,13 @@
+{
+  "data": {
+    "change": "str",
+    "changePct": "str",
+    "openInterest": "str",
+    "previousOpenInterest": "null",
+    "source": "str",
+    "symbol": "str",
+    "tradeDate": "str"
+  },
+  "success": "bool",
+  "updated_at": "str"
+}

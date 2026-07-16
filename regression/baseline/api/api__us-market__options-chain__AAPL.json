@@ -1,0 +1,88 @@
+{
+  "apiDataLocked": "bool",
+  "apiLocked": "bool",
+  "calls": [
+    {
+      "ask": "float",
+      "bid": "float",
+      "change": "float",
+      "contractSymbol": "str",
+      "delta": "float",
+      "expiration": "int",
+      "expirationDate": "str",
+      "gamma": "float",
+      "impliedVolatility": "float",
+      "inTheMoney": "null",
+      "lastPrice": "float",
+      "openInterest": "float",
+      "percentChange": "float",
+      "rho": "float",
+      "strike": "float",
+      "theta": "float",
+      "type": "str",
+      "vega": "float",
+      "volume": "float"
+    }
+  ],
+  "change": "float",
+  "currency": "str",
+  "expirationDates": [
+    "int"
+  ],
+  "fallbackAllowed": "bool",
+  "name": "str",
+  "pct": "float",
+  "price": "float",
+  "proxyAllowed": "bool",
+  "puts": [
+    {
+      "ask": "float",
+      "bid": "float",
+      "change": "float",
+      "contractSymbol": "str",
+      "delta": "float",
+      "expiration": "int",
+      "expirationDate": "str",
+      "gamma": "float",
+      "impliedVolatility": "float",
+      "inTheMoney": "null",
+      "lastPrice": "float",
+      "openInterest": "float",
+      "percentChange": "float",
+      "rho": "float",
+      "strike": "float",
+      "theta": "float",
+      "type": "str",
+      "vega": "float",
+      "volume": "float"
+    }
+  ],
+  "selectedExpiration": "int",
+  "source": "str",
+  "sourceLock": {
+    "apiEndpoint": "str",
+    "apiProvider": "str",
+    "chainSymbol": "str",
+    "fallbackAllowed": "bool",
+    "isSameProduct": "bool",
+    "policy": "str",
+    "proxyAllowed": "bool",
+    "requestedSymbol": "str",
+    "sameUnderlyingFallbackAllowed": "bool",
+    "scope": "str",
+    "source": "str",
+    "sourceUrl": "str",
+    "status": "str"
+  },
+  "sourceLocked": "bool",
+  "sourceUrl": "str",
+  "summary": {
+    "callCount": "int",
+    "callOpenInterest": "int",
+    "putCount": "int",
+    "putOpenInterest": "int",
+    "totalContracts": "int"
+  },
+  "symbol": "str",
+  "timestamp": "str"
+}

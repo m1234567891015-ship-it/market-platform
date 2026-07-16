@@ -1,0 +1,994 @@
+{
+  "activityDate": "str",
+  "cachedAt": "str",
+  "institutionDate": "str",
+  "institutionSummary": [
+    {
+      "buy": "str",
+      "buyValue": "float",
+      "diff": "str",
+      "diffValue": "float",
+      "key": "str",
+      "name": "str",
+      "sell": "str",
+      "sellValue": "float",
+      "sources": [
+        "str"
+      ],
+      "tone": "str"
+    }
+  ],
+  "institutionTrend": {
+    "dealer": {
+      "count": "int",
+      "direction": "str",
+      "label": "str",
+      "summary": "str"
+    },
+    "foreign": {
+      "count": "int",
+      "direction": "str",
+      "label": "str",
+      "summary": "str"
+    },
+    "rows": [
+      {
+        "date": "str",
+        "dealer": "str",
+        "dealerValue": "float",
+        "foreign": "str",
+        "foreignValue": "float",
+        "total": "str",
+        "totalValue": "float",
+        "trust": "str",
+        "trustValue": "float"
+      }
+    ],
+    "total": {
+      "count": "int",
+      "direction": "str",
+      "label": "str",
+      "summary": "str"
+    },
+    "trust": {
+      "count": "int",
+      "direction": "str",
+      "label": "str",
+      "summary": "str"
+    }
+  },
+  "institutions": [
+    {
+      "buy": "str",
+      "buyValue": "float",
+      "diff": "str",
+      "diffValue": "float",
+      "name": "str",
+      "sell": "str",
+      "sellValue": "float",
+      "tone": "str"
+    }
+  ],
+  "intradayDate": "str",
+  "marketInternationalIndexes": [
+    {
+      "change": "str",
+      "date": "str",
+      "high": "str",
+      "key": "str",
+      "low": "str",
+      "market": "str",
+      "name": "str",
+      "open": "str",
+      "pct": "str",
+      "previousClose": "str",
+      "proxy": "null",
+      "resolvedSymbol": "str",
+      "series": [
+        {
+          "date": "str",
+          "value": "str"
+        }
+      ],
+      "sourceLink": "str",
+      "sourceStatus": "str",
+      "symbol": "str",
+      "tone": "str",
+      "value": "str",
+      "volume": "str",
+      "volumeValue": "str"
+    }
+  ],
+  "marketMacroFactors": {
+    "dxy": {
+      "change": "float",
+      "date": "str",
+      "pct": "float",
+      "previous": "float",
+      "sourceLink": "str",
+      "symbol": "str",
+      "value": "float"
+    },
+    "marginTrading": {
+      "financingBalance": "float",
+      "financingChange": "float",
+      "financingChangePct": "float",
+      "financingPrevious": "float",
+      "shortBalance": "float",
+      "shortChange": "float",
+      "shortChangePct": "float",
+      "shortPrevious": "float",
+      "sourceLink": "str",
+      "sourceNote": "str"
+    },
+    "txOpenInterest": {
+      "change": "float",
+      "changePct": "float",
+      "date": "str",
+      "observations": [
+        {
+          "date": "str",
+          "value": "float"
+        }
+      ],
+      "openInterest": "float",
+      "previousOpenInterest": "float",
+      "sourceLink": "str",
+      "sourceNote": "str"
+    },
+    "us10y": {
+      "change": "float",
+      "date": "str",
+      "pct": "float",
+      "previous": "float",
+      "sourceLink": "str",
+      "symbol": "str",
+      "value": "float"
+    },
+    "usdTwd": {
+      "change": "float",
+      "date": "str",
+      "pct": "float",
+      "previous": "float",
+      "sourceLink": "str",
+      "symbol": "str",
+      "value": "float"
+    }
+  },
+  "marketOverview": [
+    {
+      "change": "str",
+      "name": "str",
+      "pct": "str",
+      "tone": "str",
+      "tradeCount": "float",
+      "trades": "str",
+      "turnover": "str",
+      "turnoverValue": "float",
+      "value": "str",
+      "volume": "str",
+      "volumeValue": "float"
+    }
+  ],
+  "marketStats": {
+    "label": "str",
+    "tradeCount": "float",
+    "trades": "str",
+    "turnover": "str",
+    "turnoverValue": "float",
+    "volume": "str",
+    "volumeValue": "float"
+  },
+  "marketVolatility": {
+    "change": "str",
+    "date": "str",
+    "label": "str",
+    "level": "str",
+    "name": "str",
+    "pct": "str",
+    "series": [
+      {
+        "date": "str",
+        "value": "str"
+      }
+    ],
+    "sourceLink": "str",
+    "sourceNote": "str",
+    "summary": "str",
+    "symbol": "str",
+    "tone": "str",
+    "value": "str"
+  },
+  "news": [
+    {
+      "body": "str",
+      "link": "str",
+      "tag": "str",
+      "title": "str"
+    }
+  ],
+  "sectorFundFlow": {
+    "available": "bool",
+    "coveredStockCount": "int",
+    "date": "str",
+    "inflows": [
+      {
+        "advancers": "int",
+        "avgPct": "str",
+        "avgPctValue": "float",
+        "dealerAmount": "str",
+        "dealerAmountValue": "float",
+        "dealerLotsValue": "float",
+        "decliners": "int",
+        "flowSharePct": "float",
+        "foreignAmount": "str",
+        "foreignAmountValue": "float",
+        "foreignLotsValue": "float",
+        "name": "str",
+        "netAmount": "str",
+        "netAmountValue": "float",
+        "netLotsValue": "float",
+        "pennyStockCount": "int",
+        "pennyStocks": [
+          {
+            "close": "str",
+            "closeValue": "float",
+            "code": "str",
+            "name": "str",
+            "netAmount": "str",
+            "netAmountValue": "float",
+            "pct": "str",
+            "pctValue": "float",
+            "score": "int",
+            "tone": "str"
+          }
+        ],
+        "stockCount": "int",
+        "tone": "str",
+        "topStocks": [
+          {
+            "close": "str",
+            "closeValue": "float",
+            "code": "str",
+            "dealerAmount": "str",
+            "dealerAmountValue": "float",
+            "foreignAmount": "str",
+            "foreignAmountValue": "float",
+            "name": "str",
+            "netAmount": "str",
+            "netAmountValue": "float",
+            "netLotsValue": "float",
+            "pct": "str",
+            "tone": "str",
+            "trustAmount": "str",
+            "trustAmountValue": "float"
+          }
+        ],
+        "trustAmount": "str",
+        "trustAmountValue": "float",
+        "trustLotsValue": "float",
+        "turnoverValue": "float"
+      }
+    ],
+    "marketDate": "str",
+    "netBuyTotal": "str",
+    "netBuyTotalValue": "float",
+    "netSellTotal": "str",
+    "netSellTotalValue": "float",
+    "netTotal": "str",
+    "netTotalValue": "float",
+    "outflows": [
+      {
+        "advancers": "int",
+        "avgPct": "str",
+        "avgPctValue": "float",
+        "dealerAmount": "str",
+        "dealerAmountValue": "float",
+        "dealerLotsValue": "float",
+        "decliners": "int",
+        "flowSharePct": "float",
+        "foreignAmount": "str",
+        "foreignAmountValue": "float",
+        "foreignLotsValue": "float",
+        "name": "str",
+        "netAmount": "str",
+        "netAmountValue": "float",
+        "netLotsValue": "float",
+        "pennyStockCount": "int",
+        "pennyStocks": [
+          {
+            "close": "str",
+            "closeValue": "float",
+            "code": "str",
+            "name": "str",
+            "netAmount": "str",
+            "netAmountValue": "float",
+            "pct": "str",
+            "pctValue": "float",
+            "score": "int",
+            "tone": "str"
+          }
+        ],
+        "stockCount": "int",
+        "tone": "str",
+        "topStocks": [
+          {
+            "close": "str",
+            "closeValue": "float",
+            "code": "str",
+            "dealerAmount": "str",
+            "dealerAmountValue": "float",
+            "foreignAmount": "str",
+            "foreignAmountValue": "float",
+            "name": "str",
+            "netAmount": "str",
+            "netAmountValue": "float",
+            "netLotsValue": "float",
+            "pct": "str",
+            "tone": "str",
+            "trustAmount": "str",
+            "trustAmountValue": "float"
+          }
+        ],
+        "trustAmount": "str",
+        "trustAmountValue": "float",
+        "trustLotsValue": "float",
+        "turnoverValue": "float"
+      }
+    ],
+    "rows": [
+      {
+        "advancers": "int",
+        "avgPct": "str",
+        "avgPctValue": "float",
+        "dealerAmount": "str",
+        "dealerAmountValue": "float",
+        "dealerLotsValue": "float",
+        "decliners": "int",
+        "flowSharePct": "float",
+        "foreignAmount": "str",
+        "foreignAmountValue": "float",
+        "foreignLotsValue": "float",
+        "name": "str",
+        "netAmount": "str",
+        "netAmountValue": "float",
+        "netLotsValue": "float",
+        "pennyStockCount": "int",
+        "pennyStocks": [
+          {
+            "close": "str",
+            "closeValue": "float",
+            "code": "str",
+            "name": "str",
+            "netAmount": "str",
+            "netAmountValue": "float",
+            "pct": "str",
+            "pctValue": "float",
+            "score": "int",
+            "tone": "str"
+          }
+        ],
+        "stockCount": "int",
+        "tone": "str",
+        "topStocks": [
+          {
+            "close": "str",
+            "closeValue": "float",
+            "code": "str",
+            "dealerAmount": "str",
+            "dealerAmountValue": "float",
+            "foreignAmount": "str",
+            "foreignAmountValue": "float",
+            "name": "str",
+            "netAmount": "str",
+            "netAmountValue": "float",
+            "netLotsValue": "float",
+            "pct": "str",
+            "tone": "str",
+            "trustAmount": "str",
+            "trustAmountValue": "float"
+          }
+        ],
+        "trustAmount": "str",
+        "trustAmountValue": "float",
+        "trustLotsValue": "float",
+        "turnoverValue": "float"
+      }
+    ],
+    "sectorCount": "int",
+    "source": "str",
+    "sourceLink": "str",
+    "sourceNote": "str",
+    "unit": "str"
+  },
+  "sectors": [
+    {
+      "activityChange": "str",
+      "candles": [
+        {
+          "close": "str",
+          "high": "str",
+          "low": "str",
+          "open": "str",
+          "time": "str"
+        }
+      ],
+      "change": "str",
+      "chartSource": "str",
+      "comparisonSeries": {
+        "day": [
+          {
+            "close": "str",
+            "date": "str",
+            "high": "str",
+            "low": "str",
+            "open": "str",
+            "volume": "str",
+            "volumeValue": "str"
+          }
+        ]
+      },
+      "name": "str",
+      "note": "str",
+      "pct": "str",
+      "sourceName": "str",
+      "technicalAnalysis": {
+        "activityLevel": "str",
+        "activityScore": "float",
+        "bias": "str",
+        "momentum": "str",
+        "rangeState": "str",
+        "signal": "str",
+        "strength": "str",
+        "summary": "str",
+        "tradeRatio": "float",
+        "turnoverRatio": "float",
+        "volumeRatio": "float"
+      },
+      "tone": "str",
+      "trades": "str",
+      "turnover": "str",
+      "value": "str",
+      "volume": "str"
+    }
+  ],
+  "snapshotDate": "str",
+  "sourceLinks": {
+    "indexActivity": "str",
+    "indexIntraday": "str",
+    "institutions": "str",
+    "market": "str",
+    "taifexFuturesOpenInterest": "str",
+    "tpexEtfs": "str",
+    "twseMarginTrading": "str",
+    "yahooClassHome": "str",
+    "yahooConceptClassQuote": "str",
+    "yahooElectronicClassQuote": "str",
+    "yahooEmergingClassQuote": "str",
+    "yahooGroupClassQuote": "str",
+    "yahooInternationalIndexes": "str",
+    "yahooListedClassQuote": "str",
+    "yahooOtcClassQuote": "str"
+  },
+  "stockCount": "int",
+  "tpexEtfCount": "int",
+  "tpexHighlights": {
+    "emerging": [
+      {
+        "candles": [
+          {
+            "change": "str",
+            "close": "str",
+            "date": "str",
+            "high": "str",
+            "low": "str",
+            "open": "str",
+            "turnover": "str",
+            "volume": "str"
+          }
+        ],
+        "change": "str",
+        "chartIntervals": {
+          "intradayAvailable": "bool",
+          "intradayUnavailableReason": "str",
+          "supported": [
+            "str"
+          ]
+        },
+        "comparisonSeries": {
+          "day": [
+            {
+              "close": "str",
+              "date": "str",
+              "turnover": "str",
+              "volume": "str"
+            }
+          ]
+        },
+        "exchange": "str",
+        "high": "str",
+        "low": "str",
+        "name": "str",
+        "note": "str",
+        "open": "str",
+        "pct": "str",
+        "previousClose": "str",
+        "sourceName": "str",
+        "summaryOnly": "bool",
+        "technicalAnalysis": {
+          "bias": "str",
+          "candle": "str",
+          "signal": "str",
+          "strength": "str",
+          "volatilityPct": "str"
+        },
+        "time": "str",
+        "tone": "str",
+        "turnover": "str",
+        "turnoverValue": "float",
+        "value": "str",
+        "volume": "str",
+        "volumeValue": "float"
+      }
+    ],
+    "emergingStats": "empty_list",
+    "mainboard": [
+      {
+        "candles": [
+          {
+            "change": "str",
+            "close": "str",
+            "date": "str",
+            "high": "str",
+            "low": "str",
+            "open": "str",
+            "turnover": "str",
+            "volume": "str"
+          }
+        ],
+        "change": "str",
+        "chartIntervals": {
+          "intradayAvailable": "bool",
+          "intradayUnavailableReason": "str",
+          "supported": [
+            "str"
+          ]
+        },
+        "comparisonSeries": {
+          "day": [
+            {
+              "close": "str",
+              "date": "str",
+              "turnover": "str",
+              "volume": "str"
+            }
+          ]
+        },
+        "exchange": "str",
+        "high": "str",
+        "low": "str",
+        "name": "str",
+        "note": "str",
+        "open": "str",
+        "pct": "str",
+        "previousClose": "str",
+        "sourceName": "str",
+        "summaryOnly": "bool",
+        "technicalAnalysis": {
+          "bias": "str",
+          "candle": "str",
+          "signal": "str",
+          "strength": "str",
+          "volatilityPct": "str"
+        },
+        "time": "str",
+        "tone": "str",
+        "turnover": "str",
+        "turnoverValue": "float",
+        "value": "str",
+        "volume": "str",
+        "volumeValue": "float"
+      }
+    ]
+  },
+  "tpexStockCount": "int",
+  "tpexStockDate": "str",
+  "yahooEmergingDate": "str",
+  "yahooOtcDate": "str",
+  "yahooSectorCatalog": {
+    "concept": [
+      {
+        "name": "str",
+        "url": "str"
+      }
+    ],
+    "electronic": [
+      {
+        "name": "str",
+        "url": "str"
+      }
+    ],
+    "emerging": [
+      {
+        "name": "str",
+        "url": "str"
+      }
+    ],
+    "group": [
+      {
+        "name": "str",
+        "url": "str"
+      }
+    ],
+    "listed": [
+      {
+        "name": "str",
+        "url": "str"
+      }
+    ],
+    "otc": [
+      {
+        "name": "str",
+        "url": "str"
+      }
+    ]
+  },
+  "yahooSectorDates": {
+    "concept": "str",
+    "electronic": "str",
+    "emerging": "str",
+    "group": "str",
+    "listed": "str",
+    "otc": "str"
+  },
+  "yahooSectorGroups": {
+    "concept": [
+      {
+        "candles": [
+          {
+            "change": "str",
+            "close": "str",
+            "date": "str",
+            "high": "str",
+            "low": "str",
+            "open": "str",
+            "turnover": "str",
+            "volume": "str"
+          }
+        ],
+        "change": "str",
+        "chartIntervals": {
+          "intradayAvailable": "bool",
+          "intradayUnavailableReason": "str",
+          "supported": [
+            "str"
+          ]
+        },
+        "comparisonSeries": {
+          "day": [
+            {
+              "close": "str",
+              "date": "str",
+              "turnover": "str",
+              "volume": "str"
+            }
+          ]
+        },
+        "exchange": "str",
+        "high": "str",
+        "low": "str",
+        "name": "str",
+        "note": "str",
+        "open": "str",
+        "pct": "str",
+        "previousClose": "str",
+        "sourceName": "str",
+        "summaryOnly": "bool",
+        "technicalAnalysis": {
+          "bias": "str",
+          "candle": "str",
+          "signal": "str",
+          "strength": "str",
+          "volatilityPct": "str"
+        },
+        "time": "str",
+        "tone": "str",
+        "turnover": "str",
+        "turnoverValue": "float",
+        "value": "str",
+        "volume": "str",
+        "volumeValue": "float"
+      }
+    ],
+    "electronic": [
+      {
+        "candles": [
+          {
+            "change": "str",
+            "close": "str",
+            "date": "str",
+            "high": "str",
+            "low": "str",
+            "open": "str",
+            "turnover": "str",
+            "volume": "str"
+          }
+        ],
+        "change": "str",
+        "chartIntervals": {
+          "intradayAvailable": "bool",
+          "intradayUnavailableReason": "str",
+          "supported": [
+            "str"
+          ]
+        },
+        "comparisonSeries": {
+          "day": [
+            {
+              "close": "str",
+              "date": "str",
+              "turnover": "str",
+              "volume": "str"
+            }
+          ]
+        },
+        "exchange": "str",
+        "high": "str",
+        "low": "str",
+        "name": "str",
+        "note": "str",
+        "open": "str",
+        "pct": "str",
+        "previousClose": "str",
+        "sourceName": "str",
+        "summaryOnly": "bool",
+        "technicalAnalysis": {
+          "bias": "str",
+          "candle": "str",
+          "signal": "str",
+          "strength": "str",
+          "volatilityPct": "str"
+        },
+        "time": "str",
+        "tone": "str",
+        "turnover": "str",
+        "turnoverValue": "float",
+        "value": "str",
+        "volume": "str",
+        "volumeValue": "float"
+      }
+    ],
+    "emerging": [
+      {
+        "candles": [
+          {
+            "change": "str",
+            "close": "str",
+            "date": "str",
+            "high": "str",
+            "low": "str",
+            "open": "str",
+            "turnover": "str",
+            "volume": "str"
+          }
+        ],
+        "change": "str",
+        "chartIntervals": {
+          "intradayAvailable": "bool",
+          "intradayUnavailableReason": "str",
+          "supported": [
+            "str"
+          ]
+        },
+        "comparisonSeries": {
+          "day": [
+            {
+              "close": "str",
+              "date": "str",
+              "turnover": "str",
+              "volume": "str"
+            }
+          ]
+        },
+        "exchange": "str",
+        "high": "str",
+        "low": "str",
+        "name": "str",
+        "note": "str",
+        "open": "str",
+        "pct": "str",
+        "previousClose": "str",
+        "sourceName": "str",
+        "summaryOnly": "bool",
+        "technicalAnalysis": {
+          "bias": "str",
+          "candle": "str",
+          "signal": "str",
+          "strength": "str",
+          "volatilityPct": "str"
+        },
+        "time": "str",
+        "tone": "str",
+        "turnover": "str",
+        "turnoverValue": "float",
+        "value": "str",
+        "volume": "str",
+        "volumeValue": "float"
+      }
+    ],
+    "group": [
+      {
+        "candles": [
+          {
+            "change": "str",
+            "close": "str",
+            "date": "str",
+            "high": "str",
+            "low": "str",
+            "open": "str",
+            "turnover": "str",
+            "volume": "str"
+          }
+        ],
+        "change": "str",
+        "chartIntervals": {
+          "intradayAvailable": "bool",
+          "intradayUnavailableReason": "str",
+          "supported": [
+            "str"
+          ]
+        },
+        "comparisonSeries": {
+          "day": [
+            {
+              "close": "str",
+              "date": "str",
+              "turnover": "str",
+              "volume": "str"
+            }
+          ]
+        },
+        "exchange": "str",
+        "high": "str",
+        "low": "str",
+        "name": "str",
+        "note": "str",
+        "open": "str",
+        "pct": "str",
+        "previousClose": "str",
+        "sourceName": "str",
+        "summaryOnly": "bool",
+        "technicalAnalysis": {
+          "bias": "str",
+          "candle": "str",
+          "signal": "str",
+          "strength": "str",
+          "volatilityPct": "str"
+        },
+        "time": "str",
+        "tone": "str",
+        "turnover": "str",
+        "turnoverValue": "float",
+        "value": "str",
+        "volume": "str",
+        "volumeValue": "float"
+      }
+    ],
+    "listed": [
+      {
+        "candles": [
+          {
+            "change": "str",
+            "close": "str",
+            "date": "str",
+            "high": "str",
+            "low": "str",
+            "open": "str",
+            "turnover": "str",
+            "volume": "str"
+          }
+        ],
+        "change": "str",
+        "chartIntervals": {
+          "intradayAvailable": "bool",
+          "intradayUnavailableReason": "str",
+          "supported": [
+            "str"
+          ]
+        },
+        "comparisonSeries": {
+          "day": [
+            {
+              "close": "str",
+              "date": "str",
+              "turnover": "str",
+              "volume": "str"
+            }
+          ]
+        },
+        "exchange": "str",
+        "high": "str",
+        "low": "str",
+        "name": "str",
+        "note": "str",
+        "open": "str",
+        "pct": "str",
+        "previousClose": "str",
+        "sourceName": "str",
+        "summaryOnly": "bool",
+        "technicalAnalysis": {
+          "bias": "str",
+          "candle": "str",
+          "signal": "str",
+          "strength": "str",
+          "volatilityPct": "str"
+        },
+        "time": "str",
+        "tone": "str",
+        "turnover": "str",
+        "turnoverValue": "float",
+        "value": "str",
+        "volume": "str",
+        "volumeValue": "float"
+      }
+    ],
+    "otc": [
+      {
+        "candles": [
+          {
+            "change": "str",
+            "close": "str",
+            "date": "str",
+            "high": "str",
+            "low": "str",
+            "open": "str",
+            "turnover": "str",
+            "volume": "str"
+          }
+        ],
+        "change": "str",
+        "chartIntervals": {
+          "intradayAvailable": "bool",
+          "intradayUnavailableReason": "str",
+          "supported": [
+            "str"
+          ]
+        },
+        "comparisonSeries": {
+          "day": [
+            {
+              "close": "str",
+              "date": "str",
+              "turnover": "str",
+              "volume": "str"
+            }
+          ]
+        },
+        "exchange": "str",
+        "high": "str",
+        "low": "str",
+        "name": "str",
+        "note": "str",
+        "open": "str",
+        "pct": "str",
+        "previousClose": "str",
+        "sourceName": "str",
+        "summaryOnly": "bool",
+        "technicalAnalysis": {
+          "bias": "str",
+          "candle": "str",
+          "signal": "str",
+          "strength": "str",
+          "volatilityPct": "str"
+        },
+        "time": "str",
+        "tone": "str",
+        "turnover": "str",
+        "turnoverValue": "float",
+        "value": "str",
+        "volume": "str",
+        "volumeValue": "float"
+      }
+    ]
+  }
+}
