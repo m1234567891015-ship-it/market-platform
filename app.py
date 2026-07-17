@@ -72,6 +72,16 @@ from security import (
     is_authorized_derivatives_admin,
     _urlopen_with_ssl_fallback,
 )
+from fetchers import (
+    EXTERNAL_TEXT_CACHE_SECONDS,
+    fetch_binary,
+    fetch_form_text,
+    fetch_json,
+    fetch_nasdaq_json,
+    fetch_text,
+    post_json,
+    should_cache_external_text,
+)
 from market_config import (
     ASSET_CATEGORY_SOURCE_INFO,
     ASSET_REGION_ORDER,
@@ -154,7 +164,6 @@ STOCK_HISTORY_EMPTY_STOP_MONTHS = 24
 STOCK_HISTORY_FETCH_BATCH_SIZE = 12
 SECTOR_HISTORY_TRADING_DAYS = 30
 WEIGHTED_INDEX_HISTORY_TRADING_DAYS = 480
-EXTERNAL_TEXT_CACHE_SECONDS = 5 * 60
 GLOBAL_MARKET_ITEM_CACHE_SECONDS = 5 * 60
 TREASURY_YIELD_CURVE_CACHE_SECONDS = 6 * 60 * 60
 US_OPTIONS_CHAIN_CACHE_SECONDS = 5 * 60
@@ -815,11 +824,6 @@ _yahoo_options_cookie_jar = CookieJar()
 _yahoo_options_opener = build_opener(HTTPCookieProcessor(_yahoo_options_cookie_jar))
 
 
-def should_cache_external_text(url: str) -> bool:
-    host = (urlsplit(url).hostname or "").lower()
-    return host in {"www.taifex.com.tw", "tw.stock.yahoo.com", "home.treasury.gov", "fred.stlouisfed.org", "tradingeconomics.com"}
-
-
 def live_search_dedup_key(query: str, requested_market: str, limit: int) -> str:
     return f"{query.strip().lower()}:{normalize_market_request(requested_market)}:{limit}"
 
@@ -1035,41 +1039,6 @@ def build_site_data_view(site_data: dict[str, Any] | None, view: str) -> dict[st
 
 def taipei_now() -> datetime:
     return datetime.now(TZ)
-
-
-def fetch_json(url: str, timeout: int = 30) -> Any:
-    headers = {"User-Agent": USER_AGENT}
-    if "twse.com.tw" in url:
-        headers = {
-            "User-Agent": "Mozilla/5.0",
-            "Accept": "application/json, text/plain, */*",
-            "Connection": "close",
-        }
-    req = Request(url, headers=headers)
-    with _urlopen_with_ssl_fallback(req, timeout) as response:
-        return json.loads(response.read().decode("utf-8"))
-def fetch_nasdaq_json(path: str, timeout: int = 12) -> Any:
-    url = path if path.startswith("http") else f"{NASDAQ_API_BASE}{path}"
-    req = Request(url, headers={
-        "User-Agent": NASDAQ_USER_AGENT,
-        "Accept": "application/json, text/plain, */*",
-        "Origin": "https://www.nasdaq.com",
-        "Referer": "https://www.nasdaq.com/",
-    })
-    with _urlopen_with_ssl_fallback(req, timeout) as response:
-        return json.loads(response.read().decode("utf-8"))
-
-
-def post_json(url: str, payload: dict[str, Any], timeout: int = 30, headers: dict[str, str] | None = None) -> Any:
-    body = json.dumps(payload).encode("utf-8")
-    request_headers = {
-        "User-Agent": USER_AGENT,
-        "Content-Type": "application/json",
-        **(headers or {}),
-    }
-    req = Request(url, data=body, headers=request_headers, method="POST")
-    with _urlopen_with_ssl_fallback(req, timeout) as response:
-        return json.loads(response.read().decode("utf-8"))
 
 
 def parse_compact_roc_date(value: str | None) -> str | None:
@@ -1428,63 +1397,6 @@ def merge_trade_counts(
         {**item, **({"trades": trades_by_date[item["date"]]} if item.get("date") in trades_by_date else {})}
         for item in series
     ]
-
-
-def fetch_text(url: str, timeout: int = 30) -> str:
-    cache_key = f"GET:{url}"
-    if should_cache_external_text(url):
-        cached = read_memory_cache("external_text", cache_key, EXTERNAL_TEXT_CACHE_SECONDS)
-        if cached is not None:
-            return str(cached)
-    req = Request(url, headers={"User-Agent": USER_AGENT})
-    with _urlopen_with_ssl_fallback(req, timeout) as response:
-        raw = response.read()
-        content_type = str(response.headers.get("Content-Type") or "").lower()
-    encoding = "cp950" if "ms950" in content_type or "big5" in content_type else "utf-8"
-    text = raw.decode(encoding, errors="ignore")
-    if should_cache_external_text(url):
-        write_memory_cache("external_text", cache_key, text)
-    return text
-
-
-def fetch_binary(url: str, timeout: int = 30) -> bytes:
-    cache_key = f"BIN:{url}"
-    if should_cache_external_text(url):
-        cached = read_memory_cache("external_text", cache_key, EXTERNAL_TEXT_CACHE_SECONDS)
-        if cached is not None:
-            return bytes(cached)
-    req = Request(url, headers={"User-Agent": USER_AGENT})
-    with _urlopen_with_ssl_fallback(req, timeout) as response:
-        payload = response.read()
-    if should_cache_external_text(url):
-        write_memory_cache("external_text", cache_key, payload)
-    return payload
-
-
-def fetch_form_text(url: str, fields: dict[str, str], timeout: int = 30) -> str:
-    encoded_fields = urlencode(sorted((str(key), str(value)) for key, value in fields.items()))
-    cache_key = f"FORM:{url}:{encoded_fields}"
-    if should_cache_external_text(url):
-        cached = read_memory_cache("external_text", cache_key, EXTERNAL_TEXT_CACHE_SECONDS)
-        if cached is not None:
-            return str(cached)
-    payload = encoded_fields.encode("utf-8")
-    req = Request(
-        url,
-        data=payload,
-        headers={
-            "User-Agent": USER_AGENT,
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-    )
-    with _urlopen_with_ssl_fallback(req, timeout) as response:
-        raw = response.read()
-        content_type = str(response.headers.get("Content-Type") or "").lower()
-    encoding = "cp950" if "ms950" in content_type or "big5" in content_type else "utf-8"
-    text = raw.decode(encoding, errors="ignore")
-    if should_cache_external_text(url):
-        write_memory_cache("external_text", cache_key, text)
-    return text
 
 
 def fetch_tdcc_holding_distribution_text(timeout: int = 12) -> str:
