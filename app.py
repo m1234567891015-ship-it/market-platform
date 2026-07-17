@@ -61,8 +61,6 @@ from cache import (
     save_disk_cache,
     serialize_treasury_yield_curve_cache,
     start_background_updater,
-    taifex_options_chain_inflight,
-    taifex_options_chain_inflight_lock,
     write_memory_cache,
 )
 from security import (
@@ -73,6 +71,10 @@ from security import (
 )
 from fetchers import (
     EXTERNAL_TEXT_CACHE_SECONDS,
+    TAIFEX_FUTURES_DAILY_OPENAPI_URL,
+    TAIFEX_FUTURES_DATA_DOWNLOAD_URL,
+    TAIFEX_INSTITUTION_FUTURES_DETAIL_OPENAPI_URL,
+    TAIFEX_INSTITUTION_OPTIONS_DETAIL_OPENAPI_URL,
     build_index_activity_url,
     build_index_intraday_url,
     build_market_url,
@@ -103,6 +105,14 @@ from fetchers import (
     fetch_stock_valuation_history,
     fetch_stock_valuation_on_date,
     fetch_taiex_spot_snapshot,
+    fetch_taifex_futures_open_interest,
+    fetch_taifex_futures_price_candles,
+    fetch_taifex_futures_technical_candles,
+    fetch_taifex_institution_detail_rows,
+    fetch_taifex_latest_futures_market_snapshot,
+    fetch_taifex_openapi_list,
+    fetch_taifex_tx_open_interest,
+    fetch_taifex_txo_option_chain,
     fetch_taiwan_option_spot_snapshot,
     fetch_text,
     fetch_tpex_mainboard_quotes,
@@ -128,9 +138,12 @@ from fetchers import (
     is_finite_positive,
     is_valid_ohlc_values,
     normalize_market_request,
+    normalize_taifex_date_text,
     normalize_us_market_search_item,
     parse_float,
     parse_roc_date,
+    parse_taifex_market_number,
+    parse_taifex_open_interest_by_header,
     post_json,
     shift_month,
     should_cache_external_text,
@@ -163,7 +176,6 @@ from market_config import (
     SECTOR_INDEX_LOOKUP,
     SUPPORTED_CHART_INTERVALS,
     TAIFEX_FUTURES_DAILY_URL,
-    TAIFEX_OPTIONS_CHAIN_CACHE_SECONDS,
     TAIFEX_OPTIONS_DAILY_URL,
     TAIFEX_OPTIONS_PC_RATIO_URL,
     TARGET_INDEX_NAMES,
@@ -521,39 +533,12 @@ app.after_request(add_security_headers)
 app.before_request(enforce_api_rate_limit)
 
 
-# TAIFEX's HTML query-form endpoints (DailyMarketReport / futures data download) are not a
-# real API and are fragile under bursty concurrent traffic, so calls to them are throttled
-# to a small bounded number in flight (with a short pacing sleep per call) instead of being
-# fired without limit. This keeps the site a well-behaved client of a real, live source
-# rather than caching or fabricating data to hide slow/blocked responses.
-taifex_open_interest_lock = threading.Semaphore(2)
-TAIFEX_FORM_QUERY_CONCURRENCY = 2
-TAIFEX_FUTURES_DAILY_OPENAPI_URL = "https://openapi.taifex.com.tw/v1/DailyMarketReportFut"
 TAIFEX_OPTIONS_DAILY_OPENAPI_URL = "https://openapi.taifex.com.tw/v1/DailyMarketReportOpt"
 TAIFEX_OPTIONS_PRODUCT_DAILY_OPENAPI_URL = "https://openapi.taifex.com.tw/v1/Daily_OPT"
 TAIFEX_SSF_LIST_OPENAPI_URL = "https://openapi.taifex.com.tw/v1/SSFLists"
 TAIFEX_SSO_LIST_OPENAPI_URL = "https://openapi.taifex.com.tw/v1/SSOLists"
-TAIFEX_INSTITUTION_FUTURES_DETAIL_OPENAPI_URL = "https://openapi.taifex.com.tw/v1/MarketDataOfMajorInstitutionalTradersDetailsOfFuturesContractsBytheDate"
-TAIFEX_INSTITUTION_OPTIONS_DETAIL_OPENAPI_URL = "https://openapi.taifex.com.tw/v1/MarketDataOfMajorInstitutionalTradersDetailsOfOptionsContractsBytheDate"
 TAIFEX_UNDERLYING_LIST_CACHE_SECONDS = 6 * 60 * 60
 TAIFEX_STOCK_DERIVATIVE_AGGREGATE_CACHE_SECONDS = 15 * 60
-TAIFEX_INSTITUTION_DETAIL_CACHE_SECONDS = 15 * 60
-PRODUCT_TO_TAIFEX_INSTITUTION_CONTRACT = {
-    "TX": "臺股期貨",
-    "MTX": "小型臺指期貨",
-    "TMF": "微型臺指期貨",
-    "TE": "電子期貨",
-    "TF": "金融期貨",
-    "SOF": "櫃買指數期貨",
-    "STF": "股票期貨",
-    "ETF-F": "ETF期貨",
-    "TXO": "臺指選擇權",
-    "STO": "股票選擇權",
-    "ETO": "ETF選擇權",
-}
-TAIFEX_FUTURES_DATA_DOWNLOAD_URL = "https://www.taifex.com.tw/cht/3/futDataDown"
-TAIFEX_FUTURES_PREVIOUS30_SALES_URL = "https://www.taifex.com.tw/cht/3/futPrevious30DaysSalesData"
-TAIFEX_FUTURES_DAILY_TICK_CSV_BASE = "https://www.taifex.com.tw/file/taifex/Dailydownload/DailydownloadCSV"
 YAHOO_TW_FUTURE_URL = "https://tw.stock.yahoo.com/future"
 YAHOO_TW_FUTURE_UNCOVERED_URL = "https://tw.stock.yahoo.com/future/futures_uncovered.html"
 YAHOO_TW_FUTURE_CACHE_SECONDS = 60
@@ -1101,71 +1086,6 @@ def build_yahoo_macro_snapshot(symbol: str) -> dict[str, Any] | None:
     }
 
 
-def parse_taifex_tx_open_interest(html: str) -> float | None:
-    total = 0.0
-    matched = 0
-    for row_match in re.finditer(r"(?is)<tr[^>]*>(.*?)</tr>", html):
-        cells = [
-            re.sub(r"\s+", " ", unescape(re.sub(r"(?is)<[^>]+>", " ", cell))).strip()
-            for cell in re.findall(r"(?is)<t[dh][^>]*>(.*?)</t[dh]>", row_match.group(1))
-        ]
-        if len(cells) < 13 or cells[0] != "TX":
-            continue
-        open_interest = parse_float(cells[12].replace(",", ""))
-        if open_interest is None:
-            continue
-        total += open_interest
-        matched += 1
-    return total if matched else None
-
-
-def parse_taifex_open_interest_by_header(html: str, symbol: str) -> float | None:
-    header_index: int | None = None
-    total = 0.0
-    matched = 0
-    for row_match in re.finditer(r"(?is)<tr[^>]*>(.*?)</tr>", html):
-        cells = [
-            re.sub(r"\s+", " ", unescape(re.sub(r"(?is)<[^>]+>", " ", cell))).strip()
-            for cell in re.findall(r"(?is)<t[dh][^>]*>(.*?)</t[dh]>", row_match.group(1))
-        ]
-        if not cells:
-            continue
-        normalized_cells = [cell.replace(" ", "") for cell in cells]
-        if header_index is None and any("未沖銷契約量" in cell or "未平倉" in cell for cell in normalized_cells):
-            for index, cell in enumerate(normalized_cells):
-                if "未沖銷契約量" in cell or "未平倉" in cell:
-                    header_index = index
-                    break
-            continue
-        if cells[0] != symbol:
-            continue
-        candidate_indexes = [header_index] if header_index is not None else [11, 12, len(cells) - 1]
-        for index in candidate_indexes:
-            if index is None or index < 0 or index >= len(cells):
-                continue
-            open_interest = parse_float(cells[index].replace(",", ""))
-            if open_interest is None:
-                continue
-            total += open_interest
-            matched += 1
-            break
-    return total if matched else None
-
-
-def parse_taifex_market_number(value: Any) -> float | None:
-    text = str(value or "").replace(",", "").strip()
-    if not text or text.upper() in {"NULL", "NAN"} or text in {"-", "--"}:
-        return None
-    return parse_float(text)
-
-
-def normalize_taifex_date_text(value: Any) -> str:
-    text = re.sub(r"\D", "", str(value or ""))
-    if len(text) >= 8:
-        return f"{text[:4]}-{text[4:6]}-{text[6:8]}"
-    return str(value or "")
-
-
 def parse_yahoo_tw_future_date(value: Any) -> str:
     text = str(value or "").strip()
     match = re.search(r"(\d{4})[/-](\d{1,2})[/-](\d{1,2})", text)
@@ -1373,419 +1293,6 @@ def format_price_value(value: float | None) -> str:
     return f"{value:.2f}" if value is not None else "--"
 
 
-def select_taifex_daily_market_row(rows: list[dict[str, Any]], symbol: str) -> dict[str, Any] | None:
-    clean_symbol = str(symbol or "").strip().upper()
-    candidates = []
-    for row in rows:
-        if str(row.get("Contract") or "").strip().upper() != clean_symbol:
-            continue
-        close_value = parse_taifex_market_number(row.get("Last")) or parse_taifex_market_number(row.get("SettlementPrice"))
-        if close_value is None:
-            continue
-        volume_value = parse_taifex_market_number(row.get("Volume")) or 0
-        settlement_value = parse_taifex_market_number(row.get("SettlementPrice"))
-        open_interest = parse_taifex_market_number(row.get("OpenInterest"))
-        score = volume_value
-        if settlement_value is not None:
-            score += 1_000_000_000
-        if open_interest is not None:
-            score += 100_000_000
-        candidates.append((score, row))
-    if not candidates:
-        return None
-    return sorted(candidates, key=lambda item: item[0], reverse=True)[0][1]
-
-
-def normalize_taifex_daily_market_row(row: dict[str, Any]) -> dict[str, Any] | None:
-    close_value = parse_taifex_market_number(row.get("Last")) or parse_taifex_market_number(row.get("SettlementPrice"))
-    if close_value is None:
-        return None
-    open_value = parse_taifex_market_number(row.get("Open")) or close_value
-    high_value = parse_taifex_market_number(row.get("High")) or max(open_value, close_value)
-    low_value = parse_taifex_market_number(row.get("Low")) or min(open_value, close_value)
-    volume_value = parse_taifex_market_number(row.get("Volume")) or 0
-    open_interest = parse_taifex_market_number(row.get("OpenInterest"))
-    settlement = parse_taifex_market_number(row.get("SettlementPrice"))
-    return {
-        "date": normalize_taifex_date_text(row.get("Date")),
-        "contract": str(row.get("Contract") or ""),
-        "month": str(row.get("ContractMonth(Week)") or row.get("ContractMonth") or ""),
-        "open": open_value,
-        "high": high_value,
-        "low": low_value,
-        "close": close_value,
-        "settlement": settlement,
-        "volume": volume_value,
-        "openInterest": open_interest,
-        "change": parse_taifex_market_number(row.get("Change")),
-        "changePct": parse_taifex_market_number(row.get("%")),
-    }
-
-
-def fetch_taifex_latest_futures_market_snapshot(symbol: str) -> dict[str, Any] | None:
-    rows = fetch_json(TAIFEX_FUTURES_DAILY_OPENAPI_URL, timeout=15)
-    if not isinstance(rows, list):
-        return None
-    selected = select_taifex_daily_market_row(rows, symbol)
-    if not selected:
-        return None
-    normalized = normalize_taifex_daily_market_row(selected)
-    if not normalized:
-        return None
-    return {
-        **normalized,
-        "observations": [normalized],
-        "sourceLink": TAIFEX_FUTURES_DAILY_OPENAPI_URL,
-        "sourceNote": "臺灣期貨交易所 OpenAPI 期貨每日交易行情。",
-    }
-
-
-def parse_taifex_daily_market_html_rows(html: str, symbol: str, date_text: str) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    header_map: dict[str, int] = {}
-    aliases = {
-        "Contract": ("契約", "商品"),
-        "ContractMonth(Week)": ("到期月份", "契約月份", "月份"),
-        "Open": ("開盤",),
-        "High": ("最高",),
-        "Low": ("最低",),
-        "Last": ("最後成交", "收盤",),
-        "Change": ("漲跌價", "漲跌"),
-        "%": ("漲跌%", "%"),
-        "Volume": ("成交量", "合計成交量"),
-        "SettlementPrice": ("結算價",),
-        "OpenInterest": ("未沖銷", "未平倉"),
-        "TradingSession": ("交易時段",),
-    }
-    fallback_indexes = {
-        "Contract": 0,
-        "ContractMonth(Week)": 1,
-        "Open": 2,
-        "High": 3,
-        "Low": 4,
-        "Last": 5,
-        "Change": 6,
-        "%": 7,
-        "Volume": 8,
-        "SettlementPrice": 9,
-        "OpenInterest": 10,
-    }
-    for row_match in re.finditer(r"(?is)<tr[^>]*>(.*?)</tr>", html):
-        cells = [
-            re.sub(r"\s+", " ", unescape(re.sub(r"(?is)<[^>]+>", " ", cell))).strip()
-            for cell in re.findall(r"(?is)<t[dh][^>]*>(.*?)</t[dh]>", row_match.group(1))
-        ]
-        if not cells:
-            continue
-        normalized_cells = [cell.replace(" ", "") for cell in cells]
-        if any("開盤" in cell for cell in normalized_cells) and any(("契約" in cell or "商品" in cell) for cell in normalized_cells):
-            for field, names in aliases.items():
-                for index, cell in enumerate(normalized_cells):
-                    if any(name in cell for name in names):
-                        header_map[field] = index
-                        break
-            continue
-        contract_index = header_map.get("Contract", fallback_indexes["Contract"])
-        if contract_index >= len(cells) or str(cells[contract_index]).strip().upper() != str(symbol or "").strip().upper():
-            continue
-        row: dict[str, Any] = {"Date": date_text}
-        for field, fallback_index in fallback_indexes.items():
-            index = header_map.get(field, fallback_index)
-            row[field] = cells[index] if 0 <= index < len(cells) else ""
-        trading_index = header_map.get("TradingSession")
-        if trading_index is not None and 0 <= trading_index < len(cells):
-            row["TradingSession"] = cells[trading_index]
-        rows.append(row)
-    return rows
-
-
-def parse_taifex_futures_download_candles(
-    text: str,
-    symbol: str,
-    contract_month: str = "",
-) -> list[dict[str, Any]]:
-    clean_symbol = str(symbol or "").strip().upper()
-    clean_contract_month = re.sub(r"\D", "", str(contract_month or ""))
-    if not clean_symbol or not text:
-        return []
-    selected_by_date: dict[str, tuple[float, dict[str, Any]]] = {}
-    reader = csv.reader(io.StringIO(text))
-    next(reader, None)
-    for row in reader:
-        if len(row) < 18:
-            continue
-        date_text = str(row[0] or "").strip().replace("/", "-")
-        contract = str(row[1] or "").strip().upper()
-        contract_month = str(row[2] or "").strip()
-        session = str(row[17] or "").strip()
-        if contract != clean_symbol or session != "一般" or "/" in contract_month:
-            continue
-        if clean_contract_month and contract_month != clean_contract_month:
-            continue
-        open_value = parse_taifex_market_number(row[3])
-        high_value = parse_taifex_market_number(row[4])
-        low_value = parse_taifex_market_number(row[5])
-        close_value = parse_taifex_market_number(row[6])
-        volume_value = parse_taifex_market_number(row[9]) or 0
-        if not date_text or None in {open_value, high_value, low_value, close_value}:
-            continue
-        candle = {
-            "time": date_text,
-            "contractMonth": contract_month,
-            "open": open_value,
-            "high": high_value,
-            "low": low_value,
-            "close": close_value,
-            "change": parse_taifex_market_number(row[7]),
-            "changePct": parse_taifex_market_number(str(row[8] or "").replace("%", "")),
-            "volume": volume_value,
-            "settlement": parse_taifex_market_number(row[10]),
-            "openInterest": parse_taifex_market_number(row[11]),
-            "source": "TAIFEX 期貨每日行情下載",
-        }
-        previous = selected_by_date.get(date_text)
-        if previous is None or volume_value > previous[0]:
-            selected_by_date[date_text] = (volume_value, candle)
-    return [
-        item[1]
-        for item in sorted(selected_by_date.values(), key=lambda pair: str(pair[1].get("time") or ""))
-    ]
-
-
-def fetch_taifex_futures_download_candles(
-    symbol: str,
-    max_observations: int = 30,
-    contract_month: str = "",
-    max_windows: int | None = None,
-) -> list[dict[str, Any]]:
-    clean_symbol = str(symbol or "").strip().upper()
-    if not clean_symbol:
-        return []
-    combined: dict[str, dict[str, Any]] = {}
-    end_date = datetime.now(TZ).date()
-    window_limit = max_windows if max_windows is not None else max(3, math.ceil(max_observations / 18) + 2)
-
-    window_ranges: list[tuple[Any, Any]] = []
-    cursor = end_date
-    for _ in range(window_limit):
-        start = cursor - timedelta(days=30)
-        window_ranges.append((start, cursor))
-        cursor = start - timedelta(days=1)
-
-    def fetch_window(window: tuple[Any, Any]) -> str:
-        start, end = window
-        fields = {
-            "down_type": "1",
-            "commodity_id": clean_symbol,
-            "commodity_id2": "",
-            "queryStartDate": start.strftime("%Y/%m/%d"),
-            "queryEndDate": end.strftime("%Y/%m/%d"),
-        }
-        with taifex_open_interest_lock:
-            try:
-                text = fetch_form_text(TAIFEX_FUTURES_DATA_DOWNLOAD_URL, fields, timeout=25)
-            except Exception:  # noqa: BLE001
-                LOGGER.warning("TAIFEX futures data download failed for %s", clean_symbol, exc_info=True)
-                text = ""
-            time.sleep(0.08)
-        return text
-
-    # Windows are fetched in small concurrent batches (bounded by the same TAIFEX
-    # politeness semaphore every window already waits on) instead of one at a time,
-    # while still checking the same early-stop condition between batches.
-    for batch_start in range(0, len(window_ranges), TAIFEX_FORM_QUERY_CONCURRENCY):
-        if len(combined) >= max_observations:
-            break
-        batch = window_ranges[batch_start : batch_start + TAIFEX_FORM_QUERY_CONCURRENCY]
-        with ThreadPoolExecutor(max_workers=len(batch)) as executor:
-            texts = list(executor.map(fetch_window, batch))
-        for text in texts:
-            for candle in parse_taifex_futures_download_candles(text, clean_symbol, contract_month=contract_month):
-                time_key = str(candle.get("time") or "")
-                if time_key:
-                    combined[time_key] = candle
-
-    return sorted(combined.values(), key=lambda row: str(row.get("time") or ""))[-max_observations:]
-
-
-def fetch_taifex_previous30_tick_dates() -> list[str]:
-    html = fetch_text(TAIFEX_FUTURES_PREVIOUS30_SALES_URL, timeout=15)
-    dates: list[str] = []
-    seen: set[str] = set()
-    for match in re.finditer(r"Daily_(\d{4})_(\d{2})_(\d{2})\.zip", html):
-        date_text = f"{match.group(1)}-{match.group(2)}-{match.group(3)}"
-        if date_text in seen:
-            continue
-        seen.add(date_text)
-        dates.append(date_text)
-    return dates
-
-
-def build_taifex_daily_tick_csv_url(date_text: str) -> str:
-    compact = str(date_text or "").strip().replace("-", "_").replace("/", "_")
-    if re.fullmatch(r"\d{8}", compact):
-        compact = f"{compact[:4]}_{compact[4:6]}_{compact[6:]}"
-    return f"{TAIFEX_FUTURES_DAILY_TICK_CSV_BASE}/Daily_{compact}.zip"
-
-
-def parse_taifex_daily_tick_csv_candle(payload: bytes, symbol: str, date_text: str) -> dict[str, Any] | None:
-    clean_symbol = str(symbol or "").strip().upper()
-    if not clean_symbol or not payload:
-        return None
-    compact_date = str(date_text or "").strip().replace("-", "").replace("/", "")
-    contract_rows: dict[str, list[tuple[str, str, int, float, float]]] = {}
-    try:
-        with zipfile.ZipFile(io.BytesIO(payload)) as archive:
-            names = [name for name in archive.namelist() if name.lower().endswith(".csv")]
-            if not names:
-                return None
-            raw = archive.read(names[0])
-    except Exception:  # noqa: BLE001
-        LOGGER.warning("TAIFEX daily tick zip parse failed for %s %s", clean_symbol, date_text, exc_info=True)
-        return None
-    text = raw.decode("cp950", errors="ignore")
-    reader = csv.reader(io.StringIO(text))
-    next(reader, None)
-    for index, row in enumerate(reader):
-        if len(row) < 6:
-            continue
-        trade_date = str(row[0] or "").strip()
-        product = str(row[1] or "").strip().upper()
-        contract_month = str(row[2] or "").strip()
-        trade_time = str(row[3] or "").strip().zfill(6)
-        if (
-            product != clean_symbol
-            or trade_date != compact_date
-            or "/" in contract_month
-            or not ("084500" <= trade_time <= "134500")
-        ):
-            continue
-        price_value = parse_taifex_market_number(row[4])
-        quantity_value = parse_taifex_market_number(row[5])
-        if price_value is None or quantity_value is None:
-            continue
-        contract_rows.setdefault(contract_month, []).append((
-            trade_date,
-            trade_time,
-            index,
-            price_value,
-            quantity_value / 2,
-        ))
-    if not contract_rows:
-        return None
-    contract_month, trades = max(contract_rows.items(), key=lambda item: sum(row[4] for row in item[1]))
-    trades = sorted(trades, key=lambda item: (item[0], item[1], item[2]))
-    prices = [row[3] for row in trades]
-    volume_value = sum(row[4] for row in trades)
-    if not prices:
-        return None
-    return {
-        "time": datetime.strptime(compact_date, "%Y%m%d").strftime("%Y-%m-%d") if re.fullmatch(r"\d{8}", compact_date) else date_text,
-        "contractMonth": contract_month,
-        "open": prices[0],
-        "high": max(prices),
-        "low": min(prices),
-        "close": prices[-1],
-        "volume": volume_value,
-        "source": "TAIFEX 前30個交易日期貨每筆成交 CSV",
-    }
-
-
-def fetch_taifex_previous30_futures_tick_candles(symbol: str, max_observations: int = 30) -> list[dict[str, Any]]:
-    clean_symbol = str(symbol or "").strip().upper()
-    if not clean_symbol:
-        return []
-    dates = fetch_taifex_previous30_tick_dates()
-    candles: list[dict[str, Any]] = []
-    for date_text in dates[:max(1, int(max_observations))]:
-        url = build_taifex_daily_tick_csv_url(date_text)
-        try:
-            payload = fetch_binary(url, timeout=20)
-        except Exception:  # noqa: BLE001
-            LOGGER.warning("TAIFEX daily tick csv fetch failed for %s %s", clean_symbol, date_text, exc_info=True)
-            continue
-        candle = parse_taifex_daily_tick_csv_candle(payload, clean_symbol, date_text)
-        if candle:
-            candles.append(candle)
-    return sorted(candles, key=lambda row: str(row.get("time") or ""))[-max_observations:]
-
-
-def fetch_taifex_daily_market_report_candles(symbol: str, max_observations: int = 12) -> list[dict[str, Any]]:
-    clean_symbol = str(symbol or "").strip().upper()
-    if not clean_symbol:
-        return []
-    requested = datetime.now(TZ)
-    candles: list[dict[str, Any]] = []
-    max_scan_days = max(20, int(max_observations * 2.2) + 8)
-    for offset in range(max_scan_days):
-        target = requested - timedelta(days=offset)
-        if target.weekday() >= 5:
-            continue
-        date_for_form = target.strftime("%Y/%m/%d")
-        date_for_row = target.strftime("%Y%m%d")
-        with taifex_open_interest_lock:
-            html = fetch_form_text(
-                TAIFEX_FUTURES_DAILY_URL,
-                {
-                    "queryType": "2",
-                    "marketCode": "0",
-                    "commodity_id": clean_symbol,
-                    "commodity_idt": clean_symbol,
-                    "queryDate": date_for_form,
-                },
-                timeout=15,
-            )
-            time.sleep(0.08)
-        selected = select_taifex_daily_market_row(parse_taifex_daily_market_html_rows(html, clean_symbol, date_for_row), clean_symbol)
-        normalized = normalize_taifex_daily_market_row(selected or {})
-        if not normalized:
-            continue
-        candles.append({
-            "time": normalized["date"],
-            "open": normalized["open"],
-            "high": normalized["high"],
-            "low": normalized["low"],
-            "close": normalized["close"],
-            "volume": normalized["volume"],
-            "openInterest": normalized.get("openInterest"),
-            "settlement": normalized.get("settlement"),
-        })
-        if len(candles) >= max_observations:
-            break
-    return list(reversed(candles))
-
-
-def fetch_taifex_futures_price_candles(symbol: str, max_observations: int = 30) -> list[dict[str, Any]]:
-    clean_symbol = str(symbol or "").strip().upper()
-    if not clean_symbol:
-        return []
-    combined: dict[str, dict[str, Any]] = {}
-    try:
-        for candle in fetch_taifex_futures_download_candles(clean_symbol, max_observations):
-            time_key = str(candle.get("time") or "")
-            if time_key:
-                combined[time_key] = candle
-    except Exception:  # noqa: BLE001
-        LOGGER.warning("TAIFEX futures data download candles failed for %s", clean_symbol, exc_info=True)
-    if len(combined) < 2:
-        try:
-            report_candles = fetch_taifex_daily_market_report_candles(clean_symbol, min(max_observations, 12))
-        except Exception:  # noqa: BLE001
-            LOGGER.warning("TAIFEX daily market report candles failed for %s", clean_symbol, exc_info=True)
-            report_candles = []
-        for candle in report_candles:
-            time_key = str(candle.get("time") or "")
-            if not time_key:
-                continue
-            existing = combined.get(time_key, {})
-            merged = {**existing}
-            for key, value in candle.items():
-                if value not in {None, ""}:
-                    merged[key] = value
-            combined[time_key] = merged
-    return sorted(combined.values(), key=lambda row: str(row.get("time") or ""))[-max_observations:]
-
-
 def find_yahoo_taiwan_future_technical_contract(symbol: str, code: str = "") -> dict[str, Any] | None:
     clean_symbol = str(symbol or "").strip().upper()
     profile = build_yahoo_taiwan_future_technical_profile(clean_symbol)
@@ -1795,219 +1302,6 @@ def find_yahoo_taiwan_future_technical_contract(symbol: str, code: str = "") -> 
     clean_code = str(code or profile.get("primaryCode") or "").strip().upper()
     selected = next((item for item in contracts if str(item.get("code") or "").strip().upper() == clean_code), None)
     return selected or next((item for item in contracts if item.get("isPrimary")), None) or contracts[0]
-
-
-def build_taifex_futures_interval_candles(
-    raw_candles: list[dict[str, Any]],
-    interval: str,
-) -> list[dict[str, Any]]:
-    series = [
-        {
-            "date": row.get("time") or row.get("date") or "",
-            "open": row.get("open"),
-            "high": row.get("high"),
-            "low": row.get("low"),
-            "close": row.get("close"),
-            "volume": row.get("volume"),
-            "volumeValue": row.get("volume"),
-            "settlement": row.get("settlement"),
-            "openInterest": row.get("openInterest"),
-        }
-        for row in raw_candles
-    ]
-    return build_derivative_candles({"series": series}, interval)
-
-
-def fetch_taifex_futures_technical_candles(
-    symbol: str,
-    code: str = "",
-    interval: str = "day",
-) -> dict[str, Any]:
-    clean_symbol = str(symbol or "").strip().upper()
-    clean_interval = str(interval or "day").strip().lower()
-    if clean_interval not in {"day", "week", "month", "all"}:
-        clean_interval = "day"
-    selected_contract = find_yahoo_taiwan_future_technical_contract(clean_symbol, code)
-    if not selected_contract:
-        return {"error": "找不到對應的 Yahoo 技術契約。"}
-    selected_code = str(selected_contract.get("code") or "").strip().upper()
-    inferred_symbol = infer_yahoo_taiwan_future_symbol_from_code(selected_code)
-    if inferred_symbol and inferred_symbol != clean_symbol:
-        return {"error": "Yahoo 技術代碼與目前期貨商品不一致。"}
-
-    contract_month = str(selected_contract.get("contractMonth") or "").strip()
-    cache_key = f"{clean_symbol}:{selected_code}:{contract_month or 'continuous'}:{clean_interval}"
-    cached = read_memory_cache("yahoo_tw_future_technical_candles", cache_key, 900)
-    if cached is not None:
-        return cached
-
-    raw_targets = {
-        "day": 90,
-        "week": 280,
-        "month": 620,
-        "all": 620,
-    }
-    raw_limit = raw_targets.get(clean_interval, 90)
-    max_windows = max(4, math.ceil(raw_limit / 18) + 2)
-    raw_candles = fetch_taifex_futures_download_candles(
-        clean_symbol,
-        max_observations=raw_limit,
-        contract_month=contract_month,
-        max_windows=max_windows,
-    )
-    candles = build_taifex_futures_interval_candles(raw_candles, clean_interval)
-    candles = candles[-90:] if clean_interval in {"week", "month", "all"} else candles[-90:]
-    payload = {
-        "symbol": clean_symbol,
-        "interval": clean_interval,
-        "code": selected_code,
-        "contract": selected_contract,
-        "contractMonth": contract_month,
-        "candles": candles,
-        "count": len(candles),
-        "source": "TAIFEX 期貨每日行情下載（依技術契約代碼對應月份）",
-        "sourceUrl": TAIFEX_FUTURES_DATA_DOWNLOAD_URL,
-        "technicalAnalysisUrl": selected_contract.get("url") or build_yahoo_taiwan_future_technical_url(selected_code),
-    }
-    write_memory_cache("yahoo_tw_future_technical_candles", cache_key, payload)
-    return payload
-
-
-def fetch_taifex_tx_open_interest(market_date: str, max_observations: int = 2) -> dict[str, Any] | None:
-    requested = datetime.strptime(market_date, "%Y%m%d")
-    observations: list[dict[str, Any]] = []
-    target_observations = max(1, int(max_observations or 1))
-    max_scan_days = max(12, target_observations * 3 + 8)
-    for offset in range(max_scan_days):
-        target = requested - timedelta(days=offset)
-        if target.weekday() >= 5:
-            continue
-        date_text = target.strftime("%Y/%m/%d")
-        with taifex_open_interest_lock:
-            html = fetch_form_text(
-                TAIFEX_FUTURES_DAILY_URL,
-                {
-                    "queryType": "2",
-                    "marketCode": "0",
-                    "commodity_id": "TX",
-                    "commodity_idt": "TX",
-                    "queryDate": date_text,
-                },
-                timeout=15,
-            )
-            time.sleep(0.04)
-        open_interest = parse_taifex_tx_open_interest(html)
-        if open_interest is None:
-            continue
-        observations.append({"date": target.strftime("%Y-%m-%d"), "value": open_interest})
-        if len(observations) >= target_observations:
-            break
-    if not observations:
-        return None
-    current = observations[0]
-    previous = observations[1] if len(observations) > 1 else None
-    change = current["value"] - previous["value"] if previous else None
-    return {
-        "date": current["date"],
-        "openInterest": current["value"],
-        "previousOpenInterest": previous["value"] if previous else None,
-        "change": change,
-        "changePct": change / previous["value"] * 100 if previous and previous["value"] else None,
-        "observations": list(reversed(observations)),
-        "sourceLink": TAIFEX_FUTURES_DAILY_URL,
-        "sourceNote": "臺灣期貨交易所臺股期貨一般交易時段未沖銷契約量。",
-    }
-
-
-def fetch_taifex_futures_open_interest(market_date: str, commodity_id: str, max_observations: int = 2) -> dict[str, Any] | None:
-    """Fetch TAIFEX official open interest for one futures product without estimating prices."""
-    commodity = str(commodity_id or "").strip().upper()
-    if not commodity:
-        return None
-    requested = datetime.strptime(market_date, "%Y%m%d")
-    observations: list[dict[str, Any]] = []
-    target_observations = max(1, int(max_observations or 1))
-    max_scan_days = max(12, target_observations * 3 + 8)
-    for offset in range(max_scan_days):
-        target = requested - timedelta(days=offset)
-        if target.weekday() >= 5:
-            continue
-        with taifex_open_interest_lock:
-            html = fetch_form_text(
-                TAIFEX_FUTURES_DAILY_URL,
-                {
-                    "queryType": "2",
-                    "marketCode": "0",
-                    "commodity_id": commodity,
-                    "commodity_idt": commodity,
-                    "queryDate": target.strftime("%Y/%m/%d"),
-                },
-                timeout=15,
-            )
-            time.sleep(0.04)
-        open_interest = parse_taifex_open_interest_by_header(html, commodity)
-        if open_interest is None:
-            continue
-        observations.append({"date": target.strftime("%Y-%m-%d"), "value": open_interest})
-        if len(observations) >= target_observations:
-            break
-    if not observations:
-        return None
-    current = observations[0]
-    previous = observations[1] if len(observations) > 1 else None
-    change = current["value"] - previous["value"] if previous else None
-    return {
-        "date": current["date"],
-        "openInterest": current["value"],
-        "previousOpenInterest": previous["value"] if previous else None,
-        "change": change,
-        "changePct": change / previous["value"] * 100 if previous and previous["value"] else None,
-        "observations": list(reversed(observations)),
-        "sourceLink": TAIFEX_FUTURES_DAILY_URL,
-        "sourceNote": f"臺灣期貨交易所 {commodity} 一般交易時段未沖銷契約量。",
-    }
-
-
-def fetch_taifex_txo_open_interest(market_date: str, max_observations: int = 2) -> dict[str, Any] | None:
-    requested = datetime.strptime(market_date, "%Y%m%d")
-    observations: list[dict[str, Any]] = []
-    target_observations = max(1, int(max_observations or 1))
-    for offset in range(12):
-        target = requested - timedelta(days=offset)
-        if target.weekday() >= 5:
-            continue
-        date_text = target.strftime("%Y/%m/%d")
-        html = fetch_form_text(
-            TAIFEX_OPTIONS_DAILY_URL,
-            {
-                "queryType": "2",
-                "marketCode": "0",
-                "commodity_id": "TXO",
-                "commodity_idt": "TXO",
-                "queryDate": date_text,
-            },
-            timeout=15,
-        )
-        open_interest = parse_taifex_open_interest_by_header(html, "TXO")
-        if open_interest is None:
-            continue
-        observations.append({"date": target.strftime("%Y-%m-%d"), "value": open_interest})
-        if len(observations) >= target_observations:
-            break
-    if not observations:
-        return None
-    current = observations[0]
-    previous = observations[1] if len(observations) > 1 else None
-    change = current["value"] - previous["value"] if previous else None
-    return {
-        "date": current["date"],
-        "openInterest": current["value"],
-        "previousOpenInterest": previous["value"] if previous else None,
-        "change": change,
-        "changePct": change / previous["value"] * 100 if previous and previous["value"] else None,
-        "sourceLink": TAIFEX_OPTIONS_DAILY_URL,
-        "sourceNote": "臺灣期貨交易所台指選擇權一般交易時段未沖銷契約量。",
-    }
 
 
 def parse_taifex_number(value: Any) -> float | None:
@@ -2027,16 +1321,6 @@ def parse_taifex_contract_date(value: Any) -> str:
     if len(digits) != 8:
         return ""
     return f"{digits[:4]}-{digits[4:6]}-{digits[6:8]}"
-
-
-def parse_taifex_query_date(value: str | None = None) -> str:
-    if not value:
-        return datetime.now(TZ).strftime("%Y%m%d")
-    digits = re.sub(r"\D", "", value)
-    if len(digits) != 8:
-        raise ValueError("INVALID_DATE")
-    datetime.strptime(digits, "%Y%m%d")
-    return digits
 
 
 def normal_cdf(value: float) -> float:
@@ -2885,88 +2169,6 @@ def fetch_taiwan_option_chain(
             "mode": "auto-yahoo-fallback",
         },
     }
-
-
-def fetch_taifex_txo_option_chain(
-    expiry: str | None = None,
-    market_date: str | None = None,
-    underlying: str | None = "TXO",
-) -> dict[str, Any]:
-    product = get_taiwan_option_product(underlying)
-    query_date = parse_taifex_query_date(market_date)
-    cache_key = f"{product['symbol']}:{query_date}:{expiry or ''}"
-    now = time.time()
-    with cache_lock:
-        cached = cache_data["taifex_options_chain"].get(cache_key)
-    if cached and now - cached.get("stored_at", 0) < TAIFEX_OPTIONS_CHAIN_CACHE_SECONDS:
-        return {**supplement_taifex_option_payload_with_yahoo_oi(cached["payload"]), "cached": True}
-
-    with taifex_options_chain_inflight_lock:
-        leader_event = taifex_options_chain_inflight.get(cache_key)
-        is_leader = leader_event is None
-        if is_leader:
-            leader_event = threading.Event()
-            taifex_options_chain_inflight[cache_key] = leader_event
-
-    if not is_leader:
-        leader_event.wait(timeout=30)
-        with cache_lock:
-            cached = cache_data["taifex_options_chain"].get(cache_key)
-        if cached and time.time() - cached.get("stored_at", 0) < TAIFEX_OPTIONS_CHAIN_CACHE_SECONDS:
-            return {**supplement_taifex_option_payload_with_yahoo_oi(cached["payload"]), "cached": True}
-        # The leader's scan didn't leave a usable cache entry (e.g. no data for any
-        # scanned date) -- fall through and run our own scan rather than giving up.
-
-    try:
-        requested = datetime.strptime(query_date, "%Y%m%d")
-        for offset in range(12):
-            target = requested - timedelta(days=offset)
-            if target.weekday() >= 5:
-                continue
-            date_text = target.strftime("%Y/%m/%d")
-            try:
-                html = fetch_form_text(
-                    TAIFEX_OPTIONS_DAILY_URL,
-                    {
-                        "queryType": "2",
-                        "marketCode": "0",
-                        "commodity_id": product["taifexCommodity"],
-                        "commodity_idt": product["taifexCommodity"],
-                        "queryDate": date_text,
-                    },
-                    timeout=18,
-                )
-                spot_snapshot = fetch_taiwan_option_spot_snapshot(product["symbol"])
-                rows = parse_taifex_txo_option_rows(html, spot_snapshot.get("value"), product["symbol"])
-            except Exception as exc:  # noqa: BLE001
-                LOGGER.exception("TAIFEX %s option chain fetch failed for date=%s", product["symbol"], date_text, exc_info=exc)
-                rows = []
-            if not rows:
-                continue
-            payload = supplement_taifex_option_payload_with_yahoo_oi(
-                build_taifex_txo_option_payload(rows, target.strftime("%Y-%m-%d"), expiry, product["symbol"], spot_snapshot)
-            )
-            with cache_lock:
-                cache_data["taifex_options_chain"][cache_key] = {"stored_at": now, "payload": payload}
-            return {**payload, "cached": False}
-        return {
-            "underlying": product["symbol"],
-            "name": product["name"],
-            "shortName": product["shortName"],
-            "market": "台灣",
-            "exchange": "TAIFEX",
-            "error": PUBLIC_TAIFEX_OPTION_CHAIN_ERROR_MESSAGE,
-            "source": {"primary": "TAIFEX 選擇權每日交易行情查詢", "primaryUrl": TAIFEX_OPTIONS_DAILY_URL, "mode": "taifex"},
-            "availableProducts": [
-                {"symbol": key, "name": item["name"], "shortName": item["shortName"]}
-                for key, item in TAIWAN_OPTION_PRODUCTS.items()
-            ],
-        }
-    finally:
-        if is_leader:
-            with taifex_options_chain_inflight_lock:
-                taifex_options_chain_inflight.pop(cache_key, None)
-            leader_event.set()
 
 
 def fetch_market_macro_factors(market_date: str) -> dict[str, Any]:
@@ -8856,17 +8058,6 @@ def build_txo_option_market_item(spec: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def fetch_taifex_openapi_list(url: str, cache_seconds: int, timeout: int = 20) -> list[dict[str, Any]]:
-    cached = read_memory_cache("taifex_openapi_list", url, cache_seconds)
-    if cached is not None:
-        return cached
-    rows = fetch_json(url, timeout=timeout)
-    if not isinstance(rows, list):
-        rows = []
-    write_memory_cache("taifex_openapi_list", url, rows)
-    return rows
-
-
 def taifex_underlying_is_etf(underlying_row: dict[str, Any]) -> bool:
     return "ETF" in str(underlying_row.get("Type") or "")
 
@@ -11166,16 +10357,6 @@ def api_open_interest():
 
 
 TAIFEX_INSTITUTION_ITEM_LABEL_MAP = {"自營商": "自營商", "投信": "投信", "外資及陸資": "外資"}
-
-
-def fetch_taifex_institution_detail_rows(product: str) -> list[dict[str, Any]]:
-    contract_name = PRODUCT_TO_TAIFEX_INSTITUTION_CONTRACT.get(product)
-    if not contract_name:
-        return []
-    is_option = product in {"TXO", "STO", "ETO"}
-    url = TAIFEX_INSTITUTION_OPTIONS_DETAIL_OPENAPI_URL if is_option else TAIFEX_INSTITUTION_FUTURES_DETAIL_OPENAPI_URL
-    rows = fetch_taifex_openapi_list(url, TAIFEX_INSTITUTION_DETAIL_CACHE_SECONDS)
-    return [row for row in rows if str(row.get("ContractCode") or "").strip() == contract_name]
 
 
 def build_institution_payload_live(product: str, source_url: str) -> dict[str, Any] | None:
