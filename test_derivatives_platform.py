@@ -167,7 +167,7 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         open_interest = self.assert_success(self.client.get("/api/open-interest?symbol=TX"))
         self.assertEqual(open_interest["openInterest"], "98765")
 
-    @patch.object(app, "fetch_taifex_txo_option_chain", return_value=OPTIONS_CHAIN)
+    @patch.object(fetchers, "fetch_taifex_txo_option_chain", return_value=OPTIONS_CHAIN)
     def test_txo_chain_pcr_maxpain_and_ai(self, _chain):
         chain = self.assert_success(self.client.get("/api/options/chain?underlying=TXO"))
         self.assertEqual(chain["underlying"], "TXO")
@@ -332,7 +332,7 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertEqual(basis["basis"], 100)
         self.assertIn("basisPct", basis)
 
-    @patch.object(app, "fetch_taifex_txo_option_chain", return_value=OPTIONS_CHAIN)
+    @patch.object(fetchers, "fetch_taifex_txo_option_chain", return_value=OPTIONS_CHAIN)
     def test_ai_decision_fields(self, _chain):
         analysis = self.assert_success(self.client.get("/api/ai-analysis?target=TXO"))
         self.assertIn("marketScore", analysis)
@@ -392,7 +392,7 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertIn("Yahoo ETF 新聞", news[0]["title"])
         self.assertIn("news.google.com/search", news[1]["link"])
 
-    @patch.object(app, "fetch_text")
+    @patch.object(fetchers, "fetch_text")
     def test_yahoo_broker_trading_parser_reads_broker_tables(self, fetch_text_mock):
         fetch_text_mock.return_value = """
         <section>
@@ -413,7 +413,7 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertEqual(payload["buyBrokers"][0]["broker"], "元大總公司")
         self.assertEqual(payload["sellBrokers"][0]["net"], -1795)
 
-    @patch.object(app, "fetch_text")
+    @patch.object(fetchers, "fetch_text")
     def test_yahoo_major_holders_parser_reads_rows(self, fetch_text_mock):
         fetch_text_mock.return_value = """
         <section>

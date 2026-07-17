@@ -74,11 +74,47 @@ batch 2's CBOE/TAIFEX-config calls:
   calls `app.build_derivative_candles`, a generic candle formatter shared by
   5+ other call sites across app.py's derivatives routes/builders.
 
-Later batches move the remaining per-source fetchers (Yahoo Taiwan, everything
-else). Two later-batch functions (`fetch_yahoo_tw_stock_resource`,
-`fetch_barchart_options_context`) intentionally do NOT go through this
-module's helpers - they call `_urlopen_with_ssl_fallback` directly or use
-their own cookie-jar opener - documented when they move.
+Batch 4 (Yahoo Taiwan, `tw.stock.yahoo.com`, 15 functions) brings the Yahoo
+option-chain, sector-catalog, class-quote-page, and margin/broker/holder
+HTML-scraping fetchers, plus their exclusive parsing-helper clusters
+(`build_yahoo_quote_symbol`/`build_yahoo_quote_page_url`/
+`build_yahoo_tw_stock_resource_url`, the `YahooClassCatalogParser` HTML
+parser, and the whole `normalize_yahoo_date_text` ... `parse_yahoo_broker_rows_from_lines`
+margin/broker parsing cluster - including `parse_yahoo_broker_row`, which a
+whole-file grep found has zero callers anywhere, dead code carried over
+verbatim since a behavior-preserving move doesn't delete things). Two more
+shared pure helpers used by both this batch and staying HTML/JSON scrapers
+(`extract_visible_text_lines`/`VisibleTextExtractor`, `extract_balanced_segment`)
+move and get imported back into app.py, same pattern as batch 1/2's shared
+utilities. `fetch_yahoo_tw_stock_resource` is this batch's bare-`_urlopen_with_ssl_fallback`
+exception (builds its own `Request`, bypasses `fetch_json`/`fetch_text`).
+
+Several functions in this batch reach into option-chain/class-quote/future-quote
+domain code that stays in app.py via a deferred `import app`, same pattern as
+batches 2-3:
+- `fetch_yahoo_taiwan_future_quotes` calls `app.parse_yahoo_taiwan_future_quotes`
+  and reads `app.YAHOO_TW_FUTURE_UNCOVERED_URL` - a large future-quote-page
+  parser keyed off `YAHOO_TW_FUTURE_CODE_TO_SYMBOL`, a config dict shared with
+  other staying future-technical-analysis code (batch 3's docstring already
+  flagged this cluster).
+- `fetch_yahoo_txo_option_chain` calls `app.get_taiwan_option_product`,
+  `app.build_yahoo_taiwan_option_url`, `app.parse_yahoo_txo_option_page` (itself
+  backed by a dozen further staying option-payload helpers), and reads
+  `app.YAHOO_TW_OPTION_URL`/`app.TAIWAN_OPTION_PRODUCTS`.
+- `fetch_taiwan_option_chain` calls `app.get_taiwan_option_product` and
+  `app.normalize_taiwan_option_source` (both already-established TAIFEX-domain
+  config lookups); it calls `fetch_taifex_txo_option_chain` and
+  `fetch_yahoo_txo_option_chain` as bare names since both now live in this
+  same module.
+- `fetch_yahoo_class_quote_pages` calls `app.parse_yahoo_quote_items`, a
+  class-quote JSON/HTML parser shared with a staying builder
+  (`build_yahoo_class_quote_cards`, which also calls this batch's
+  `fetch_yahoo_class_quote_pages` back via app.py's re-import).
+
+Later batches move the remaining per-source fetchers (everything else). One
+later-batch function (`fetch_barchart_options_context`) intentionally does NOT
+go through this module's helpers - it uses its own cookie-jar opener -
+documented when it moves.
 """
 from __future__ import annotations
 
@@ -96,10 +132,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from calendar import monthrange
 from datetime import datetime, timedelta, timezone
 from html import unescape
+from html.parser import HTMLParser
 from http.cookiejar import CookieJar
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import quote, urlencode, urlsplit
+from urllib.parse import parse_qsl, quote, urlencode, urljoin, urlsplit
 from urllib.request import HTTPCookieProcessor, Request, build_opener
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -129,11 +166,16 @@ from market_config import (
     TWSE_OPENAPI_BASE,
     USER_AGENT,
     YAHOO_CHART_BASE,
+    YAHOO_CLASS_HOME_URL,
     YAHOO_QUOTE_SUMMARY_BASE,
     YAHOO_SEARCH_BASE,
     YAHOO_TPEX_ETF_URL,
 )
 from security import _urlopen_with_ssl_fallback
+
+YAHOO_TW_FUTURE_CACHE_SECONDS = 60
+YAHOO_TW_OPTION_CACHE_SECONDS = 60
+YAHOO_TW_STOCK_RESOURCE_CACHE_SECONDS = 5 * 60
 
 TAIFEX_FORM_QUERY_CONCURRENCY = 2
 TAIFEX_FUTURES_DAILY_OPENAPI_URL = "https://openapi.taifex.com.tw/v1/DailyMarketReportFut"
@@ -883,6 +925,495 @@ def parse_taifex_query_date(value: str | None = None) -> str:
         raise ValueError("INVALID_DATE")
     datetime.strptime(digits, "%Y%m%d")
     return digits
+
+
+class VisibleTextExtractor(HTMLParser):
+    BLOCK_TAGS = {
+        "article", "aside", "div", "footer", "header", "li", "main", "nav", "p",
+        "section", "table", "tbody", "td", "th", "tr", "ul", "ol",
+        "h1", "h2", "h3", "h4", "h5", "h6", "a", "button", "span", "strong",
+    }
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.lines: list[str] = []
+        self._buffer: list[str] = []
+        self._skip_depth = 0
+
+    def _flush(self) -> None:
+        if not self._buffer:
+            return
+        line = re.sub(r"\s+", " ", " ".join(self._buffer)).strip()
+        if line:
+            self.lines.append(line)
+        self._buffer = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:  # noqa: ARG002
+        if tag in {"script", "style", "noscript"}:
+            self._skip_depth += 1
+            return
+        if self._skip_depth:
+            return
+        if tag == "br" or tag in self.BLOCK_TAGS:
+            self._flush()
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in {"script", "style", "noscript"}:
+            if self._skip_depth:
+                self._skip_depth -= 1
+            return
+        if self._skip_depth:
+            return
+        if tag in self.BLOCK_TAGS:
+            self._flush()
+
+    def handle_data(self, data: str) -> None:
+        if self._skip_depth:
+            return
+        cleaned = unescape(data or "").strip()
+        if cleaned:
+            self._buffer.append(cleaned)
+
+    def close(self) -> None:
+        self._flush()
+        super().close()
+
+
+def extract_visible_text_lines(html: str) -> list[str]:
+    extractor = VisibleTextExtractor()
+    extractor.feed(html or "")
+    extractor.close()
+    return extractor.lines
+
+
+def extract_balanced_segment(text: str, start_index: int, open_char: str, close_char: str) -> str | None:
+    if start_index < 0 or start_index >= len(text) or text[start_index] != open_char:
+        return None
+
+    depth = 0
+    in_string = False
+    escaped = False
+    for index in range(start_index, len(text)):
+        char = text[index]
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+
+        if char == '"':
+            in_string = True
+            continue
+        if char == open_char:
+            depth += 1
+            continue
+        if char == close_char:
+            depth -= 1
+            if depth == 0:
+                return text[start_index : index + 1]
+    return None
+
+
+class YahooClassCatalogParser(HTMLParser):
+    GROUP_KEYS = {
+        "上市類股": "listed",
+        "上櫃類股": "otc",
+        "興櫃類股": "emerging",
+        "電子產業": "electronic",
+        "概念股": "concept",
+        "集團股": "group",
+    }
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.catalog: dict[str, list[dict[str, str]]] = {key: [] for key in self.GROUP_KEYS.values()}
+        self.current_group: str | None = None
+        self.capture_h2 = False
+        self.h2_text: list[str] = []
+        self.anchor_href: str | None = None
+        self.anchor_text: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "h2":
+            self.capture_h2 = True
+            self.h2_text = []
+        elif tag == "a":
+            self.anchor_href = dict(attrs).get("href")
+            self.anchor_text = []
+
+    def handle_data(self, data: str) -> None:
+        text = unescape(data or "").strip()
+        if not text:
+            return
+        if self.capture_h2:
+            self.h2_text.append(text)
+        if self.anchor_href is not None:
+            self.anchor_text.append(text)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "h2":
+            heading = " ".join(self.h2_text).strip()
+            self.current_group = self.GROUP_KEYS.get(heading)
+            self.capture_h2 = False
+            self.h2_text = []
+            return
+        if tag != "a" or self.anchor_href is None:
+            return
+
+        name = " ".join(self.anchor_text).strip()
+        href = self.anchor_href
+        if self.current_group and name and "/class-quote?" in href:
+            url = urljoin(YAHOO_CLASS_HOME_URL, href)
+            if not any(item["url"] == url for item in self.catalog[self.current_group]):
+                self.catalog[self.current_group].append({"name": name, "url": url})
+        self.anchor_href = None
+        self.anchor_text = []
+
+
+def build_yahoo_quote_symbol(stock: dict[str, Any]) -> str:
+    market = str(stock.get("market") or "").strip().upper()
+    suffix = "TWO" if market == "TPEX" else "TW"
+    return f"{stock.get('code', '')}.{suffix}"
+
+
+def build_yahoo_quote_page_url(stock: dict[str, Any], page: str) -> str:
+    symbol = quote(build_yahoo_quote_symbol(stock), safe="")
+    return f"https://tw.stock.yahoo.com/quote/{symbol}/{page.strip('/')}"
+
+
+def build_yahoo_tw_stock_resource_url(resource: str, params: dict[str, Any]) -> str:
+    encoded_params = "".join(
+        f";{quote(str(key), safe='')}={quote(str(value), safe='')}"
+        for key, value in params.items()
+        if value is not None and str(value) != ""
+    )
+    return f"https://tw.stock.yahoo.com/_td-stock/api/resource/{quote(resource, safe='.')}{encoded_params}"
+
+
+def normalize_yahoo_date_text(value: Any) -> str:
+    text = str(value or "").strip()
+    if re.fullmatch(r"\d{4}/\d{2}/\d{2}", text):
+        return text.replace("/", "-")
+    return text
+
+
+def parse_yahoo_number(value: Any) -> float | None:
+    if value is None:
+        return None
+    return parse_float(str(value))
+
+
+def normalize_yahoo_credit_date(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", text):
+        return text
+    if re.fullmatch(r"\d{4}/\d{2}/\d{2}", text):
+        return text.replace("/", "-")
+    iso_match = re.match(r"^(\d{4}-\d{2}-\d{2})T", text)
+    if iso_match:
+        return iso_match.group(1)
+    return normalize_yahoo_date_text(text)
+
+
+def yahoo_chart_date_label(date_text: str) -> str:
+    match = re.match(r"^\d{4}-(\d{2})-(\d{2})$", str(date_text or ""))
+    if not match:
+        return str(date_text or "")[-5:].replace("-", "/")
+    return f"{int(match.group(1))}/{int(match.group(2))}"
+
+
+def yahoo_margin_diff(add_value: Any, subtract_value: Any, repay_value: Any = None) -> float | None:
+    add = parse_yahoo_number(add_value)
+    subtract = parse_yahoo_number(subtract_value)
+    repay = parse_yahoo_number(repay_value)
+    if add is None and subtract is None and repay is None:
+        return None
+    return (add or 0.0) - (subtract or 0.0) - (repay or 0.0)
+
+
+def yahoo_usage_ratio_to_percent(value: Any) -> float | None:
+    parsed = parse_yahoo_number(value)
+    return parsed * 100 if parsed is not None else None
+
+
+def normalize_yahoo_margin_credit_rows(
+    payload: Any,
+    symbol: str,
+    daily_limit: int,
+    chart_limit: int,
+) -> dict[str, Any]:
+    result_payload = (((payload or {}).get("data") or {}).get("result") or {})
+    credits = result_payload.get("credits") or []
+    trend = result_payload.get("trend") if isinstance(result_payload.get("trend"), dict) else {}
+    rows: list[dict[str, Any]] = []
+    for raw in credits:
+        if not isinstance(raw, dict):
+            continue
+        date_text = normalize_yahoo_credit_date(raw.get("date"))
+        if not date_text:
+            continue
+        quote_stats = raw.get("quoteStats") if isinstance(raw.get("quoteStats"), dict) else {}
+        row = {
+            "date": date_text,
+            "endDate": normalize_yahoo_credit_date(raw.get("endDate")),
+            "period": str(raw.get("period") or "day"),
+            "totalDays": parse_yahoo_number(raw.get("totalDays")),
+            "label": yahoo_chart_date_label(date_text),
+            "closePrice": parse_yahoo_number(quote_stats.get("closePrice")),
+            "changePct": parse_yahoo_number(quote_stats.get("changePercent")),
+            "financingBuy": parse_yahoo_number(raw.get("financingBuyVolK")),
+            "financingSell": parse_yahoo_number(raw.get("financingSellVolK")),
+            "financingRepayment": parse_yahoo_number(raw.get("financingPaybackVolK")),
+            "financingChange": yahoo_margin_diff(
+                raw.get("financingBuyVolK"),
+                raw.get("financingSellVolK"),
+                raw.get("financingPaybackVolK"),
+            ),
+            "financingBalance": parse_yahoo_number(raw.get("financingTotalVolK")),
+            "financingUtilizationRate": yahoo_usage_ratio_to_percent(raw.get("financingUsageRatio")),
+            "shortBuy": parse_yahoo_number(raw.get("shortBuyVolK")),
+            "shortSell": parse_yahoo_number(raw.get("shortSellVolK")),
+            "shortRepayment": parse_yahoo_number(raw.get("shortRepayVolK")),
+            "shortChange": yahoo_margin_diff(
+                raw.get("shortSellVolK"),
+                raw.get("shortBuyVolK"),
+                raw.get("shortRepayVolK"),
+            ),
+            "shortBalance": parse_yahoo_number(raw.get("shortTotalVolK")),
+            "shortLimit": parse_yahoo_number(raw.get("shortLimitVolK")),
+            "shortUtilizationRate": yahoo_usage_ratio_to_percent(raw.get("shortUsageRatio")),
+            "shortFinancingRatio": parse_yahoo_number(raw.get("shortFinancingPercent")),
+            "offsetting": parse_yahoo_number(raw.get("dayTradingVolK")),
+            "lendingSell": parse_yahoo_number(raw.get("lendingSellVolK")),
+            "lendingRepay": parse_yahoo_number(raw.get("lendingRepayVolK")),
+            "lendingChange": yahoo_margin_diff(raw.get("lendingSellVolK"), raw.get("lendingRepayVolK")),
+            "lendingBalance": parse_yahoo_number(raw.get("lendingTotalVolK")),
+        }
+        rows.append(row)
+
+    if not rows:
+        return {}
+
+    newest_first = sorted(rows, key=lambda item: str(item.get("date") or ""), reverse=True)
+    chart_rows = sorted(rows, key=lambda item: str(item.get("date") or ""))[-chart_limit:]
+    previous_lending_balance: float | None = None
+    for row in chart_rows:
+        lending_balance = row.get("lendingBalance")
+        if lending_balance is None:
+            row["lendingBalance"] = previous_lending_balance
+        else:
+            previous_lending_balance = lending_balance
+
+    latest = newest_first[0]
+    financing_trend = trend.get("financing") if isinstance(trend.get("financing"), dict) else {}
+    short_trend = trend.get("tradeShort") if isinstance(trend.get("tradeShort"), dict) else {}
+    ratio_trend = trend.get("shortFinancingPercent") if isinstance(trend.get("shortFinancingPercent"), dict) else {}
+    overview_rows = [
+        {
+            "key": "financing",
+            "name": "融資",
+            "buy": latest.get("financingBuy"),
+            "sell": latest.get("financingSell"),
+            "repayment": latest.get("financingRepayment"),
+            "change": latest.get("financingChange"),
+            "balance": latest.get("financingBalance"),
+            "utilizationRate": latest.get("financingUtilizationRate"),
+            "streak": str(financing_trend.get("text") or "--"),
+        },
+        {
+            "key": "short",
+            "name": "融券",
+            "buy": latest.get("shortBuy"),
+            "sell": latest.get("shortSell"),
+            "repayment": latest.get("shortRepayment"),
+            "change": latest.get("shortChange"),
+            "balance": latest.get("shortBalance"),
+            "utilizationRate": latest.get("shortUtilizationRate"),
+            "streak": str(short_trend.get("text") or "--"),
+            "offsetting": latest.get("offsetting"),
+            "shortFinancingRatio": latest.get("shortFinancingRatio"),
+            "ratioStreak": str(ratio_trend.get("text") or ""),
+        },
+    ]
+    return {
+        "date": latest.get("date"),
+        "overviewRows": overview_rows,
+        "dailyRows": newest_first[:daily_limit],
+        "marginBalancePeriodRows": {"day": newest_first[:30]},
+        "marginBalanceChartRows": chart_rows,
+        "marginBalanceChartDataKey": f"marginBalanceChart-{len(chart_rows)}-{symbol}-1y",
+        "marginBalanceChartSource": "Yahoo StockServices.creditsWithQuoteStats",
+        "marginSummaryTrend": trend,
+        "financingBuy": latest.get("financingBuy"),
+        "financingSell": latest.get("financingSell"),
+        "financingCashRedemption": latest.get("financingRepayment"),
+        "financingChange": latest.get("financingChange"),
+        "financingBalance": latest.get("financingBalance"),
+        "financingUtilizationRate": latest.get("financingUtilizationRate"),
+        "shortBuy": latest.get("shortBuy"),
+        "shortSell": latest.get("shortSell"),
+        "shortStockRedemption": latest.get("shortRepayment"),
+        "shortChange": latest.get("shortChange"),
+        "shortBalance": latest.get("shortBalance"),
+        "shortUtilizationRate": latest.get("shortUtilizationRate"),
+        "shortFinancingRatio": latest.get("shortFinancingRatio"),
+        "offsetting": latest.get("offsetting"),
+        "unit": "張",
+    }
+
+
+def normalize_yahoo_margin_accumulation_rows(payload: Any) -> list[dict[str, Any]]:
+    credits = ((((payload or {}).get("data") or {}).get("result") or {}).get("credits") or [])
+    label_map = {
+        "2D": "2日",
+        "3D": "3日",
+        "5D": "5日",
+        "10D": "10日",
+        "1M": "1月",
+        "3M": "3月",
+        "6M": "6月",
+        "1Y": "1年",
+    }
+    rows: list[dict[str, Any]] = []
+    for raw in credits:
+        if not isinstance(raw, dict):
+            continue
+        period_sum = str(raw.get("periodSum") or "").strip()
+        if not period_sum:
+            continue
+        rows.append({
+            "periodSum": period_sum,
+            "label": label_map.get(period_sum, period_sum),
+            "date": normalize_yahoo_credit_date(raw.get("date")),
+            "endDate": normalize_yahoo_credit_date(raw.get("endDate")),
+            "totalDays": parse_yahoo_number(raw.get("totalDays")),
+            "financingChange": yahoo_margin_diff(
+                raw.get("financingBuyVolK"),
+                raw.get("financingSellVolK"),
+                raw.get("financingPaybackVolK"),
+            ),
+            "shortChange": yahoo_margin_diff(
+                raw.get("shortSellVolK"),
+                raw.get("shortBuyVolK"),
+                raw.get("shortRepayVolK"),
+            ),
+            "shortFinancingRatioChange": parse_yahoo_number(raw.get("shortFinancingPercentChange")),
+        })
+    order = {key: index for index, key in enumerate(label_map)}
+    return sorted(rows, key=lambda row: order.get(str(row.get("periodSum") or ""), 999))
+
+
+def parse_yahoo_margin_balance_chart_rows(html: str) -> tuple[list[dict[str, Any]], str]:
+    key_match = re.search(r'"marginBalanceChartDataKey"\s*:\s*"([^"]+)"', html)
+    data_key = key_match.group(1) if key_match else ""
+    if not data_key:
+        fallback_match = re.search(r'"(marginBalanceChart-\d+-[^"]+)"\s*:\s*\{"data"\s*:\s*\{"list"', html)
+        data_key = fallback_match.group(1) if fallback_match else ""
+    if not data_key:
+        return [], ""
+
+    key_index = html.find(f'"{data_key}"')
+    if key_index < 0:
+        return [], data_key
+    object_start = html.find("{", key_index + len(data_key) + 2)
+    segment = extract_balanced_segment(html, object_start, "{", "}") if object_start >= 0 else None
+    if not segment:
+        return [], data_key
+    try:
+        payload = json.loads(segment)
+    except json.JSONDecodeError:
+        return [], data_key
+    raw_rows = ((payload.get("data") or {}).get("list") or []) if isinstance(payload, dict) else []
+    rows: list[dict[str, Any]] = []
+    previous_lending_balance: float | None = None
+    for raw in raw_rows:
+        if not isinstance(raw, dict):
+            continue
+        date_text = normalize_yahoo_date_text(raw.get("fullDate")) or str(raw.get("date") or "")
+        lending_balance = parse_yahoo_number(raw.get("lendingTotalVolK"))
+        if lending_balance is None:
+            lending_balance = previous_lending_balance
+        else:
+            previous_lending_balance = lending_balance
+        rows.append({
+            "date": date_text,
+            "label": str(raw.get("date") or date_text[-5:].replace("-", "/") or ""),
+            "closePrice": parse_yahoo_number(raw.get("closePrice")),
+            "changePct": parse_yahoo_number(raw.get("changePercent")),
+            "financingChange": parse_yahoo_number(raw.get("financingDiffK")),
+            "financingBalance": parse_yahoo_number(raw.get("financingTotalVolK")),
+            "shortChange": parse_yahoo_number(raw.get("shortDiffK")),
+            "shortBalance": parse_yahoo_number(raw.get("shortTotalVolK")),
+            "lendingChange": parse_yahoo_number(raw.get("lendingDiffK")),
+            "lendingBalance": lending_balance,
+        })
+    return [row for row in rows if row.get("date")], data_key
+
+
+def parse_yahoo_broker_row(line: str) -> dict[str, Any] | None:
+    match = re.match(r"^(.+?)\s+([0-9,]+)\s+([0-9,]+)\s*([+-]?[0-9,]+)$", line.strip())
+    if not match:
+        return None
+    broker, buy, sell, net = match.groups()
+    return {
+        "broker": broker.strip(),
+        "buy": parse_float(buy),
+        "sell": parse_float(sell),
+        "net": parse_float(net),
+    }
+
+
+def parse_yahoo_broker_rows_from_lines(
+    lines: list[str],
+    start_label: str,
+    stop_labels: set[str],
+    limit: int,
+) -> list[dict[str, Any]]:
+    try:
+        index = lines.index(start_label)
+    except ValueError:
+        return []
+    cursor = index + 1
+    while cursor < len(lines) and lines[cursor] in {"買進", "賣出", "買超張數", "賣超張數"}:
+        cursor += 1
+
+    rows: list[dict[str, Any]] = []
+    while cursor + 3 < len(lines) and len(rows) < limit:
+        if lines[cursor] in stop_labels:
+            break
+        broker = str(lines[cursor] or "").strip()
+        buy = parse_float(str(lines[cursor + 1] or ""))
+        sell = parse_float(str(lines[cursor + 2] or ""))
+        net = parse_float(str(lines[cursor + 3] or ""))
+        if not broker or buy is None or sell is None or net is None:
+            cursor += 1
+            continue
+        rows.append({"broker": broker, "buy": buy, "sell": sell, "net": net})
+        cursor += 4
+    return rows
+
+
+def format_yahoo_iso_date(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return "--"
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00")).astimezone(TZ).strftime("%Y-%m-%d")
+    except ValueError:
+        return raw[:10] if len(raw) >= 10 else raw
+
+
+def yahoo_number_text(value: Any) -> str:
+    if isinstance(value, dict):
+        return str(value.get("fmt") or value.get("raw") or value.get("sort") or "--")
+    if value in (None, ""):
+        return "--"
+    return str(value)
 
 
 def build_taifex_futures_interval_candles(
@@ -2668,3 +3199,679 @@ def fetch_taifex_institution_detail_rows(product: str) -> list[dict[str, Any]]:
     url = TAIFEX_INSTITUTION_OPTIONS_DETAIL_OPENAPI_URL if is_option else TAIFEX_INSTITUTION_FUTURES_DETAIL_OPENAPI_URL
     rows = fetch_taifex_openapi_list(url, TAIFEX_INSTITUTION_DETAIL_CACHE_SECONDS)
     return [row for row in rows if str(row.get("ContractCode") or "").strip() == contract_name]
+
+
+def fetch_yahoo_taiwan_future_quotes(timeout: int = 10) -> dict[str, dict[str, Any]]:
+    import app  # deferred: parse_yahoo_taiwan_future_quotes is future-technical domain, stays in app.py
+
+    now = time.time()
+    with cache_lock:
+        cached = cache_data.get("yahoo_tw_future_quotes") or {}
+        cached_items = cached.get("items") if isinstance(cached, dict) else None
+        if cached_items and now - float(cached.get("stored_at") or 0) < YAHOO_TW_FUTURE_CACHE_SECONDS:
+            return copy.deepcopy(cached_items)
+    html = fetch_text(app.YAHOO_TW_FUTURE_UNCOVERED_URL, timeout=timeout)
+    quotes = app.parse_yahoo_taiwan_future_quotes(html)
+    with cache_lock:
+        cache_data["yahoo_tw_future_quotes"] = {"stored_at": now, "items": copy.deepcopy(quotes)}
+    return quotes
+
+
+def fetch_yahoo_taiwan_future_quote(symbol: str, timeout: int = 10) -> dict[str, Any] | None:
+    clean_symbol = str(symbol or "").strip().upper()
+    if not clean_symbol:
+        return None
+    return fetch_yahoo_taiwan_future_quotes(timeout=timeout).get(clean_symbol)
+
+
+def fetch_yahoo_txo_option_chain(expiry: str | None = None, underlying: str | None = "TXO") -> dict[str, Any]:
+    import app  # deferred: option-chain product config + HTML payload parser stay in app.py
+
+    product = app.get_taiwan_option_product(underlying)
+    if not product.get("yahooOpcm"):
+        return {
+            "underlying": product["symbol"],
+            "name": product["name"],
+            "shortName": product["shortName"],
+            "market": "台灣",
+            "exchange": "Yahoo 股市",
+            "error": f"{product['shortName']} 沒有 Yahoo 台灣選擇權逐履約價商品代碼，未使用 WTXO 代替。",
+            "source": {"primary": "Yahoo 股市台灣選擇權報價", "primaryUrl": app.YAHOO_TW_OPTION_URL, "mode": "yahoo"},
+            "availableProducts": [
+                {"symbol": key, "name": item["name"], "shortName": item["shortName"]}
+                for key, item in app.TAIWAN_OPTION_PRODUCTS.items()
+            ],
+        }
+    now = time.time()
+    cache_key = f"{product['symbol']}:{expiry or ''}"
+    with cache_lock:
+        cached = cache_data["yahoo_tw_option_chain"].get(cache_key)
+    if cached and now - cached.get("stored_at", 0) < YAHOO_TW_OPTION_CACHE_SECONDS:
+        return {**cached["payload"], "cached": True}
+    yahoo_url = app.build_yahoo_taiwan_option_url(product["symbol"], expiry)
+    html = fetch_text(yahoo_url, timeout=12)
+    payload = app.parse_yahoo_txo_option_page(html, product["symbol"], expiry)
+    if not payload.get("error"):
+        with cache_lock:
+            cache_data["yahoo_tw_option_chain"][cache_key] = {"stored_at": now, "payload": payload}
+    return {**payload, "cached": False}
+
+
+def fetch_txo_option_chain(
+    expiry: str | None = None,
+    market_date: str | None = None,
+    source: str = "auto",
+    underlying: str | None = "TXO",
+) -> dict[str, Any]:
+    return fetch_taiwan_option_chain(underlying=underlying, expiry=expiry, market_date=market_date, source=source)
+
+
+def fetch_taiwan_option_chain(
+    underlying: str | None = "TXO",
+    expiry: str | None = None,
+    market_date: str | None = None,
+    source: str = "auto",
+) -> dict[str, Any]:
+    import app  # deferred: TAIFEX-domain product config/source-mode lookups stay in app.py
+
+    product = app.get_taiwan_option_product(underlying)
+    source_mode = app.normalize_taiwan_option_source(source)
+    if source_mode == "yahoo":
+        return fetch_yahoo_txo_option_chain(expiry, product["symbol"])
+    official = fetch_taifex_txo_option_chain(expiry=expiry, market_date=market_date, underlying=product["symbol"])
+    if source_mode == "taifex" or not official.get("error"):
+        return official
+    try:
+        fallback = fetch_yahoo_txo_option_chain(expiry, product["symbol"])
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.warning("Yahoo %s fallback failed after TAIFEX option-chain miss", product["symbol"], exc_info=exc)
+        return official
+    if fallback.get("error"):
+        return {**official, "fallbackError": fallback.get("error")}
+    return {
+        **fallback,
+        "fallbackFrom": "taifex",
+        "fallbackReason": official.get("error"),
+        "source": {
+            **(fallback.get("source") or {}),
+            "primary": "Yahoo 股市台灣選擇權報價（TAIFEX 官方日報暫無資料時後備）",
+            "officialReference": "TAIFEX 選擇權每日交易行情查詢",
+            "officialReferenceUrl": TAIFEX_OPTIONS_DAILY_URL,
+            "mode": "auto-yahoo-fallback",
+        },
+    }
+
+
+def fetch_yahoo_sector_catalog(timeout: int = 8) -> dict[str, list[dict[str, str]]]:
+    html = fetch_text(YAHOO_CLASS_HOME_URL, timeout=timeout)
+    parser = YahooClassCatalogParser()
+    parser.feed(html)
+    parser.close()
+    return parser.catalog
+
+
+def fetch_yahoo_class_quote_pages(
+    url: str,
+    snapshot_date: str | None,
+    limit: int,
+) -> list[dict[str, Any]]:
+    import app  # deferred: parse_yahoo_quote_items is class-quote domain, stays in app.py
+
+    query = dict(parse_qsl(urlsplit(url).query))
+    if not query:
+        return []
+    if query.get("category"):
+        query["categoryName"] = query.pop("category")
+
+    def fetch_page(offset: int) -> dict[str, Any]:
+        params = {**query, "offset": str(offset)}
+        resource_params = ";".join(
+            f"{quote(str(key), safe='')}={quote(str(value), safe='')}"
+            for key, value in params.items()
+            if value not in (None, "")
+        )
+        payload = fetch_json(
+            f"https://tw.stock.yahoo.com/_td-stock/api/resource/StockServices.getClassQuotes;{resource_params}",
+            timeout=10,
+        )
+        return payload if isinstance(payload, dict) else {}
+
+    first_payload = fetch_page(0)
+    first_items = first_payload.get("list", [])
+    if not first_items:
+        return []
+    pagination = first_payload.get("pagination", {})
+    results_total = int(parse_float(str(pagination.get("resultsTotal") or "")) or len(first_items))
+    target_count = min(limit, results_total)
+    page_size = len(first_items)
+    payloads = [first_payload]
+    offsets = list(range(page_size, target_count, page_size))
+    if offsets:
+        with ThreadPoolExecutor(max_workers=min(8, len(offsets))) as executor:
+            futures = {executor.submit(fetch_page, offset): offset for offset in offsets}
+            fetched = []
+            for future in as_completed(futures):
+                try:
+                    fetched.append((futures[future], future.result()))
+                except Exception:  # noqa: BLE001
+                    continue
+            payloads.extend(payload for _, payload in sorted(fetched))
+
+    rows: list[dict[str, Any]] = []
+    seen_codes: set[str] = set()
+    for payload in payloads:
+        for row in app.parse_yahoo_quote_items(payload.get("list", []), snapshot_date):
+            code = str(row.get("code") or "").upper()
+            if code and code not in seen_codes:
+                seen_codes.add(code)
+                rows.append(row)
+                if len(rows) >= limit:
+                    return rows
+    return rows
+
+
+def fetch_yahoo_tw_stock_resource(
+    resource: str,
+    params: dict[str, Any],
+    referer: str,
+    timeout: int = 10,
+) -> Any:
+    cache_key = json.dumps({"resource": resource, "params": params}, sort_keys=True, ensure_ascii=False)
+    cached = read_memory_cache(
+        "yahoo_tw_stock_resources",
+        cache_key,
+        YAHOO_TW_STOCK_RESOURCE_CACHE_SECONDS,
+    )
+    if cached is not None:
+        return cached
+
+    url = build_yahoo_tw_stock_resource_url(resource, params)
+    req = Request(
+        url,
+        headers={
+            "User-Agent": "Mozilla/5.0",
+            "Accept": "application/json, text/plain, */*",
+            "Referer": referer,
+            "Connection": "close",
+        },
+    )
+    with _urlopen_with_ssl_fallback(req, timeout) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    write_memory_cache("yahoo_tw_stock_resources", cache_key, payload)
+    return payload
+
+
+def fetch_yahoo_margin_period_rows(
+    symbol: str,
+    referer: str,
+    period: str,
+    limit: int = 30,
+) -> list[dict[str, Any]]:
+    payload = fetch_yahoo_tw_stock_resource(
+        "StockServices.creditsWithQuoteStats",
+        {"limit": str(limit), "period": period, "symbol": symbol},
+        referer=referer,
+        timeout=10,
+    )
+    result = normalize_yahoo_margin_credit_rows(payload, symbol, limit, limit)
+    return list((result.get("dailyRows") or [])[:limit]) if result else []
+
+
+def fetch_yahoo_margin_accumulation_rows(symbol: str, referer: str) -> list[dict[str, Any]]:
+    payload = fetch_yahoo_tw_stock_resource(
+        "StockServices.credits",
+        {"accumulation": "true", "symbol": symbol},
+        referer=referer,
+        timeout=10,
+    )
+    return normalize_yahoo_margin_accumulation_rows(payload)
+
+
+def fetch_yahoo_broker_trading(stock: dict[str, Any], limit: int = 15) -> dict[str, Any]:
+    url = build_yahoo_quote_page_url(stock, "broker-trading")
+    try:
+        lines = extract_visible_text_lines(fetch_text(url, timeout=10))
+    except Exception:  # noqa: BLE001
+        LOGGER.exception("Yahoo broker trading fetch failed for %s", stock.get("code"))
+        return {}
+
+    def value_after(label: str) -> str:
+        try:
+            index = lines.index(label)
+        except ValueError:
+            return "--"
+        for value in lines[index + 1:index + 4]:
+            cleaned = str(value).strip()
+            if cleaned and cleaned != label:
+                return cleaned
+        return "--"
+
+    date_text = normalize_yahoo_date_text(value_after("資料時間："))
+    if date_text == "--":
+        for line in lines:
+            if line.startswith("資料時間："):
+                date_text = normalize_yahoo_date_text(line.replace("資料時間：", "", 1).strip() or "--")
+                break
+
+    buy_rows = parse_yahoo_broker_rows_from_lines(lines, "買超券商", {"賣超券商"}, limit)
+    sell_rows = parse_yahoo_broker_rows_from_lines(lines, "賣超券商", {"即時走勢", "相關新聞", "個股公告"}, limit)
+
+    net_text = value_after("主力買賣超(張)")
+    buy_text = value_after("主力買超(張)")
+    sell_text = value_after("主力賣超(張)")
+    volume_ratio = value_after("買賣超佔成交量")
+    if not buy_rows and not sell_rows and net_text == "--":
+        return {}
+    return {
+        "date": date_text,
+        "summary": {
+            "netLots": parse_float(net_text),
+            "buyLots": parse_float(buy_text),
+            "sellLots": parse_float(sell_text),
+            "volumeRatio": volume_ratio,
+        },
+        "buyBrokers": buy_rows,
+        "sellBrokers": sell_rows,
+        "source": "Yahoo 股市主力進出",
+        "sourceLink": url,
+        "sourceNote": "主力進出同步自 Yahoo 股市券商分點頁，呈現實際券商分點買賣超。",
+    }
+
+
+def fetch_yahoo_major_holders(stock: dict[str, Any], limit: int = 260) -> dict[str, Any]:
+    url = build_yahoo_quote_page_url(stock, "major-holders")
+    try:
+        lines = extract_visible_text_lines(fetch_text(url, timeout=10))
+    except Exception:  # noqa: BLE001
+        LOGGER.exception("Yahoo major holders fetch failed for %s", stock.get("code"))
+        return {}
+
+    for header_index in range(0, max(0, len(lines) - 4)):
+        header = [str(item or "").strip() for item in lines[header_index:header_index + 5]]
+        if not (
+            header[0] in {"年度/日期", "日期"}
+            and "外資籌碼" in header[1]
+            and "大戶籌碼" in header[2]
+            and "董監持股" in header[3]
+            and "股價" in header[4]
+        ):
+            continue
+
+        rows: list[dict[str, Any]] = []
+        cursor = header_index + 5
+        while cursor + 4 < len(lines) and len(rows) < limit:
+            date_text = str(lines[cursor] or "").strip()
+            if not re.fullmatch(r"\d{4}/\d{2}/\d{2}", date_text):
+                cursor += 1
+                continue
+            rows.append({
+                "date": normalize_yahoo_date_text(date_text),
+                "foreignChipRatio": parse_float(str(lines[cursor + 1]).replace("%", "")),
+                "majorHolderRatio": parse_float(str(lines[cursor + 2]).replace("%", "")),
+                "directorHoldingRatio": parse_float(str(lines[cursor + 3]).replace("%", "")),
+                "price": parse_float(str(lines[cursor + 4]).replace(",", "")),
+            })
+            cursor += 5
+
+        if rows:
+            latest = rows[0]
+            return {
+                "date": latest.get("date"),
+                "latest": latest,
+                "rows": rows,
+                "source": "Yahoo ?∪?憭扳蝐Ⅳ",
+                "sourceLink": url,
+                "sourceNote": "大戶籌碼同步自 Yahoo 股市大戶籌碼頁，包含外資籌碼、大戶籌碼、董監持股與股價。",
+            }
+
+    try:
+        index = lines.index("年度/日期")
+    except ValueError:
+        return {}
+
+    cursor = index + 1
+    while cursor < len(lines) and lines[cursor] in {"外資籌碼", "大戶籌碼", "董監持股", "股價"}:
+        cursor += 1
+
+    rows: list[dict[str, Any]] = []
+    while cursor + 4 < len(lines) and len(rows) < limit:
+        date_text = str(lines[cursor] or "").strip()
+        if not re.fullmatch(r"\d{4}/\d{2}/\d{2}", date_text):
+            cursor += 1
+            continue
+        row = {
+            "date": normalize_yahoo_date_text(date_text),
+            "foreignChipRatio": parse_float(str(lines[cursor + 1]).replace("%", "")),
+            "majorHolderRatio": parse_float(str(lines[cursor + 2]).replace("%", "")),
+            "directorHoldingRatio": parse_float(str(lines[cursor + 3]).replace("%", "")),
+            "price": parse_float(str(lines[cursor + 4])),
+        }
+        rows.append(row)
+        cursor += 5
+
+    if not rows:
+        return {}
+    latest = rows[0]
+    return {
+        "date": latest.get("date"),
+        "latest": latest,
+        "rows": rows,
+        "source": "Yahoo 股市大戶籌碼",
+        "sourceLink": url,
+        "sourceNote": "大戶籌碼同步自 Yahoo 股市大戶籌碼頁，ETF 若未揭露大戶欄位則顯示該頁提供之外資籌碼序列。",
+    }
+
+
+def fetch_yahoo_institutional_trading(stock: dict[str, Any], limit: int = 1300) -> dict[str, Any]:
+    url = build_yahoo_quote_page_url(stock, "institutional-trading")
+    try:
+        lines = extract_visible_text_lines(fetch_text(url, timeout=10))
+    except Exception:  # noqa: BLE001
+        LOGGER.exception("Yahoo institutional trading fetch failed for %s", stock.get("code"))
+        return {}
+
+    try:
+        overview_start = lines.index("法人買賣總覽")
+    except ValueError:
+        overview_start = -1
+    try:
+        daily_start = lines.index("法人逐日買賣超")
+    except ValueError:
+        daily_start = -1
+
+    date_text = ""
+    if overview_start >= 0:
+        for index in range(overview_start, min(len(lines), overview_start + 12)):
+            if lines[index] == "資料時間：" and index + 1 < len(lines):
+                date_text = normalize_yahoo_date_text(lines[index + 1])
+                break
+
+    overview_rows: list[dict[str, Any]] = []
+    if overview_start >= 0 and daily_start > overview_start:
+        cursor = overview_start
+        names = {"外資", "投信", "自營商", "三大法人"}
+        while cursor + 4 < daily_start:
+            name = str(lines[cursor] or "").strip()
+            if name in names:
+                overview_rows.append({
+                    "name": name,
+                    "buyLots": parse_float(str(lines[cursor + 1] or "")),
+                    "sellLots": parse_float(str(lines[cursor + 2] or "")),
+                    "netLots": parse_float(str(lines[cursor + 3] or "")),
+                    "streak": str(lines[cursor + 4] or "").strip(),
+                })
+                cursor += 5
+            else:
+                cursor += 1
+
+    daily_rows: list[dict[str, Any]] = []
+    if daily_start >= 0:
+        cursor = daily_start
+        while cursor + 7 < len(lines) and len(daily_rows) < limit:
+            raw_date = str(lines[cursor] or "").strip()
+            if re.fullmatch(r"\d{4}/\d{2}/\d{2}", raw_date):
+                daily_rows.append({
+                    "date": normalize_yahoo_date_text(raw_date),
+                    "label": raw_date[5:],
+                    "foreignLotsValue": parse_float(str(lines[cursor + 1] or "")),
+                    "trustLotsValue": parse_float(str(lines[cursor + 2] or "")),
+                    "dealerLotsValue": parse_float(str(lines[cursor + 3] or "")),
+                    "totalLotsValue": parse_float(str(lines[cursor + 4] or "")),
+                    "foreignChipRatio": parse_float(str(lines[cursor + 5] or "").replace("%", "")),
+                    "changePct": parse_float(str(lines[cursor + 6] or "").replace("%", "")),
+                    "volume": parse_float(str(lines[cursor + 7] or "")),
+                })
+                cursor += 8
+            else:
+                cursor += 1
+
+    if not overview_rows and not daily_rows:
+        return {}
+    return {
+        "date": date_text,
+        "overviewRows": overview_rows,
+        "dailyRows": daily_rows,
+        "unit": "張",
+        "source": "Yahoo 股市法人買賣",
+        "sourceLink": url,
+        "sourceNote": "法人買賣同步自 Yahoo 股市法人買賣頁，含總覽與逐日買賣超。",
+    }
+
+
+def fetch_yahoo_margin_trading(stock: dict[str, Any], limit: int = 60) -> dict[str, Any]:
+    url = build_yahoo_quote_page_url(stock, "margin")
+    symbol = build_yahoo_quote_symbol(stock)
+    daily_limit = max(1, int(limit or 60))
+    chart_limit = max(365, daily_limit)
+    try:
+        payload = fetch_yahoo_tw_stock_resource(
+            "StockServices.creditsWithQuoteStats",
+            {"limit": str(chart_limit), "symbol": symbol},
+            referer=url,
+            timeout=10,
+        )
+        resource_result = normalize_yahoo_margin_credit_rows(payload, symbol, daily_limit, chart_limit)
+        if resource_result:
+            period_rows = {
+                "day": list((resource_result.get("dailyRows") or [])[:30]),
+            }
+            for period in ("week", "month", "quarter"):
+                try:
+                    period_rows[period] = fetch_yahoo_margin_period_rows(symbol, url, period, 30)
+                except Exception:  # noqa: BLE001
+                    LOGGER.warning(
+                        "Yahoo margin %s period fetch failed for %s",
+                        period,
+                        stock.get("code"),
+                        exc_info=True,
+                    )
+                    period_rows[period] = []
+            resource_result["marginBalancePeriodRows"] = period_rows
+            try:
+                resource_result["marginSummaryAccumulationRows"] = fetch_yahoo_margin_accumulation_rows(symbol, url)
+            except Exception:  # noqa: BLE001
+                LOGGER.warning(
+                    "Yahoo margin accumulation fetch failed for %s",
+                    stock.get("code"),
+                    exc_info=True,
+                )
+                resource_result["marginSummaryAccumulationRows"] = []
+            return {
+                **resource_result,
+                "source": "Yahoo 股市資券變化",
+                "sourceLink": url,
+                "sourceNote": "資券餘額變化同步自 Yahoo 股市資券變化 API，含融資餘額、融券餘額、借券賣出餘額與逐日增減。",
+            }
+    except Exception:  # noqa: BLE001
+        LOGGER.warning("Yahoo margin resource fetch failed for %s; falling back to page HTML", stock.get("code"), exc_info=True)
+
+    try:
+        html = fetch_text(url, timeout=10)
+        lines = extract_visible_text_lines(html)
+    except Exception:  # noqa: BLE001
+        LOGGER.exception("Yahoo margin trading fetch failed for %s", stock.get("code"))
+        return {}
+    chart_rows, chart_data_key = parse_yahoo_margin_balance_chart_rows(html)
+
+    try:
+        overview_start = lines.index("資券變化總覽")
+    except ValueError:
+        overview_start = -1
+    try:
+        chart_start = lines.index("資券餘額變化")
+    except ValueError:
+        chart_start = -1
+    try:
+        daily_start = lines.index("資券餘額逐日增減")
+    except ValueError:
+        daily_start = -1
+
+    date_text = ""
+    if overview_start >= 0:
+        for index in range(overview_start, min(len(lines), overview_start + 12)):
+            if lines[index] == "資料時間：" and index + 1 < len(lines):
+                date_text = normalize_yahoo_date_text(lines[index + 1])
+                break
+
+    overview_rows: list[dict[str, Any]] = []
+    if overview_start >= 0 and chart_start > overview_start:
+        try:
+            financing_index = lines.index("融資", overview_start, chart_start)
+            short_index = lines.index("融券", financing_index + 1, chart_start)
+            values = [str(item or "").strip() for item in lines[short_index + 1:chart_start]]
+            if len(values) >= 16:
+                overview_rows = [
+                    {
+                        "key": "financing",
+                        "name": "融資",
+                        "buy": parse_float(values[0]),
+                        "sell": parse_float(values[2]),
+                        "repayment": parse_float(values[4]),
+                        "change": parse_float(values[6]),
+                        "balance": parse_float(values[8]),
+                        "utilizationRate": parse_float(values[10].replace("%", "")),
+                        "streak": values[12],
+                    },
+                    {
+                        "key": "short",
+                        "name": "融券",
+                        "buy": parse_float(values[1]),
+                        "sell": parse_float(values[3]),
+                        "repayment": parse_float(values[5]),
+                        "change": parse_float(values[7]),
+                        "balance": parse_float(values[9]),
+                        "utilizationRate": parse_float(values[11].replace("%", "")),
+                        "streak": values[13],
+                        "offsetting": parse_float(values[14]) if len(values) > 14 else None,
+                        "shortFinancingRatio": parse_float(values[15].replace("%", "")) if len(values) > 15 else None,
+                        "ratioStreak": values[16] if len(values) > 16 else "",
+                    },
+                ]
+        except ValueError:
+            overview_rows = []
+
+    daily_rows: list[dict[str, Any]] = []
+    if daily_start >= 0:
+        cursor = daily_start
+        while cursor + 8 < len(lines) and len(daily_rows) < limit:
+            raw_date = str(lines[cursor] or "").strip()
+            if re.fullmatch(r"\d{4}/\d{2}/\d{2}", raw_date):
+                daily_rows.append({
+                    "date": normalize_yahoo_date_text(raw_date),
+                    "label": raw_date[5:],
+                    "financingChange": parse_float(str(lines[cursor + 1] or "")),
+                    "financingBalance": parse_float(str(lines[cursor + 2] or "")),
+                    "financingUtilizationRate": parse_float(str(lines[cursor + 3] or "").replace("%", "")),
+                    "shortChange": parse_float(str(lines[cursor + 4] or "")),
+                    "shortBalance": parse_float(str(lines[cursor + 5] or "")),
+                    "shortUtilizationRate": parse_float(str(lines[cursor + 6] or "").replace("%", "")),
+                    "shortFinancingRatio": parse_float(str(lines[cursor + 7] or "").replace("%", "")),
+                    "offsetting": parse_float(str(lines[cursor + 8] or "")),
+                })
+                cursor += 9
+            else:
+                cursor += 1
+
+    if chart_rows:
+        latest_chart = chart_rows[-1]
+        if not date_text:
+            date_text = str(latest_chart.get("date") or "")
+        if not daily_rows:
+            daily_rows = list(reversed(chart_rows[-daily_limit:]))
+
+    if not overview_rows and not daily_rows and not chart_rows:
+        return {}
+    return {
+        "date": date_text,
+        "overviewRows": overview_rows,
+        "dailyRows": daily_rows,
+        "marginBalancePeriodRows": {"day": daily_rows[:30]},
+        "marginSummaryAccumulationRows": [],
+        "marginBalanceChartRows": chart_rows,
+        "marginBalanceChartDataKey": chart_data_key,
+        "marginBalanceChartSource": "Yahoo embedded marginBalanceChart",
+        "unit": "張",
+        "source": "Yahoo 股市資券變化",
+        "sourceLink": url,
+        "sourceNote": "資券餘額變化同步自 Yahoo 股市資券變化頁，含融資餘額、融券餘額、借券賣出餘額與逐日增減。",
+    }
+
+
+def fetch_etf_dividend_info(stock: dict[str, Any], limit: int = 6) -> dict[str, Any]:
+    market = str(stock.get("market") or "TWSE").upper()
+    suffix = "TWO" if market == "TPEX" else "TW"
+    symbol = f"{stock['code']}.{suffix}"
+    url = f"https://tw.stock.yahoo.com/quote/{quote(symbol, safe='')}/dividend"
+    html = fetch_text(url, timeout=20)
+
+    fundamental: dict[str, Any] = {}
+    fundamental_marker = '"QuoteFundamental":{"fundamental":{"data":'
+    fundamental_index = html.find(fundamental_marker)
+    if fundamental_index >= 0:
+        start = html.find("{", fundamental_index + len(fundamental_marker) - 1)
+        segment = extract_balanced_segment(html, start, "{", "}")
+        if segment:
+            try:
+                fundamental = json.loads(segment)
+            except json.JSONDecodeError:
+                fundamental = {}
+
+    dividend_items: list[dict[str, Any]] = []
+    dividend_key_match = re.search(r'"dividendDataKey":"([^"]+)"', html)
+    if dividend_key_match:
+        key = dividend_key_match.group(1)
+        marker = f'"{key}":{{"data":'
+        key_index = html.find(marker)
+        if key_index >= 0:
+            start = html.find("{", key_index + len(marker) - 1)
+            segment = extract_balanced_segment(html, start, "{", "}")
+            if segment:
+                try:
+                    dividend_data = json.loads(segment)
+                    dividend_items = [
+                        item for item in dividend_data.get("dividends", [])
+                        if item.get("recordType") == "SUB"
+                    ][:limit]
+                except (json.JSONDecodeError, AttributeError):
+                    dividend_items = []
+
+    latest = fundamental.get("latestDividend") or {}
+    latest_cash = latest.get("exDividend") or {}
+    ex_dividend = fundamental.get("exDividend") or {}
+    recent = []
+    for item in dividend_items:
+        cash = item.get("exDividend") or {}
+        recent.append({
+            "year": str(item.get("year") or "--"),
+            "period": str(item.get("period") or "--"),
+            "exDate": format_yahoo_iso_date(item.get("exDate") or cash.get("date")),
+            "cashDividend": yahoo_number_text(cash.get("cash") or item.get("totalDividend")),
+            "cashPayDate": format_yahoo_iso_date(cash.get("cashPayDate")),
+            "yieldByExDate": yahoo_number_text(item.get("ytmCashByExDate")),
+            "accYieldByPayDateYear": yahoo_number_text(item.get("ytmCashAccByPayDateY")),
+            "previousClose": yahoo_number_text(item.get("exDatePreviousClose")),
+            "recoveryDays": yahoo_number_text(cash.get("recoveryDays")),
+        })
+
+    return {
+        "title": "ETF 股利資訊",
+        "summary": "ETF 配息資料同步自 Yahoo 股市股利政策頁，呈現最新配息與近次除息紀錄。",
+        "symbol": symbol,
+        "latest": {
+            "year": str(latest.get("year") or "--"),
+            "period": str(latest.get("period") or "--"),
+            "cashDividend": yahoo_number_text(latest_cash.get("cash")),
+            "exDate": format_yahoo_iso_date(latest_cash.get("date") or ex_dividend.get("date")),
+            "cashPayDate": format_yahoo_iso_date(latest_cash.get("cashPayDate") or ex_dividend.get("cashPayDate")),
+            "isUpcoming": bool(latest.get("isUpcoming") or latest_cash.get("isUpcoming")),
+        },
+        "totals": {
+            "totalDividends": yahoo_number_text(fundamental.get("totalDividends")),
+            "averageYield": yahoo_number_text(fundamental.get("avgYTM")),
+            "averageYears": yahoo_number_text(fundamental.get("avgYear")),
+            "continuousYears": yahoo_number_text(fundamental.get("continuous")),
+        },
+        "recent": recent,
+        "sourceNote": "資料來源：Yahoo 股市股利政策頁。",
+        "sourceLink": url,
+    }
