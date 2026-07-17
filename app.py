@@ -35,6 +35,23 @@ from derivatives.futures import build_source_pending_market_item, is_source_pend
 from derivatives.institution import build_institution_payload_from_rows, build_pending_institution_payload, normalize_institution_row, parse_institution_csv
 from derivatives.options import build_unavailable_option_chain as build_derivatives_unavailable_option_chain
 from derivatives_store import DerivativesStore
+from cache import (
+    BUNDLED_CACHE_FILE,
+    CACHE_FILE,
+    CACHE_FLIGHT_WAIT_SECONDS,
+    CACHE_VERSION,
+    PENNY_SECTOR_RECOMMENDATION_CACHE_SECONDS,
+    _yahoo_options_crumb,
+    cache_data,
+    cache_flight_lock,
+    cache_flights,
+    cache_lock,
+    cache_refresh_lock,
+    penny_sector_recommendation_cache,
+    penny_sector_recommendation_lock,
+    taifex_options_chain_inflight,
+    taifex_options_chain_inflight_lock,
+)
 from security import (
     add_security_headers,
     enforce_api_rate_limit,
@@ -101,8 +118,6 @@ from market_config import (
 
 
 BASE_DIR = Path(__file__).resolve().parent
-BUNDLED_CACHE_FILE = BASE_DIR / "twse-cache.json"
-CACHE_FILE = Path(os.environ.get("MARKET_PULSE_CACHE_FILE", str(BUNDLED_CACHE_FILE)))
 DERIVATIVES_STORE = DerivativesStore(os.environ.get("DERIVATIVES_DB_PATH", str(BASE_DIR / "derivatives-platform.sqlite3")))
 DERIVATIVES_STORE.initialize()
 LOG_LEVEL = str(os.environ.get("MARKET_PULSE_LOG_LEVEL") or "INFO").upper()
@@ -111,7 +126,6 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 LOGGER = logging.getLogger("market_pulse")
-CACHE_VERSION = 13
 try:
     TZ = ZoneInfo("Asia/Taipei")
 except ZoneInfoNotFoundError:
@@ -475,16 +489,8 @@ app.after_request(add_security_headers)
 app.before_request(enforce_api_rate_limit)
 
 
-cache_lock = threading.RLock()
-cache_refresh_lock = threading.Lock()
-cache_flight_lock = threading.Lock()
-cache_flights: dict[str, threading.Event] = {}
-CACHE_FLIGHT_WAIT_SECONDS = 120
 background_updater_lock = threading.Lock()
 background_updater_started = False
-penny_sector_recommendation_lock = threading.Lock()
-penny_sector_recommendation_cache: dict[str, Any] = {}
-PENNY_SECTOR_RECOMMENDATION_CACHE_SECONDS = 30 * 60
 # TAIFEX's HTML query-form endpoints (DailyMarketReport / futures data download) are not a
 # real API and are fragile under bursty concurrent traffic, so calls to them are throttled
 # to a small bounded number in flight (with a short pacing sleep per call) instead of being
@@ -492,12 +498,6 @@ PENNY_SECTOR_RECOMMENDATION_CACHE_SECONDS = 30 * 60
 # rather than caching or fabricating data to hide slow/blocked responses.
 taifex_open_interest_lock = threading.Semaphore(2)
 TAIFEX_FORM_QUERY_CONCURRENCY = 2
-# Coalesces concurrent requests for the same option-chain cache key (e.g. a page that fires
-# /api/options/chain and /api/ai-analysis for the same underlying at once) so only one of them
-# runs the ~12-day TAIFEX scan; the rest wait for and reuse that real result instead of each
-# triggering their own redundant scan.
-taifex_options_chain_inflight: dict[str, threading.Event] = {}
-taifex_options_chain_inflight_lock = threading.Lock()
 TAIFEX_FUTURES_DAILY_OPENAPI_URL = "https://openapi.taifex.com.tw/v1/DailyMarketReportFut"
 TAIFEX_OPTIONS_DAILY_OPENAPI_URL = "https://openapi.taifex.com.tw/v1/DailyMarketReportOpt"
 TAIFEX_OPTIONS_PRODUCT_DAILY_OPENAPI_URL = "https://openapi.taifex.com.tw/v1/Daily_OPT"
@@ -746,33 +746,6 @@ YAHOO_TW_FUTURE_TECHNICAL_GROUPS = {
         ],
     },
 }
-cache_data: dict[str, Any] = {
-    "site_data": None,
-    "all_stocks": [],
-    "market_date": None,
-    "cached_at": None,
-    "last_error": None,
-    "stock_details": {},
-    "sector_charts": {},
-    "global_markets": {},
-    "international_market_indexes": {"stored_at": 0.0, "payload": []},
-    "global_market_items": {},
-    "external_text": {},
-    "treasury_yield_curve_rows": {"stored_at": 0.0, "rows": []},
-    "us_options_chains": {},
-    "yahoo_tw_option_chain": {},
-    "yahoo_tw_stock_resources": {},
-    "us_etf_center": {},
-    "taifex_options_chain": {},
-    "us_listed_universe": {"stored_at": 0.0, "items": [], "totals": {}},
-    "shareholder_distributions": {},
-    "shareholder_distributions_stored_at": 0.0,
-    "live_search_dedup": {},
-    "twse_company_industries": {"stored_at": 0.0, "items": {}},
-    "sector_fund_flow": {},
-    "yahoo_tw_future_quotes": {"stored_at": 0.0, "items": {}},
-    "yahoo_tw_future_technical_candles": {},
-}
 LIVE_SEARCH_DEDUP_SECONDS = 8.0
 YAHOO_OPTIONS_CHAIN_BASE = "https://query1.finance.yahoo.com/v7/finance/options"
 YAHOO_OPTIONS_CRUMB_URL = "https://query1.finance.yahoo.com/v1/test/getcrumb"
@@ -830,7 +803,6 @@ BYBIT_OPTIONS_BASE_COIN_BY_SYMBOL = {
 }
 _yahoo_options_cookie_jar = CookieJar()
 _yahoo_options_opener = build_opener(HTTPCookieProcessor(_yahoo_options_cookie_jar))
-_yahoo_options_crumb: dict[str, Any] = {"value": "", "stored_at": 0.0}
 
 
 def read_memory_cache(bucket: str, key: str, ttl_seconds: int | float) -> Any | None:
