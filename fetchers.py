@@ -111,10 +111,32 @@ batches 2-3:
   (`build_yahoo_class_quote_cards`, which also calls this batch's
   `fetch_yahoo_class_quote_pages` back via app.py's re-import).
 
-Later batches move the remaining per-source fetchers (everything else). One
-later-batch function (`fetch_barchart_options_context`) intentionally does NOT
-go through this module's helpers - it uses its own cookie-jar opener -
-documented when it moves.
+Batch 5 (everything else, 20 functions - the last batch) brings TDCC, Google
+News, US Treasury, FRED, Trading Economics, NASDAQ, NYSE, Barchart, and the
+cross-source composite dispatchers (`fetch_market_macro_factors`,
+`fetch_us_listed_universe_with_fallback`, `fetch_us_etf_directory_items`).
+Unlike batches 2-4, none of this batch's shared dependencies are app.py
+"builder" domain code - they're all generic, pure parsing/formatting helpers
+(`is_etf_stock`, `build_stock_news_fallback`, `collect_futures_until_deadline`,
+`parse_fred_date`, `normalize_us_symbol_for_yahoo`, `filter_us_etf_items`,
+`barchart_options_headers`, `parse_public_options_number` - the last one is a
+30+-call-site sibling of `parse_float`), so they all move here and get
+imported back into app.py, with zero deferred `import app` calls needed
+anywhere in this batch. Exclusive helpers moving alongside their sole callers:
+`build_yahoo_macro_snapshot`, `parse_tdcc_holding_distributions`,
+`extract_meta_description`, `parse_english_market_date`, the
+`nasdaq_data`/`nasdaq_status_ok` pair, `parse_nasdaq_symbol_directory`,
+`normalize_nyse_directory_item`, `parse_barchart_expiration_date`.
+`fetch_barchart_options_context` is this batch's cookie-jar-opener exception
+(builds a fresh `CookieJar`/opener per call, hands the live opener back to
+`build_barchart_futures_options_chain` in app.py for a follow-up authenticated
+request - a stateful return-value hand-off, not shared module state, so
+moving the fetch function is safe).
+
+This batch also resolves the last `fetch_*` gap `cache.py`'s module docstring
+flagged: `build_site_data`/`refresh_tpex_cache` now resolve every direct
+`fetch_*` call through `fetchers.py` imports (`fetch_market_macro_factors` was
+the only holdout).
 """
 from __future__ import annotations
 
@@ -127,8 +149,9 @@ import math
 import re
 import threading
 import time
+import xml.etree.ElementTree as ET
 import zipfile
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 from calendar import monthrange
 from datetime import datetime, timedelta, timezone
 from html import unescape
@@ -148,22 +171,35 @@ from cache import (
     claim_cache_flight,
     finish_cache_flight,
     read_memory_cache,
+    save_disk_cache,
     taifex_options_chain_inflight,
     taifex_options_chain_inflight_lock,
     write_memory_cache,
 )
 from market_config import (
+    FRED_GRAPH_CSV_BASE,
     GLOBAL_MARKET_CACHE_SECONDS,
+    GOOGLE_NEWS_RSS_BASE,
     INTERNATIONAL_INDEX_SPECS,
     NASDAQ_API_BASE,
+    NASDAQ_LISTED_URL,
+    NASDAQ_OTHER_LISTED_URL,
     NASDAQ_USER_AGENT,
+    NYSE_QUOTES_FILTER_URL,
     TAIFEX_FUTURES_DAILY_URL,
     TAIFEX_OPTIONS_CHAIN_CACHE_SECONDS,
     TAIFEX_OPTIONS_DAILY_URL,
+    TDCC_HOLDING_CACHE_SECONDS,
+    TDCC_HOLDING_DISTRIBUTION_FALLBACK_URL,
+    TDCC_HOLDING_DISTRIBUTION_URL,
     TPEX_OPENAPI_BASE,
+    TRADING_ECONOMICS_TAIWAN_10Y_URL,
     TWSE_BASE,
     TWSE_MARGIN_URL,
     TWSE_OPENAPI_BASE,
+    US_LISTED_UNIVERSE_CACHE_SECONDS,
+    US_MARKET_SEARCH_UNIVERSE,
+    US_TREASURY_YIELD_CURVE_CSV_URL,
     USER_AGENT,
     YAHOO_CHART_BASE,
     YAHOO_CLASS_HOME_URL,
@@ -172,6 +208,9 @@ from market_config import (
     YAHOO_TPEX_ETF_URL,
 )
 from security import _urlopen_with_ssl_fallback
+
+TREASURY_YIELD_CURVE_CACHE_SECONDS = 6 * 60 * 60
+BARCHART_FUTURES_OPTIONS_PAGE_BASE = "https://www.barchart.com/futures/quotes"
 
 YAHOO_TW_FUTURE_CACHE_SECONDS = 60
 YAHOO_TW_OPTION_CACHE_SECONDS = 60
@@ -1414,6 +1453,293 @@ def yahoo_number_text(value: Any) -> str:
     if value in (None, ""):
         return "--"
     return str(value)
+
+
+def is_etf_stock(stock: dict[str, Any]) -> bool:
+    security_type = str(stock.get("securityType") or "").upper()
+    code = str(stock.get("code") or "")
+    name = str(stock.get("name") or "").upper()
+    return security_type == "ETF" or code.startswith("00") or "ETF" in name
+
+
+def build_stock_news_fallback(stock: dict[str, Any], limit: int = 6) -> list[dict[str, Any]]:
+    code = str(stock.get("code") or "").strip()
+    name = str(stock.get("name") or "").strip()
+    market = str(stock.get("market") or "").strip().upper()
+    suffix = "TWO" if market == "TPEX" else "TW"
+    yahoo_link = f"https://tw.stock.yahoo.com/quote/{quote(f'{code}.{suffix}', safe='')}/news"
+    is_etf = is_etf_stock(stock)
+    google_query = f"{code} {name} ETF 配息 成分股 公告" if is_etf else f"{code} {name} 台股 新聞"
+    google_link = f"https://news.google.com/search?{urlencode({'q': google_query, 'hl': 'zh-TW', 'gl': 'TW', 'ceid': 'TW:zh-Hant'})}"
+    fallback_items = [
+        {
+            "title": f"{code} {name} {'Yahoo ETF 新聞' if is_etf else 'Yahoo 個股新聞'}",
+            "link": yahoo_link,
+            "source": "Yahoo 奇摩股市",
+            "publishedAt": "即時來源",
+        },
+        {
+            "title": f"{code} {name} Google 新聞搜尋",
+            "link": google_link,
+            "source": "Google 新聞",
+            "publishedAt": "即時來源",
+        },
+        {
+            "title": f"{code} {name} 公開資訊觀測站重大訊息",
+            "link": "https://mops.twse.com.tw/mops/#/web/t05st01",
+            "source": "公開資訊觀測站",
+            "publishedAt": "即時來源",
+        },
+    ]
+    return fallback_items[:limit]
+
+
+def collect_futures_until_deadline(
+    executor: ThreadPoolExecutor,
+    futures: dict[str, Any],
+    timeout: float,
+    list_defaults: set[str] | None = None,
+) -> dict[str, Any]:
+    list_defaults = list_defaults or set()
+    if not futures:
+        return {}
+
+    future_to_key = {future: key for key, future in futures.items()}
+    done, pending = wait(future_to_key.keys(), timeout=timeout)
+    fetched: dict[str, Any] = {}
+    for future in done:
+        key = future_to_key[future]
+        try:
+            fetched[key] = future.result()
+        except Exception:  # noqa: BLE001
+            fetched[key] = [] if key in list_defaults else {}
+
+    for future in pending:
+        key = future_to_key[future]
+        future.cancel()
+        fetched[key] = [] if key in list_defaults else {}
+
+    if pending:
+        executor.shutdown(wait=False, cancel_futures=True)
+    return fetched
+
+
+def parse_fred_date(value: str) -> datetime | None:
+    text = str(value or "").strip()
+    for date_format in ("%Y-%m-%d", "%Y/%m/%d", "%m/%d/%Y"):
+        try:
+            return datetime.strptime(text, date_format)
+        except ValueError:
+            continue
+    return None
+
+
+def extract_meta_description(html: str) -> str:
+    match = re.search(r'<meta[^>]+name=["\']description["\'][^>]+content=["\']([^"\']+)["\']', html, re.I)
+    if not match:
+        match = re.search(r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+name=["\']description["\']', html, re.I)
+    return unescape(match.group(1)) if match else ""
+
+
+def parse_english_market_date(value: str) -> datetime | None:
+    text = str(value or "").strip()
+    for date_format in ("%B %d, %Y", "%b %d, %Y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(text, date_format)
+        except ValueError:
+            continue
+    return None
+
+
+def nasdaq_status_ok(payload: Any) -> bool:
+    if not isinstance(payload, dict):
+        return False
+    status = payload.get("status") or {}
+    code = status.get("rCode")
+    return code in {200, "200", None}
+
+
+def nasdaq_data(payload: Any) -> Any:
+    if not nasdaq_status_ok(payload):
+        return None
+    return payload.get("data") if isinstance(payload, dict) else None
+
+
+def normalize_us_symbol_for_yahoo(symbol: str) -> str:
+    clean = str(symbol or "").strip().upper()
+    if "." in clean and not clean.startswith("^"):
+        return clean.replace(".", "-")
+    return clean
+
+
+def parse_nasdaq_symbol_directory(text: str, source: str) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if not lines or "|" not in lines[0]:
+        return rows
+    headers = lines[0].split("|")
+    exchange_map = {
+        "A": "NYSE American",
+        "N": "NYSE",
+        "P": "NYSE Arca",
+        "Z": "Cboe BZX",
+        "V": "IEX",
+    }
+    for line in lines[1:]:
+        if line.startswith("File Creation Time"):
+            break
+        values = line.split("|")
+        if len(values) != len(headers):
+            continue
+        item = dict(zip(headers, values))
+        test_issue = str(item.get("Test Issue") or "").upper()
+        if test_issue == "Y":
+            continue
+        symbol = str(item.get("Symbol") or item.get("ACT Symbol") or "").strip().upper()
+        name = str(item.get("Security Name") or symbol).strip()
+        if not symbol or not name:
+            continue
+        is_etf = str(item.get("ETF") or "").upper() == "Y"
+        exchange_code = str(item.get("Exchange") or "").upper()
+        exchange = "NASDAQ" if source == "Nasdaq Trader Nasdaq Listed" else exchange_map.get(exchange_code, exchange_code)
+        rows.append(normalize_us_market_search_item({
+            "symbol": normalize_us_symbol_for_yahoo(symbol),
+            "name": name,
+            "type": "Listed ETF" if is_etf else "Listed Equity",
+            "group": "美股 ETF" if is_etf else "美股個股",
+            "exchange": exchange,
+            "source": source,
+        }))
+    return rows
+
+
+def normalize_nyse_directory_item(item: dict[str, Any], group: str) -> dict[str, Any] | None:
+    symbol = str(item.get("normalizedTicker") or item.get("symbolExchangeTicker") or "").strip().upper()
+    name = str(item.get("instrumentName") or symbol).strip()
+    if not symbol or not name:
+        return None
+    return normalize_us_market_search_item({
+        "symbol": symbol,
+        "name": name.title() if name.isupper() else name,
+        "type": "NYSE 個股" if group == "美股個股" else "NYSE ETF",
+        "group": group,
+        "exchange": item.get("url", "").split("/quote/")[-1].split(":")[0] if item.get("url") else "",
+        "nyseUrl": item.get("url") or "",
+        "source": "NYSE Listings Directory",
+    })
+
+
+def filter_us_etf_items(items: list[dict[str, Any]], query: str = "") -> list[dict[str, Any]]:
+    keyword = query.strip().lower()
+    results = []
+    for item in items:
+        normalized = normalize_us_market_search_item(item)
+        if normalized.get("group") != "美股 ETF":
+            continue
+        if keyword:
+            haystack = " ".join(str(normalized.get(key) or "").lower() for key in ("symbol", "name", "type", "exchange"))
+            if keyword not in haystack:
+                continue
+        results.append(normalized)
+    return results
+
+
+def parse_barchart_expiration_date(date_text: str | None) -> tuple[str | None, int | None]:
+    cleaned = str(date_text or "").strip()
+    if not cleaned:
+        return None, None
+    for pattern in ("%m/%d/%y", "%m/%d/%Y"):
+        try:
+            parsed = datetime.strptime(cleaned, pattern).replace(tzinfo=timezone.utc)
+            return parsed.strftime("%Y-%m-%d"), int(parsed.timestamp())
+        except ValueError:
+            continue
+    return None, None
+
+
+def barchart_options_headers(accept: str = "application/json", referer: str | None = None) -> dict[str, str]:
+    headers = {
+        "User-Agent": NASDAQ_USER_AGENT,
+        "Accept": accept,
+    }
+    if referer:
+        headers["Referer"] = referer
+    return headers
+
+
+def parse_public_options_number(value: Any) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, (int, float)) and math.isfinite(float(value)):
+        return float(value)
+    cleaned = re.sub(r"[^0-9.+-]", "", str(value).replace(",", "").strip())
+    if not cleaned or cleaned in {"+", "-", ".", "+.", "-."}:
+        return None
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
+
+
+def build_yahoo_macro_snapshot(symbol: str) -> dict[str, Any] | None:
+    chart = fetch_yahoo_symbol_chart(symbol, "3mo", "1d")
+    series = build_yahoo_chart_series(chart, volume_divisor=1)
+    closes = [parse_float(str(item.get("close") or "")) for item in series]
+    closes = [value for value in closes if value is not None]
+    if len(closes) < 2:
+        return None
+    latest = closes[-1]
+    previous = closes[-2]
+    change = latest - previous
+    pct = change / previous * 100 if previous else None
+    return {
+        "symbol": symbol,
+        "value": latest,
+        "previous": previous,
+        "change": change,
+        "pct": pct,
+        "date": series[-1].get("date") if series else None,
+        "sourceLink": f"https://finance.yahoo.com/quote/{quote(symbol, safe='')}/",
+    }
+
+
+def parse_tdcc_holding_distributions(text: str) -> dict[str, dict[str, Any]]:
+    distributions: dict[str, dict[str, Any]] = {}
+    reader = csv.DictReader(io.StringIO(text.lstrip("﻿")))
+    for row in reader:
+        code = str(row.get("證券代號") or "").strip()
+        grade = parse_float(str(row.get("持股分級") or ""))
+        ratio = parse_float(str(row.get("占集保庫存數比例%") or ""))
+        if not code or grade is None or ratio is None or int(grade) >= 16:
+            continue
+
+        item = distributions.setdefault(
+            code,
+            {
+                "date": str(row.get("資料日期") or "").strip(),
+                "largeHolderRatio": 0.0,
+                "retailHolderRatio": 0.0,
+                "otherHolderRatio": 0.0,
+            },
+        )
+        if int(grade) <= 3:
+            item["retailHolderRatio"] += ratio
+        elif int(grade) >= 12:
+            item["largeHolderRatio"] += ratio
+        else:
+            item["otherHolderRatio"] += ratio
+
+    for item in distributions.values():
+        raw_date = item["date"]
+        if re.fullmatch(r"\d{8}", raw_date):
+            item["date"] = datetime.strptime(raw_date, "%Y%m%d").strftime("%Y-%m-%d")
+        for key in ("largeHolderRatio", "retailHolderRatio", "otherHolderRatio"):
+            item[key] = round(item[key], 2)
+        item["largeHolderThreshold"] = "400 張以上"
+        item["retailHolderThreshold"] = "10 張以下"
+        item["source"] = "臺灣集中保管結算所"
+        item["sourceLink"] = TDCC_HOLDING_DISTRIBUTION_URL
+    return distributions
 
 
 def build_taifex_futures_interval_candles(
@@ -3874,4 +4200,580 @@ def fetch_etf_dividend_info(stock: dict[str, Any], limit: int = 6) -> dict[str, 
         "recent": recent,
         "sourceNote": "資料來源：Yahoo 股市股利政策頁。",
         "sourceLink": url,
+    }
+
+
+def fetch_tdcc_holding_distribution_text(timeout: int = 12) -> str:
+    attempts = (
+        TDCC_HOLDING_DISTRIBUTION_URL,
+        TDCC_HOLDING_DISTRIBUTION_URL,
+        TDCC_HOLDING_DISTRIBUTION_FALLBACK_URL,
+    )
+    errors: list[str] = []
+    last_exc: Exception | None = None
+    for index, url in enumerate(attempts):
+        try:
+            return fetch_text(url, timeout=timeout)
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+            errors.append(f"{url}: {exc!r}")
+            if index < len(attempts) - 1:
+                time.sleep(0.5)
+    raise RuntimeError("TDCC holding distribution unavailable after retries: " + " | ".join(errors)) from last_exc
+
+
+def fetch_market_macro_factors(market_date: str) -> dict[str, Any]:
+    tasks = {
+        "dxy": lambda: build_yahoo_macro_snapshot("DX-Y.NYB"),
+        "us10y": lambda: build_yahoo_macro_snapshot("^TNX"),
+        "usdTwd": lambda: build_yahoo_macro_snapshot("TWD=X"),
+        "marginTrading": fetch_twse_margin_summary,
+        "txOpenInterest": lambda: fetch_taifex_tx_open_interest(market_date),
+    }
+    result: dict[str, Any] = {}
+    with ThreadPoolExecutor(max_workers=len(tasks)) as executor:
+        futures = {executor.submit(callback): key for key, callback in tasks.items()}
+        for future in as_completed(futures):
+            key = futures[future]
+            try:
+                value = future.result()
+            except Exception:  # noqa: BLE001
+                value = None
+            if value:
+                result[key] = value
+    return result
+
+
+def fetch_shareholder_distribution(code: str) -> dict[str, Any]:
+    def unavailable(reason: str) -> dict[str, Any]:
+        return {
+            "available": False,
+            "date": "--",
+            "largeHolderRatio": None,
+            "retailHolderRatio": None,
+            "otherHolderRatio": None,
+            "largeHolderThreshold": "400 張以上",
+            "retailHolderThreshold": "10 張以下",
+            "source": "臺灣集中保管結算所",
+            "sourceLink": TDCC_HOLDING_DISTRIBUTION_URL,
+            "sourceNote": reason,
+        }
+
+    normalized_code = str(code or "").strip().upper()
+    now = time.time()
+    with cache_lock:
+        stored_at = cache_data["shareholder_distributions_stored_at"]
+        cached = cache_data["shareholder_distributions"].get(normalized_code)
+        cache_fresh = bool(stored_at and now - stored_at < TDCC_HOLDING_CACHE_SECONDS)
+    if cache_fresh:
+        return cached or unavailable("集保持股分布目前未提供此代號資料。")
+
+    try:
+        distributions = parse_tdcc_holding_distributions(fetch_tdcc_holding_distribution_text(timeout=12))
+    except Exception:  # noqa: BLE001
+        LOGGER.exception("TDCC shareholder distribution fetch failed")
+        if cached:
+            return {
+                **cached,
+                "stale": True,
+                "sourceNote": "集保資料來源暫時無法連線，顯示最近一次快取資料。",
+            }
+        return unavailable("集保資料來源暫時無法連線。")
+    if not distributions:
+        if cached:
+            return {
+                **cached,
+                "stale": True,
+                "sourceNote": "集保資料來源暫時未回傳可解析資料，顯示最近一次快取資料。",
+            }
+        return unavailable("集保資料來源暫時未回傳可解析資料。")
+    with cache_lock:
+        cache_data["shareholder_distributions"] = distributions
+        cache_data["shareholder_distributions_stored_at"] = now
+    return distributions.get(normalized_code, unavailable("集保持股分布目前未提供此代號資料。"))
+
+
+def fetch_stock_news(stock: dict[str, Any], limit: int = 6) -> list[dict[str, Any]]:
+    code = str(stock.get("code") or "").strip()
+    name = str(stock.get("name") or "").strip()
+    is_etf = is_etf_stock(stock)
+    items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    if is_etf:
+        queries = [
+            f'"{name}" {code} ETF when:30d',
+            f'"{name}" ETF 配息 成分股',
+            f'{code} ETF 投信 公告',
+        ]
+    else:
+        queries = [
+            f'"{name}" {code} 股票 when:30d',
+            f'"{name}" {code} 台股',
+            f'{name} {code} 財報 法人',
+        ]
+    queries = [query for query in queries if query.strip()]
+
+    def fetch_news_query(query: str) -> list[dict[str, Any]]:
+        url = f"{GOOGLE_NEWS_RSS_BASE}?{urlencode({'q': query, 'hl': 'zh-TW', 'gl': 'TW', 'ceid': 'TW:zh-Hant'})}"
+        try:
+            xml_text = fetch_text(url, timeout=7)
+            root = ET.fromstring(xml_text)
+        except Exception:  # noqa: BLE001
+            LOGGER.exception("Google News RSS fetch failed for %s", code)
+            return []
+        query_items: list[dict[str, Any]] = []
+        for item in root.findall("./channel/item"):
+            title = str(item.findtext("title") or "").strip()
+            link = str(item.findtext("link") or "").strip()
+            published = str(item.findtext("pubDate") or "").strip()
+            source_node = item.find("source")
+            source = str(source_node.text or "").strip() if source_node is not None else ""
+            if (
+                not title
+                or not link
+                or title in seen
+                or "youtube.com/" in title.lower()
+                or "watch?" in title.lower()
+                or source.lower() == "cmoney"
+                or "股市爆料同學會" in title
+            ):
+                continue
+            try:
+                published = datetime.strptime(published, "%a, %d %b %Y %H:%M:%S %Z").strftime("%Y-%m-%d %H:%M")
+            except ValueError:
+                pass
+            query_items.append(
+                {
+                    "title": title,
+                    "link": link,
+                    "source": source or "Google 新聞",
+                    "publishedAt": published or "--",
+                }
+            )
+            if len(query_items) >= limit:
+                break
+        return query_items
+
+    executor = ThreadPoolExecutor(max_workers=min(3, len(queries)))
+    try:
+        futures = {query: executor.submit(fetch_news_query, query) for query in queries}
+        fetched = collect_futures_until_deadline(executor, futures, 8, {"news"})
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)
+
+    for query in queries:
+        for item in fetched.get(query, []):
+            title = str(item.get("title") or "")
+            if title in seen:
+                continue
+            seen.add(title)
+            items.append(item)
+            if len(items) >= limit:
+                break
+        if len(items) >= limit:
+            break
+
+    if items:
+        return items[:limit]
+
+    return build_stock_news_fallback(stock, limit)
+
+
+def fetch_us_treasury_yield_curve_rows() -> list[tuple[datetime, dict[str, str]]]:
+    now = time.time()
+    with cache_lock:
+        cached = cache_data.get("treasury_yield_curve_rows") or {}
+    if cached and now - float(cached.get("stored_at") or 0) < TREASURY_YIELD_CURVE_CACHE_SECONDS:
+        rows = cached.get("rows") or []
+        if rows:
+            return rows
+
+    text = fetch_text(US_TREASURY_YIELD_CURVE_CSV_URL, timeout=12)
+    rows = list(csv.DictReader(io.StringIO(text)))
+    dated_rows: list[tuple[datetime, dict[str, str]]] = []
+    for row in rows:
+        date_text = str(row.get("Date") or row.get("DATE") or "").strip()
+        try:
+            dated_rows.append((datetime.strptime(date_text, "%m/%d/%Y"), row))
+        except ValueError:
+            continue
+    sorted_rows = sorted(dated_rows, key=lambda item: item[0])
+    if sorted_rows:
+        with cache_lock:
+            cache_data["treasury_yield_curve_rows"] = {"stored_at": now, "rows": sorted_rows}
+        save_disk_cache()
+    return sorted_rows
+
+
+def fetch_fred_observation_rows(series_id: str, timeout: int = 8) -> list[tuple[datetime, float]]:
+    clean_id = str(series_id or "").strip().upper()
+    if not clean_id:
+        return []
+    url = f"{FRED_GRAPH_CSV_BASE}?{urlencode({'id': clean_id})}"
+    text = fetch_text(url, timeout=timeout)
+    rows = list(csv.DictReader(io.StringIO(text)))
+    observations: list[tuple[datetime, float]] = []
+    for row in rows:
+        date_value = parse_fred_date(str(row.get("observation_date") or row.get("DATE") or row.get("date") or ""))
+        if date_value is None:
+            continue
+        raw_value = row.get(clean_id)
+        if raw_value is None:
+            value_columns = [value for key, value in row.items() if key and key.lower() not in {"observation_date", "date"}]
+            raw_value = value_columns[0] if value_columns else None
+        observed_value = parse_float(str(raw_value or ""))
+        if observed_value is None:
+            continue
+        observations.append((date_value, observed_value))
+    return sorted(observations, key=lambda item: item[0])
+
+
+def fetch_trading_economics_taiwan_10y(timeout: int = 10) -> dict[str, Any] | None:
+    html = fetch_text(TRADING_ECONOMICS_TAIWAN_10Y_URL, timeout=timeout)
+    description = extract_meta_description(html)
+    if not description:
+        return None
+    value_match = re.search(r"Taiwan\s+10Y\s+Bond\s+Yield.*?\bto\s+([0-9]+(?:\.[0-9]+)?)%\s+on\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})", description, re.I)
+    if not value_match:
+        value_match = re.search(r"([0-9]+(?:\.[0-9]+)?)%\s+on\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})", description, re.I)
+    if not value_match:
+        return None
+    close_value = parse_float(value_match.group(1))
+    date_value = parse_english_market_date(value_match.group(2))
+    if close_value is None or date_value is None:
+        return None
+    change = None
+    change_match = re.search(r"marking\s+a\s+([0-9]+(?:\.[0-9]+)?)\s+percentage\s+points?\s+(increase|decrease)", description, re.I)
+    if not change_match:
+        change_match = re.search(
+            r"\b(risen|fallen|increased|decreased|gained|lost|climbed|dropped|rose|fell)\s+by\s+([0-9]+(?:\.[0-9]+)?)\s+(?:percentage\s+)?points?",
+            description,
+            re.I,
+        )
+        if change_match:
+            direction_word, magnitude_text = change_match.group(1), change_match.group(2)
+            raw_change = parse_float(magnitude_text)
+            if raw_change is not None:
+                falling_words = {"fallen", "decreased", "lost", "dropped", "fell"}
+                change = -raw_change if direction_word.lower() in falling_words else raw_change
+    else:
+        raw_change = parse_float(change_match.group(1))
+        if raw_change is not None:
+            change = raw_change if change_match.group(2).lower() == "increase" else -raw_change
+    return {
+        "date": date_value.strftime("%Y-%m-%d"),
+        "value": close_value,
+        "change": change,
+        "description": description,
+        "source": "Trading Economics Taiwan 10-Year Government Bond Yield",
+        "sourceStatus": "live",
+    }
+
+
+def fetch_nasdaq_quote_endpoint(symbol: str, endpoint: str, asset_classes: list[str]) -> dict[str, Any]:
+    clean_symbol = quote(symbol.upper(), safe="")
+    for asset_class in asset_classes:
+        try:
+            payload = fetch_nasdaq_json(f"/quote/{clean_symbol}/{endpoint}?assetclass={asset_class}", timeout=10)
+        except Exception:  # noqa: BLE001
+            continue
+        data = nasdaq_data(payload)
+        if data:
+            return {"assetClass": asset_class, "payload": payload, "data": data}
+    return {}
+
+
+def fetch_nasdaq_company_profile(symbol: str) -> dict[str, Any]:
+    try:
+        payload = fetch_nasdaq_json(f"/company/{quote(symbol.upper(), safe='')}/company-profile", timeout=10)
+    except Exception:  # noqa: BLE001
+        return {}
+    data = nasdaq_data(payload)
+    return data if isinstance(data, dict) else {}
+
+
+def fetch_nasdaq_company_financials(symbol: str) -> dict[str, Any]:
+    try:
+        payload = fetch_nasdaq_json(f"/company/{quote(symbol.upper(), safe='')}/financials?frequency=1", timeout=12)
+    except Exception:  # noqa: BLE001
+        return {}
+    data = nasdaq_data(payload)
+    return data if isinstance(data, dict) else {}
+
+
+def fetch_nasdaq_company_institutional_holdings(symbol: str) -> dict[str, Any]:
+    try:
+        payload = fetch_nasdaq_json(f"/company/{quote(symbol.upper(), safe='')}/institutional-holdings", timeout=12)
+    except Exception:  # noqa: BLE001
+        return {}
+    data = nasdaq_data(payload)
+    return data if isinstance(data, dict) else {}
+
+
+def fetch_nasdaq_company_insider_trades(symbol: str) -> dict[str, Any]:
+    try:
+        payload = fetch_nasdaq_json(f"/company/{quote(symbol.upper(), safe='')}/insider-trades", timeout=12)
+    except Exception:  # noqa: BLE001
+        return {}
+    data = nasdaq_data(payload)
+    return data if isinstance(data, dict) else {}
+
+
+def fetch_nasdaq_us_supplement(symbol: str, is_etf_hint: bool = False) -> dict[str, Any]:
+    asset_classes = ["etf", "stocks"] if is_etf_hint else ["stocks", "etf"]
+    supplement: dict[str, Any] = {}
+    with ThreadPoolExecutor(max_workers=7) as executor:
+        futures = {
+            "summary": executor.submit(fetch_nasdaq_quote_endpoint, symbol, "summary", asset_classes),
+            "dividends": executor.submit(fetch_nasdaq_quote_endpoint, symbol, "dividends", asset_classes),
+            "shortInterest": executor.submit(fetch_nasdaq_quote_endpoint, symbol, "short-interest", ["stocks"]),
+            "profile": executor.submit(fetch_nasdaq_company_profile, symbol),
+            "financials": executor.submit(fetch_nasdaq_company_financials, symbol),
+            "institutionalHoldings": executor.submit(fetch_nasdaq_company_institutional_holdings, symbol),
+            "insiderTrades": executor.submit(fetch_nasdaq_company_insider_trades, symbol),
+        }
+        for key, future in futures.items():
+            try:
+                supplement[key] = future.result(timeout=14)
+            except Exception:  # noqa: BLE001
+                supplement[key] = {}
+    return supplement
+
+
+def fetch_us_treasury_yield_curve() -> dict[str, Any]:
+    try:
+        dated_rows = fetch_us_treasury_yield_curve_rows()
+    except Exception:  # noqa: BLE001
+        return {}
+    if not dated_rows:
+        return {}
+    date_value, row = max(dated_rows, key=lambda item: item[0])
+    yields = {
+        key: parse_float(str(row.get(key) or ""))
+        for key in ("3 Mo", "2 Yr", "5 Yr", "10 Yr", "30 Yr")
+    }
+    return {
+        "date": date_value.strftime("%Y-%m-%d"),
+        "yields": {key: value for key, value in yields.items() if value is not None},
+        "source": "U.S. Treasury Daily Treasury Par Yield Curve",
+    }
+
+
+def fetch_nasdaq_trader_us_listed_universe(force: bool = False) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    now = time.time()
+    with cache_lock:
+        cached = cache_data.get("us_listed_universe") or {}
+        if (
+            not force
+            and cached.get("items")
+            and now - float(cached.get("stored_at") or 0) < US_LISTED_UNIVERSE_CACHE_SECONDS
+        ):
+            return list(cached.get("items") or []), dict(cached.get("totals") or {})
+
+    is_leader, flight = claim_cache_flight("us-listed-universe")
+    if not is_leader:
+        flight.wait(CACHE_FLIGHT_WAIT_SECONDS)
+        with cache_lock:
+            refreshed = cache_data.get("us_listed_universe") or {}
+            if refreshed.get("items"):
+                return list(refreshed.get("items") or []), dict(refreshed.get("totals") or {})
+        raise RuntimeError("美股上市清單同步未完成，請稍後再試")
+
+    try:
+        sources = [
+            (NASDAQ_LISTED_URL, "Nasdaq Trader Nasdaq Listed"),
+            (NASDAQ_OTHER_LISTED_URL, "Nasdaq Trader Other Listed"),
+        ]
+        items: list[dict[str, Any]] = []
+        for url, source in sources:
+            text = fetch_text(url, timeout=12)
+            items.extend(parse_nasdaq_symbol_directory(text, source))
+
+        merged: dict[str, dict[str, Any]] = {}
+        for item in [*items, *US_MARKET_SEARCH_UNIVERSE]:
+            symbol = item.get("symbol")
+            if symbol and symbol not in merged:
+                merged[symbol] = normalize_us_market_search_item(item)
+        results = sorted(merged.values(), key=lambda item: (item.get("group") != "美股個股", item.get("symbol") or ""))
+        totals = {
+            "美股個股": sum(1 for item in results if item.get("group") == "美股個股"),
+            "美股 ETF": sum(1 for item in results if item.get("group") == "美股 ETF"),
+        }
+        with cache_lock:
+            cache_data["us_listed_universe"] = {"stored_at": now, "items": results, "totals": totals}
+        return results, totals
+    finally:
+        finish_cache_flight("us-listed-universe", flight)
+
+
+def fetch_us_listed_universe_with_fallback(force: bool = False) -> tuple[list[dict[str, Any]], dict[str, int], str]:
+    """Nasdaq Trader is the primary live symbol directory; NYSE's directory is a second
+    independent live source before ever falling back to the small built-in seed list."""
+    try:
+        universe, totals = fetch_nasdaq_trader_us_listed_universe(force)
+        return universe, totals, "Nasdaq Trader 官方 Symbol Directory"
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.warning("Nasdaq Trader listed universe fetch failed, trying NYSE directory: %s", exc)
+    try:
+        equities, equity_total = fetch_nyse_directory_items(instrument_type="EQUITY", group="美股個股")
+        etfs, etf_total = fetch_nyse_directory_items(instrument_type="EXCHANGE_TRADED_FUND", group="美股 ETF")
+        merged: dict[str, dict[str, Any]] = {}
+        for item in [*equities, *etfs, *US_MARKET_SEARCH_UNIVERSE]:
+            symbol = item.get("symbol")
+            if symbol and symbol not in merged:
+                merged[symbol] = normalize_us_market_search_item(item)
+        results = sorted(merged.values(), key=lambda item: (item.get("group") != "美股個股", item.get("symbol") or ""))
+        return results, {"美股個股": equity_total, "美股 ETF": etf_total}, "NYSE Listings Directory"
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.warning("NYSE listed universe fetch failed, using built-in seed list: %s", exc)
+    universe = [normalize_us_market_search_item(item) for item in US_MARKET_SEARCH_UNIVERSE]
+    totals = {
+        "美股個股": sum(1 for item in universe if item.get("group") == "美股個股"),
+        "美股 ETF": sum(1 for item in universe if item.get("group") == "美股 ETF"),
+    }
+    return universe, totals, "內建美股/ETF清單（Nasdaq Trader 與 NYSE 官方目錄皆暫時無法載入）"
+
+
+def fetch_nyse_us_market_search(query: str, limit_per_type: int = 40) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    keyword = query.strip()
+    types = [
+        ("EQUITY", "美股個股", "https://www.nyse.com/listings_directory/stock"),
+        ("EXCHANGE_TRADED_FUND", "美股 ETF", "https://www.nyse.com/listings_directory/etf"),
+    ]
+    results: list[dict[str, Any]] = []
+    totals: dict[str, int] = {}
+    for instrument_type, group, referer in types:
+        payload = {
+            "instrumentType": instrument_type,
+            "pageNumber": 1,
+            "sortColumn": "NORMALIZED_TICKER",
+            "sortOrder": "ASC",
+            "maxResultsPerPage": limit_per_type,
+            "filterToken": keyword,
+        }
+        response = post_json(
+            NYSE_QUOTES_FILTER_URL,
+            payload,
+            timeout=10,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
+                "Origin": "https://www.nyse.com",
+                "Referer": referer,
+            },
+        )
+        values = response.get("value") if isinstance(response, dict) else response if isinstance(response, list) else []
+        if values:
+            total = parse_float(str(values[0].get("total") or ""))
+            totals[group] = int(total) if total is not None else len(values)
+        else:
+            totals[group] = 0
+        for value in values or []:
+            normalized = normalize_nyse_directory_item(value, group)
+            if normalized:
+                results.append(normalized)
+    return results, totals
+
+
+def fetch_nyse_directory_items(
+    query: str = "",
+    instrument_type: str = "EQUITY",
+    group: str = "美股個股",
+    limit: int = 7000,
+) -> tuple[list[dict[str, Any]], int]:
+    referer = "https://www.nyse.com/listings_directory/stock" if instrument_type == "EQUITY" else "https://www.nyse.com/listings_directory/etf"
+    payload = {
+        "instrumentType": instrument_type,
+        "pageNumber": 1,
+        "sortColumn": "NORMALIZED_TICKER",
+        "sortOrder": "ASC",
+        "maxResultsPerPage": limit,
+        "filterToken": query.strip(),
+    }
+    response = post_json(
+        NYSE_QUOTES_FILTER_URL,
+        payload,
+        timeout=14,
+        headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
+            "Origin": "https://www.nyse.com",
+            "Referer": referer,
+        },
+    )
+    values = response.get("value") if isinstance(response, dict) else response if isinstance(response, list) else []
+    total = 0
+    if values:
+        parsed_total = parse_float(str(values[0].get("total") or ""))
+        total = int(parsed_total) if parsed_total is not None else len(values)
+    results = []
+    for value in values or []:
+        normalized = normalize_nyse_directory_item(value, group)
+        if normalized:
+            results.append(normalized)
+    return results, total
+
+
+def fetch_us_etf_directory_items(query: str = "", limit: int = 7000, refresh: bool = False) -> tuple[list[dict[str, Any]], int, str, str]:
+    try:
+        universe, totals = fetch_nasdaq_trader_us_listed_universe(refresh)
+        filtered = filter_us_etf_items(universe, query)
+        total = len(filtered) if query.strip() else int(totals.get("美股 ETF") or len(filtered))
+        return filtered[:limit], total, "Nasdaq Trader 官方 Symbol Directory", ""
+    except Exception as primary_exc:
+        LOGGER.exception("Nasdaq Trader ETF directory fallback used", exc_info=primary_exc)
+        try:
+            results, total = fetch_nyse_directory_items(query, "EXCHANGE_TRADED_FUND", "美股 ETF", limit)
+            return results, total, "NYSE Listings Directory", ""
+        except Exception as secondary_exc:
+            LOGGER.exception("NYSE ETF directory fallback used", exc_info=secondary_exc)
+            fallback = filter_us_etf_items(US_MARKET_SEARCH_UNIVERSE, query)[:limit]
+            return fallback, len(fallback), "內建美股 ETF 清單", "官方 ETF 目錄暫時無法載入，已改用內建清單"
+
+
+def fetch_barchart_options_context(root: str) -> dict[str, Any]:
+    clean_root = re.sub(r"[^A-Za-z0-9]", "", str(root or "").upper())
+    if not clean_root:
+        raise RuntimeError("Barchart futures options root is empty.")
+    page_symbol = f"{clean_root}*0"
+    page_url = f"{BARCHART_FUTURES_OPTIONS_PAGE_BASE}/{quote(page_symbol, safe='')}/options"
+    cookie_jar = CookieJar()
+    opener = build_opener(HTTPCookieProcessor(cookie_jar))
+    page_req = Request(page_url, headers=barchart_options_headers("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"))
+    with opener.open(page_req, timeout=25) as response:
+        html = response.read().decode("utf-8", errors="replace")
+    decoded = unescape(html)
+    contract_match = re.search(
+        r'data-api-config="\{"api":\{"method":"quotes","symbol":"([^"]+)","list":"futures\.options"',
+        decoded,
+    )
+    if not contract_match:
+        raise RuntimeError("Barchart options source returned no contract month.")
+
+    text = re.sub(r"<[^>]+>", " ", decoded)
+    text = re.sub(r"\s+", " ", text)
+    expiration_date = None
+    expiration_ts = None
+    expiration_match = re.search(r"to expiration on\s+(\d{1,2}/\d{1,2}/\d{2,4})", text, re.IGNORECASE)
+    if expiration_match:
+        expiration_date, expiration_ts = parse_barchart_expiration_date(expiration_match.group(1))
+    iv_match = re.search(r"Implied Volatility:\s*([0-9.]+)%", text, re.IGNORECASE)
+    option_point_match = re.search(r"Price Value of Option point:\s*\$?([0-9,.]+)", text, re.IGNORECASE)
+    price_match = re.search(r'"lastPrice":\s*([0-9.]+)', decoded)
+
+    xsrf = ""
+    for cookie in cookie_jar:
+        if cookie.name == "XSRF-TOKEN":
+            xsrf = cookie.value
+            break
+
+    return {
+        "root": clean_root,
+        "contract": contract_match.group(1),
+        "pageUrl": page_url,
+        "opener": opener,
+        "xsrf": xsrf,
+        "expirationDate": expiration_date,
+        "expiration": expiration_ts,
+        "weightedImpliedVolatility": parse_public_options_number(iv_match.group(1)) if iv_match else None,
+        "optionPointValue": parse_public_options_number(option_point_match.group(1)) if option_point_match else None,
+        "price": parse_public_options_number(price_match.group(1)) if price_match else None,
     }

@@ -384,7 +384,7 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         sanitized = app.sanitize_history_rows(rows)
         self.assertEqual([row[0] for row in sanitized], ["115/06/30", "115/07/02"])
 
-    @patch.object(app, "fetch_text", side_effect=RuntimeError("news unavailable"))
+    @patch.object(fetchers, "fetch_text", side_effect=RuntimeError("news unavailable"))
     def test_etf_stock_news_uses_non_empty_fallback(self, _fetch_text):
         stock = {"code": "0050", "name": "元大台灣50", "market": "TWSE", "securityType": "ETF"}
         news = app.fetch_stock_news(stock, 6)
