@@ -67,6 +67,7 @@ def check_frontend_xss_and_url_safety() -> None:
 
 def check_api_error_sanitization() -> None:
     source = read_text("app.py")
+    cache_source = read_text("cache.py")
     forbidden = (
         "{exc}",
         "str(exc)",
@@ -74,13 +75,14 @@ def check_api_error_sanitization() -> None:
     )
     for token in forbidden:
         assert_true(token not in source, f"Raw exception detail may leak through API payloads: {token}")
+        assert_true(token not in cache_source, f"Raw exception detail may leak through API payloads: {token}")
     for required in (
         "PUBLIC_DATA_SOURCE_ERROR_MESSAGE",
-        "PUBLIC_CACHE_ERROR_MESSAGE",
         "def api_exception_response",
         "LOGGER.exception",
     ):
         assert_true(required in source, f"Missing API error guard: {required}")
+    assert_true("PUBLIC_CACHE_ERROR_MESSAGE" in cache_source, "Missing API error guard: PUBLIC_CACHE_ERROR_MESSAGE")
 
 
 def check_admin_token_guard() -> None:

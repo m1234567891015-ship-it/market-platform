@@ -42,15 +42,29 @@ from cache import (
     CACHE_VERSION,
     PENNY_SECTOR_RECOMMENDATION_CACHE_SECONDS,
     _yahoo_options_crumb,
+    background_updater_enabled,
+    build_disk_cache_snapshot,
     cache_data,
     cache_flight_lock,
     cache_flights,
     cache_lock,
     cache_refresh_lock,
+    claim_cache_flight,
+    deserialize_treasury_yield_curve_cache,
+    ensure_cache,
+    finish_cache_flight,
+    load_disk_cache,
     penny_sector_recommendation_cache,
     penny_sector_recommendation_lock,
+    read_memory_cache,
+    refresh_cache,
+    sanitize_site_data,
+    save_disk_cache,
+    serialize_treasury_yield_curve_cache,
+    start_background_updater,
     taifex_options_chain_inflight,
     taifex_options_chain_inflight_lock,
+    write_memory_cache,
 )
 from security import (
     add_security_headers,
@@ -130,7 +144,6 @@ try:
     TZ = ZoneInfo("Asia/Taipei")
 except ZoneInfoNotFoundError:
     TZ = timezone(timedelta(hours=8))
-UPDATE_INTERVAL_SECONDS = 60
 SECTOR_CHART_CACHE_SECONDS = 300
 SECTOR_CHART_TRADE_MONTHS = 3
 SECTOR_CHART_TRADE_TIMEOUT_SECONDS = 4
@@ -465,7 +478,6 @@ app = Flask(__name__, static_folder=None)
 if str(os.environ.get("MARKET_PULSE_TRUST_PROXY") or "").strip().lower() in {"1", "true", "yes"}:
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
-PUBLIC_CACHE_ERROR_MESSAGE = "背景資料更新暫時無法完成，請稍後再試"
 PUBLIC_DATA_SOURCE_ERROR_MESSAGE = "資料來源暫不可用，請稍後再試"
 PUBLIC_TAIFEX_OPTION_CHAIN_ERROR_MESSAGE = "TAIFEX 選擇權鏈暫時無法載入，請稍後再試"
 PUBLIC_TAIFEX_OPEN_INTEREST_ERROR_MESSAGE = "TAIFEX 未平倉資料暫時無法載入，請稍後再試"
@@ -489,8 +501,6 @@ app.after_request(add_security_headers)
 app.before_request(enforce_api_rate_limit)
 
 
-background_updater_lock = threading.Lock()
-background_updater_started = False
 # TAIFEX's HTML query-form endpoints (DailyMarketReport / futures data download) are not a
 # real API and are fragile under bursty concurrent traffic, so calls to them are throttled
 # to a small bounded number in flight (with a short pacing sleep per call) instead of being
@@ -805,38 +815,6 @@ _yahoo_options_cookie_jar = CookieJar()
 _yahoo_options_opener = build_opener(HTTPCookieProcessor(_yahoo_options_cookie_jar))
 
 
-def read_memory_cache(bucket: str, key: str, ttl_seconds: int | float) -> Any | None:
-    now = time.time()
-    with cache_lock:
-        cached = cache_data.get(bucket, {}).get(key)
-    if cached and now - float(cached.get("stored_at") or 0) < ttl_seconds:
-        return cached.get("payload")
-    return None
-
-
-def write_memory_cache(bucket: str, key: str, payload: Any) -> None:
-    with cache_lock:
-        cache_data.setdefault(bucket, {})[key] = {"stored_at": time.time(), "payload": payload}
-
-
-def claim_cache_flight(key: str) -> tuple[bool, threading.Event]:
-    """Elect one request to refresh a cache key while concurrent requests wait."""
-    with cache_flight_lock:
-        event = cache_flights.get(key)
-        if event is not None:
-            return False, event
-        event = threading.Event()
-        cache_flights[key] = event
-        return True, event
-
-
-def finish_cache_flight(key: str, event: threading.Event) -> None:
-    with cache_flight_lock:
-        if cache_flights.get(key) is event:
-            cache_flights.pop(key, None)
-            event.set()
-
-
 def should_cache_external_text(url: str) -> bool:
     host = (urlsplit(url).hostname or "").lower()
     return host in {"www.taifex.com.tw", "tw.stock.yahoo.com", "home.treasury.gov", "fred.stlouisfed.org", "tradingeconomics.com"}
@@ -881,138 +859,6 @@ def build_stock_search_url(date_str: str, keyword: str) -> str:
 
 def build_tpex_openapi_url(endpoint: str) -> str:
     return f"{TPEX_OPENAPI_BASE}/{endpoint}"
-
-
-def serialize_treasury_yield_curve_cache(cached: dict[str, Any] | None = None) -> dict[str, Any]:
-    cached = cached if cached is not None else (cache_data.get("treasury_yield_curve_rows") or {})
-    serialized_rows = []
-    for date_value, row in cached.get("rows") or []:
-        if isinstance(date_value, datetime):
-            date_text = date_value.strftime("%Y-%m-%d")
-        else:
-            date_text = str(date_value or "")
-        if date_text and isinstance(row, dict):
-            serialized_rows.append({"date": date_text, "row": row})
-    return {
-        "stored_at": float(cached.get("stored_at") or 0),
-        "rows": serialized_rows,
-    }
-
-
-def deserialize_treasury_yield_curve_cache(payload: Any) -> dict[str, Any] | None:
-    if not isinstance(payload, dict):
-        return None
-    rows: list[tuple[datetime, dict[str, str]]] = []
-    for item in payload.get("rows") or []:
-        if not isinstance(item, dict) or not isinstance(item.get("row"), dict):
-            continue
-        date_text = str(item.get("date") or item["row"].get("Date") or "").strip()
-        parsed_date = None
-        for date_format in ("%Y-%m-%d", "%m/%d/%Y"):
-            try:
-                parsed_date = datetime.strptime(date_text, date_format)
-                break
-            except ValueError:
-                continue
-        if parsed_date is not None:
-            rows.append((parsed_date, item["row"]))
-    if not rows:
-        return None
-    return {
-        "stored_at": float(payload.get("stored_at") or 0),
-        "rows": sorted(rows, key=lambda item: item[0]),
-    }
-
-
-def load_disk_cache() -> bool:
-    try:
-        cache_source = CACHE_FILE if CACHE_FILE.exists() else BUNDLED_CACHE_FILE
-        if not cache_source.exists():
-            return False
-        payload = json.loads(cache_source.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        LOGGER.warning("Disk cache load skipped for %s: %s", cache_source if "cache_source" in locals() else CACHE_FILE, exc)
-        return False
-
-    if not isinstance(payload, dict):
-        LOGGER.warning("Disk cache load skipped for %s: expected a JSON object", cache_source)
-        return False
-
-    cache_version = payload.get("cache_version")
-    if cache_version is not None and cache_version != CACHE_VERSION:
-        return False
-    with cache_lock:
-        cache_data["site_data"] = sanitize_site_data(payload.get("site_data"))
-        cache_data["all_stocks"] = payload.get("all_stocks", [])
-        cache_data["market_date"] = payload.get("market_date")
-        cache_data["cached_at"] = payload.get("cached_at")
-        treasury_rows = deserialize_treasury_yield_curve_cache(payload.get("treasury_yield_curve_rows"))
-        if treasury_rows:
-            cache_data["treasury_yield_curve_rows"] = treasury_rows
-    return True
-
-
-def build_disk_cache_snapshot() -> dict[str, Any]:
-    """Capture one internally consistent cache generation before writing it to disk."""
-    with cache_lock:
-        treasury_rows = copy.deepcopy(cache_data.get("treasury_yield_curve_rows") or {})
-        return {
-            "cache_version": CACHE_VERSION,
-            "site_data": copy.deepcopy(cache_data["site_data"]),
-            "all_stocks": copy.deepcopy(cache_data["all_stocks"]),
-            "market_date": cache_data["market_date"],
-            "cached_at": cache_data["cached_at"],
-            "treasury_yield_curve_rows": serialize_treasury_yield_curve_cache(treasury_rows),
-        }
-
-
-def save_disk_cache(snapshot: dict[str, Any] | None = None) -> None:
-    # Serialize outside the shared cache lock. The snapshot is already a single generation.
-    payload = snapshot if snapshot is not None else build_disk_cache_snapshot()
-    CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    temporary_file = CACHE_FILE.with_suffix(f"{CACHE_FILE.suffix}.tmp")
-    try:
-        temporary_file.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
-        temporary_file.replace(CACHE_FILE)
-    except OSError as exc:
-        LOGGER.exception("Disk cache save failed for %s", CACHE_FILE, exc_info=exc)
-        try:
-            temporary_file.unlink(missing_ok=True)
-        except OSError:
-            pass
-
-
-def sanitize_site_data(site_data: dict[str, Any] | None) -> dict[str, Any] | None:
-    if not site_data:
-        return site_data
-
-    sectors = site_data.get("sectors")
-    if isinstance(sectors, list):
-        site_data = dict(site_data)
-        site_data["sectors"] = [
-            item
-            for item in sectors
-            if item.get("sourceName") not in EXCLUDED_SECTOR_SOURCE_NAMES and item.get("name") not in EXCLUDED_SECTOR_SOURCE_NAMES
-        ]
-    yahoo_groups = site_data.get("yahooSectorGroups")
-    if isinstance(yahoo_groups, dict):
-        site_data = dict(site_data)
-        sanitized_groups: dict[str, list[dict[str, Any]]] = {}
-        for group_key, cards in yahoo_groups.items():
-            sanitized_cards = []
-            for card in cards if isinstance(cards, list) else []:
-                sanitized_card = dict(card)
-                sanitized_card.pop("trades", None)
-                series = dict(sanitized_card.get("comparisonSeries") or {})
-                series["day"] = [
-                    {key: value for key, value in point.items() if key != "trades"}
-                    for point in series.get("day", [])
-                ]
-                sanitized_card["comparisonSeries"] = series
-                sanitized_cards.append(sanitized_card)
-            sanitized_groups[group_key] = sanitized_cards
-        site_data["yahooSectorGroups"] = sanitized_groups
-    return site_data
 
 
 def merge_site_data_with_fallback(
@@ -9161,26 +9007,6 @@ def build_site_data(
     return sanitize_site_data(site_data), all_stocks, market_date
 
 
-def refresh_cache() -> None:
-    with cache_lock:
-        existing_site_data = copy.deepcopy(cache_data["site_data"])
-        existing_market_date = cache_data["market_date"]
-
-    site_data, all_stocks, market_date_iso = build_site_data(
-        existing_site_data=existing_site_data,
-        existing_market_date=existing_market_date,
-    )
-
-    with cache_lock:
-        cache_data["site_data"] = site_data
-        cache_data["all_stocks"] = all_stocks
-        cache_data["market_date"] = market_date_iso
-        cache_data["cached_at"] = site_data["cachedAt"]
-        cache_data["last_error"] = None
-        cache_data["stock_details"] = {}
-    save_disk_cache()
-
-
 def refresh_tpex_cache() -> None:
     quotes, quote_date = fetch_tpex_mainboard_quotes()
     try:
@@ -9711,50 +9537,6 @@ def build_live_market_overview_data() -> dict[str, Any]:
     site_data["news"] = build_news(site_data)
     return sanitize_site_data(site_data)
 
-
-def update_loop() -> None:
-    while True:
-        try:
-            refresh_tpex_cache()
-        except Exception as exc:  # noqa: BLE001
-            LOGGER.exception("Background TPEx cache refresh failed")
-            with cache_lock:
-                cache_data["last_error"] = PUBLIC_CACHE_ERROR_MESSAGE
-        try:
-            refresh_cache()
-        except Exception as exc:  # noqa: BLE001
-            LOGGER.exception("Background TWSE cache refresh failed")
-            with cache_lock:
-                cache_data["last_error"] = PUBLIC_CACHE_ERROR_MESSAGE
-        time.sleep(UPDATE_INTERVAL_SECONDS)
-
-
-def ensure_cache() -> None:
-    with cache_lock:
-        has_site_data = cache_data["site_data"] is not None
-    if not has_site_data:
-        load_disk_cache()
-    with cache_lock:
-        has_site_data = cache_data["site_data"] is not None
-    if not has_site_data:
-        with cache_refresh_lock:
-            with cache_lock:
-                has_site_data = cache_data["site_data"] is not None
-            if has_site_data:
-                return
-            load_disk_cache()
-            with cache_lock:
-                has_site_data = cache_data["site_data"] is not None
-            if has_site_data:
-                return
-            LOGGER.info("Cold cache refresh started")
-            try:
-                refresh_cache()
-            except Exception:
-                LOGGER.exception("Cold cache refresh failed")
-                raise
-            LOGGER.info("Cold cache refresh finished")
-        return
 
 
 @app.route("/api/health")
@@ -15262,26 +15044,6 @@ def handle_internal_error(error):
     if request.path.startswith("/api/"):
         return jsonify(api_error_payload("INTERNAL_ERROR", "服務暫時無法處理請求")), 500
     return "Internal Server Error", 500
-
-
-def start_background_updater() -> None:
-    global background_updater_started
-    with background_updater_lock:
-        if background_updater_started:
-            return
-        background_updater_started = True
-    try:
-        load_disk_cache()
-    except Exception as exc:  # noqa: BLE001
-        LOGGER.exception("Initial disk cache load failed")
-        with cache_lock:
-            cache_data["last_error"] = PUBLIC_CACHE_ERROR_MESSAGE
-    thread = threading.Thread(target=update_loop, daemon=True)
-    thread.start()
-
-
-def background_updater_enabled() -> bool:
-    return str(os.environ.get("MARKET_PULSE_DISABLE_BACKGROUND") or "").strip() != "1"
 
 
 if __name__ == "__main__":

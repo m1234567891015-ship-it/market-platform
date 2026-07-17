@@ -18,6 +18,7 @@ os.environ.setdefault("MARKET_PULSE_DISABLE_BACKGROUND", "1")
 os.environ.setdefault("MARKET_PULSE_LOG_LEVEL", "CRITICAL")
 
 import app
+import cache
 import security
 from derivatives_store import DerivativesStore
 
@@ -491,7 +492,7 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertEqual(diagnostics["invalid_rows"], 1)
         self.assertTrue(all(app.is_valid_history_row(row) for row in rows))
 
-    @patch.object(app, "load_disk_cache", return_value=None)
+    @patch.object(cache, "load_disk_cache", return_value=None)
     def test_ensure_cache_allows_only_one_cold_refresh(self, _load):
         previous = {
             "site_data": app.cache_data["site_data"],
@@ -516,8 +517,8 @@ class DerivativesPlatformApiTests(unittest.TestCase):
             app.cache_data["cached_at"] = None
             app.cache_data["last_error"] = None
         try:
-            with patch.object(app, "refresh_cache", side_effect=fake_refresh):
-                threads = [threading.Thread(target=app.ensure_cache) for _ in range(5)]
+            with patch.object(cache, "refresh_cache", side_effect=fake_refresh):
+                threads = [threading.Thread(target=cache.ensure_cache) for _ in range(5)]
                 for thread in threads:
                     thread.start()
                 for thread in threads:
@@ -845,13 +846,16 @@ class DerivativesPlatformApiTests(unittest.TestCase):
 
     def test_api_errors_do_not_expose_exception_details(self):
         source = Path("app.py").read_text(encoding="utf-8")
+        cache_source = Path("cache.py").read_text(encoding="utf-8")
         self.assertNotIn('f"資料來源暫不可用：{exc}"', source)
         self.assertNotIn('f"期現貨價差資料暫不可用：{exc}"', source)
         self.assertNotIn('f"選擇權資料暫時無法載入：{exc}"', source)
         self.assertNotIn("{exc}", source)
         self.assertNotIn("str(exc)", source)
-        self.assertNotIn('cache_data["last_error"] = str(exc)', source)
-        self.assertIn('cache_data["last_error"] = PUBLIC_CACHE_ERROR_MESSAGE', source)
+        self.assertNotIn("{exc}", cache_source)
+        self.assertNotIn("str(exc)", cache_source)
+        self.assertNotIn('cache_data["last_error"] = str(exc)', cache_source)
+        self.assertIn('cache_data["last_error"] = PUBLIC_CACHE_ERROR_MESSAGE', cache_source)
         self.assertIn("PUBLIC_DATA_SOURCE_ERROR_MESSAGE", source)
         self.assertIn("def api_exception_response", source)
         self.assertIn("LOGGER.exception", source)
