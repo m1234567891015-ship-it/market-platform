@@ -19,6 +19,7 @@ os.environ.setdefault("MARKET_PULSE_LOG_LEVEL", "CRITICAL")
 
 import app
 import cache
+import fetchers
 import security
 from derivatives_store import DerivativesStore
 
@@ -461,7 +462,7 @@ class DerivativesPlatformApiTests(unittest.TestCase):
             ["法人買賣", "主力進出", "資券變化", "大戶籌碼"],
         )
 
-    @patch.object(app, "fetch_yahoo_chart")
+    @patch.object(fetchers, "fetch_yahoo_chart")
     def test_yahoo_history_rows_skip_incomplete_ohlc_points(self, chart_mock):
         timestamps = [
             int(datetime(2026, 6, 30, tzinfo=app.TZ).timestamp()),

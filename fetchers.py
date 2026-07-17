@@ -31,31 +31,58 @@ exactly like `cache.py`'s `refresh_cache`/`update_loop` call `app.build_site_dat
 `app.refresh_tpex_cache` - this avoids a load-time circular import while
 keeping `patch.object(app, "...")` on those builder functions working.
 
-Later batches move the remaining per-source fetchers (Yahoo global, TAIFEX,
-Yahoo Taiwan, everything else). Three later-batch functions
-(`fetch_yahoo_tw_stock_resource`, `fetch_yahoo_options_payload`,
+Batch 2 (Yahoo Finance global, 14 functions) brings the Yahoo chart/quote/news/
+search fetchers plus their shared pure helpers (`build_yahoo_chart_series`,
+`detect_tone`, `is_finite_positive`/`is_valid_ohlc_values`/`format_roc_date`,
+`get_institutional_history_range_config`, `normalize_us_market_search_item`) -
+app.py imports these back for its own builder/route code, same pattern as
+batch 1. `fetch_yahoo_options_payload` is this batch's cookie-jar-opener
+exception (own `_yahoo_options_cookie_jar`/`_yahoo_options_opener`, bypasses
+`fetch_json`/`_urlopen_with_ssl_fallback` entirely) and calls
+`app.parse_cboe_expiration_request` via a deferred import since that parser
+belongs to the CBOE domain cluster staying in app.py until batch 5.
+`fetch_taiwan_option_spot_snapshot` similarly calls `app.get_taiwan_option_product`
+via deferred import - that's a TAIFEX-domain config lookup used by ~18 route/
+builder call sites, not a generic parsing utility, so it stays in app.py.
+
+Later batches move the remaining per-source fetchers (TAIFEX, Yahoo Taiwan,
+everything else). Two later-batch functions (`fetch_yahoo_tw_stock_resource`,
 `fetch_barchart_options_context`) intentionally do NOT go through this
 module's helpers - they call `_urlopen_with_ssl_fallback` directly or use
 their own cookie-jar opener - documented when they move.
 """
 from __future__ import annotations
 
+import copy
 import json
 import logging
+import math
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from calendar import monthrange
 from datetime import datetime, timedelta, timezone
 from html import unescape
+from http.cookiejar import CookieJar
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urlsplit
-from urllib.request import Request
+from urllib.parse import quote, urlencode, urlsplit
+from urllib.request import HTTPCookieProcessor, Request, build_opener
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from cache import cache_data, cache_lock, read_memory_cache, write_memory_cache
+from cache import (
+    CACHE_FLIGHT_WAIT_SECONDS,
+    _yahoo_options_crumb,
+    cache_data,
+    cache_lock,
+    claim_cache_flight,
+    finish_cache_flight,
+    read_memory_cache,
+    write_memory_cache,
+)
 from market_config import (
+    GLOBAL_MARKET_CACHE_SECONDS,
+    INTERNATIONAL_INDEX_SPECS,
     NASDAQ_API_BASE,
     NASDAQ_USER_AGENT,
     TPEX_OPENAPI_BASE,
@@ -63,9 +90,19 @@ from market_config import (
     TWSE_MARGIN_URL,
     TWSE_OPENAPI_BASE,
     USER_AGENT,
+    YAHOO_CHART_BASE,
+    YAHOO_QUOTE_SUMMARY_BASE,
+    YAHOO_SEARCH_BASE,
     YAHOO_TPEX_ETF_URL,
 )
 from security import _urlopen_with_ssl_fallback
+
+YAHOO_OPTIONS_CHAIN_BASE = "https://query1.finance.yahoo.com/v7/finance/options"
+YAHOO_OPTIONS_CRUMB_URL = "https://query1.finance.yahoo.com/v1/test/getcrumb"
+YAHOO_OPTIONS_PAGE_BASE = "https://finance.yahoo.com/quote"
+YAHOO_OPTIONS_CRUMB_CACHE_SECONDS = 45 * 60
+_yahoo_options_cookie_jar = CookieJar()
+_yahoo_options_opener = build_opener(HTTPCookieProcessor(_yahoo_options_cookie_jar))
 
 LOGGER = logging.getLogger("market_pulse")
 try:
@@ -122,6 +159,13 @@ STOCK_HISTORY_EMPTY_STOP_MONTHS = 24
 STOCK_HISTORY_FETCH_BATCH_SIZE = 12
 
 LIVE_SEARCH_DEDUP_SECONDS = 8.0
+
+INSTITUTIONAL_HISTORY_RANGE_CONFIG = {
+    "1m": {"limit": 24, "days": 45, "chart_range": "3mo", "stride": 1},
+    "3m": {"limit": 66, "days": 120, "chart_range": "6mo", "stride": 1},
+    "6m": {"limit": 90, "days": 220, "chart_range": "1y", "stride": 2},
+    "1y": {"limit": 110, "days": 420, "chart_range": "2y", "stride": 4},
+}
 
 
 def taipei_now() -> datetime:
@@ -331,6 +375,142 @@ def build_index_activity_url(date_str: str) -> str:
 def build_index_intraday_url(date_str: str) -> str:
     params = {"response": "json", "date": date_str}
     return f"{TWSE_BASE}/exchangeReport/MI_5MINS_INDEX?{urlencode(params)}"
+
+
+def build_yahoo_chart_url(code: str, range_name: str, interval: str, market: str = "TPEx") -> str:
+    params = urlencode({"range": range_name, "interval": interval, "includePrePost": "false"})
+    suffix = "TWO" if market.upper() == "TPEX" else "TW"
+    return f"{YAHOO_CHART_BASE}/{code}.{suffix}?{params}"
+
+
+def detect_tone(value: float | None) -> str:
+    if value is None or value == 0:
+        return "flat"
+    return "up" if value > 0 else "down"
+
+
+def is_finite_positive(value: float | None) -> bool:
+    return value is not None and math.isfinite(value) and value > 0
+
+
+def is_valid_ohlc_values(
+    open_value: float | None,
+    high_value: float | None,
+    low_value: float | None,
+    close_value: float | None,
+) -> bool:
+    if not all(is_finite_positive(value) for value in (open_value, high_value, low_value, close_value)):
+        return False
+    assert open_value is not None and high_value is not None and low_value is not None and close_value is not None
+    return high_value >= max(open_value, close_value) and low_value <= min(open_value, close_value)
+
+
+def format_roc_date(value: datetime) -> str:
+    return f"{value.year - 1911}/{value.month:02d}/{value.day:02d}"
+
+
+def build_yahoo_chart_series(
+    chart: dict[str, Any] | None,
+    intraday: bool = False,
+    volume_divisor: float = 1000,
+) -> list[dict[str, str]]:
+    if not chart:
+        return []
+    timestamps = chart.get("timestamp") or []
+    quotes = ((chart.get("indicators") or {}).get("quote") or [{}])[0]
+    opens = quotes.get("open") or []
+    highs = quotes.get("high") or []
+    lows = quotes.get("low") or []
+    closes = quotes.get("close") or []
+    volumes = quotes.get("volume") or []
+    series: list[dict[str, str]] = []
+    for index, timestamp in enumerate(timestamps):
+        close_value = closes[index] if index < len(closes) else None
+        if close_value is None:
+            continue
+        trade_time = datetime.fromtimestamp(timestamp, TZ)
+        raw_volume = volumes[index] if index < len(volumes) else None
+        volume_value = (raw_volume / volume_divisor) if raw_volume is not None else None
+        item = {
+            "open": f"{(opens[index] if index < len(opens) and opens[index] is not None else close_value):.2f}",
+            "high": f"{(highs[index] if index < len(highs) and highs[index] is not None else close_value):.2f}",
+            "low": f"{(lows[index] if index < len(lows) and lows[index] is not None else close_value):.2f}",
+            "close": f"{close_value:.2f}",
+            "volume": format_whole_number(volume_value) if volume_value is not None else "--",
+        }
+        if volume_value is not None:
+            item["volumeValue"] = str(volume_value)
+        if intraday:
+            item["time"] = trade_time.strftime("%H:%M")
+        else:
+            item["date"] = trade_time.strftime("%Y-%m-%d")
+        series.append(item)
+    return series
+
+
+def get_institutional_history_range_config(range_key: str) -> dict[str, int | str]:
+    return INSTITUTIONAL_HISTORY_RANGE_CONFIG.get(
+        str(range_key or "").strip().lower(),
+        {"limit": 30, "days": 100, "chart_range": "6mo", "stride": 1},
+    )
+
+
+def normalize_us_market_search_item(item: dict[str, Any]) -> dict[str, Any]:
+    symbol = str(item.get("symbol") or "").strip().upper()
+    name = str(item.get("name") or item.get("shortname") or item.get("longname") or symbol).strip()
+    quote_type = str(item.get("quoteType") or item.get("type") or "").upper()
+    if "ETF" in quote_type or "FUND" in quote_type:
+        group = "美股 ETF"
+        item_type = "ETF"
+    elif item.get("group"):
+        group = str(item.get("group"))
+        item_type = str(item.get("type") or "美股 / ETF")
+    else:
+        group = "美股個股"
+        item_type = "美股個股"
+    return {
+        "symbol": symbol,
+        "name": name,
+        "type": item_type,
+        "group": group,
+        "exchange": item.get("exchange") or item.get("exchDisp") or "",
+        "nyseUrl": item.get("nyseUrl") or item.get("url") or "",
+        "source": item.get("source") or "Yahoo Finance",
+    }
+
+
+def yahoo_options_headers(accept: str = "application/json") -> dict[str, str]:
+    return {
+        "User-Agent": NASDAQ_USER_AGENT,
+        "Accept": accept,
+        "Referer": "https://finance.yahoo.com/",
+        "Origin": "https://finance.yahoo.com",
+    }
+
+
+def get_yahoo_options_crumb(symbol: str) -> str:
+    now = time.time()
+    with cache_lock:
+        cached_value = str(_yahoo_options_crumb.get("value") or "")
+        cached_at = float(_yahoo_options_crumb.get("stored_at") or 0)
+    if cached_value and now - cached_at < YAHOO_OPTIONS_CRUMB_CACHE_SECONDS:
+        return cached_value
+
+    page_symbol = quote(symbol or "SPY", safe="")
+    page_url = f"{YAHOO_OPTIONS_PAGE_BASE}/{page_symbol}/options/"
+    page_req = Request(page_url, headers=yahoo_options_headers("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"))
+    with _yahoo_options_opener.open(page_req, timeout=20) as response:
+        response.read(2048)
+
+    crumb_req = Request(YAHOO_OPTIONS_CRUMB_URL, headers=yahoo_options_headers("text/plain,*/*"))
+    with _yahoo_options_opener.open(crumb_req, timeout=20) as response:
+        crumb = response.read().decode("utf-8").strip()
+    if not crumb:
+        raise RuntimeError("Yahoo options crumb is empty.")
+    with cache_lock:
+        _yahoo_options_crumb["value"] = crumb
+        _yahoo_options_crumb["stored_at"] = now
+    return crumb
 
 
 def should_cache_external_text(url: str) -> bool:
@@ -1114,3 +1294,501 @@ def fetch_live_stock_search_results(
         limit,
         (matches, market_date, tpex_quote_date, ["TWSE", "TPEx"]),
     )
+
+
+def fetch_yahoo_chart(
+    code: str,
+    range_name: str = "5d",
+    interval: str = "1d",
+    market: str = "TPEx",
+) -> dict[str, Any] | None:
+    payload = fetch_json(build_yahoo_chart_url(code, range_name, interval, market), timeout=10)
+    results = ((payload or {}).get("chart") or {}).get("result") or []
+    return results[0] if results else None
+
+
+def fetch_yahoo_symbol_chart(symbol: str, range_name: str = "2y", interval: str = "1d") -> dict[str, Any] | None:
+    params = urlencode({"range": range_name, "interval": interval, "includePrePost": "false"})
+    payload = fetch_json(f"{YAHOO_CHART_BASE}/{quote(symbol, safe='')}?{params}", timeout=10)
+    results = ((payload or {}).get("chart") or {}).get("result") or []
+    return results[0] if results else None
+
+
+def fetch_market_volatility_indicator(weighted_series: list[dict[str, Any]] | None = None) -> dict[str, Any] | None:
+    """Fetch Yahoo Finance ^VIX and expose it as the site's volatility index."""
+    chart = fetch_yahoo_symbol_chart("^VIX", "3mo", "1d")
+    series = build_yahoo_chart_series(chart, volume_divisor=1)
+    closes = [parse_float(str(item.get("close"))) for item in series]
+    closes = [value for value in closes if value is not None]
+    if len(closes) < 2:
+        return None
+
+    latest = closes[-1]
+    previous = closes[-2]
+    change = latest - previous if previous is not None else None
+    pct = (change / previous * 100) if previous not in (None, 0) and change is not None else None
+    if latest < 15:
+        level = "非理性樂觀"
+        summary = "大盤通常處於牛市或緩漲波段，但須留意市場過度樂觀，可能隱含賣壓風險。"
+        tone = "up"
+    elif latest < 20:
+        level = "常態穩定"
+        summary = "市場預期變動不大，大盤走勢相對平穩，屬於較健康的交易環境。"
+        tone = "up"
+    elif latest < 30:
+        level = "警戒焦慮"
+        summary = "市場波動開始加劇，大盤可能面臨修正或多空交戰，投資人應注意風險。"
+        tone = "neutral"
+    elif latest >= 40:
+        level = "極度恐慌"
+        summary = "大盤通常伴隨非理性大規模拋售，但也暗示市場可能短期內出現落底反彈契機。"
+        tone = "down"
+    else:
+        level = "高恐慌"
+        summary = "市場恐慌情緒偏高，短線波動可能劇烈，台股操作宜降低追價與槓桿。"
+        tone = "down"
+
+    return {
+        "name": "VIX",
+        "symbol": "^VIX",
+        "label": "VIX 指數",
+        "value": f"{latest:.2f}",
+        "change": format_signed(change) if change is not None else "--",
+        "pct": format_percent(pct) if pct is not None else "--",
+        "level": level,
+        "summary": summary,
+        "tone": tone,
+        "date": series[-1].get("date") if series else None,
+        "series": [
+            {"date": item.get("date"), "value": item.get("close")}
+            for item in series[-45:]
+            if item.get("date") and item.get("close")
+        ],
+        "sourceLink": "https://finance.yahoo.com/quote/%5EVIX/",
+        "sourceNote": "Yahoo Finance ^VIX，反映美股 S&P 500 選擇權隱含波動率。",
+    }
+
+
+def _refresh_international_market_indexes() -> list[dict[str, Any]]:
+    indexes: list[dict[str, Any]] = []
+    with cache_lock:
+        cached_market_indexes = list((cache_data.get("site_data") or {}).get("marketInternationalIndexes") or [])
+    cached_by_key = {
+        str(item.get("key") or ""): item
+        for item in cached_market_indexes
+        if isinstance(item, dict) and item.get("key")
+    }
+
+    def fallback_index_item(spec: dict[str, Any]) -> dict[str, Any]:
+        cached = cached_by_key.get(str(spec.get("key") or ""))
+        cached_series = cached.get("series") if isinstance(cached, dict) else None
+        if isinstance(cached, dict) and isinstance(cached_series, list) and len(cached_series) >= 2:
+            return {
+                **cached,
+                "sourceStatus": "cached",
+                "sourceNote": "即時 Yahoo Finance 歷史資料暫時無法取得，先沿用上一筆有效快取。",
+            }
+        return {
+            "key": spec["key"],
+            "name": spec["name"],
+            "symbol": spec["symbol"],
+            "resolvedSymbol": spec["symbol"],
+            "market": spec.get("market"),
+            "proxy": spec.get("proxy"),
+            "value": "--",
+            "change": "--",
+            "pct": "--",
+            "open": "--",
+            "previousClose": "--",
+            "high": "--",
+            "low": "--",
+            "volume": "--",
+            "volumeValue": None,
+            "tone": "flat",
+            "date": None,
+            "series": [],
+            "sourceStatus": "unavailable",
+            "sourceNote": "Yahoo Finance 即時歷史資料暫時無法取得，保留目錄避免前端選項遺失。",
+            "sourceLink": f"https://finance.yahoo.com/quote/{quote(spec['symbol'], safe='')}/",
+        }
+
+    def fetch_one(spec: dict[str, Any]) -> dict[str, Any] | None:
+        symbols = [spec["symbol"], *spec.get("fallbackSymbols", [])]
+        selected_symbol = ""
+        series: list[dict[str, Any]] = []
+        for symbol in symbols:
+            try:
+                chart = fetch_yahoo_symbol_chart(symbol, "1y", "1d")
+                series = build_yahoo_chart_series(chart, volume_divisor=1)
+            except Exception:  # noqa: BLE001
+                series = []
+            if len(series) >= 2:
+                selected_symbol = symbol
+                break
+
+        closes = [parse_float(str(item.get("close"))) for item in series]
+        closes = [value for value in closes if value is not None]
+        if not closes:
+            return fallback_index_item(spec)
+        latest = closes[-1]
+        previous = closes[-2] if len(closes) >= 2 else None
+        change = latest - previous if previous is not None else None
+        pct = (change / previous * 100) if previous not in (None, 0) and change is not None else None
+        resolved_symbol = selected_symbol or spec["symbol"]
+        latest_bar = series[-1] if series else {}
+        latest_open = parse_float(str(latest_bar.get("open") or ""))
+        latest_high = parse_float(str(latest_bar.get("high") or ""))
+        latest_low = parse_float(str(latest_bar.get("low") or ""))
+        latest_volume = parse_float(str(latest_bar.get("volumeValue") or latest_bar.get("volume") or ""))
+        return {
+            "key": spec["key"],
+            "name": spec["name"],
+            "symbol": spec["symbol"],
+            "resolvedSymbol": resolved_symbol,
+            "market": spec["market"],
+            "proxy": spec.get("proxy"),
+            "value": f"{latest:.2f}",
+            "change": format_signed(change) if change is not None else "--",
+            "pct": format_percent(pct) if pct is not None else "--",
+            "open": f"{latest_open:.2f}" if latest_open is not None else "--",
+            "previousClose": f"{previous:.2f}" if previous is not None else "--",
+            "high": f"{latest_high:.2f}" if latest_high is not None else "--",
+            "low": f"{latest_low:.2f}" if latest_low is not None else "--",
+            "volume": format_whole_number(latest_volume) if latest_volume is not None else "--",
+            "volumeValue": str(latest_volume) if latest_volume is not None else None,
+            "tone": detect_tone(change or 0.0),
+            "date": series[-1].get("date") if series else None,
+            "series": [
+                {"date": item.get("date"), "value": item.get("close")}
+                for item in series[-180:]
+                if item.get("date") and item.get("close")
+            ],
+            "sourceStatus": "live",
+            "sourceLink": f"https://finance.yahoo.com/quote/{quote(resolved_symbol, safe='')}/",
+        }
+
+    with ThreadPoolExecutor(max_workers=min(8, len(INTERNATIONAL_INDEX_SPECS))) as executor:
+        futures = [executor.submit(fetch_one, spec) for spec in INTERNATIONAL_INDEX_SPECS]
+        for future in as_completed(futures):
+            try:
+                item = future.result()
+            except Exception:  # noqa: BLE001
+                item = None
+            if item:
+                indexes.append(item)
+
+    by_key = {
+        str(item.get("key") or ""): item
+        for item in indexes
+        if isinstance(item, dict) and item.get("key")
+    }
+    complete_indexes = [
+        by_key.get(str(spec["key"])) or fallback_index_item(spec)
+        for spec in INTERNATIONAL_INDEX_SPECS
+    ]
+    order = {spec["key"]: index for index, spec in enumerate(INTERNATIONAL_INDEX_SPECS)}
+    return sorted(complete_indexes, key=lambda item: order.get(str(item.get("key")), 999))
+
+
+def fetch_international_market_indexes() -> list[dict[str, Any]]:
+    now = time.time()
+    with cache_lock:
+        cached = cache_data.get("international_market_indexes") or {}
+        cached_payload = cached.get("payload") or []
+        if cached_payload and now - float(cached.get("stored_at") or 0) < GLOBAL_MARKET_CACHE_SECONDS:
+            return copy.deepcopy(cached_payload)
+
+    is_leader, flight = claim_cache_flight("international-market-indexes")
+    if not is_leader:
+        flight.wait(CACHE_FLIGHT_WAIT_SECONDS)
+        with cache_lock:
+            refreshed = cache_data.get("international_market_indexes") or {}
+            refreshed_payload = refreshed.get("payload") or []
+        if refreshed_payload:
+            return copy.deepcopy(refreshed_payload)
+        raise RuntimeError("國際指數同步未完成，請稍後再試")
+
+    try:
+        indexes = _refresh_international_market_indexes()
+        with cache_lock:
+            cache_data["international_market_indexes"] = {
+                "stored_at": time.time(),
+                "payload": copy.deepcopy(indexes),
+            }
+        return indexes
+    finally:
+        finish_cache_flight("international-market-indexes", flight)
+
+
+def fetch_taiex_spot_snapshot() -> dict[str, Any]:
+    return fetch_yahoo_spot_snapshot("^TWII", "台灣加權指數")
+
+
+def fetch_yahoo_spot_snapshot(symbol: str, name: str) -> dict[str, Any]:
+    try:
+        chart = fetch_yahoo_symbol_chart(symbol, "5d", "1d")
+        series = build_yahoo_chart_series(chart, volume_divisor=1)
+        meta = (chart or {}).get("meta") or {}
+    except Exception:  # noqa: BLE001
+        series = []
+        meta = {}
+    if not series:
+        return {"symbol": symbol, "name": name, "value": None, "source": "Yahoo Finance"}
+    latest = series[-1]
+    previous = series[-2] if len(series) >= 2 else {}
+    value = parse_float(str(meta.get("regularMarketPrice") or "")) or parse_float(str(latest.get("close") or ""))
+    previous_value = parse_float(str(meta.get("chartPreviousClose") or "")) or parse_float(str(previous.get("close") or ""))
+    change = value - previous_value if value is not None and previous_value is not None else None
+    pct = change / previous_value * 100 if change is not None and previous_value not in (None, 0) else None
+    return {
+        "symbol": symbol,
+        "name": name,
+        "value": value,
+        "previousValue": previous_value,
+        "change": change,
+        "pct": pct,
+        "high": parse_float(str(meta.get("regularMarketDayHigh") or "")) or parse_float(str(latest.get("high") or "")),
+        "low": parse_float(str(meta.get("regularMarketDayLow") or "")) or parse_float(str(latest.get("low") or "")),
+        "volume": parse_float(str(meta.get("regularMarketVolume") or "")) or parse_float(str(latest.get("volumeValue") or latest.get("volume") or "")),
+        "date": latest.get("date") or "",
+        "source": "Yahoo Finance",
+    }
+
+
+def fetch_yahoo_trading_dates_for_institutional_range(
+    stock: dict[str, Any],
+    range_key: str,
+) -> list[str]:
+    config = get_institutional_history_range_config(range_key)
+    chart = fetch_yahoo_chart(
+        str(stock.get("code") or ""),
+        range_name=str(config.get("chart_range") or "1y"),
+        interval="1d",
+        market=str(stock.get("market") or "TWSE"),
+    )
+    timestamps = chart.get("timestamp") if isinstance(chart, dict) else []
+    if not timestamps:
+        return []
+    dates = sorted({
+        datetime.fromtimestamp(timestamp, TZ).date()
+        for timestamp in timestamps
+        if isinstance(timestamp, (int, float))
+    }, reverse=True)
+    if not dates:
+        return []
+    latest = dates[0]
+    cutoff = latest - timedelta(days=int(config.get("days") or 120))
+    stride = max(1, int(config.get("stride") or 1))
+    filtered = [item for item in dates if item >= cutoff]
+    sampled = [item for index, item in enumerate(filtered) if index % stride == 0]
+    if filtered and filtered[0] not in sampled:
+        sampled.insert(0, filtered[0])
+    return [item.strftime("%Y%m%d") for item in sampled]
+
+
+def fetch_yahoo_history_rows(
+    stock_no: str,
+    months_back: int,
+    market: str = "TWSE",
+    diagnostics: dict[str, int] | None = None,
+) -> list[list[str]]:
+    range_name = "5y" if months_back == STOCK_HISTORY_MAX_MONTHS else "2y"
+    chart = fetch_yahoo_chart(stock_no, range_name=range_name, interval="1d", market=market)
+    if not chart:
+        return []
+
+    timestamps = chart.get("timestamp") or []
+    quotes = ((chart.get("indicators") or {}).get("quote") or [{}])[0]
+    opens = quotes.get("open") or []
+    highs = quotes.get("high") or []
+    lows = quotes.get("low") or []
+    closes = quotes.get("close") or []
+    volumes = quotes.get("volume") or []
+    previous_close = parse_float(str((chart.get("meta") or {}).get("chartPreviousClose", "")))
+    rows: list[list[str]] = []
+
+    for index, timestamp in enumerate(timestamps):
+        close_value = parse_float(str(closes[index] if index < len(closes) else ""))
+        if close_value is None:
+            if diagnostics is not None:
+                diagnostics["invalid_rows"] = diagnostics.get("invalid_rows", 0) + 1
+            continue
+        open_value = parse_float(str(opens[index] if index < len(opens) else ""))
+        high_value = parse_float(str(highs[index] if index < len(highs) else ""))
+        low_value = parse_float(str(lows[index] if index < len(lows) else ""))
+        volume_value = parse_float(str(volumes[index] if index < len(volumes) else ""))
+        change_value = close_value - previous_close if previous_close is not None else None
+        if not is_valid_ohlc_values(open_value, high_value, low_value, close_value):
+            if diagnostics is not None:
+                diagnostics["invalid_rows"] = diagnostics.get("invalid_rows", 0) + 1
+            if is_finite_positive(close_value):
+                previous_close = close_value
+            continue
+        trade_date = datetime.fromtimestamp(timestamp, TZ).replace(tzinfo=None)
+        rows.append(
+            [
+                format_roc_date(trade_date),
+                format_whole_number(volume_value),
+                "",
+                format_signed(open_value).lstrip("+"),
+                format_signed(high_value).lstrip("+"),
+                format_signed(low_value).lstrip("+"),
+                format_signed(close_value).lstrip("+"),
+                format_signed(change_value),
+            ]
+        )
+        previous_close = close_value
+
+    return rows
+
+
+def fetch_yahoo_quote_summary(symbol: str) -> dict[str, Any]:
+    modules = ",".join([
+        "price",
+        "summaryProfile",
+        "assetProfile",
+        "summaryDetail",
+        "defaultKeyStatistics",
+        "financialData",
+        "calendarEvents",
+        "fundProfile",
+        "topHoldings",
+        "majorHoldersBreakdown",
+        "institutionOwnership",
+        "fundOwnership",
+        "insiderTransactions",
+        "insiderHolders",
+        "netSharePurchaseActivity",
+    ])
+    params = urlencode({"modules": modules})
+    payload = fetch_json(f"{YAHOO_QUOTE_SUMMARY_BASE}/{quote(symbol, safe='')}?{params}", timeout=10)
+    result = ((payload.get("quoteSummary") or {}).get("result") or [None])[0] if isinstance(payload, dict) else None
+    return result or {}
+
+
+def fetch_yahoo_us_symbol_news(symbol: str, limit: int = 6) -> list[dict[str, Any]]:
+    params = urlencode({
+        "q": symbol,
+        "quotesCount": "0",
+        "newsCount": str(limit),
+        "enableFuzzyQuery": "false",
+    })
+    payload = fetch_json(f"{YAHOO_SEARCH_BASE}?{params}", timeout=8)
+    news = payload.get("news") if isinstance(payload, dict) else []
+    results: list[dict[str, Any]] = []
+    for item in news or []:
+        published = item.get("providerPublishTime")
+        published_text = "--"
+        if published:
+            try:
+                published_text = datetime.fromtimestamp(int(published), TZ).strftime("%Y-%m-%d %H:%M")
+            except (TypeError, ValueError, OSError):
+                published_text = "--"
+        results.append({
+            "title": str(item.get("title") or "--"),
+            "source": str(item.get("publisher") or "Yahoo Finance"),
+            "publishedAt": published_text,
+            "link": str(item.get("link") or f"https://finance.yahoo.com/quote/{quote(symbol, safe='')}/news"),
+        })
+    return results[:limit]
+
+
+def fetch_us_market_overview_news(limit: int = 8) -> list[dict[str, Any]]:
+    queries = ["SPY", "QQQ", "^GSPC", "^IXIC", "^VIX"]
+    news_items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    with ThreadPoolExecutor(max_workers=min(len(queries), 5)) as executor:
+        futures = {executor.submit(fetch_yahoo_us_symbol_news, query, 4): query for query in queries}
+        for future in as_completed(futures):
+            try:
+                items = future.result(timeout=10)
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.exception("US market overview news fetch failed for %s", futures[future], exc_info=exc)
+                continue
+            for item in items:
+                key = str(item.get("link") or item.get("title") or "").strip().lower()
+                if not key or key in seen:
+                    continue
+                seen.add(key)
+                news_items.append({
+                    "tag": "Yahoo Finance",
+                    "title": item.get("title") or "--",
+                    "body": f"{item.get('source') or 'Yahoo Finance'} · {item.get('publishedAt') or '--'}",
+                    "source": item.get("source") or "Yahoo Finance",
+                    "publishedAt": item.get("publishedAt") or "--",
+                    "link": item.get("link") or "https://finance.yahoo.com/",
+                })
+                if len(news_items) >= limit:
+                    return news_items
+    return news_items[:limit]
+
+
+def fetch_yahoo_us_market_search(query: str, limit: int = 20) -> list[dict[str, Any]]:
+    if not query.strip():
+        return []
+    params = urlencode({
+        "q": query.strip(),
+        "quotesCount": str(limit),
+        "newsCount": "0",
+        "enableFuzzyQuery": "true",
+    })
+    payload = fetch_json(f"{YAHOO_SEARCH_BASE}?{params}", timeout=8)
+    quotes = payload.get("quotes") if isinstance(payload, dict) else []
+    results = []
+    for quote_item in quotes or []:
+        quote_type = str(quote_item.get("quoteType") or "").upper()
+        symbol = str(quote_item.get("symbol") or "").strip().upper()
+        exchange = str(quote_item.get("exchange") or quote_item.get("exchDisp") or "")
+        if not symbol or quote_type not in {"EQUITY", "ETF", "MUTUALFUND"}:
+            continue
+        if quote_type == "EQUITY" and "." in symbol:
+            continue
+        if exchange and not any(token in exchange.upper() for token in ("NMS", "NYQ", "NAS", "ASE", "PCX", "BATS", "NASDAQ", "NYSE", "AMEX")):
+            continue
+        results.append(normalize_us_market_search_item({
+            "symbol": symbol,
+            "name": quote_item.get("shortname") or quote_item.get("longname") or symbol,
+            "quoteType": quote_type,
+            "exchange": exchange,
+            "source": "Yahoo Finance 搜尋",
+        }))
+    return results
+
+
+def fetch_yahoo_options_payload(clean_symbol: str, expiration: str | None = None, retry: bool = True) -> dict[str, Any]:
+    import app  # deferred: parse_cboe_expiration_request is CBOE-domain, stays in app.py (slice 3 batch 5)
+
+    crumb = get_yahoo_options_crumb(clean_symbol)
+    params = {"crumb": crumb}
+    requested_expiration = app.parse_cboe_expiration_request(expiration)
+    if requested_expiration is not None:
+        params["date"] = str(requested_expiration)
+    url = f"{YAHOO_OPTIONS_CHAIN_BASE}/{quote(clean_symbol, safe='')}?{urlencode(params)}"
+    req = Request(url, headers=yahoo_options_headers("application/json, text/plain, */*"))
+    try:
+        with _yahoo_options_opener.open(req, timeout=20) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except HTTPError as exc:
+        if retry and exc.code in {401, 403}:
+            with cache_lock:
+                _yahoo_options_crumb["value"] = ""
+                _yahoo_options_crumb["stored_at"] = 0.0
+            return fetch_yahoo_options_payload(clean_symbol, expiration, retry=False)
+        raise
+
+
+def fetch_taiwan_option_spot_snapshot(underlying: str | None = None) -> dict[str, Any]:
+    import app  # deferred: get_taiwan_option_product is TAIFEX-domain config, stays in app.py
+
+    product = app.get_taiwan_option_product(underlying)
+    spot_symbol = str(product.get("spotSymbol") or "").strip()
+    if spot_symbol:
+        if spot_symbol == "^TWII":
+            return fetch_taiex_spot_snapshot()
+        return fetch_yahoo_spot_snapshot(spot_symbol, str(product.get("spotName") or product.get("name") or spot_symbol))
+    return {
+        "symbol": product["symbol"],
+        "name": product.get("spotName") or product.get("name") or product["symbol"],
+        "value": None,
+        "source": "TAIFEX 官方日報未提供可直接比對的現貨基準；以履約價、OI 與最大痛點定位。",
+    }
