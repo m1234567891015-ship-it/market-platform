@@ -324,6 +324,40 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertEqual(item["openInterestValue"], 1200)
         self.assertEqual(item["leaderStockName"], "台積電")
 
+    @patch.object(builders, "fetch_twse_listed_industry_map", return_value={"2330": "半導體業"})
+    @patch.object(builders, "fetch_stock_institutions_payload_near")
+    def test_sector_fund_flow_aggregates_institutional_net_buy(self, mock_institutions, _industry_map):
+        # T86 row layout: [code, name, ..., foreignShares(4), ..., trustShares(10),
+        # dealerShares(11), ..., totalShares(18)]
+        row = ["2330", "台積電"] + ["0"] * 17
+        row[4] = "1000000"
+        row[10] = "200000"
+        row[11] = "50000"
+        row[18] = "1250000"
+        mock_institutions.return_value = (
+            {"stat": "OK", "data": [row]},
+            "20260620",
+        )
+        stocks = [{
+            "code": "2330",
+            "name": "台積電",
+            "market": "TWSE",
+            "securityType": "STOCK",
+            "close": "600",
+            "pct": "+1.50%",
+            "turnover": "750000000",
+        }]
+        payload = app.build_sector_fund_flow(stocks, "20260620")
+        self.assertTrue(payload["available"])
+        self.assertEqual(payload["date"], "2026-06-20")
+        self.assertEqual(payload["marketDate"], "2026-06-20")
+        self.assertEqual(payload["sectorCount"], 1)
+        sector = payload["rows"][0]
+        self.assertEqual(sector["name"], "半導體業")
+        self.assertEqual(sector["netAmountValue"], 1250000 * 600)
+        self.assertEqual(sector["stockCount"], 1)
+        self.assertEqual(sector["topStocks"][0]["code"], "2330")
+
     @patch.object(app, "fetch_taiex_spot_snapshot", return_value={"value": 20900, "date": "2026-06-20", "source": "TWSE"})
     @patch.object(app, "build_global_market_item", return_value=FUTURES_ITEM)
     def test_basis_contract(self, _item, _spot):
