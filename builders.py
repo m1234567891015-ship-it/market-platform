@@ -3,8 +3,40 @@ slice 4), starting with 7 small, dependency-free leaf builders (batch 0),
 extended with the TAIFEX/options-chain + derivatives-misc cluster (batch 1,
 19 functions), the Yahoo/sector + technical-analysis cluster (batch 2,
 12 functions), the stock-detail / institutional cluster (batch 3,
-15 functions), and the US-market / global-market cluster (batch 4,
-23 functions).
+15 functions), the US-market / global-market cluster (batch 4, 23 functions),
+and the site-data composites (batch 5, FINAL - 3 functions). This completes
+the full 79-function `build_*` extraction from app.py.
+
+Batch 5 brings the three top-level site-data composites -
+`build_site_data`, `build_live_sector_site_data`, `build_live_market_overview_data` -
+the last functions in this slice because they depend on nearly every builder
+moved in batches 0-4. `build_site_data`'s only caller is `cache.py:281`
+(inside `update_loop`'s deferred `import app` block), not a route - it
+already called `app.build_site_data(...)` by attribute, which keeps
+resolving once app.py re-imports the name from here, so `cache.py` needed no
+changes. `build_live_sector_site_data`/`build_live_market_overview_data` are
+each called by their own route (`api_live_sectors`, `api_live_overview`),
+plus `api_site_data`'s `?refresh=1` path for the former.
+
+`build_site_data` had zero test coverage, direct or indirect (its only
+caller is a background cache-refresh path, not exercised by e2e_smoke.py) -
+added `test_build_site_data_assembles_snapshot_from_sub_builders` before the
+move, per the standing rule, mocking every sub-builder/fetcher it calls and
+asserting on the assembled snapshot shape. `build_live_sector_site_data`
+already had indirect route-level coverage (both routes are hit by
+`e2e_smoke.py`), so no additional test was needed for it or its sibling.
+
+Many STAYS names reached via deferred `import app` in this batch:
+`LOGGER`, `taipei_now`, `DeadlineThreadPoolExecutor` (a small
+`ThreadPoolExecutor` subclass with a non-blocking `__exit__`),
+`market_payload_has_complete_index_tables`, `weighted_index_history_has_volume`,
+`weighted_index_history_is_usable`, `upsert_latest_weighted_index_point`,
+`parse_tpex_quotes`, `parse_all_stocks`, `enrich_yahoo_cards_with_market_stats`,
+`parse_market_overview`, `parse_sectors`, `parse_institutions`,
+`parse_market_statistics`, `merge_site_data_with_fallback` - all pure
+parsing/merging helpers that stay in app.py since nothing else in this slice
+needed to move them (no other `build_*` function depends on them, so they
+were never flagged SHARED-PURE in any earlier batch).
 
 Batch 4 brings `build_global_market_item` (the highest fan-in/fan-out node
 in the whole slice - called by 4 other batch-4 builders, 9 routes, and both
@@ -183,6 +215,7 @@ from cache import (
     penny_sector_recommendation_cache,
     penny_sector_recommendation_lock,
     read_memory_cache,
+    sanitize_site_data,
     write_memory_cache,
 )
 from derivatives.analytics import enrich_futures_ai_decision, enrich_option_ai_decision
@@ -192,6 +225,7 @@ from fetchers import (
     TAIFEX_FUTURES_DAILY_OPENAPI_URL,
     barchart_options_headers,
     build_index_activity_url,
+    build_index_intraday_url,
     build_market_url,
     build_stock_institutions_url,
     build_stock_news_fallback,
@@ -205,7 +239,12 @@ from fetchers import (
     fetch_barchart_options_context,
     fetch_etf_dividend_info,
     fetch_fred_observation_rows,
+    fetch_international_market_indexes,
     fetch_json,
+    fetch_live_index_activity,
+    fetch_live_index_intraday,
+    fetch_market_macro_factors,
+    fetch_market_volatility_indicator,
     fetch_nasdaq_us_supplement,
     fetch_shareholder_distribution,
     fetch_stock_company_profile,
@@ -221,6 +260,7 @@ from fetchers import (
     fetch_taifex_openapi_list,
     fetch_taiwan_option_spot_snapshot,
     fetch_text,
+    fetch_tpex_mainboard_quotes,
     fetch_trading_economics_taiwan_10y,
     fetch_txo_option_chain,
     fetch_twse_listed_industry_map,
@@ -239,8 +279,10 @@ from fetchers import (
     fetch_yahoo_sector_catalog,
     fetch_yahoo_symbol_chart,
     fetch_yahoo_taiwan_future_quote,
+    fetch_yahoo_tpex_etfs,
     fetch_yahoo_us_symbol_news,
     filter_us_etf_items,
+    find_latest_dataset,
     format_percent,
     format_roc_date,
     format_signed,
@@ -268,16 +310,20 @@ from market_config import (
     TAIFEX_FUTURES_DAILY_URL,
     TAIFEX_OPTIONS_DAILY_URL,
     TAIFEX_OPTIONS_PC_RATIO_URL,
+    TARGET_INDEX_NAMES,
     TDCC_HOLDING_DISTRIBUTION_URL,
     TWSE_BASE,
+    TWSE_MARGIN_URL,
     TWSE_OPENAPI_BASE,
     US_MARKET_SEARCH_UNIVERSE,
     US_TREASURY_YIELD_CURVE_CSV_URL,
+    YAHOO_CLASS_HOME_URL,
     YAHOO_CONCEPT_CLASS_URL,
     YAHOO_ELECTRONIC_CLASS_URL,
     YAHOO_GROUP_CLASS_URL,
     YAHOO_LISTED_CLASS_URL,
     YAHOO_TPEX_EMERGING_CLASS_URL,
+    YAHOO_TPEX_ETF_URL,
     YAHOO_TPEX_OTC_CLASS_URL,
 )
 
@@ -6711,3 +6757,472 @@ def build_us_etf_center_payload(query: str = "", directory_limit: int = 7000, qu
         "items": quote_items,
         "error": directory_error,
     }
+
+
+def build_site_data(
+    existing_site_data: dict[str, Any] | None = None,
+    existing_market_date: str | None = None,
+) -> tuple[dict[str, Any], list[dict[str, Any]], str]:
+    import app
+
+    market_payload, market_date = find_latest_dataset(
+        build_market_url,
+        validator=app.market_payload_has_complete_index_tables,
+    )
+    institution_payload, institution_date = find_latest_dataset(build_institutions_url)
+    tpex_mainboard_quotes: list[dict[str, Any]] = []
+    tpex_mainboard_quote_date: str | None = None
+    yahoo_tpex_etfs: dict[str, str] = {}
+    tpex_mainboard_highlight: list[dict[str, Any]] = []
+    tpex_esb_highlight: list[dict[str, Any]] = []
+    tpex_esb_latest_statistics: list[dict[str, Any]] = []
+    yahoo_tpex_otc_date: str | None = None
+    yahoo_tpex_emerging_date: str | None = None
+    yahoo_sector_groups: dict[str, list[dict[str, Any]]] = {}
+    yahoo_sector_dates: dict[str, str | None] = {}
+    yahoo_sector_catalog: dict[str, list[dict[str, str]]] = {}
+    try:
+        tpex_mainboard_quotes, tpex_mainboard_quote_date = fetch_tpex_mainboard_quotes()
+    except Exception:  # noqa: BLE001
+        tpex_mainboard_quotes = []
+        tpex_mainboard_quote_date = None
+    try:
+        yahoo_tpex_etfs = fetch_yahoo_tpex_etfs()
+    except Exception:  # noqa: BLE001
+        yahoo_tpex_etfs = {}
+    try:
+        yahoo_sector_catalog = fetch_yahoo_sector_catalog()
+    except Exception:  # noqa: BLE001
+        yahoo_sector_catalog = {}
+    yahoo_sector_groups, yahoo_sector_dates = build_yahoo_sector_groups()
+    tpex_mainboard_highlight = yahoo_sector_groups.get("otc", [])[:6]
+    tpex_esb_highlight = yahoo_sector_groups.get("emerging", [])[:6]
+    yahoo_tpex_otc_date = yahoo_sector_dates.get("otc")
+    yahoo_tpex_emerging_date = yahoo_sector_dates.get("emerging")
+    if not tpex_mainboard_highlight:
+        try:
+            tpex_mainboard_highlight = build_summary_cards_from_payload(
+                fetch_json(build_tpex_openapi_url("tpex_mainborad_highlight")),
+                "上櫃",
+                limit=6,
+            )
+        except Exception:  # noqa: BLE001
+            tpex_mainboard_highlight = []
+    if not tpex_esb_highlight:
+        try:
+            tpex_esb_highlight = build_summary_cards_from_payload(
+                fetch_json(build_tpex_openapi_url("tpex_esb_highlight")),
+                "興櫃",
+                limit=6,
+            )
+        except Exception:  # noqa: BLE001
+            tpex_esb_highlight = []
+    if not tpex_esb_latest_statistics:
+        try:
+            tpex_esb_latest_statistics = build_summary_cards_from_payload(
+                fetch_json(build_tpex_openapi_url("tpex_esb_latest_statistics")),
+                "興櫃統計",
+                limit=6,
+            )
+        except Exception:  # noqa: BLE001
+            tpex_esb_latest_statistics = []
+    activity_payload = None
+    activity_date = market_date
+    try:
+        same_day_activity = fetch_json(build_index_activity_url(market_date))
+        if dataset_has_rows(same_day_activity):
+            activity_payload = same_day_activity
+        else:
+            activity_date = None
+    except Exception:  # noqa: BLE001
+        activity_date = None
+    try:
+        same_day_intraday = fetch_json(build_index_intraday_url(market_date))
+        if dataset_has_rows(same_day_intraday):
+            intraday_payload, intraday_date = same_day_intraday, market_date
+        else:
+            intraday_payload, intraday_date = None, market_date
+    except Exception:  # noqa: BLE001
+        intraday_payload, intraday_date = None, market_date
+    existing_history_has_trades = any(
+        point.get("trades") not in (None, "", "--")
+        for item in (existing_site_data or {}).get("sectors", [])
+        if item.get("sourceName") != "發行量加權股價指數"
+        for point in ((item.get("comparisonSeries") or {}).get("day") or [])
+    )
+    if existing_site_data and existing_market_date == market_date and existing_history_has_trades:
+        history_series_by_index = {
+            item.get("sourceName"): (item.get("comparisonSeries", {}) or {}).get("day", [])
+            for item in existing_site_data.get("sectors", [])
+            if item.get("sourceName")
+        }
+        weighted_series = history_series_by_index.get("發行量加權股價指數", [])
+        if not app.weighted_index_history_is_usable(weighted_series, market_date) or not app.weighted_index_history_has_volume(weighted_series):
+            history_series_by_index["發行量加權股價指數"] = build_weighted_index_history_series(
+                market_date,
+                app.WEIGHTED_INDEX_HISTORY_TRADING_DAYS,
+            )
+    else:
+        history_series_by_index = build_sector_history_series(market_date, TARGET_INDEX_NAMES)
+    if not app.weighted_index_history_has_volume(history_series_by_index.get("發行量加權股價指數", [])):
+        history_series_by_index["發行量加權股價指數"] = build_weighted_index_history_series(
+            market_date,
+            app.WEIGHTED_INDEX_HISTORY_TRADING_DAYS,
+        )
+    history_series_by_index["發行量加權股價指數"] = app.upsert_latest_weighted_index_point(
+        history_series_by_index.get("發行量加權股價指數", []),
+        market_date,
+        market_payload,
+        intraday_payload,
+    )
+    tpex_stocks = app.parse_tpex_quotes(tpex_mainboard_quotes, yahoo_tpex_etfs)
+    twse_stocks = app.parse_all_stocks(market_payload)
+    all_stocks = [*twse_stocks, *tpex_stocks]
+    yahoo_sector_groups = {
+        key: app.enrich_yahoo_cards_with_market_stats(cards, all_stocks)
+        for key, cards in yahoo_sector_groups.items()
+    }
+    market_overview = app.parse_market_overview(market_payload)
+    sectors = app.parse_sectors(market_payload, activity_payload, intraday_payload, history_series_by_index)
+    institutions = app.parse_institutions(institution_payload)
+    institution_summary = build_institution_summary(institutions)
+    try:
+        institution_trend = build_institution_trend(institution_payload, institution_date)
+    except Exception:  # noqa: BLE001
+        app.LOGGER.exception("Institution trend build failed")
+        institution_trend = {}
+    market_stats = app.parse_market_statistics(market_payload)
+    try:
+        market_volatility = fetch_market_volatility_indicator(
+            history_series_by_index.get("發行量加權股價指數", []),
+        )
+    except Exception:  # noqa: BLE001
+        market_volatility = None
+    try:
+        market_international_indexes = fetch_international_market_indexes()
+    except Exception:  # noqa: BLE001
+        market_international_indexes = []
+    try:
+        market_macro_factors = fetch_market_macro_factors(market_date)
+    except Exception:  # noqa: BLE001
+        market_macro_factors = {}
+    sector_fund_flow = build_sector_fund_flow(twse_stocks, market_date)
+    cached_at = app.taipei_now().strftime("%Y-%m-%d %H:%M:%S")
+    benchmark_day_series = history_series_by_index.get("發行量加權股價指數", [])
+    tpex_mainboard_highlight = build_yahoo_summary_series(tpex_mainboard_highlight, benchmark_day_series)
+    tpex_esb_highlight = build_yahoo_summary_series(tpex_esb_highlight, benchmark_day_series)
+    for key, cards in yahoo_sector_groups.items():
+        yahoo_sector_groups[key] = build_yahoo_summary_series(cards, benchmark_day_series)
+
+    site_data = {
+        "snapshotDate": datetime.strptime(market_date, "%Y%m%d").strftime("%Y-%m-%d"),
+        "institutionDate": datetime.strptime(institution_date, "%Y%m%d").strftime("%Y-%m-%d"),
+        "activityDate": datetime.strptime(activity_date, "%Y%m%d").strftime("%Y-%m-%d") if activity_date else None,
+        "intradayDate": datetime.strptime(intraday_date, "%Y%m%d").strftime("%Y-%m-%d"),
+        "cachedAt": cached_at,
+        "stockCount": len(all_stocks),
+        "tpexStockCount": len(tpex_stocks),
+        "tpexEtfCount": sum(1 for item in tpex_stocks if item.get("securityType") == "ETF"),
+        "tpexStockDate": datetime.strptime(tpex_mainboard_quote_date, "%Y%m%d").strftime("%Y-%m-%d") if tpex_mainboard_quote_date else None,
+        "yahooOtcDate": yahoo_tpex_otc_date,
+        "yahooEmergingDate": yahoo_tpex_emerging_date,
+        "yahooSectorDates": yahoo_sector_dates,
+        "marketStats": market_stats,
+        "marketVolatility": market_volatility,
+        "marketInternationalIndexes": market_international_indexes,
+        "marketMacroFactors": market_macro_factors,
+        "sourceLinks": {
+            "market": build_market_url(market_date),
+            "institutions": build_institutions_url(institution_date),
+            "indexActivity": build_index_activity_url(activity_date) if activity_date else None,
+            "indexIntraday": build_index_intraday_url(intraday_date),
+            "tpexEtfs": YAHOO_TPEX_ETF_URL,
+            "yahooOtcClassQuote": YAHOO_TPEX_OTC_CLASS_URL,
+            "yahooEmergingClassQuote": YAHOO_TPEX_EMERGING_CLASS_URL,
+            "yahooListedClassQuote": YAHOO_LISTED_CLASS_URL,
+            "yahooClassHome": YAHOO_CLASS_HOME_URL,
+            "yahooElectronicClassQuote": YAHOO_ELECTRONIC_CLASS_URL,
+            "yahooConceptClassQuote": YAHOO_CONCEPT_CLASS_URL,
+            "yahooGroupClassQuote": YAHOO_GROUP_CLASS_URL,
+            "yahooInternationalIndexes": "https://finance.yahoo.com/",
+            "twseMarginTrading": TWSE_MARGIN_URL,
+            "taifexFuturesOpenInterest": TAIFEX_FUTURES_DAILY_URL,
+        },
+        "marketOverview": market_overview,
+        "sectors": sectors,
+        "sectorFundFlow": sector_fund_flow,
+        "institutions": institutions,
+        "institutionSummary": institution_summary,
+        "institutionTrend": institution_trend,
+        "tpexHighlights": {
+            "mainboard": tpex_mainboard_highlight,
+            "emerging": tpex_esb_highlight,
+            "emergingStats": [],
+        },
+        "yahooSectorGroups": yahoo_sector_groups,
+        "yahooSectorCatalog": yahoo_sector_catalog,
+    }
+    site_data = app.merge_site_data_with_fallback(site_data, existing_site_data)
+    site_data["news"] = build_news(site_data)
+
+    return sanitize_site_data(site_data), all_stocks, market_date
+
+
+def build_live_sector_site_data() -> dict[str, Any]:
+    """Build a live sectors payload without rebuilding every dashboard dataset."""
+    import app
+
+    with app.DeadlineThreadPoolExecutor(max_workers=7) as executor:
+        market_future = executor.submit(
+            find_latest_dataset,
+            build_market_url,
+            7,
+            app.market_payload_has_complete_index_tables,
+        )
+        institution_future = executor.submit(find_latest_dataset, build_institutions_url, 7)
+        yahoo_groups_future = executor.submit(build_yahoo_sector_groups, 12, 8)
+        yahoo_catalog_future = executor.submit(fetch_yahoo_sector_catalog, 8)
+        volatility_future = executor.submit(fetch_market_volatility_indicator, [])
+
+        market_payload, market_date = market_future.result()
+        activity_future = executor.submit(fetch_live_index_activity, market_date)
+        intraday_future = executor.submit(fetch_live_index_intraday, market_date)
+        history_future = executor.submit(
+            build_sector_history_series,
+            market_date,
+            TARGET_INDEX_NAMES,
+            20,
+            120,
+            45,
+            False,
+        )
+
+        try:
+            institution_payload, institution_date = institution_future.result(timeout=12)
+        except Exception:  # noqa: BLE001
+            app.LOGGER.exception("Live sectors institution fetch failed")
+            institution_payload, institution_date = {"data": []}, market_date
+
+        try:
+            activity_payload = activity_future.result(timeout=12)
+        except Exception:  # noqa: BLE001
+            app.LOGGER.exception("Live sectors index activity fetch failed")
+            activity_payload = None
+
+        try:
+            intraday_payload = intraday_future.result(timeout=12)
+        except Exception:  # noqa: BLE001
+            app.LOGGER.exception("Live sectors intraday fetch failed")
+            intraday_payload = None
+
+        try:
+            history_series_by_index = history_future.result(timeout=18)
+        except Exception:  # noqa: BLE001
+            app.LOGGER.exception("Live sectors history fetch failed")
+            history_series_by_index = {}
+
+        try:
+            yahoo_sector_groups, yahoo_sector_dates = yahoo_groups_future.result(timeout=20)
+        except Exception as exc:  # noqa: BLE001
+            app.LOGGER.warning("Live sectors Yahoo group fetch unavailable: %s", exc)
+            yahoo_sector_groups, yahoo_sector_dates = {}, {}
+
+        try:
+            yahoo_sector_catalog = yahoo_catalog_future.result(timeout=10)
+        except Exception:  # noqa: BLE001
+            app.LOGGER.exception("Live sectors Yahoo catalog fetch failed")
+            yahoo_sector_catalog = {}
+
+        try:
+            market_volatility = volatility_future.result(timeout=12)
+        except Exception:  # noqa: BLE001
+            app.LOGGER.exception("Live sectors VIX fetch failed")
+            market_volatility = None
+
+    if not app.weighted_index_history_has_volume(history_series_by_index.get("發行量加權股價指數", [])):
+        try:
+            history_series_by_index["發行量加權股價指數"] = build_weighted_index_history_series(market_date, 120)
+        except Exception:  # noqa: BLE001
+            app.LOGGER.exception("Live sectors weighted index history fetch failed")
+
+    history_series_by_index["發行量加權股價指數"] = app.upsert_latest_weighted_index_point(
+        history_series_by_index.get("發行量加權股價指數", []),
+        market_date,
+        market_payload,
+        intraday_payload,
+    )
+
+    benchmark_day_series = history_series_by_index.get("發行量加權股價指數", [])
+    twse_stocks = app.parse_all_stocks(market_payload)
+    sector_fund_flow = build_sector_fund_flow(twse_stocks, market_date)
+    yahoo_sector_groups["listed"] = []
+    yahoo_sector_groups = {
+        key: build_yahoo_summary_series(cards, benchmark_day_series)
+        for key, cards in (yahoo_sector_groups or {}).items()
+    }
+    tpex_mainboard_highlight = yahoo_sector_groups.get("otc", [])[:6]
+    tpex_esb_highlight = yahoo_sector_groups.get("emerging", [])[:6]
+
+    sectors = app.parse_sectors(market_payload, activity_payload, intraday_payload, history_series_by_index)
+    institutions = app.parse_institutions(institution_payload)
+    institution_summary = build_institution_summary(institutions)
+    try:
+        institution_trend = build_institution_trend(institution_payload, institution_date)
+    except Exception:  # noqa: BLE001
+        app.LOGGER.exception("Live sectors institution trend build failed")
+        institution_trend = {}
+    market_overview = app.parse_market_overview(market_payload)
+    market_stats = app.parse_market_statistics(market_payload)
+    cached_at = app.taipei_now().strftime("%Y-%m-%d %H:%M:%S")
+    activity_date = market_date if activity_payload else None
+
+    site_data = {
+        "snapshotDate": datetime.strptime(market_date, "%Y%m%d").strftime("%Y-%m-%d"),
+        "institutionDate": datetime.strptime(institution_date, "%Y%m%d").strftime("%Y-%m-%d") if institution_date else None,
+        "activityDate": datetime.strptime(activity_date, "%Y%m%d").strftime("%Y-%m-%d") if activity_date else None,
+        "intradayDate": datetime.strptime(market_date, "%Y%m%d").strftime("%Y-%m-%d"),
+        "cachedAt": cached_at,
+        "stockCount": len(twse_stocks),
+        "tpexStockCount": None,
+        "tpexEtfCount": None,
+        "tpexStockDate": None,
+        "yahooOtcDate": yahoo_sector_dates.get("otc"),
+        "yahooEmergingDate": yahoo_sector_dates.get("emerging"),
+        "yahooSectorDates": yahoo_sector_dates,
+        "marketStats": market_stats,
+        "marketVolatility": market_volatility,
+        "marketInternationalIndexes": copy.deepcopy((cache_data.get("site_data") or {}).get("marketInternationalIndexes") or []),
+        "marketMacroFactors": {},
+        "sourceLinks": {
+            "market": build_market_url(market_date),
+            "institutions": build_institutions_url(institution_date) if institution_date else None,
+            "indexActivity": build_index_activity_url(activity_date) if activity_date else None,
+            "indexIntraday": build_index_intraday_url(market_date),
+            "yahooListedClassQuote": YAHOO_LISTED_CLASS_URL,
+            "yahooOtcClassQuote": YAHOO_TPEX_OTC_CLASS_URL,
+            "yahooEmergingClassQuote": YAHOO_TPEX_EMERGING_CLASS_URL,
+            "yahooClassHome": YAHOO_CLASS_HOME_URL,
+            "yahooElectronicClassQuote": YAHOO_ELECTRONIC_CLASS_URL,
+            "yahooConceptClassQuote": YAHOO_CONCEPT_CLASS_URL,
+            "yahooGroupClassQuote": YAHOO_GROUP_CLASS_URL,
+        },
+        "marketOverview": market_overview,
+        "sectors": sectors,
+        "sectorFundFlow": sector_fund_flow,
+        "institutions": institutions,
+        "institutionSummary": institution_summary,
+        "institutionTrend": institution_trend,
+        "tpexHighlights": {
+            "mainboard": tpex_mainboard_highlight,
+            "emerging": tpex_esb_highlight,
+            "emergingStats": [],
+        },
+        "yahooSectorGroups": yahoo_sector_groups,
+        "yahooSectorCatalog": yahoo_sector_catalog,
+        "liveOptimized": True,
+    }
+    if institutions and sectors:
+        try:
+            site_data["news"] = build_news(site_data)
+        except Exception:  # noqa: BLE001
+            site_data["news"] = []
+    else:
+        site_data["news"] = []
+
+    return sanitize_site_data(site_data)
+
+
+def build_live_market_overview_data() -> dict[str, Any]:
+    import app
+
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        market_future = executor.submit(
+            find_latest_dataset,
+            build_market_url,
+            7,
+            app.market_payload_has_complete_index_tables,
+        )
+        institution_future = executor.submit(find_latest_dataset, build_institutions_url, 7)
+        vix_future = executor.submit(fetch_market_volatility_indicator, [])
+        tpex_future = executor.submit(fetch_tpex_mainboard_quotes)
+        yahoo_groups_future = executor.submit(build_yahoo_sector_groups, 30, 8)
+
+        market_payload, market_date = market_future.result()
+        institution_payload, institution_date = institution_future.result()
+        try:
+            market_volatility = vix_future.result(timeout=12)
+        except Exception:  # noqa: BLE001
+            app.LOGGER.exception("Live overview VIX fetch failed")
+            market_volatility = None
+        try:
+            tpex_quotes, tpex_quote_date = tpex_future.result(timeout=12)
+        except Exception:  # noqa: BLE001
+            app.LOGGER.exception("Live overview TPEx quotes fetch failed")
+            tpex_quotes, tpex_quote_date = [], None
+        try:
+            yahoo_sector_groups, yahoo_sector_dates = yahoo_groups_future.result(timeout=20)
+        except Exception as exc:  # noqa: BLE001
+            app.LOGGER.warning("Live overview Yahoo sector group fetch unavailable: %s", exc)
+            yahoo_sector_groups, yahoo_sector_dates = {}, {}
+
+    activity_payload = fetch_live_index_activity(market_date)
+    intraday_payload = fetch_live_index_intraday(market_date)
+    sectors = app.parse_sectors(market_payload, activity_payload, intraday_payload, {})
+    market_overview = app.parse_market_overview(market_payload)
+    institutions = app.parse_institutions(institution_payload)
+    institution_summary = build_institution_summary(institutions)
+    try:
+        institution_trend = build_institution_trend(institution_payload, institution_date)
+    except Exception:  # noqa: BLE001
+        app.LOGGER.exception("Live overview institution trend build failed")
+        institution_trend = {}
+    twse_stocks = app.parse_all_stocks(market_payload)
+    sector_fund_flow = build_sector_fund_flow(twse_stocks, market_date)
+    tpex_stocks = app.parse_tpex_quotes(tpex_quotes, {}) if tpex_quotes else []
+    all_stocks = [*twse_stocks, *tpex_stocks]
+    site_data = {
+        "snapshotDate": datetime.strptime(market_date, "%Y%m%d").strftime("%Y-%m-%d"),
+        "institutionDate": datetime.strptime(institution_date, "%Y%m%d").strftime("%Y-%m-%d"),
+        "activityDate": datetime.strptime(market_date, "%Y%m%d").strftime("%Y-%m-%d") if activity_payload else None,
+        "intradayDate": datetime.strptime(market_date, "%Y%m%d").strftime("%Y-%m-%d"),
+        "cachedAt": app.taipei_now().strftime("%Y-%m-%d %H:%M:%S"),
+        "stockCount": len(all_stocks),
+        "tpexStockCount": len(tpex_stocks),
+        "tpexStockDate": datetime.strptime(tpex_quote_date, "%Y%m%d").strftime("%Y-%m-%d") if tpex_quote_date else None,
+        "yahooOtcDate": yahoo_sector_dates.get("otc"),
+        "yahooEmergingDate": yahoo_sector_dates.get("emerging"),
+        "yahooSectorDates": yahoo_sector_dates,
+        "marketStats": app.parse_market_statistics(market_payload),
+        "marketVolatility": market_volatility,
+        "marketInternationalIndexes": copy.deepcopy((cache_data.get("site_data") or {}).get("marketInternationalIndexes") or []),
+        "marketMacroFactors": {},
+        "sourceLinks": {
+            "market": build_market_url(market_date),
+            "institutions": build_institutions_url(institution_date),
+            "indexActivity": build_index_activity_url(market_date) if activity_payload else None,
+            "indexIntraday": build_index_intraday_url(market_date),
+            "yahooListedClassQuote": YAHOO_LISTED_CLASS_URL,
+            "yahooOtcClassQuote": YAHOO_TPEX_OTC_CLASS_URL,
+            "yahooEmergingClassQuote": YAHOO_TPEX_EMERGING_CLASS_URL,
+            "yahooClassHome": YAHOO_CLASS_HOME_URL,
+            "yahooInternationalIndexes": "https://finance.yahoo.com/",
+            "twseMarginTrading": TWSE_MARGIN_URL,
+            "taifexFuturesOpenInterest": TAIFEX_FUTURES_DAILY_URL,
+        },
+        "marketOverview": market_overview,
+        "sectors": sectors,
+        "sectorFundFlow": sector_fund_flow,
+        "institutions": institutions,
+        "institutionSummary": institution_summary,
+        "institutionTrend": institution_trend,
+        "stocks": build_stocks_view(all_stocks, "search"),
+        "tpexHighlights": {
+            "mainboard": (yahoo_sector_groups.get("otc") or [])[:6],
+            "emerging": (yahoo_sector_groups.get("emerging") or [])[:6],
+            "emergingStats": [],
+        },
+        "yahooSectorGroups": yahoo_sector_groups,
+        "yahooSectorCatalog": {},
+    }
+    site_data["news"] = build_news(site_data)
+    return sanitize_site_data(site_data)
