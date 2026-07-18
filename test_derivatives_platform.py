@@ -358,6 +358,50 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertEqual(sector["stockCount"], 1)
         self.assertEqual(sector["topStocks"][0]["code"], "2330")
 
+    def test_build_news_summarizes_market_sectors_and_institutions(self):
+        site_data = {
+            "snapshotDate": "2026-07-18",
+            "sectors": [
+                {"name": "台灣加權指數", "pct": "+0.50%"},
+                {"name": "半導體", "pct": "+2.00%"},
+                {"name": "航運", "pct": "-1.50%"},
+            ],
+            "marketOverview": [{
+                "name": "加權指數",
+                "value": "23000",
+                "pct": "+0.50%",
+                "volume": "250000000",
+                "turnoverValue": "350000000000",
+                "tradeCount": "1800000",
+            }],
+            "marketStats": {},
+            "institutions": [{"name": "合計", "diffValue": 1500000000}],
+            "institutionSummary": [
+                {"key": "foreign", "diffValue": 1000000000},
+                {"key": "trust", "diffValue": 300000000},
+                {"key": "dealer", "diffValue": 200000000},
+            ],
+            "institutionTrend": {
+                "foreign": {"label": "連3買"},
+                "trust": {"label": "連2買"},
+                "dealer": {"label": "區間整理"},
+            },
+            "sourceLinks": {
+                "market": "https://example.test/market",
+                "institutions": "https://example.test/institutions",
+            },
+        }
+        news = app.build_news(site_data)
+        self.assertEqual(len(news), 3)
+        self.assertEqual([item["tag"] for item in news], ["大盤", "指數", "法人"])
+        self.assertIn("23000", news[0]["title"])
+        self.assertEqual(news[0]["link"], "https://example.test/market")
+        self.assertIn("半導體", news[1]["title"])
+        self.assertIn("航運", news[1]["title"])
+        self.assertIn("三大法人合計買超", news[2]["title"])
+        self.assertIn("連3買", news[2]["body"])
+        self.assertEqual(news[2]["link"], "https://example.test/institutions")
+
     @patch.object(app, "fetch_taiex_spot_snapshot", return_value={"value": 20900, "date": "2026-06-20", "source": "TWSE"})
     @patch.object(app, "build_global_market_item", return_value=FUTURES_ITEM)
     def test_basis_contract(self, _item, _spot):

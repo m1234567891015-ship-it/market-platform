@@ -1,8 +1,39 @@
 """Response/data-shaping `build_*` functions extracted from app.py (TD-01
 slice 4), starting with 7 small, dependency-free leaf builders (batch 0),
 extended with the TAIFEX/options-chain + derivatives-misc cluster (batch 1,
-19 functions), and the Yahoo/sector + technical-analysis cluster (batch 2,
-12 functions).
+19 functions), the Yahoo/sector + technical-analysis cluster (batch 2,
+12 functions), and the stock-detail / institutional cluster (batch 3,
+15 functions).
+
+Batch 3 brings `build_stock_detail` (the largest single builder, ~300 lines)
+and everything it calls: `build_fallback_company_profile`,
+`build_latest_stock_institutional_trade`, `build_institutional_trade_candidate_dates`,
+`build_etf_components` (+ its exclusive `ETF_COMPONENT_PRESETS` constant),
+`build_fallback_history_rows`, `build_chip_summary` (+ `build_main_force_proxy`,
+its exclusive `format_chip_lots`/`format_chip_percent` helpers),
+`build_analysis_sections`. Also: `build_stock_institutional_trade_record` and
+`build_stock_institutional_trade_summary` (2 of the 6 functions `fetchers.py`
+reaches via deferred `import app` - both now re-exported from here so those
+call sites need zero changes), `build_institutional_history_from_yahoo`,
+`build_institution_summary`/`build_institution_trend` (called by
+`build_site_data`/`build_live_sector_site_data`/`build_live_market_overview_data`,
+all three still resident in app.py until batch 5 - re-imported into app.py so
+those bare-name calls keep resolving), and `build_news` (same situation,
+called by the same three not-yet-moved composites).
+
+Two functions exclusive to `build_stock_detail` (`is_valid_history_row`,
+`sanitize_history_rows`) have their own direct unit tests referencing them as
+`app.X` (`test_stock_history_sanitizer_drops_invalid_ohlc_rows`,
+`test_yahoo_history_rows_skip_incomplete_ohlc_points`) - re-exported from
+app.py's import block so those tests keep passing unmodified. `STOCK_HISTORY_RECENT_MONTHS`/
+`STOCK_HISTORY_MAX_MONTHS` are SHARED-PURE (also used directly by
+`api_stock_detail` and by a test assertion) - same treatment. `taipei_now`
+and `parse_institutions` stay in app.py (widely shared with still-resident
+code) and are reached via deferred `import app`, same pattern as every
+earlier batch. Added a characterization test for `build_news`
+(`test_build_news_summarizes_market_sectors_and_institutions`) before the
+move, per the standing rule - it previously had zero test coverage, direct
+or indirect.
 
 Batch 2 brings the Yahoo class-quote-card builder and its exclusive HTML/JSON
 scraping cluster (`parse_yahoo_class_quote_rows`, `parse_yahoo_class_quote_json_list`,
@@ -126,14 +157,26 @@ from fetchers import (
     build_index_activity_url,
     build_market_url,
     build_stock_institutions_url,
+    build_stock_news_fallback,
+    build_tpex_openapi_url,
     build_yahoo_chart_series,
+    collect_futures_until_deadline,
     dataset_has_rows,
     detect_tone,
     extract_balanced_segment,
     extract_visible_text_lines,
     fetch_barchart_options_context,
+    fetch_etf_dividend_info,
     fetch_json,
+    fetch_shareholder_distribution,
+    fetch_stock_company_profile,
+    fetch_stock_history_rows,
     fetch_stock_institutions_payload_near,
+    fetch_stock_institutional_trade_history,
+    fetch_stock_margin_trading,
+    fetch_stock_news,
+    fetch_stock_valuation,
+    fetch_stock_valuation_history,
     fetch_taifex_institution_detail_rows,
     fetch_taifex_latest_futures_market_snapshot,
     fetch_taifex_openapi_list,
@@ -141,28 +184,39 @@ from fetchers import (
     fetch_text,
     fetch_txo_option_chain,
     fetch_twse_listed_industry_map,
+    fetch_yahoo_broker_trading,
     fetch_yahoo_class_quote_pages,
+    fetch_yahoo_history_rows,
+    fetch_yahoo_institutional_trading,
+    fetch_yahoo_major_holders,
+    fetch_yahoo_margin_trading,
     fetch_yahoo_options_payload,
     fetch_yahoo_sector_catalog,
     fetch_yahoo_symbol_chart,
     fetch_yahoo_taiwan_future_quote,
     format_percent,
+    format_roc_date,
     format_signed,
     format_whole_number,
     is_etf_stock,
+    is_valid_ohlc_values,
     normalize_taifex_date_text,
     normalize_us_symbol_for_yahoo,
     parse_float,
     parse_public_options_number,
+    parse_roc_date,
     parse_taifex_market_number,
     shift_month,
 )
 from market_config import (
     CBOE_OPTIONS_BASE,
     SECTOR_INDEX_LOOKUP,
+    SUPPORTED_CHART_INTERVALS,
     TAIFEX_OPTIONS_DAILY_URL,
     TAIFEX_OPTIONS_PC_RATIO_URL,
+    TDCC_HOLDING_DISTRIBUTION_URL,
     TWSE_BASE,
+    TWSE_OPENAPI_BASE,
     YAHOO_CONCEPT_CLASS_URL,
     YAHOO_ELECTRONIC_CLASS_URL,
     YAHOO_GROUP_CLASS_URL,
@@ -3349,3 +3403,1364 @@ def build_all_market_penny_sector_recommendations() -> dict[str, Any]:
         return _refresh_all_market_penny_sector_recommendations()
     finally:
         finish_cache_flight("penny-sector-recommendations", flight)
+
+
+STOCK_HISTORY_RECENT_MONTHS = 3
+STOCK_HISTORY_MAX_MONTHS = 480
+
+
+def build_fallback_company_profile(
+    stock: dict[str, Any],
+    valuation: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    valuation = valuation or {}
+    market = str(stock.get("market") or "TWSE").upper()
+    code = str(stock.get("code") or "").strip()
+    name = str(stock.get("name") or "").strip()
+    security_type = str(stock.get("securityType") or "").strip()
+    market_label = str(stock.get("marketLabel") or ("上櫃" if market == "TPEX" else "上市")).strip()
+    profile_link = (
+        f"https://tw.stock.yahoo.com/quote/{quote(code, safe='')}.TWO/profile"
+        if market == "TPEX"
+        else f"https://tw.stock.yahoo.com/quote/{quote(code, safe='')}.TW/profile"
+    )
+    source_link = (
+        build_tpex_openapi_url("mopsfin_t187ap03_O")
+        if market == "TPEX"
+        else f"{TWSE_OPENAPI_BASE}/opendata/t187ap03_L"
+    )
+    industry_label = " / ".join(
+        item for item in [market_label, security_type if security_type and security_type != "STOCK" else "普通股"] if item
+    )
+    valuation_bits = [
+        f"估值日 {valuation.get('date')}" if valuation.get("date") not in (None, "", "--") else "",
+        f"本益比 {valuation.get('peRatio')}" if valuation.get("peRatio") not in (None, "", "--") else "",
+        f"股價淨值比 {valuation.get('pbRatio')}" if valuation.get("pbRatio") not in (None, "", "--") else "",
+        f"殖利率 {valuation.get('dividendYield')}%" if valuation.get("dividendYield") not in (None, "", "--") else "",
+    ]
+    return {
+        "fullName": f"{code} {name}".strip() or name or code,
+        "industry": industry_label or "--",
+        "chairman": "--",
+        "generalManager": "--",
+        "capital": "--",
+        "establishedDate": "--",
+        "listingDate": "--",
+        "address": "--",
+        "telephone": "--",
+        "website": profile_link,
+        "sourceStatus": "fallback",
+        "sourceNote": (
+            "官方公司基本資料暫時未取得；目前保留市場、證券類型與估值摘要，"
+            "並提供 Yahoo 個股與交易所 OpenAPI 來源供核對。"
+        ),
+        "sourceLink": source_link,
+        "summary": "；".join(bit for bit in valuation_bits if bit) or f"{market_label} {security_type or '股票'}行情與估值資料已同步。",
+    }
+
+
+def build_stock_institutional_trade_record(row: list[Any], report_date: str) -> dict[str, Any]:
+    foreign = parse_float(str(row[4])) if len(row) > 4 else None
+    trust = parse_float(str(row[10])) if len(row) > 10 else None
+    dealer = parse_float(str(row[11])) if len(row) > 11 else None
+    total = parse_float(str(row[18])) if len(row) > 18 else None
+    report_datetime = datetime.strptime(report_date, "%Y%m%d")
+    return {
+        "date": report_datetime.strftime("%Y-%m-%d"),
+        "label": report_datetime.strftime("%m/%d"),
+        "foreignValue": foreign,
+        "trustValue": trust,
+        "dealerValue": dealer,
+        "totalValue": total,
+        "foreignLotsValue": foreign / 1000 if foreign is not None else None,
+        "trustLotsValue": trust / 1000 if trust is not None else None,
+        "dealerLotsValue": dealer / 1000 if dealer is not None else None,
+        "totalLotsValue": total / 1000 if total is not None else None,
+    }
+
+
+def build_stock_institutional_trade_summary(
+    rows: list[dict[str, Any]],
+    limit: int,
+) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "date": "",
+        "label": f"{limit}日" if len(rows) >= limit else f"{len(rows)}日",
+    }
+    for key in ("foreign", "trust", "dealer", "total"):
+        raw_key = f"{key}Value"
+        lot_key = f"{key}LotsValue"
+        values = [item.get(raw_key) for item in rows if isinstance(item.get(raw_key), (int, float))]
+        total_value = sum(values) if values else None
+        summary[raw_key] = total_value
+        summary[lot_key] = total_value / 1000 if total_value is not None else None
+    return summary
+
+
+def build_latest_stock_institutional_trade(
+    history: dict[str, Any],
+) -> dict[str, Any]:
+    rows = history.get("rows") if isinstance(history, dict) else []
+    latest = rows[0] if isinstance(rows, list) and rows else {}
+    if not latest:
+        return {}
+    foreign = latest.get("foreignValue")
+    trust = latest.get("trustValue")
+    dealer = latest.get("dealerValue")
+    total = latest.get("totalValue")
+    return {
+        "date": latest.get("date") or "",
+        "foreign": format_signed(foreign, 0),
+        "trust": format_signed(trust, 0),
+        "dealer": format_signed(dealer, 0),
+        "total": format_signed(total, 0),
+        "foreignValue": foreign,
+        "trustValue": trust,
+        "dealerValue": dealer,
+        "totalValue": total,
+    }
+
+
+def build_institutional_trade_candidate_dates(
+    history_rows: list[list[str]],
+    date_str: str,
+    limit: int,
+) -> list[str]:
+    import app
+
+    candidates: list[str] = []
+    seen: set[str] = set()
+
+    def add_date(value: str) -> None:
+        if re.fullmatch(r"\d{8}", value) and value not in seen:
+            candidates.append(value)
+            seen.add(value)
+
+    add_date(app.taipei_now().strftime("%Y%m%d"))
+    add_date(date_str)
+
+    for row in reversed(history_rows):
+        if not row:
+            continue
+        try:
+            add_date(parse_roc_date(str(row[0])).strftime("%Y%m%d"))
+        except (TypeError, ValueError):
+            continue
+        if len(candidates) >= limit:
+            break
+
+    return candidates
+
+
+def build_institutional_history_from_yahoo(
+    payload: dict[str, Any],
+    limit: int = 1300,
+) -> dict[str, Any]:
+    raw_rows = payload.get("dailyRows") if isinstance(payload, dict) else []
+    rows: list[dict[str, Any]] = []
+    for row in (raw_rows or [])[:limit]:
+        foreign_lots = parse_float(str(row.get("foreignLotsValue") or ""))
+        trust_lots = parse_float(str(row.get("trustLotsValue") or ""))
+        dealer_lots = parse_float(str(row.get("dealerLotsValue") or ""))
+        total_lots = parse_float(str(row.get("totalLotsValue") or ""))
+        rows.append({
+            "date": row.get("date") or "",
+            "label": row.get("label") or str(row.get("date") or "")[5:],
+            "foreignLotsValue": foreign_lots,
+            "trustLotsValue": trust_lots,
+            "dealerLotsValue": dealer_lots,
+            "totalLotsValue": total_lots,
+            "foreignValue": foreign_lots * 1000 if foreign_lots is not None else None,
+            "trustValue": trust_lots * 1000 if trust_lots is not None else None,
+            "dealerValue": dealer_lots * 1000 if dealer_lots is not None else None,
+            "totalValue": total_lots * 1000 if total_lots is not None else None,
+            "foreignChipRatio": row.get("foreignChipRatio"),
+            "changePct": row.get("changePct"),
+            "volume": row.get("volume"),
+        })
+    periods = [5, 10, 20, 30]
+    summaries = {
+        str(period): build_stock_institutional_trade_summary(rows[:period], period)
+        for period in periods
+        if rows
+    }
+    return {
+        "available": bool(rows),
+        "unit": "lots",
+        "limit": limit,
+        "periods": periods,
+        "defaultPeriod": 5,
+        "rows": rows,
+        "summaries": summaries,
+        "summary": summaries.get("5", {}),
+        "source": payload.get("source") or "Yahoo Taiwan Stock",
+        "sourceLink": payload.get("sourceLink") or "",
+        "sourceNote": "Yahoo real institutional trading rows. Long TPEx ranges are limited by Yahoo availability.",
+    }
+
+
+def build_institution_summary(institutions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    groups = [
+        ("foreign", "外資", lambda name: name.startswith("外資")),
+        ("dealer", "自營商", lambda name: name.startswith("自營商")),
+        ("trust", "投信", lambda name: name == "投信"),
+    ]
+    summaries: list[dict[str, Any]] = []
+    for key, label, matcher in groups:
+        matched = [item for item in institutions if matcher(str(item.get("name", "")))]
+        if not matched:
+            continue
+        buy_value = sum(item.get("buyValue") or 0 for item in matched)
+        sell_value = sum(item.get("sellValue") or 0 for item in matched)
+        diff_value = sum(item.get("diffValue") or 0 for item in matched)
+        summaries.append(
+            {
+                "key": key,
+                "name": label,
+                "buy": format_whole_number(buy_value),
+                "sell": format_whole_number(sell_value),
+                "diff": format_signed(diff_value, 0),
+                "buyValue": buy_value,
+                "sellValue": sell_value,
+                "diffValue": diff_value,
+                "tone": detect_tone(diff_value),
+                "sources": [item["name"] for item in matched],
+            }
+        )
+    return summaries
+
+
+def build_institution_trend(
+    latest_payload: dict[str, Any] | None = None,
+    latest_date: str | None = None,
+    lookback_days: int = 12,
+    max_rows: int = 5,
+) -> dict[str, Any]:
+    """Summarize recent institutional flow continuity for market AI notes."""
+    import app
+
+    rows: list[dict[str, Any]] = []
+    seen_dates: set[str] = set()
+
+    def append_payload(payload: dict[str, Any] | None, date_str: str | None) -> None:
+        if not payload or not date_str or date_str in seen_dates or not dataset_has_rows(payload):
+            return
+        institutions = app.parse_institutions(payload)
+        summary = build_institution_summary(institutions)
+        foreign = next((item for item in summary if item.get("key") == "foreign"), None)
+        dealer = next((item for item in summary if item.get("key") == "dealer"), None)
+        trust = next((item for item in summary if item.get("key") == "trust"), None)
+        total = next((item for item in institutions if item.get("name") == "合計"), None)
+        rows.append(
+            {
+                "date": datetime.strptime(date_str, "%Y%m%d").strftime("%Y-%m-%d"),
+                "foreign": foreign.get("diff") if foreign else "--",
+                "foreignValue": foreign.get("diffValue") if foreign else None,
+                "dealer": dealer.get("diff") if dealer else "--",
+                "dealerValue": dealer.get("diffValue") if dealer else None,
+                "trust": trust.get("diff") if trust else "--",
+                "trustValue": trust.get("diffValue") if trust else None,
+                "total": total.get("diff") if total else "--",
+                "totalValue": total.get("diffValue") if total else None,
+            }
+        )
+        seen_dates.add(date_str)
+
+    append_payload(latest_payload, latest_date)
+    try:
+        base_date = datetime.strptime(latest_date or "", "%Y%m%d").date()
+    except ValueError:
+        base_date = app.taipei_now().date()
+
+    for offset in range(1, lookback_days + 1):
+        if len(rows) >= max_rows:
+            break
+        date_str = (base_date - timedelta(days=offset)).strftime("%Y%m%d")
+        try:
+            payload = fetch_json(build_institutions_url(date_str), timeout=8)
+        except Exception:  # noqa: BLE001
+            continue
+        append_payload(payload, date_str)
+
+    def streak_for(key: str) -> dict[str, Any]:
+        valid = [row for row in rows if isinstance(row.get(f"{key}Value"), (int, float))]
+        if not valid:
+            return {"direction": "flat", "count": 0, "label": "資料不足", "summary": "法人連續性資料仍在同步。"}
+        first_value = valid[0].get(f"{key}Value") or 0
+        if first_value > 0:
+            direction = "buy"
+        elif first_value < 0:
+            direction = "sell"
+        else:
+            direction = "flat"
+        count = 0
+        for row in valid:
+            value = row.get(f"{key}Value") or 0
+            if direction == "buy" and value > 0:
+                count += 1
+            elif direction == "sell" and value < 0:
+                count += 1
+            elif direction == "flat" and value == 0:
+                count += 1
+            else:
+                break
+        direction_text = "買超" if direction == "buy" else "賣超" if direction == "sell" else "持平"
+        label = f"連 {count} {direction_text}" if count > 1 else f"今日{direction_text}"
+        summary = f"{valid[0].get('date', '')} {direction_text} {format_whole_number(abs(first_value))} 元，{label}。"
+        return {"direction": direction, "count": count, "label": label, "summary": summary}
+
+    return {
+        "rows": rows,
+        "foreign": streak_for("foreign"),
+        "dealer": streak_for("dealer"),
+        "trust": streak_for("trust"),
+        "total": streak_for("total"),
+    }
+
+
+def is_valid_history_row(row: list[str]) -> bool:
+    if len(row) < 7:
+        return False
+    return is_valid_ohlc_values(
+        parse_float(str(row[3])),
+        parse_float(str(row[4])),
+        parse_float(str(row[5])),
+        parse_float(str(row[6])),
+    )
+
+
+def sanitize_history_rows(rows: list[list[str]]) -> list[list[str]]:
+    return [row for row in rows if is_valid_history_row(row)]
+
+
+def build_fallback_history_rows(stock: dict[str, Any], date_str: str) -> list[list[str]]:
+    close_value = parse_float(stock.get("close"))
+    change_value = parse_float(stock.get("change")) or 0.0
+    if close_value is None:
+        return []
+
+    snapshot_date = datetime.strptime(date_str, "%Y%m%d")
+    previous_date = snapshot_date - timedelta(days=1)
+    while previous_date.weekday() >= 5:
+        previous_date -= timedelta(days=1)
+    previous_close = close_value - change_value
+    open_value = stock.get("open") if parse_float(stock.get("open")) is not None else f"{previous_close:,.2f}"
+    high_value = stock.get("high") if parse_float(stock.get("high")) is not None else stock.get("close")
+    low_value = stock.get("low") if parse_float(stock.get("low")) is not None else stock.get("close")
+    volume = stock.get("volume") or "0"
+
+    return [
+        [format_roc_date(previous_date), "0", "", f"{previous_close:,.2f}", f"{previous_close:,.2f}", f"{previous_close:,.2f}", f"{previous_close:,.2f}", "0.00"],
+        [format_roc_date(snapshot_date), volume, "", open_value, high_value, low_value, stock["close"], stock["change"]],
+    ]
+
+
+def format_chip_lots(value: float | None, digits: int = 0, signed: bool = False) -> str:
+    if value is None:
+        return "--"
+    prefix = "+" if signed and value > 0 else ""
+    return f"{prefix}{value:,.{digits}f} 張"
+
+
+def format_chip_percent(value: float | None, digits: int = 2, signed: bool = False) -> str:
+    if value is None:
+        return "--"
+    prefix = "+" if signed and value > 0 else ""
+    return f"{prefix}{value:.{digits}f}%"
+
+
+def build_main_force_proxy(
+    stock: dict[str, Any],
+    avg_volume_5: float | None,
+    pct_value: float | None,
+    broker_trading: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    broker_trading = broker_trading or {}
+    broker_summary = broker_trading.get("summary") if isinstance(broker_trading, dict) else {}
+    broker_summary = broker_summary if isinstance(broker_summary, dict) else {}
+    broker_net_lots = parse_float(str(broker_summary.get("netLots") or ""))
+    has_broker_data = bool(
+        broker_trading
+        and (
+            broker_net_lots is not None
+            or broker_trading.get("buyBrokers")
+            or broker_trading.get("sellBrokers")
+        )
+    )
+    label = (
+        "偏買進" if broker_net_lots is not None and broker_net_lots > 0
+        else "偏賣出" if broker_net_lots is not None and broker_net_lots < 0
+        else "換手觀察" if has_broker_data
+        else "未取得"
+    )
+    tone = detect_tone(broker_net_lots) if has_broker_data else "flat"
+
+    return {
+        "key": "mainForce",
+        "title": "主力進出",
+        "label": label,
+        "tone": tone,
+        "metrics": [
+            {"label": "主力買賣超", "value": format_chip_lots(broker_net_lots, 0, True) if broker_net_lots is not None else label},
+            {"label": "主力買超", "value": format_chip_lots(parse_float(str(broker_summary.get("buyLots") or "")), 0)},
+            {"label": "主力賣超", "value": format_chip_lots(parse_float(str(broker_summary.get("sellLots") or "")), 0)},
+            {"label": "佔成交量", "value": str(broker_summary.get("volumeRatio") or "--")},
+        ],
+        "items": [
+            (
+                f"Yahoo 主力進出資料時間 {broker_trading.get('date', '--')}，買超券商 {len(broker_trading.get('buyBrokers') or [])} 家、賣超券商 {len(broker_trading.get('sellBrokers') or [])} 家。"
+                if has_broker_data else "主力進出資料未取得；不使用量價代理替代。"
+            ),
+            "買超/賣超券商明細以 Yahoo 主力進出頁解析結果呈現。" if has_broker_data else "請稍後重新同步資料來源。",
+        ],
+        "source": broker_trading.get("source") or "Yahoo 股市主力進出",
+        "sourceLink": broker_trading.get("sourceLink") or "",
+        "sourceNote": broker_trading.get("sourceNote") or "主力進出未取得時不使用代理推估。",
+    }
+
+
+def build_chip_summary(
+    stock: dict[str, Any],
+    avg_volume_5: float | None,
+    pct_value: float | None,
+    institutional_trades: dict[str, Any] | None,
+    institutional_trade_history: dict[str, Any] | None,
+    shareholder_distribution: dict[str, Any] | None,
+    margin_trading: dict[str, Any] | None,
+    broker_trading: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    institutional_trades = institutional_trades or {}
+    institutional_trade_history = institutional_trade_history or {}
+    shareholder_distribution = shareholder_distribution or {}
+    margin_trading = margin_trading or {}
+    is_etf = is_etf_stock(stock)
+
+    total_institutional = parse_float(str(institutional_trades.get("totalValue") or ""))
+    foreign_value = parse_float(str(institutional_trades.get("foreignValue") or ""))
+    trust_value = parse_float(str(institutional_trades.get("trustValue") or ""))
+    dealer_value = parse_float(str(institutional_trades.get("dealerValue") or ""))
+    institutional_label = (
+        "買超" if total_institutional is not None and total_institutional > 0
+        else "賣超" if total_institutional is not None and total_institutional < 0
+        else "待同步"
+    )
+    institutional_card = {
+        "key": "institutional",
+        "title": "法人買賣",
+        "label": institutional_label,
+        "tone": detect_tone(total_institutional),
+        "metrics": [
+            {"label": "三大法人", "value": format_chip_lots(total_institutional / 1000 if total_institutional is not None else None, 0, True)},
+            {"label": "外資", "value": format_chip_lots(foreign_value / 1000 if foreign_value is not None else None, 0, True)},
+            {"label": "投信", "value": format_chip_lots(trust_value / 1000 if trust_value is not None else None, 0, True)},
+            {"label": "自營商", "value": format_chip_lots(dealer_value / 1000 if dealer_value is not None else None, 0, True)},
+        ],
+        "items": [
+            (
+                f"{institutional_trades.get('date', '--')} 三大法人合計 {format_chip_lots(total_institutional / 1000 if total_institutional is not None else None, 0, True)}。"
+                if institutional_trades else str(institutional_trade_history.get("sourceNote") or "法人買賣超明細目前未取得。")
+            ),
+            "ETF 法人買賣同樣以交易所法人買賣超口徑觀察資金方向。" if is_etf else "個股法人買賣可搭配投信連續性與外資方向觀察。",
+        ],
+        "source": institutional_trade_history.get("source") or "TWSE T86",
+        "sourceLink": institutional_trade_history.get("sourceLink") or "",
+        "sourceNote": institutional_trade_history.get("sourceNote") or "法人買賣超明細同步自交易所公開資料。",
+    }
+
+    main_force_card = build_main_force_proxy(stock, avg_volume_5, pct_value, broker_trading)
+
+    financing_change_value = parse_float(str(margin_trading.get("financingChange") or ""))
+    short_change_value = parse_float(str(margin_trading.get("shortChange") or ""))
+    financing_balance = parse_float(str(margin_trading.get("financingBalance") or ""))
+    short_balance = parse_float(str(margin_trading.get("shortBalance") or ""))
+    ratio = parse_float(str(margin_trading.get("shortFinancingRatio") or ""))
+    margin_label = (
+        "券增資減" if short_change_value is not None and short_change_value > 0 and (financing_change_value or 0) <= 0
+        else "資增券減" if financing_change_value is not None and financing_change_value > 0 and (short_change_value or 0) <= 0
+        else "同步增加" if (financing_change_value or 0) > 0 and (short_change_value or 0) > 0
+        else "待同步"
+    )
+    margin_card = {
+        "key": "margin",
+        "title": "資券變化",
+        "label": margin_label,
+        "tone": "down" if margin_label == "券增資減" else "up" if margin_label == "資增券減" else "flat",
+        "metrics": [
+            {"label": "融資增減", "value": format_chip_lots(financing_change_value, 0, True)},
+            {"label": "融券增減", "value": format_chip_lots(short_change_value, 0, True)},
+            {"label": "融資餘額", "value": format_chip_lots(financing_balance, 0)},
+            {"label": "券資比", "value": format_chip_percent(ratio, 2)},
+        ],
+        "items": [
+            (
+                f"融資餘額 {format_chip_lots(financing_balance, 0)}，融券餘額 {format_chip_lots(short_balance, 0)}。"
+                if margin_trading else "資券資料目前未取得。"
+            ),
+            (
+                f"資券互抵 {format_chip_lots(parse_float(str(margin_trading.get('offsetting') or '')), 0)}。"
+                if margin_trading else "上市/上櫃資券資料以交易所公告為準。"
+            ),
+        ],
+        "source": "交易所資券",
+        "sourceLink": margin_trading.get("sourceLink") or "",
+        "sourceNote": margin_trading.get("sourceNote") or "融資融券資料以交易所公告為準。",
+    }
+
+    large_ratio = parse_float(str(shareholder_distribution.get("largeHolderRatio") or ""))
+    retail_ratio = parse_float(str(shareholder_distribution.get("retailHolderRatio") or ""))
+    other_ratio = parse_float(str(shareholder_distribution.get("otherHolderRatio") or ""))
+    holder_available = shareholder_distribution.get("available", True) is not False and large_ratio is not None
+    holder_label = (
+        "集中" if large_ratio is not None and large_ratio >= 60
+        else "分散" if large_ratio is not None and large_ratio < 35
+        else "觀察" if holder_available
+        else "待同步"
+    )
+    holder_card = {
+        "key": "largeHolder",
+        "title": "大戶籌碼",
+        "label": holder_label,
+        "tone": "up" if holder_label == "集中" else "down" if holder_label == "分散" else "flat",
+        "metrics": [
+            {"label": "大戶", "value": format_chip_percent(large_ratio, 2)},
+            {"label": "散戶", "value": format_chip_percent(retail_ratio, 2)},
+            {"label": "其他", "value": format_chip_percent(other_ratio, 2)},
+            {"label": "日期", "value": str(shareholder_distribution.get("date") or "--")},
+        ],
+        "items": [
+            (
+                f"大戶門檻 {shareholder_distribution.get('largeHolderThreshold', '400 張以上')}，持股占比 {format_chip_percent(large_ratio, 2)}。"
+                if holder_available else str(shareholder_distribution.get("sourceNote") or "大戶籌碼目前未取得。")
+            ),
+            "ETF 集保分布可觀察受益人籌碼集中度；個股則可輔助判斷大戶與散戶結構。",
+        ],
+        "source": shareholder_distribution.get("source") or "臺灣集中保管結算所",
+        "sourceLink": shareholder_distribution.get("sourceLink") or TDCC_HOLDING_DISTRIBUTION_URL,
+        "sourceNote": shareholder_distribution.get("sourceNote") or "集保持股分級資料同步自臺灣集中保管結算所。",
+    }
+
+    return {
+        "title": "籌碼四象限",
+        "summary": "整合法人買賣、主力進出、資券變化與大戶籌碼；官方資料未提供處以代理或待同步標示。",
+        "cards": [institutional_card, main_force_card, margin_card, holder_card],
+    }
+
+
+def build_analysis_sections(
+    stock: dict[str, Any],
+    closes: list[float],
+    volumes: list[float],
+    highs: list[float],
+    lows: list[float],
+    ma5: float | None,
+    avg_volume_5: float | None,
+    site_data: dict[str, Any] | None,
+    valuation: dict[str, Any] | None = None,
+    institutional_trades: dict[str, Any] | None = None,
+    shareholder_distribution: dict[str, Any] | None = None,
+    margin_trading: dict[str, Any] | None = None,
+    etf_components: dict[str, Any] | None = None,
+    etf_dividend_info: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    valuation = valuation or {}
+    institutional_trades = institutional_trades or {}
+    shareholder_distribution = shareholder_distribution or {}
+    margin_trading = margin_trading or {}
+    close_value = parse_float(stock["close"])
+    open_value = parse_float(stock["open"])
+    high_value = parse_float(stock["high"])
+    low_value = parse_float(stock["low"])
+    turnover_value = parse_float(stock["turnover"])
+    trades_value = parse_float(stock["trades"])
+    bid_volume = parse_float(stock["bidVolume"])
+    ask_volume = parse_float(stock["askVolume"])
+    latest_volume = parse_float(stock["volume"])
+    pct_value = parse_float(stock["pct"].replace("%", "")) if stock.get("pct") not in (None, "--") else None
+    holder_large_ratio = parse_float(str(shareholder_distribution.get("largeHolderRatio", ""))) if shareholder_distribution else None
+    holder_retail_ratio = parse_float(str(shareholder_distribution.get("retailHolderRatio", ""))) if shareholder_distribution else None
+    holder_available = (
+        bool(shareholder_distribution)
+        and shareholder_distribution.get("available", True) is not False
+        and holder_large_ratio is not None
+        and holder_retail_ratio is not None
+    )
+
+    range_position = None
+    if close_value is not None and highs and lows and max(highs) != min(lows):
+        range_position = (close_value - min(lows)) / (max(highs) - min(lows))
+
+    volume_ratio = None
+    if latest_volume is not None and avg_volume_5 not in (None, 0):
+        volume_ratio = latest_volume / avg_volume_5
+
+    market_overview = site_data["marketOverview"][0] if site_data and site_data.get("marketOverview") else None
+    market_pct = parse_float(str(market_overview.get("pct", "")).replace("%", "")) if market_overview else None
+    relative_pct = pct_value - market_pct if pct_value is not None and market_pct is not None else None
+    market_label = stock.get("marketLabel") or (
+        "上櫃" if str(stock.get("market", "")).upper() == "TPEX" else "上市"
+    )
+    is_etf = is_etf_stock(stock)
+
+    technical_items = [
+        f"收盤價 {stock['close']}，5 日均價 {f'{ma5:,.2f}' if ma5 is not None else '--'}。",
+        "收盤站上 5 日均價，短線結構偏強。" if ma5 is not None and close_value is not None and close_value >= ma5 else "收盤位於 5 日均價下方，短線仍需觀察支撐。",
+        f"月內區間 {min(lows):,.2f} 至 {max(highs):,.2f}，目前位於區間 {range_position * 100:,.1f}% 位置。" if range_position is not None else "月內高低點資料不足。",
+        f"當日震幅 {((high_value - low_value) / open_value) * 100:,.2f}%。" if None not in (high_value, low_value, open_value) and open_value != 0 else "當日震幅資料不足。",
+    ]
+
+    if is_etf:
+        etf_components = etf_components or {}
+        etf_dividend_info = etf_dividend_info or {}
+        holdings = etf_components.get("holdings") if isinstance(etf_components, dict) else []
+        holdings = holdings if isinstance(holdings, list) else []
+        top_holding = holdings[0] if holdings else {}
+        top_weight = parse_float(str(top_holding.get("weight", ""))) if isinstance(top_holding, dict) else None
+        top5_weight = sum(
+            parse_float(str(item.get("weight", ""))) or 0
+            for item in holdings[:5]
+            if isinstance(item, dict)
+        ) if holdings else None
+        latest_dividend = (etf_dividend_info.get("latest") or {}) if isinstance(etf_dividend_info, dict) else {}
+        dividend_totals = (etf_dividend_info.get("totals") or {}) if isinstance(etf_dividend_info, dict) else {}
+        recent_dividends = etf_dividend_info.get("recent") if isinstance(etf_dividend_info, dict) else []
+        recent_dividends = recent_dividends if isinstance(recent_dividends, list) else []
+        latest_cash_dividend = str(latest_dividend.get("cashDividend", "")).strip()
+        has_latest_dividend = latest_cash_dividend not in {"", "--", "-", "N/A", "NA"}
+        total_dividends_text = str(dividend_totals.get("totalDividends", "")).strip()
+        continuous_years_text = str(dividend_totals.get("continuousYears", "")).strip()
+        has_dividend_totals = (
+            total_dividends_text not in {"", "--", "-", "N/A", "NA", "0"}
+            or continuous_years_text not in {"", "--", "-", "N/A", "NA", "0"}
+        )
+        bid_value = parse_float(str(stock.get("bid", "")))
+        ask_value = parse_float(str(stock.get("ask", "")))
+        spread_value = (ask_value - bid_value) if bid_value is not None and ask_value is not None and ask_value >= bid_value else None
+        spread_pct = (spread_value / close_value * 100) if spread_value is not None and close_value not in (None, 0) else None
+        volatility_pct = parse_float(str((stock.get("technicalAnalysis") or {}).get("volatilityPct", "")))
+        etf_type_note = (
+            "槓桿/反向 ETF，偏交易工具，籌碼與風險需以量能、折溢價與波動控管為主。"
+            if any(keyword in str(stock.get("name", "")) for keyword in ("正2", "反1", "反向", "槓桿"))
+            else "ETF 以追蹤標的、成分配置、配息與流動性作為核心分析，不適用一般個股本益比與股價淨值比判讀。"
+        )
+        fundamental_items = [
+            etf_type_note,
+            (
+                f"ETF 成分股比例：最大配置為 {top_holding.get('name', '--')} "
+                f"{top_weight:.1f}%，前 5 大配置合計約 {top5_weight:.1f}%。"
+                if holdings and top_weight is not None and top5_weight is not None
+                else "ETF 成分股比例尚未取得完整明細，請以投信每日公告為準。"
+            ),
+            (
+                f"近次配息 {latest_cash_dividend} 元，除息日 {latest_dividend.get('exDate', '--')}，"
+                f"平均殖利率 {dividend_totals.get('averageYield', '--')}%。"
+                if has_latest_dividend
+                else "ETF 股利資訊尚未取得近次配息，收益型 ETF 需再核對除息日、發放日與填息天數。"
+            ),
+            (
+                f"累計股利 {dividend_totals.get('totalDividends', '--')} 元，連續配息年數 {dividend_totals.get('continuousYears', '--')} 年。"
+                if has_dividend_totals else "累計股利與連續配息年數目前未取得，或此 ETF 不是以配息為主要目的。"
+            ),
+            f"成交金額 {stock.get('turnover', '--')}，成交量 {stock.get('volume', '--')}，用於判斷 ETF 流動性與交易滑價風險。",
+            "淨值折溢價、費用率與追蹤誤差目前尚未串接；若要做長期配置，仍需以投信公告與基金公開說明書補強。",
+        ]
+        chips_items = [
+            f"ETF 籌碼面以成交量、成交值、買賣價差、折溢價與申贖變化作為代理，不直接套用一般個股法人/集保持股口徑。",
+            f"成交量 {stock.get('volume', '--')}，成交筆數 {stock.get('trades', '--')}，成交金額 {stock.get('turnover', '--')}。",
+            f"最新成交量約為 5 日均量的 {volume_ratio:,.2f} 倍。" if volume_ratio is not None else "5 日均量資料不足，量能變化需持續觀察。",
+            (
+                f"委買 {stock.get('bidVolume', '--')}、委賣 {stock.get('askVolume', '--')}；"
+                f"買賣價差約 {spread_value:.2f} 元（{spread_pct:.2f}%）。"
+                if spread_value is not None and spread_pct is not None else
+                f"委買 {stock.get('bidVolume', '--')}、委賣 {stock.get('askVolume', '--')}；買賣價差資料不足。"
+            ),
+            (
+                f"波動度 {volatility_pct:.2f}%，當日震幅 {((high_value - low_value) / open_value) * 100:,.2f}%。"
+                if volatility_pct is not None and None not in (high_value, low_value, open_value) and open_value != 0 else
+                "波動度或當日震幅資料不足。"
+            ),
+            (
+                f"ETF 股利資訊已有 {len(recent_dividends)} 筆近次配息紀錄，可搭配填息天數觀察收益品質。"
+                if recent_dividends else "ETF 配息紀錄目前未取得，收益型 ETF 不宜只用名稱判斷。"
+            ),
+        ]
+        news_items = [
+            f"{market_label} ETF，當日漲跌幅 {stock.get('pct', '--')}。",
+            (
+                f"加權指數漲跌幅 {market_overview['pct']}，ETF 相對大盤強弱 {relative_pct:+.2f} 個百分點。"
+                if market_overview and relative_pct is not None else "大盤相對強弱資料目前未取得。"
+            ),
+            (
+                "ETF 表現優於大盤，需確認是否由成分集中度或主題曝險推動。" if relative_pct is not None and relative_pct > 0 else
+                "ETF 表現弱於大盤，需檢查成分配置、折溢價與量能是否同步轉弱。" if relative_pct is not None and relative_pct < 0 else
+                "ETF 表現與大盤接近，可回到追蹤標的與費用結構比較。"
+            ),
+        ]
+        return {
+            "technical": {
+                "title": "技術趨勢",
+                "summary": technical_items[1],
+                "items": technical_items,
+            },
+            "chips": {
+                "title": "ETF 籌碼與流動性",
+                "summary": chips_items[1],
+                "items": chips_items,
+                "skipSupplementalPanels": True,
+            },
+            "fundamental": {
+                "title": "ETF 基本面",
+                "summary": fundamental_items[1],
+                "items": fundamental_items,
+            },
+            "news": {
+                "title": "市場脈絡",
+                "summary": news_items[1],
+                "items": news_items,
+            },
+        }
+
+    chips_items = [
+        (
+            f"集保持股分布（{shareholder_distribution['date']}）：大戶 "
+            f"{holder_large_ratio:.2f}%、散戶 "
+            f"{holder_retail_ratio:.2f}%。"
+            if holder_available else str(shareholder_distribution.get("sourceNote") or "集保持股分布目前未取得。")
+        ),
+        f"成交量 {stock['volume']}，成交筆數 {stock['trades']}。",
+        f"最新成交量約為 5 日均量的 {volume_ratio:,.2f} 倍。" if volume_ratio is not None else "5 日均量資料不足。",
+        f"委買 {stock['bidVolume']}、委賣 {stock['askVolume']}。" if bid_volume is not None and ask_volume is not None else "委買委賣資料不足。",
+        (
+            f"個股法人（{institutional_trades['date']}）：外資 {institutional_trades['foreign']} 股、"
+            f"投信 {institutional_trades['trust']} 股、自營商 {institutional_trades['dealer']} 股。"
+            if institutional_trades else f"{market_label}個股法人明細目前未取得。"
+        ),
+        f"三大法人合計 {institutional_trades['total']} 股。" if institutional_trades else "法人合計資料目前未取得。",
+        (
+            f"融資餘額 {margin_trading['financingBalance']:,.0f} 張，"
+            f"較前日 {margin_trading['financingChange']:+,.0f} 張；"
+            f"融券餘額 {margin_trading['shortBalance']:,.0f} 張，"
+            f"較前日 {margin_trading['shortChange']:+,.0f} 張。"
+            if margin_trading
+            and margin_trading.get("financingBalance") is not None
+            and margin_trading.get("financingChange") is not None
+            and margin_trading.get("shortBalance") is not None
+            and margin_trading.get("shortChange") is not None
+            else "個股融資融券資料目前未取得。"
+        ),
+    ]
+
+    fundamental_items = [
+        f"本益比 {valuation.get('peRatio', '--')}。",
+        f"殖利率 {valuation.get('dividendYield', '--')}%。",
+        f"股價淨值比 {valuation.get('pbRatio', '--')}。",
+        (
+            f"每股股利 {valuation['dividendPerShare']} 元。"
+            if valuation.get("dividendPerShare") not in (None, "", "--") else
+            f"成交金額 {stock['turnover']}。" if turnover_value else "成交金額資料不足。"
+        ),
+        f"估值資料日期 {valuation.get('date', '--')}。",
+    ]
+
+    news_items = [
+        f"{market_label}股票，個股漲跌幅 {stock['pct']}。",
+        (
+            f"加權指數漲跌幅 {market_overview['pct']}，個股相對大盤強弱 {relative_pct:+.2f} 個百分點。"
+            if market_overview and relative_pct is not None else "大盤相對強弱資料目前未取得。"
+        ),
+        (
+            "個股表現優於大盤。" if relative_pct is not None and relative_pct > 0 else
+            "個股表現弱於大盤。" if relative_pct is not None and relative_pct < 0 else
+            "個股表現與大盤接近。"
+        ),
+    ]
+
+    return {
+        "technical": {
+            "title": "技術趨勢",
+            "summary": technical_items[1],
+            "items": technical_items,
+        },
+        "chips": {
+            "title": "籌碼觀察",
+            "summary": (
+                f"大戶持股 {shareholder_distribution['largeHolderRatio']:.2f}%、"
+                f"散戶持股 {shareholder_distribution['retailHolderRatio']:.2f}%。"
+                if holder_available else chips_items[4]
+            ),
+            "items": chips_items,
+            "holderDistribution": shareholder_distribution,
+            "marginTrading": margin_trading,
+        },
+        "fundamental": {
+            "title": "基本面觀察",
+            "summary": (
+                f"本益比 {valuation.get('peRatio', '--')}、殖利率 {valuation.get('dividendYield', '--')}%。"
+            ),
+            "items": fundamental_items,
+        },
+        "news": {
+            "title": "市場脈絡",
+            "summary": news_items[1],
+            "items": news_items,
+        },
+    }
+
+
+ETF_COMPONENT_PRESETS: dict[str, list[dict[str, Any]]] = {
+    "0050": [
+        {"name": "台積電", "code": "2330", "weight": 55.0},
+        {"name": "鴻海", "code": "2317", "weight": 5.0},
+        {"name": "聯發科", "code": "2454", "weight": 4.0},
+        {"name": "台達電", "code": "2308", "weight": 3.8},
+        {"name": "富邦金", "code": "2881", "weight": 2.5},
+        {"name": "中信金", "code": "2891", "weight": 2.4},
+        {"name": "廣達", "code": "2382", "weight": 2.3},
+        {"name": "聯電", "code": "2303", "weight": 1.8},
+        {"name": "國泰金", "code": "2882", "weight": 1.8},
+        {"name": "日月光投控", "code": "3711", "weight": 1.7},
+        {"name": "其他成分股", "code": "--", "weight": 19.7},
+    ],
+    "006208": [
+        {"name": "台積電", "code": "2330", "weight": 55.0},
+        {"name": "鴻海", "code": "2317", "weight": 5.0},
+        {"name": "聯發科", "code": "2454", "weight": 4.0},
+        {"name": "台達電", "code": "2308", "weight": 3.8},
+        {"name": "富邦金", "code": "2881", "weight": 2.5},
+        {"name": "中信金", "code": "2891", "weight": 2.4},
+        {"name": "廣達", "code": "2382", "weight": 2.3},
+        {"name": "聯電", "code": "2303", "weight": 1.8},
+        {"name": "國泰金", "code": "2882", "weight": 1.8},
+        {"name": "日月光投控", "code": "3711", "weight": 1.7},
+        {"name": "其他成分股", "code": "--", "weight": 19.7},
+    ],
+}
+
+
+def build_etf_components(stock: dict[str, Any]) -> dict[str, Any]:
+    code = str(stock.get("code") or "")
+    name = str(stock.get("name") or "")
+    preset = ETF_COMPONENT_PRESETS.get(code)
+    if preset:
+        return {
+            "title": "ETF 成分股比例",
+            "summary": "以追蹤指數主要權重股呈現 ETF 持股結構；實際比例仍以投信每日公告為準。",
+            "holdings": preset,
+            "sourceNote": "台灣 50 相關 ETF 參考公開成分股與權重結構整理。",
+            "sourceLink": "https://www.twse.com.tw/zh/products/securities/etf/products/domestic.html",
+        }
+
+    if any(keyword in name for keyword in ("高股息", "收益", "股息")):
+        holdings = [
+            {"name": "金融與高股息成分", "code": "--", "weight": 35.0},
+            {"name": "電子權值與成熟科技", "code": "--", "weight": 30.0},
+            {"name": "傳產與防禦型成分", "code": "--", "weight": 20.0},
+            {"name": "現金與其他調整項", "code": "--", "weight": 15.0},
+        ]
+    elif any(keyword in name for keyword in ("半導體", "科技", "電子", "AI")):
+        holdings = [
+            {"name": "半導體與 IC 設計", "code": "--", "weight": 45.0},
+            {"name": "電子零組件與伺服器", "code": "--", "weight": 28.0},
+            {"name": "通訊與其他科技", "code": "--", "weight": 17.0},
+            {"name": "現金與其他調整項", "code": "--", "weight": 10.0},
+        ]
+    elif any(keyword in name for keyword in ("ESG", "永續", "低碳")):
+        holdings = [
+            {"name": "大型電子 ESG 成分", "code": "--", "weight": 40.0},
+            {"name": "金融與治理評級成分", "code": "--", "weight": 25.0},
+            {"name": "低碳轉型與傳產成分", "code": "--", "weight": 20.0},
+            {"name": "現金與其他調整項", "code": "--", "weight": 15.0},
+        ]
+    else:
+        holdings = [
+            {"name": "主要追蹤指數成分", "code": "--", "weight": 50.0},
+            {"name": "次要成分與產業配置", "code": "--", "weight": 30.0},
+            {"name": "現金、期貨或其他調整項", "code": "--", "weight": 20.0},
+        ]
+    return {
+        "title": "ETF 成分股比例",
+        "summary": "此 ETF 未取得即時完整持股明細，先以名稱與追蹤主題整理配置比例參考。",
+        "holdings": holdings,
+        "sourceNote": "請以發行投信每日公告之 ETF 投資組合明細為最終依據。",
+        "sourceLink": "https://www.twse.com.tw/zh/products/securities/etf/products/domestic.html",
+    }
+
+
+def build_stock_detail(
+    stock: dict[str, Any],
+    date_str: str,
+    site_data: dict[str, Any] | None = None,
+    months_back: int = STOCK_HISTORY_RECENT_MONTHS,
+    quick: bool = False,
+    include_shareholders: bool = True,
+    include_institutional_history: bool = True,
+) -> dict[str, Any]:
+    used_fallback_history = False
+    history_rows_removed = 0
+    market = stock.get("market") or "TWSE"
+    if quick:
+        yahoo_diagnostics: dict[str, int] = {}
+        try:
+            rows = fetch_yahoo_history_rows(
+                stock["code"],
+                STOCK_HISTORY_RECENT_MONTHS,
+                market=market,
+                diagnostics=yahoo_diagnostics,
+            )
+        except Exception:  # noqa: BLE001
+            rows = []
+        history_rows_removed += yahoo_diagnostics.get("invalid_rows", 0)
+        raw_row_count = len(rows)
+        rows = sanitize_history_rows(rows)
+        history_rows_removed += raw_row_count - len(rows)
+        if not rows:
+            rows = build_fallback_history_rows(stock, date_str)
+            used_fallback_history = bool(rows)
+    else:
+        yahoo_diagnostics: dict[str, int] = {}
+        try:
+            rows = fetch_yahoo_history_rows(
+                stock["code"],
+                months_back,
+                market=market,
+                diagnostics=yahoo_diagnostics,
+            )
+        except Exception:  # noqa: BLE001
+            rows = []
+        history_rows_removed += yahoo_diagnostics.get("invalid_rows", 0)
+        raw_row_count = len(rows)
+        rows = sanitize_history_rows(rows)
+        history_rows_removed += raw_row_count - len(rows)
+        if not rows and market != "TPEx":
+            try:
+                rows = fetch_stock_history_rows(stock["code"], date_str, months_back=months_back)
+            except Exception:  # noqa: BLE001
+                rows = []
+            raw_row_count = len(rows)
+            rows = sanitize_history_rows(rows)
+            history_rows_removed += raw_row_count - len(rows)
+        if not rows:
+            rows = build_fallback_history_rows(stock, date_str)
+            used_fallback_history = bool(rows)
+    raw_row_count = len(rows)
+    rows = sanitize_history_rows(rows)
+    history_rows_removed += raw_row_count - len(rows)
+
+    is_etf = is_etf_stock(stock)
+    futures: dict[str, Any] = {}
+    supplemental_timeout = 8 if quick else 10 if is_etf else 12
+    executor = ThreadPoolExecutor(max_workers=2 if quick else 4 if is_etf else 7)
+    try:
+        if not quick:
+            futures["companyNews"] = executor.submit(fetch_stock_news, stock, 6)
+            futures["marginTrading"] = executor.submit(fetch_stock_margin_trading, stock)
+            futures["brokerTrading"] = executor.submit(fetch_yahoo_broker_trading, stock, 15)
+            futures["majorHolderData"] = executor.submit(fetch_yahoo_major_holders, stock, 260)
+            futures["yahooInstitutionalTrading"] = executor.submit(fetch_yahoo_institutional_trading, stock, 1300)
+            futures["yahooMarginTrading"] = executor.submit(fetch_yahoo_margin_trading, stock, 60)
+            if include_institutional_history:
+                institutional_dates = build_institutional_trade_candidate_dates(rows, date_str, 70)
+                futures["institutionalHistory"] = executor.submit(
+                    fetch_stock_institutional_trade_history,
+                    stock,
+                    date_str,
+                    30,
+                    institutional_dates,
+                )
+            if include_shareholders:
+                futures["shareholders"] = executor.submit(fetch_shareholder_distribution, stock["code"])
+            if is_etf:
+                futures["etfDividendInfo"] = executor.submit(fetch_etf_dividend_info, stock, 6)
+        if not quick and not is_etf:
+            futures.update({
+                "valuation": executor.submit(fetch_stock_valuation, stock),
+                "valuationHistory": executor.submit(fetch_stock_valuation_history, stock, rows, 5),
+                "companyProfile": executor.submit(fetch_stock_company_profile, stock),
+            })
+        fetched = collect_futures_until_deadline(
+            executor,
+            futures,
+            supplemental_timeout,
+            {"valuationHistory", "companyNews"},
+        )
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)
+
+    valuation = fetched.get("valuation", {})
+    institutional_trade_history = fetched.get("institutionalHistory", {})
+    institutional_trades = build_latest_stock_institutional_trade(institutional_trade_history)
+    shareholder_distribution = fetched.get("shareholders", {})
+    margin_trading = fetched.get("marginTrading", {})
+    broker_trading = fetched.get("brokerTrading", {})
+    major_holder_data = fetched.get("majorHolderData", {})
+    yahoo_institutional_trading = fetched.get("yahooInstitutionalTrading", {})
+    yahoo_margin_trading = fetched.get("yahooMarginTrading", {})
+    valuation_history = fetched.get("valuationHistory", [])
+    company_profile = fetched.get("companyProfile", {})
+    company_news = fetched.get("companyNews", [])
+    etf_components = build_etf_components(stock) if is_etf else None
+    etf_dividend_info = fetched.get("etfDividendInfo", {}) if is_etf else {}
+    if is_etf and not company_news:
+        company_news = build_stock_news_fallback(stock, 6)
+    if not is_etf and not company_profile:
+        company_profile = build_fallback_company_profile(stock, valuation)
+    if yahoo_margin_trading:
+        margin_trading = {
+            **(margin_trading or {}),
+            **yahoo_margin_trading,
+            "yahoo": yahoo_margin_trading,
+            "dailyRows": yahoo_margin_trading.get("dailyRows") or [],
+            "marginBalancePeriodRows": yahoo_margin_trading.get("marginBalancePeriodRows") or {},
+            "marginSummaryAccumulationRows": yahoo_margin_trading.get("marginSummaryAccumulationRows") or [],
+            "overviewRows": yahoo_margin_trading.get("overviewRows") or [],
+            "marginBalanceChartRows": yahoo_margin_trading.get("marginBalanceChartRows") or [],
+            "marginBalanceChartDataKey": yahoo_margin_trading.get("marginBalanceChartDataKey") or "",
+            "marginBalanceChartSource": yahoo_margin_trading.get("marginBalanceChartSource") or "",
+            "sourceLink": yahoo_margin_trading.get("sourceLink") or (margin_trading or {}).get("sourceLink"),
+            "sourceNote": yahoo_margin_trading.get("sourceNote") or (margin_trading or {}).get("sourceNote"),
+            "date": yahoo_margin_trading.get("date") or (margin_trading or {}).get("date"),
+        }
+
+    latest_valuation_date = str(valuation.get("date") or "")
+    if latest_valuation_date and not any(
+        item.get("date") == latest_valuation_date for item in valuation_history
+    ):
+        latest_yield = parse_float(str(valuation.get("dividendYield") or ""))
+        latest_close = parse_float(str(stock.get("close") or ""))
+        latest_dividend = parse_float(str(valuation.get("dividendPerShare") or ""))
+        if latest_dividend is None and latest_close is not None and latest_yield is not None:
+            latest_dividend = round(latest_close * latest_yield / 100, 4)
+        valuation_history.append(
+            {
+                "date": latest_valuation_date,
+                "peRatio": parse_float(str(valuation.get("peRatio") or "")),
+                "dividendPerShare": latest_dividend,
+                "dividendYield": latest_yield,
+                "pbRatio": parse_float(str(valuation.get("pbRatio") or "")),
+            }
+        )
+        valuation_history = sorted(valuation_history, key=lambda item: item["date"])[-6:]
+
+    recent_rows = rows[-5:] if len(rows) >= 5 else rows
+    closes = [parse_float(row[6]) for row in recent_rows if parse_float(row[6]) is not None]
+    volumes = [parse_float(row[1]) for row in recent_rows if parse_float(row[1]) is not None]
+    highs = [parse_float(row[4]) for row in rows if parse_float(row[4]) is not None]
+    lows = [parse_float(row[5]) for row in rows if parse_float(row[5]) is not None]
+    ma5 = sum(closes) / len(closes) if closes else None
+    avg_volume_5 = sum(volumes) / len(volumes) if volumes else None
+    close_value = parse_float(stock["close"])
+    pct_value = parse_float(str(stock.get("pct", "")).replace("%", "")) if stock.get("pct") not in (None, "--") else None
+    if ma5 is None:
+        trend = "缺少 5 日均價資料"
+    else:
+        trend = "收盤高於 5 日均價" if close_value is not None and close_value >= ma5 else "收盤低於 5 日均價"
+
+    chip_summary = build_chip_summary(
+        stock=stock,
+        avg_volume_5=avg_volume_5,
+        pct_value=pct_value,
+        institutional_trades=institutional_trades,
+        institutional_trade_history=institutional_trade_history,
+        shareholder_distribution=shareholder_distribution,
+        margin_trading=margin_trading,
+        broker_trading=broker_trading,
+    )
+    analysis = build_analysis_sections(
+        stock=stock,
+        closes=closes,
+        volumes=volumes,
+        highs=highs,
+        lows=lows,
+        ma5=ma5,
+        avg_volume_5=avg_volume_5,
+        site_data=site_data,
+        valuation=valuation,
+        institutional_trades=institutional_trades,
+        shareholder_distribution=shareholder_distribution,
+        margin_trading=margin_trading,
+        etf_components=etf_components,
+        etf_dividend_info=etf_dividend_info,
+    )
+    if isinstance(analysis.get("chips"), dict):
+        analysis["chips"]["chipSummary"] = chip_summary
+
+    history_days = [
+        {
+            "date": row[0],
+            "open": row[3],
+            "high": row[4],
+            "low": row[5],
+            "close": row[6],
+            "change": row[7],
+            "volume": row[1],
+        }
+        for row in rows
+    ]
+
+    full_close_series = [parse_float(item["close"]) for item in history_days]
+    ma_windows = {}
+    for window in (5, 20, 60):
+        valid = [value for value in full_close_series[-window:] if value is not None]
+        ma_windows[f"ma{window}"] = f"{(sum(valid) / len(valid)):,.2f}" if valid else "--"
+
+    return {
+        **stock,
+        "snapshotDate": datetime.strptime(date_str, "%Y%m%d").strftime("%Y-%m-%d"),
+        "ma5": f"{ma5:,.2f}" if ma5 is not None else "--",
+        "ma20": ma_windows["ma20"],
+        "ma60": ma_windows["ma60"],
+        "monthHigh": f"{max(highs):,.2f}" if highs else "--",
+        "monthLow": f"{min(lows):,.2f}" if lows else "--",
+        "avgVolume5": f"{avg_volume_5:,.0f}" if avg_volume_5 is not None else "--",
+        "trend": trend,
+        "recentDays": [
+            {
+                "date": row[0],
+                "open": row[3],
+                "high": row[4],
+                "low": row[5],
+                "close": row[6],
+                "change": row[7],
+                "volume": row[1],
+            }
+            for row in recent_rows
+        ],
+        "historyDays": history_days,
+        "historyCount": len(history_days),
+        "historyStartDate": history_days[0]["date"] if history_days else None,
+        "historyEndDate": history_days[-1]["date"] if history_days else None,
+        "historyWarning": (
+            f"已排除 {history_rows_removed} 筆不完整或不合理的 K 線資料。"
+            if history_rows_removed else None
+        ),
+        "historyInvalidRowsRemoved": history_rows_removed,
+        "isFallbackHistory": used_fallback_history,
+        "allHistoryLoaded": months_back == STOCK_HISTORY_MAX_MONTHS,
+        "chartIntervals": {
+            "intradayAvailable": False,
+            "intradayUnavailableReason": (
+                "Yahoo奇摩股市同步日級歷史行情，不包含本站可用的分鐘級歷史 K 線。"
+                if not used_fallback_history
+                else "歷史行情來源暫時無法連線，目前顯示快取行情。"
+            ),
+            "supported": SUPPORTED_CHART_INTERVALS,
+        },
+        "analysis": analysis,
+        "chipSummary": chip_summary,
+        "valuation": valuation,
+        "valuationHistory": valuation_history,
+        "companyProfile": company_profile,
+        "etfComponents": etf_components,
+        "etfDividendInfo": etf_dividend_info,
+        "isEtf": is_etf,
+        "detailMode": "quick" if quick else "full",
+        "companyNews": company_news,
+        "newsLinks": {
+            "yahoo": (
+                f"https://tw.stock.yahoo.com/quote/{stock['code']}.TWO/news"
+                if str(market).upper() == "TPEX"
+                else f"https://tw.stock.yahoo.com/quote/{stock['code']}.TW/news"
+            ),
+            "google": (
+                "https://news.google.com/search?"
+                + urlencode({
+                    "q": (
+                        f"{stock['code']} {stock.get('name', '')} ETF 配息 成分股 公告"
+                        if is_etf else f"{stock['code']} {stock.get('name', '')} 台股 新聞"
+                    ),
+                    "hl": "zh-TW",
+                    "gl": "TW",
+                    "ceid": "TW:zh-Hant",
+                })
+            ),
+            "mops": "https://mops.twse.com.tw/mops/#/web/t05st01",
+        },
+        "institutionalTrades": institutional_trades,
+        "institutionalTradeHistory": institutional_trade_history,
+        "yahooInstitutionalTrading": yahoo_institutional_trading,
+        "brokerTrading": broker_trading,
+        "majorHolderData": major_holder_data,
+        "shareholderDistribution": shareholder_distribution,
+        "marginTrading": margin_trading,
+        "sourceLink": (
+            f"https://tw.stock.yahoo.com/quote/{stock['code']}.TWO"
+            if market == "TPEx"
+            else f"https://tw.stock.yahoo.com/quote/{stock['code']}.TW"
+        ),
+    }
+
+
+def build_news(site_data: dict[str, Any]) -> list[dict[str, Any]]:
+    tracked_indices = [
+        item for item in site_data.get("sectors", [])
+        if item.get("name") != "台灣加權指數"
+    ]
+    ranked_indices = sorted(
+        [
+            {
+                **item,
+                "pctNumeric": parse_float(str(item.get("pct", "")).replace("%", "")),
+            }
+            for item in tracked_indices
+        ],
+        key=lambda item: item.get("pctNumeric") if item.get("pctNumeric") is not None else -9999.0,
+        reverse=True,
+    )
+    strongest_sector = ranked_indices[0] if ranked_indices else {}
+    weakest_sector = ranked_indices[-1] if ranked_indices else {}
+    advancing = sum(1 for item in ranked_indices if (item.get("pctNumeric") or 0) > 0)
+    declining = sum(1 for item in ranked_indices if (item.get("pctNumeric") or 0) < 0)
+    unchanged = sum(1 for item in ranked_indices if (item.get("pctNumeric") or 0) == 0)
+    breadth_total = advancing + declining + unchanged
+    breadth_ratio = advancing / breadth_total if breadth_total else 0.5
+    breadth_text = (
+        "買盤擴散"
+        if breadth_ratio >= 0.6 else
+        "賣壓擴散"
+        if breadth_ratio <= 0.4 else
+        "多空分歧"
+    )
+    breadth_percent_text = f"{breadth_ratio * 100:.0f}%" if breadth_total else "--"
+    market_overview = (site_data.get("marketOverview") or [{}])[0]
+    market_stats = site_data.get("marketStats") or {}
+    market_pct = parse_float(str(market_overview.get("pct", "")).replace("%", ""))
+    market_volume = parse_float(str(market_overview.get("volume", "")))
+    market_turnover = parse_float(str(
+        market_overview.get("turnoverValue")
+        or market_overview.get("turnover")
+        or market_stats.get("turnoverValue")
+        or market_stats.get("turnover")
+        or ""
+    ))
+    market_trade_count = parse_float(str(
+        market_overview.get("tradeCount")
+        or market_overview.get("trades")
+        or market_stats.get("tradeCount")
+        or market_stats.get("trades")
+        or ""
+    ))
+    market_volume_text = (
+        f"{market_volume / 100000000:,.1f} 億股"
+        if market_volume is not None and market_volume >= 100000000 else
+        str(market_overview.get("volume") or "--")
+    )
+    market_turnover_text = f"{market_turnover / 100000000:,.1f} 億元" if market_turnover is not None else "--"
+    market_trade_text = f"{market_trade_count / 10000:,.1f} 萬筆" if market_trade_count is not None else "--"
+    market_direction = (
+        "偏多續航"
+        if market_pct is not None and market_pct >= 0.5 else
+        "震盪偏穩"
+        if market_pct is not None and market_pct >= 0 else
+        "回測承壓"
+        if market_pct is not None and market_pct <= -0.5 else
+        "小幅整理"
+    )
+    institutions = site_data.get("institutions") or []
+    institution_summary = site_data.get("institutionSummary") or []
+    institution_total = next((item for item in institutions if item.get("name") == "合計"), None)
+    institution_net = None
+    if isinstance(institution_total, dict):
+        institution_net = parse_float(str(institution_total.get("diffValue") or institution_total.get("diff") or ""))
+    if institution_net is None:
+        institution_net = sum((item.get("diffValue") or 0) for item in institution_summary)
+    foreign = next((item for item in institution_summary if item.get("key") == "foreign"), None)
+    trust = next((item for item in institution_summary if item.get("key") == "trust"), None)
+    dealer = next((item for item in institution_summary if item.get("key") == "dealer"), None)
+    institution_trend = site_data.get("institutionTrend") or {}
+    source_links = site_data.get("sourceLinks") or {}
+
+    def amount_text(value: Any, signed: bool = False) -> str:
+        number = value if isinstance(value, (int, float)) else parse_float(str(value))
+        if number is None:
+            return "--"
+        prefix = "+" if signed and number > 0 else ""
+        return f"{prefix}{number / 100000000:,.1f} 億"
+
+    def sector_text(item: dict[str, Any]) -> str:
+        name = item.get("name") or "族群"
+        pct = item.get("pct") or "--"
+        return f"{name} {pct}"
+
+    def trend_label(key: str, fallback: str = "連續性待同步") -> str:
+        trend = institution_trend.get(key) if isinstance(institution_trend, dict) else None
+        return str((trend or {}).get("label") or fallback)
+
+    leader_names = "、".join(sector_text(item) for item in ranked_indices[:3] if item.get("name")) or "強勢族群同步中"
+    weak_names = "、".join(sector_text(item) for item in ranked_indices[-3:] if item.get("name")) or "弱勢族群同步中"
+    spread = None
+    if strongest_sector.get("pctNumeric") is not None and weakest_sector.get("pctNumeric") is not None:
+        spread = (strongest_sector.get("pctNumeric") or 0) - (weakest_sector.get("pctNumeric") or 0)
+    spread_text = f"{spread:.2f} 個百分點" if spread is not None else "--"
+    overview_indices = site_data.get("marketOverview") or []
+
+    def find_index_row(*keywords: str) -> dict[str, Any] | None:
+        rows = [*overview_indices, *ranked_indices]
+        return next(
+            (
+                item for item in rows
+                if all(keyword in str(item.get("name") or "") for keyword in keywords)
+            ),
+            None,
+        )
+
+    electronic_sector = find_index_row("電子")
+    semiconductor_sector = find_index_row("半導體")
+    tech_context_parts = []
+    if electronic_sector:
+        tech_context_parts.append(f"電子 {electronic_sector.get('pct', '--')}")
+    if semiconductor_sector:
+        tech_context_parts.append(f"半導體 {semiconductor_sector.get('pct', '--')}")
+    tech_context = "、".join(tech_context_parts) if tech_context_parts else "權值科技資料同步中"
+    net_direction = "買超" if (institution_net or 0) >= 0 else "賣超"
+    foreign_value = foreign.get("diffValue") if foreign else None
+    trust_value = trust.get("diffValue") if trust else None
+    dealer_value = dealer.get("diffValue") if dealer else None
+    institutional_pressure = (
+        "外資主導調節"
+        if (foreign_value or 0) < 0 and (institution_net or 0) < 0 else
+        "外資帶動回補"
+        if (foreign_value or 0) > 0 and (institution_net or 0) > 0 else
+        "法人結構分歧"
+        if (foreign_value or 0) * (trust_value or 0) < 0 else
+        "資金面中性觀察"
+    )
+    net_context = (
+        "資金面對指數形成支撐"
+        if (institution_net or 0) >= 0 else
+        "資金面仍偏向調節"
+    )
+
+    return [
+        {
+            "tag": "大盤",
+            "title": f"{site_data['snapshotDate']} 加權指數 {market_overview.get('value', '--')} 點，{market_direction}但廣度{breadth_text}",
+            "body": (
+                f"加權指數漲跌幅 {market_overview.get('pct', '--')}、成交金額 {market_turnover_text}、成交量 {market_volume_text}，"
+                f"成交筆數約 {market_trade_text}。{breadth_total} 個追蹤類股中 {advancing} 漲、{declining} 跌、{unchanged} 平，"
+                f"上漲占比 {breadth_percent_text}，顯示盤勢不是只看指數點位，而要同步檢查買盤是否擴散。"
+                "隔日若量能維持且強勢族群未快速退潮，盤勢較有機會延續；若指數守平盤但廣度轉弱，需防震盪整理。"
+            ),
+            "link": source_links.get("market"),
+        },
+        {
+            "tag": "指數",
+            "title": f"{strongest_sector.get('name', '強勢族群')} 領先，{weakest_sector.get('name', '弱勢族群')} 落後，強弱差 {spread_text}",
+            "body": (
+                f"領漲端為 {leader_names}，落後端為 {weak_names}。"
+                f"權值科技同步觀察 {tech_context}，若科技權值偏弱但傳產或防禦族群走強，代表資金正在輪動而非全面追價。"
+                "操作上可優先比對領先族群的成交金額與個股擴散度；若強弱差收斂，則表示輪動降溫，追高勝率會下降。"
+            ),
+            "link": source_links.get("market"),
+        },
+        {
+            "tag": "法人",
+            "title": f"三大法人合計{net_direction} {amount_text(abs(institution_net or 0))}，{institutional_pressure}",
+            "body": (
+                f"外資 {amount_text(foreign_value, True)}（{trend_label('foreign')}）、"
+                f"投信 {amount_text(trust_value, True)}（{trend_label('trust')}）、"
+                f"自營商 {amount_text(dealer_value, True)}（{trend_label('dealer')}）。"
+                f"目前{net_context}；若法人賣超集中在外資且指數仍小漲，代表內資與族群輪動正在吸收賣壓，"
+                "隔日需追蹤外資賣超是否收斂，以及投信承接是否仍集中在強勢族群。"
+            ),
+            "link": source_links.get("institutions"),
+        },
+    ]
