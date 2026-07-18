@@ -24,14 +24,19 @@ and `app.build_site_data(...)` re-resolves the attribute on every call, so
 correctly from inside this module - a bare `from app import X` copy would
 not observe such patches (see TD-01 slice 1's API_RATE_LIMIT_PER_WINDOW
 lesson: bare-name calls resolve against the *defining* module's globals).
+As of TD-01 slice 4 batch 5 (the builders.py extraction's final batch),
+`build_site_data` itself no longer lives in app.py - it now resolves
+through app.py's `from builders import build_site_data` re-export, so
+`app.build_site_data(...)` still reaches the same function, just one hop
+further via app.py's namespace. This module needed no changes for that move.
 
 update_loop makes the same deferred call for app.refresh_tpex_cache(), which
 stays in app.py as builder/orchestration code (not a mechanical relocation
-like the rest of this file) - both it and build_site_data are still resident
-in app.py, but as of TD-01 slice 3 (the fetchers.py extraction, batches 1-5)
-every fetch_* call either of them makes now resolves through a `from
-fetchers import ...` import instead of a locally-defined function, so the
-"call chain" this docstring used to flag as unresolved is fully untangled.
+like the rest of this file) - it is still resident in app.py, but as of
+TD-01 slice 3 (the fetchers.py extraction, batches 1-5) every fetch_* call it
+makes now resolves through a `from fetchers import ...` import instead of a
+locally-defined function, so the "call chain" this docstring used to flag as
+unresolved is fully untangled.
 """
 from __future__ import annotations
 
