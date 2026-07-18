@@ -194,6 +194,15 @@ from fetchers import (
     shift_month,
     should_cache_external_text,
 )
+from builders import (
+    build_institutions_url,
+    build_site_data_view,
+    build_stock_search_url,
+    build_stocks_view,
+    build_weighted_index_history_url,
+    build_yahoo_taiwan_future_technical_url,
+    build_yahoo_taiwan_option_url,
+)
 from market_config import (
     ASSET_CATEGORY_SOURCE_INFO,
     ASSET_REGION_ORDER,
@@ -845,11 +854,6 @@ BYBIT_OPTIONS_BASE_COIN_BY_SYMBOL = {
 }
 
 
-def build_stock_search_url(date_str: str, keyword: str) -> str:
-    params = {"response": "json", "date": date_str, "keyword": keyword}
-    return f"{TWSE_BASE}/rwd/zh/afterTrading/STOCK_DAY_AVG?{urlencode(params)}"
-
-
 def merge_site_data_with_fallback(
     fresh_site_data: dict[str, Any],
     existing_site_data: dict[str, Any] | None,
@@ -930,96 +934,6 @@ def merge_site_data_with_fallback(
         merged["marketMacroFactors"] = fresh_macro
 
     return merged
-
-
-BOOTSTRAP_STOCK_KEYS = (
-    "code",
-    "name",
-    "market",
-    "marketLabel",
-    "securityType",
-    "industry",
-    "volume",
-    "trades",
-    "turnover",
-    "open",
-    "high",
-    "low",
-    "close",
-    "change",
-    "pct",
-    "bid",
-    "bidVolume",
-    "ask",
-    "askVolume",
-    "tone",
-)
-
-SECTOR_SITE_DATA_KEYS = (
-    "snapshotDate",
-    "institutionDate",
-    "activityDate",
-    "intradayDate",
-    "cachedAt",
-    "stockCount",
-    "tpexStockCount",
-    "tpexEtfCount",
-    "tpexStockDate",
-    "yahooOtcDate",
-    "yahooEmergingDate",
-    "yahooSectorDates",
-    "marketStats",
-    "marketVolatility",
-    "marketInternationalIndexes",
-    "sourceLinks",
-    "marketOverview",
-    "sectors",
-    "sectorFundFlow",
-    "tpexHighlights",
-    "yahooSectorGroups",
-    "yahooSectorCatalog",
-)
-
-SEARCH_SITE_DATA_KEYS = (
-    "snapshotDate",
-    "cachedAt",
-    "stockCount",
-    "tpexStockCount",
-    "tpexEtfCount",
-    "tpexStockDate",
-)
-
-
-def slim_stock_for_bootstrap(stock: dict[str, Any]) -> dict[str, Any]:
-    return {
-        key: stock[key]
-        for key in BOOTSTRAP_STOCK_KEYS
-        if key in stock
-    }
-
-
-def build_stocks_view(stocks: list[dict[str, Any]], view: str) -> list[dict[str, Any]]:
-    if view == "sectors":
-        return []
-    return [slim_stock_for_bootstrap(stock) for stock in stocks]
-
-
-def build_site_data_view(site_data: dict[str, Any] | None, view: str) -> dict[str, Any] | None:
-    if not site_data:
-        return site_data
-    if view == "sectors":
-        return {
-            key: site_data[key]
-            for key in SECTOR_SITE_DATA_KEYS
-            if key in site_data
-        }
-    if view == "search":
-        return {
-            key: site_data[key]
-            for key in SEARCH_SITE_DATA_KEYS
-            if key in site_data
-        }
-    return site_data
 
 
 def taipei_now() -> datetime:
@@ -1165,13 +1079,6 @@ def parse_yahoo_taiwan_future_quotes(html: str) -> dict[str, dict[str, Any]]:
             "sourceNote": "Yahoo 股市即時期指報價，作為 TAIFEX 官方日報的盤中報價補強。",
         }
     return quotes
-
-
-def build_yahoo_taiwan_future_technical_url(code: str) -> str:
-    clean_code = str(code or "").strip().upper()
-    if not clean_code:
-        return ""
-    return f"{YAHOO_TW_FUTURE_URL}/{quote(clean_code, safe='')}/technical-analysis"
 
 
 def parse_yahoo_taiwan_future_contract_month(label: str, code: str, kind: str) -> str:
@@ -1361,21 +1268,6 @@ def get_taiwan_option_product(value: str | None = None) -> dict[str, Any]:
 def normalize_taiwan_option_source(value: str | None = None) -> str:
     clean = str(value or "auto").strip().lower()
     return clean if clean in {"auto", "taifex", "yahoo"} else "auto"
-
-
-def build_yahoo_taiwan_option_url(underlying: str | None = None, expiry: str | None = None) -> str:
-    product = get_taiwan_option_product(underlying)
-    opcm = str(product.get("yahooOpcm") or "").strip()
-    if not opcm:
-        return YAHOO_TW_OPTION_URL
-    params = {
-        "opmr": "optionfull",
-        "opcm": opcm,
-    }
-    expiry_text = str(expiry or "").strip()
-    if expiry_text:
-        params["opym"] = expiry_text
-    return f"{YAHOO_TW_OPTION_URL}?{urlencode(params)}"
 
 
 def select_option_atm_strike(chain: list[dict[str, Any]], spot: float | None, max_pain: dict[str, Any]) -> float | None:
@@ -2517,11 +2409,6 @@ def build_yahoo_summary_series(
     return enriched_cards
 
 
-def build_institutions_url(date_str: str) -> str:
-    params = {"response": "json", "dayDate": date_str, "type": "day"}
-    return f"{TWSE_BASE}/fund/BFI82U?{urlencode(params)}"
-
-
 def enrich_stocks_with_industry(stocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     try:
         industry_map = fetch_twse_listed_industry_map()
@@ -2984,11 +2871,6 @@ def build_institutional_history_from_yahoo(
         "sourceLink": payload.get("sourceLink") or "",
         "sourceNote": "Yahoo real institutional trading rows. Long TPEx ranges are limited by Yahoo availability.",
     }
-
-
-def build_weighted_index_history_url(date_str: str) -> str:
-    params = {"response": "json", "date": date_str}
-    return f"{TWSE_BASE}/indicesReport/MI_5MINS_HIST?{urlencode(params)}"
 
 
 def payload_has_field_candidates(payload: dict[str, Any], candidates: list[str]) -> bool:
