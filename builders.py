@@ -2,8 +2,44 @@
 slice 4), starting with 7 small, dependency-free leaf builders (batch 0),
 extended with the TAIFEX/options-chain + derivatives-misc cluster (batch 1,
 19 functions), the Yahoo/sector + technical-analysis cluster (batch 2,
-12 functions), and the stock-detail / institutional cluster (batch 3,
-15 functions).
+12 functions), the stock-detail / institutional cluster (batch 3,
+15 functions), and the US-market / global-market cluster (batch 4,
+23 functions).
+
+Batch 4 brings `build_global_market_item` (the highest fan-in/fan-out node
+in the whole slice - called by 4 other batch-4 builders, 9 routes, and both
+`build_global_market_payload`/`build_us_etf_center_payload`) plus its
+exclusive yield-curve/FRED/Trading-Economics/Taiwan-quote-fallback item
+builders and their helper clusters, and the full `build_us_market_symbol_detail`
+tree (US valuation/company-profile/margin-proxy/ownership-trading builders,
+each with a Yahoo-quote-summary path and a Nasdaq-supplement merge path,
+plus their `format_us_*`/`parse_us_*`/`nasdaq_*` helper clusters - all
+verified EXCLUSIVE to this batch). Also `build_global_market_payload` and
+`build_us_etf_center_payload`/`build_us_etf_quote_specs`.
+
+Two module constants (`PUBLIC_TAIFEX_OPTION_CHAIN_ERROR_MESSAGE`,
+`PUBLIC_MARKET_ITEM_ERROR_MESSAGE`) moved from app.py alongside this batch:
+both were single-use-by-fan-out but colocated in app.py with a third,
+heavily-shared constant that stays. `build_txo_option_market_item` (moved in
+batch 1) previously reached the first one via a deferred `import app` -
+since both functions now live in the same module, that reference is
+simplified to a plain bare name, eliminating a cross-module call that's no
+longer necessary. `enrich_global_market_spec` (+ its exclusive
+`infer_global_asset_metadata` helper) is SHARED-PURE - also called by
+`find_derivative_spec`, a non-`build_*` app.py helper that stays - so it
+moves and gets re-imported into app.py the same way. `global_market_refresh_requested`,
+`get_taiwan_option_product`, `DERIVATIVES_STORE`, `LOGGER`, `TZ`, and
+`taipei_now` stay in app.py (heavily shared with still-resident code,
+including the final batch's 3 site-data composites) and are reached via
+deferred `import app`, same pattern as every earlier batch.
+
+Fixes 3 more pre-existing latent `NameError` call sites for the
+`build_yahoo_chart_series` import bug documented in batch 2's docstring
+(inside `build_global_market_item`, `build_us_market_symbol_detail`, and
+`estimate_us_beta` - all now correctly resolve via this module's existing
+`fetchers` import). Two more dead functions found and moved as-is with
+`# DEADCODE-CANDIDATE` markers, per the standing rule: `format_us_ratio`,
+`format_us_percent_value` (zero callers anywhere, confirmed by grep).
 
 Batch 3 brings `build_stock_detail` (the largest single builder, ~300 lines)
 and everything it calls: `build_fallback_company_profile`,
@@ -150,7 +186,8 @@ from cache import (
     write_memory_cache,
 )
 from derivatives.analytics import enrich_futures_ai_decision, enrich_option_ai_decision
-from derivatives.futures import build_source_pending_market_item
+from derivatives.catalog import TAIWAN_FUTURES_V1, TAIWAN_OPTIONS_V1, apply_taifex_defaults, v1_product_status
+from derivatives.futures import build_source_pending_market_item, is_source_pending_product
 from fetchers import (
     TAIFEX_FUTURES_DAILY_OPENAPI_URL,
     barchart_options_headers,
@@ -167,7 +204,9 @@ from fetchers import (
     extract_visible_text_lines,
     fetch_barchart_options_context,
     fetch_etf_dividend_info,
+    fetch_fred_observation_rows,
     fetch_json,
+    fetch_nasdaq_us_supplement,
     fetch_shareholder_distribution,
     fetch_stock_company_profile,
     fetch_stock_history_rows,
@@ -182,8 +221,13 @@ from fetchers import (
     fetch_taifex_openapi_list,
     fetch_taiwan_option_spot_snapshot,
     fetch_text,
+    fetch_trading_economics_taiwan_10y,
     fetch_txo_option_chain,
     fetch_twse_listed_industry_map,
+    fetch_us_etf_directory_items,
+    fetch_us_market_overview_news,
+    fetch_us_treasury_yield_curve,
+    fetch_us_treasury_yield_curve_rows,
     fetch_yahoo_broker_trading,
     fetch_yahoo_class_quote_pages,
     fetch_yahoo_history_rows,
@@ -191,9 +235,12 @@ from fetchers import (
     fetch_yahoo_major_holders,
     fetch_yahoo_margin_trading,
     fetch_yahoo_options_payload,
+    fetch_yahoo_quote_summary,
     fetch_yahoo_sector_catalog,
     fetch_yahoo_symbol_chart,
     fetch_yahoo_taiwan_future_quote,
+    fetch_yahoo_us_symbol_news,
+    filter_us_etf_items,
     format_percent,
     format_roc_date,
     format_signed,
@@ -201,22 +248,31 @@ from fetchers import (
     is_etf_stock,
     is_valid_ohlc_values,
     normalize_taifex_date_text,
+    normalize_us_market_search_item,
     normalize_us_symbol_for_yahoo,
     parse_float,
+    parse_fred_date,
     parse_public_options_number,
     parse_roc_date,
     parse_taifex_market_number,
     shift_month,
 )
 from market_config import (
+    ASSET_CATEGORY_SOURCE_INFO,
+    ASSET_REGION_ORDER,
     CBOE_OPTIONS_BASE,
+    GLOBAL_MACRO_ASSET_SCHEMA,
+    GLOBAL_MARKET_CATEGORIES,
     SECTOR_INDEX_LOOKUP,
     SUPPORTED_CHART_INTERVALS,
+    TAIFEX_FUTURES_DAILY_URL,
     TAIFEX_OPTIONS_DAILY_URL,
     TAIFEX_OPTIONS_PC_RATIO_URL,
     TDCC_HOLDING_DISTRIBUTION_URL,
     TWSE_BASE,
     TWSE_OPENAPI_BASE,
+    US_MARKET_SEARCH_UNIVERSE,
+    US_TREASURY_YIELD_CURVE_CSV_URL,
     YAHOO_CONCEPT_CLASS_URL,
     YAHOO_ELECTRONIC_CLASS_URL,
     YAHOO_GROUP_CLASS_URL,
@@ -951,9 +1007,9 @@ def build_txo_option_market_item(spec: dict[str, Any]) -> dict[str, Any]:
         chain = fetch_txo_option_chain(source="auto", underlying=symbol)
     except Exception as exc:  # noqa: BLE001
         app.LOGGER.exception("%s option market item fetch failed", symbol, exc_info=exc)
-        return {**base_item, "error": app.PUBLIC_TAIFEX_OPTION_CHAIN_ERROR_MESSAGE}
+        return {**base_item, "error": PUBLIC_TAIFEX_OPTION_CHAIN_ERROR_MESSAGE}
     if chain.get("error"):
-        return {**base_item, "error": str(chain.get("error") or app.PUBLIC_TAIFEX_OPTION_CHAIN_ERROR_MESSAGE)}
+        return {**base_item, "error": str(chain.get("error") or PUBLIC_TAIFEX_OPTION_CHAIN_ERROR_MESSAGE)}
 
     summary = chain.get("summary") or {}
     spot = chain.get("spot") or {}
@@ -4764,3 +4820,1894 @@ def build_news(site_data: dict[str, Any]) -> list[dict[str, Any]]:
             "link": source_links.get("institutions"),
         },
     ]
+
+
+PUBLIC_TAIFEX_OPTION_CHAIN_ERROR_MESSAGE = "TAIFEX 選擇權鏈暫時無法載入，請稍後再試"
+PUBLIC_MARKET_ITEM_ERROR_MESSAGE = "行情資料暫時無法載入，請稍後再試"
+
+
+def infer_global_asset_metadata(spec: dict[str, Any], category: str) -> dict[str, str]:
+    symbol = str(spec.get("symbol") or "").upper()
+    name = str(spec.get("name") or "")
+    type_text = str(spec.get("type") or "")
+    text = f"{symbol} {name} {type_text}".lower()
+    source_info = ASSET_CATEGORY_SOURCE_INFO.get(category, {})
+    region = str(spec.get("region") or "")
+    market = str(spec.get("market") or "")
+    exchange = str(spec.get("exchange") or "")
+
+    if not region:
+        if spec.get("dataProvider") in {"taifex_tx_open_interest", "taifex_txo_open_interest"} or symbol.endswith(".TW") or symbol.endswith(".TWO"):
+            region = "台灣"
+        elif any(token in text for token in ("brent", "euro", "british pound", "eurex", "ice europe", "stoxx", "bund")):
+            region = "歐洲"
+        elif any(token in text for token in ("japanese", "yen", "australian", "asia", "sgx", "nikkei")):
+            region = "亞洲"
+        elif any(token in text for token in ("international", "global", "ex-us", "world")):
+            region = "全球 / 其他"
+        else:
+            region = "美國"
+
+    if not market:
+        market = {
+            "台灣": "台灣",
+            "美國": "美國",
+            "歐洲": "歐洲",
+            "亞洲": "亞洲",
+        }.get(region, "全球 / 其他")
+
+    if not exchange:
+        if spec.get("dataProvider") in {"taifex_tx_open_interest", "taifex_txo_open_interest"}:
+            exchange = "TAIFEX"
+        elif category == "options" and (symbol.startswith("^VI") or symbol in {"^SKEW", "^GVZ", "^OVX", "^VXD", "^VXN"}):
+            exchange = "Cboe"
+        elif category == "options":
+            exchange = "OCC / Options exchanges"
+        elif category == "bonds" and symbol.startswith("^"):
+            exchange = "U.S. Treasury / Yahoo"
+        elif category == "bonds":
+            exchange = "NYSE Arca / Nasdaq ETF"
+        elif category == "precious-metals" and symbol.endswith("=F"):
+            exchange = "COMEX / NYMEX"
+        elif category == "precious-metals":
+            exchange = "NYSE Arca / LBMA reference"
+        elif category == "futures":
+            if symbol in {"ZB=F", "ZN=F", "ZF=F", "ZT=F", "ZQ=F", "UB=F", "ZC=F", "ZW=F", "ZS=F", "ZL=F", "ZM=F", "ZO=F"}:
+                exchange = "CBOT"
+            elif symbol in {"GC=F", "SI=F", "MGC=F", "SIL=F", "HG=F"}:
+                exchange = "COMEX"
+            elif symbol in {"CL=F", "MCL=F", "NG=F", "QG=F", "RB=F", "HO=F", "PL=F", "PA=F"}:
+                exchange = "NYMEX"
+            elif symbol in {"BZ=F", "KC=F", "SB=F", "CT=F", "CC=F", "OJ=F"}:
+                exchange = "ICE"
+            else:
+                exchange = "CME"
+
+    return {
+        "region": region,
+        "market": market,
+        "exchange": exchange,
+        "dataSource": str(spec.get("dataSource") or source_info.get("primary") or "Yahoo Finance"),
+        "referenceSource": str(spec.get("referenceSource") or source_info.get("reference") or ""),
+        "sourceUrl": str(spec.get("sourceUrl") or source_info.get("referenceUrl") or ""),
+    }
+
+
+def enrich_global_market_spec(spec: dict[str, Any], category: str) -> dict[str, Any]:
+    metadata = infer_global_asset_metadata(spec, category)
+    return {**spec, **{key: value for key, value in metadata.items() if value}}
+
+
+def summarize_asset_regions(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    counts: dict[str, dict[str, int]] = {}
+    for item in items:
+        region = str(item.get("region") or "全球 / 其他")
+        bucket = counts.setdefault(region, {"total": 0, "usable": 0})
+        bucket["total"] += 1
+        if not item.get("error") and parse_float(str(item.get("close") or "")) is not None:
+            bucket["usable"] += 1
+    ordered = [region for region in ASSET_REGION_ORDER if region in counts]
+    ordered.extend(sorted(region for region in counts if region not in ordered))
+    return [{"region": region, **counts[region]} for region in ordered]
+
+
+def classify_futures_market_scope(item: dict[str, Any]) -> str:
+    region = str(item.get("region") or "")
+    exchange = str(item.get("exchange") or item.get("dataSource") or "").upper()
+    if region == "台灣" or "TAIFEX" in exchange:
+        return "taiwan"
+    if any(token in exchange for token in ("ICE", "SGX", "JPX", "HKEX", "EUREX")):
+        return "international"
+    if any(token in exchange for token in ("CME", "CBOT", "NYMEX", "COMEX")) or region == "美國":
+        return "us"
+    return "international"
+
+
+def summarize_futures_market_scopes(catalog_items: list[dict[str, Any]], loaded_items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    labels = {"taiwan": "台灣期貨", "us": "美國期貨", "international": "國際期貨"}
+    counts = {
+        key: {"key": key, "label": label, "total": 0, "loaded": 0, "usable": 0}
+        for key, label in labels.items()
+    }
+    for item in catalog_items:
+        counts[classify_futures_market_scope(item)]["total"] += 1
+    for item in loaded_items:
+        bucket = counts[classify_futures_market_scope(item)]
+        bucket["loaded"] += 1
+        if not item.get("error") and parse_float(str(item.get("close") or "")) is not None:
+            bucket["usable"] += 1
+    return [counts["taiwan"], counts["us"], counts["international"]]
+
+
+GLOBAL_MARKET_ITEM_CACHE_SECONDS = 5 * 60
+
+
+def global_market_item_cache_key(spec: dict[str, Any]) -> str:
+    fields = {
+        "symbol": spec.get("symbol"),
+        "provider": spec.get("dataProvider"),
+        "fallbacks": spec.get("fallbackSymbols") or [],
+        "sourceUrl": spec.get("sourceUrl"),
+        "treasuryMaturity": spec.get("treasuryMaturity"),
+        "fredSeriesId": spec.get("fredSeriesId"),
+        "taifexCommodity": spec.get("taifexCommodity"),
+        "optionChainSymbol": spec.get("optionChainSymbol"),
+        "optionChainUnavailableReason": spec.get("optionChainUnavailableReason"),
+        "v1Status": spec.get("v1Status"),
+    }
+    return json.dumps(fields, ensure_ascii=False, sort_keys=True, default=str)
+
+
+def cache_global_market_item(cache_key: str, item: dict[str, Any]) -> dict[str, Any]:
+    write_memory_cache("global_market_items", cache_key, copy.deepcopy(item))
+    return item
+
+
+def build_us_treasury_yield_curve_item(spec: dict[str, Any], base_item: dict[str, Any]) -> dict[str, Any]:
+    import app
+
+    maturity = str(spec.get("treasuryMaturity") or "2 Yr")
+    try:
+        dated_rows = fetch_us_treasury_yield_curve_rows()
+    except Exception as exc:  # noqa: BLE001
+        app.LOGGER.exception("U.S. Treasury yield curve fetch failed", exc_info=exc)
+        return {**base_item, "error": "U.S. Treasury 官方殖利率暫時無法載入"}
+
+    series: list[dict[str, Any]] = []
+    for date_value, row in dated_rows:
+        yield_value = parse_float(str(row.get(maturity) or ""))
+        if yield_value is None:
+            continue
+        formatted = f"{yield_value:.2f}"
+        series.append({
+            "date": date_value.strftime("%Y-%m-%d"),
+            "open": formatted,
+            "high": formatted,
+            "low": formatted,
+            "close": formatted,
+            "volume": "0",
+            "volumeValue": 0,
+        })
+    if len(series) < 2:
+        return {**base_item, "error": f"U.S. Treasury 官方 {maturity} 殖利率暫無可用資料"}
+
+    latest = series[-1]
+    previous = series[-2]
+    close_value = parse_float(str(latest.get("close") or ""))
+    previous_close = parse_float(str(previous.get("close") or ""))
+    first_close = parse_float(str(series[0].get("close") or ""))
+    change = close_value - previous_close if close_value is not None and previous_close is not None else None
+    pct = change / previous_close * 100 if change is not None and previous_close not in (None, 0) else None
+    period_return = (
+        (close_value - first_close) / first_close * 100
+        if close_value is not None and first_close not in (None, 0)
+        else None
+    )
+    return {
+        **base_item,
+        "dataSymbol": spec.get("symbol") or maturity,
+        "currency": "%",
+        "exchange": base_item.get("exchange") or "U.S. Treasury",
+        "date": latest.get("date") or "",
+        "open": latest.get("close") or "--",
+        "high": latest.get("close") or "--",
+        "low": latest.get("close") or "--",
+        "close": latest.get("close") or "--",
+        "previousClose": previous.get("close") or "--",
+        "change": format_signed(change) if change is not None else "--",
+        "pct": format_percent(pct) if pct is not None else "--",
+        "periodReturn": format_percent(period_return) if period_return is not None else "--",
+        "volume": "--",
+        "sourceLink": base_item.get("sourceUrl") or US_TREASURY_YIELD_CURVE_CSV_URL,
+        "series": series[-240:],
+    }
+
+
+FALLBACK_OBSERVATION_MAX_AGE_DAYS = 400
+
+
+def is_fallback_observation_stale(date_value: datetime) -> bool:
+    import app
+
+    return (app.taipei_now().date() - date_value.date()).days > FALLBACK_OBSERVATION_MAX_AGE_DAYS
+
+
+def fallback_fred_observation(spec: dict[str, Any]) -> list[tuple[datetime, float]]:
+    fallback = spec.get("fallbackObservation") or {}
+    value = parse_float(str(fallback.get("value") or ""))
+    date_value = parse_fred_date(str(fallback.get("date") or ""))
+    if value is None or date_value is None:
+        return []
+    if is_fallback_observation_stale(date_value):
+        return []
+    return [(date_value, value)]
+
+
+def build_fred_latest_observation_item(spec: dict[str, Any], base_item: dict[str, Any]) -> dict[str, Any]:
+    import app
+
+    series_id = str(spec.get("fredSeriesId") or "").strip().upper()
+    observations: list[tuple[datetime, float]] = []
+    source_note = spec.get("dataSource") or "FRED"
+    source_status = "live"
+    try:
+        observations = fetch_fred_observation_rows(series_id)
+    except Exception as exc:  # noqa: BLE001
+        app.LOGGER.warning("FRED series fetch failed for %s: %s", series_id, exc)
+        observations = fallback_fred_observation(spec)
+        source_status = "snapshot"
+        source_note = str((spec.get("fallbackObservation") or {}).get("source") or "FRED snapshot fallback")
+
+    if not observations:
+        return {**base_item, "error": f"FRED {series_id} 暫無可用資料"}
+
+    series = []
+    for date_value, value in observations[-240:]:
+        formatted = f"{value:.2f}"
+        series.append({
+            "date": date_value.strftime("%Y-%m-%d"),
+            "open": formatted,
+            "high": formatted,
+            "low": formatted,
+            "close": formatted,
+            "volume": "0",
+            "volumeValue": 0,
+        })
+    latest = series[-1]
+    previous = series[-2] if len(series) >= 2 else {}
+    close_value = parse_float(str(latest.get("close") or ""))
+    previous_close = parse_float(str(previous.get("close") or ""))
+    first_close = parse_float(str(series[0].get("close") or ""))
+    change = close_value - previous_close if close_value is not None and previous_close is not None else None
+    pct = change / previous_close * 100 if change is not None and previous_close not in (None, 0) else None
+    period_return = (
+        (close_value - first_close) / first_close * 100
+        if close_value is not None and first_close not in (None, 0)
+        else None
+    )
+    return {
+        **base_item,
+        "dataSymbol": series_id or spec.get("symbol") or "",
+        "currency": "%",
+        "date": latest.get("date") or "--",
+        "open": latest.get("close") or "--",
+        "high": latest.get("close") or "--",
+        "low": latest.get("close") or "--",
+        "close": latest.get("close") or "--",
+        "previousClose": previous.get("close") or "--",
+        "change": format_signed(change) if change is not None else "--",
+        "pct": format_percent(pct) if pct is not None else "--",
+        "periodReturn": format_percent(period_return) if period_return is not None else "--",
+        "volume": "--",
+        "source": source_note,
+        "dataSource": source_note,
+        "sourceStatus": source_status,
+        "sourceNote": f"{source_note}；series {series_id}。數值單位為百分比。" if series_id else source_note,
+        "sourceLink": base_item.get("sourceUrl") or f"https://fred.stlouisfed.org/series/{quote(series_id, safe='')}",
+        "series": series,
+    }
+
+
+def fallback_single_yield_observation(spec: dict[str, Any]) -> dict[str, Any] | None:
+    fallback = spec.get("fallbackObservation") or {}
+    value = parse_float(str(fallback.get("value") or ""))
+    date_value = parse_fred_date(str(fallback.get("date") or ""))
+    if value is None or date_value is None:
+        return None
+    if is_fallback_observation_stale(date_value):
+        return None
+    change = parse_float(str(fallback.get("change") or ""))
+    return {
+        "date": date_value.strftime("%Y-%m-%d"),
+        "value": value,
+        "change": change,
+        "description": "",
+        "source": str(fallback.get("source") or "snapshot fallback"),
+        "sourceStatus": "snapshot",
+    }
+
+
+def build_single_yield_item_from_observation(
+    spec: dict[str, Any],
+    base_item: dict[str, Any],
+    observation: dict[str, Any],
+) -> dict[str, Any]:
+    close_value = parse_float(str(observation.get("value") or ""))
+    change = parse_float(str(observation.get("change") or ""))
+    if close_value is None:
+        return {**base_item, "error": f"{base_item.get('name') or base_item.get('symbol')} 暫無可用殖利率資料"}
+    previous_close = close_value - change if change is not None else None
+    pct = change / previous_close * 100 if change is not None and previous_close not in (None, 0) else None
+    formatted = f"{close_value:.2f}"
+    previous_formatted = f"{previous_close:.2f}" if previous_close is not None else "--"
+    date_text = str(observation.get("date") or "--")
+    return {
+        **base_item,
+        "dataSymbol": spec.get("symbol") or base_item.get("symbol") or "",
+        "currency": "%",
+        "date": date_text,
+        "open": formatted,
+        "high": formatted,
+        "low": formatted,
+        "close": formatted,
+        "previousClose": previous_formatted,
+        "change": format_signed(change) if change is not None else "--",
+        "pct": format_percent(pct) if pct is not None else "--",
+        "periodReturn": format_percent(pct) if pct is not None else "--",
+        "volume": "--",
+        "source": observation.get("source") or base_item.get("source") or "",
+        "dataSource": observation.get("source") or base_item.get("dataSource") or "",
+        "sourceStatus": observation.get("sourceStatus") or "live",
+        "sourceNote": observation.get("description") or f"{observation.get('source') or base_item.get('referenceSource') or ''}；數值單位為百分比。",
+        "sourceLink": base_item.get("sourceUrl") or "",
+        "series": [{
+            "date": date_text,
+            "open": formatted,
+            "high": formatted,
+            "low": formatted,
+            "close": formatted,
+            "volume": "0",
+            "volumeValue": 0,
+        }],
+    }
+
+
+def build_trading_economics_taiwan_10y_item(spec: dict[str, Any], base_item: dict[str, Any]) -> dict[str, Any]:
+    import app
+
+    try:
+        observation = fetch_trading_economics_taiwan_10y()
+    except Exception as exc:  # noqa: BLE001
+        app.LOGGER.warning("Trading Economics Taiwan 10Y fetch failed: %s", exc)
+        observation = None
+    if not observation:
+        observation = fallback_single_yield_observation(spec)
+    if not observation:
+        return {**base_item, "error": "台灣 10Y 公債殖利率暫無可用資料"}
+    return build_single_yield_item_from_observation(spec, base_item, observation)
+
+
+def normalize_taiwan_quote_code(symbol: str) -> str:
+    code = str(symbol or "").strip().upper()
+    for suffix in (".TW", ".TWO"):
+        if code.endswith(suffix):
+            return code[: -len(suffix)]
+    return code
+
+
+def cached_taiwan_quote_row(symbol: str) -> dict[str, Any] | None:
+    code = normalize_taiwan_quote_code(symbol)
+    if not code:
+        return None
+    with cache_lock:
+        rows = list(cache_data.get("all_stocks") or [])
+    if not rows:
+        import app
+
+        try:
+            app.load_disk_cache()
+        except Exception as exc:  # noqa: BLE001
+            app.LOGGER.debug("Unable to load disk cache for Taiwan quote fallback", exc_info=exc)
+        with cache_lock:
+            rows = list(cache_data.get("all_stocks") or [])
+    return next((row for row in rows if str(row.get("code") or "").upper() == code), None)
+
+
+def build_taiwan_quote_fallback_item(spec: dict[str, Any], base_item: dict[str, Any]) -> dict[str, Any] | None:
+    symbol = str(spec.get("symbol") or "")
+    if not (symbol.upper().endswith(".TW") or symbol.upper().endswith(".TWO")):
+        return None
+    row = cached_taiwan_quote_row(symbol)
+    if not row:
+        return None
+    close_value = parse_float(str(row.get("close") or ""))
+    if close_value is None:
+        return None
+    change_value = parse_float(str(row.get("change") or ""))
+    previous_close = close_value - change_value if change_value is not None else None
+    with cache_lock:
+        market_date = cache_data.get("market_date")
+        site_data = cache_data.get("site_data") or {}
+    date_text = str(site_data.get("snapshotDate") or "")
+    if not date_text and market_date:
+        try:
+            date_text = datetime.strptime(str(market_date), "%Y%m%d").strftime("%Y-%m-%d")
+        except ValueError:
+            date_text = str(market_date)
+    return {
+        **base_item,
+        "dataSymbol": symbol,
+        "name": spec.get("name") or row.get("name") or base_item.get("name"),
+        "currency": "TWD",
+        "exchange": base_item.get("exchange") or row.get("market") or "TWSE",
+        "date": date_text,
+        "open": str(row.get("open") or "--"),
+        "high": str(row.get("high") or "--"),
+        "low": str(row.get("low") or "--"),
+        "close": f"{close_value:.2f}",
+        "previousClose": f"{previous_close:.2f}" if previous_close is not None else "--",
+        "change": str(row.get("change") or "--"),
+        "pct": str(row.get("pct") or "--"),
+        "periodReturn": "--",
+        "volume": str(row.get("volume") or "--"),
+        "volumeValue": parse_float(str(row.get("volume") or "")),
+        "source": f"{base_item.get('source') or 'Yahoo Finance'} / TWSE 快取備援",
+        "dataSource": f"{base_item.get('dataSource') or 'Yahoo Finance'} / TWSE 快取備援",
+        "sourceLink": f"https://tw.stock.yahoo.com/quote/{symbol}",
+        "technicalAnalysis": row.get("technicalAnalysis") or {},
+        "series": [{
+            "date": date_text,
+            "open": str(row.get("open") or "--"),
+            "high": str(row.get("high") or "--"),
+            "low": str(row.get("low") or "--"),
+            "close": f"{close_value:.2f}",
+            "volume": str(row.get("volume") or "--"),
+            "volumeValue": parse_float(str(row.get("volume") or "")),
+        }],
+    }
+
+
+def build_global_market_item(spec: dict[str, Any]) -> dict[str, Any]:
+    import app
+
+    symbol = str(spec.get("symbol") or "").strip()
+    item_cache_key = global_market_item_cache_key(spec)
+    if not app.global_market_refresh_requested():
+        cached_item = read_memory_cache("global_market_items", item_cache_key, GLOBAL_MARKET_ITEM_CACHE_SECONDS)
+        cached_close = parse_float(str((cached_item or {}).get("close") or ""))
+        if cached_item is not None and not cached_item.get("error") and cached_close is not None:
+            return copy.deepcopy(cached_item)
+
+    item = {
+        "symbol": symbol,
+        "name": spec.get("name") or symbol,
+        "type": spec.get("type") or "市場商品",
+        "group": spec.get("group") or spec.get("type") or "市場商品",
+        "region": spec.get("region") or "全球 / 其他",
+        "market": spec.get("market") or spec.get("region") or "全球 / 其他",
+        "exchange": spec.get("exchange") or "",
+        "source": spec.get("dataSource") or "Yahoo Finance",
+        "dataSource": spec.get("dataSource") or "Yahoo Finance",
+        "referenceSource": spec.get("referenceSource") or "",
+        "sourceUrl": spec.get("sourceUrl") or "",
+        "metricLabel": spec.get("metricLabel") or "成交量",
+        "optionCategory": spec.get("optionCategory") or "",
+        "optionSubcategory": spec.get("optionSubcategory") or "",
+        "optionSourceRole": spec.get("optionSourceRole") or "",
+        "taifexCommodity": spec.get("taifexCommodity") or "",
+        "optionChainSymbol": spec.get("optionChainSymbol") or "",
+        "optionChainUnavailableReason": spec.get("optionChainUnavailableReason") or "",
+        "documentCategory": spec.get("documentCategory") or "",
+    }
+    try:
+        if spec.get("dataProvider") in {"taifex_option_product_status", "taifex_product_status"}:
+            return cache_global_market_item(item_cache_key, build_taifex_stock_derivative_aggregate_item(spec))
+        if is_source_pending_product(spec):
+            return cache_global_market_item(item_cache_key, build_source_pending_market_item(item, spec))
+        if spec.get("dataProvider") == "taifex_txo_open_interest":
+            return cache_global_market_item(item_cache_key, build_txo_option_market_item(spec))
+        if spec.get("dataProvider") in {"taifex_tx_open_interest", "taifex_txo_open_interest", "taifex_futures_open_interest"}:
+            return cache_global_market_item(item_cache_key, build_taifex_open_interest_item(spec))
+        if spec.get("dataProvider") == "us_treasury_yield_curve":
+            return cache_global_market_item(item_cache_key, build_us_treasury_yield_curve_item(spec, item))
+        if spec.get("dataProvider") == "fred_latest_observation":
+            return cache_global_market_item(item_cache_key, build_fred_latest_observation_item(spec, item))
+        if spec.get("dataProvider") == "trading_economics_taiwan_10y":
+            return cache_global_market_item(item_cache_key, build_trading_economics_taiwan_10y_item(spec, item))
+        chart = None
+        selected_symbol = symbol
+        series: list[dict[str, Any]] = []
+        candidates = list(dict.fromkeys(str(candidate or "").strip() for candidate in [symbol, *spec.get("fallbackSymbols", [])] if str(candidate or "").strip()))
+        for candidate in candidates:
+            selected_symbol = str(candidate or "").strip()
+            for attempt in range(2):
+                try:
+                    chart = fetch_yahoo_symbol_chart(selected_symbol, "1y", "1d")
+                    series = build_yahoo_chart_series(chart, volume_divisor=1)
+                except Exception:  # noqa: BLE001
+                    chart = None
+                    series = []
+                if len(series) >= 2:
+                    break
+                if attempt == 0:
+                    time.sleep(0.15)
+            if len(series) >= 2:
+                break
+        meta = (chart or {}).get("meta") or {}
+        if not series:
+            taiwan_fallback = build_taiwan_quote_fallback_item(spec, item)
+            if taiwan_fallback:
+                return cache_global_market_item(item_cache_key, taiwan_fallback)
+            return {**item, "error": "Yahoo Finance 暫無可用歷史資料"}
+
+        latest = series[-1]
+        previous = series[-2] if len(series) > 1 else {}
+        close_value = parse_float(str(latest.get("close") or ""))
+        previous_close = parse_float(str(meta.get("previousClose") or previous.get("close") or ""))
+        open_value = parse_float(str(latest.get("open") or ""))
+        high_value = parse_float(str(latest.get("high") or ""))
+        low_value = parse_float(str(latest.get("low") or ""))
+        volume_value = parse_float(str(latest.get("volumeValue") or latest.get("volume") or ""))
+        first_close = parse_float(str(series[0].get("close") or ""))
+        change = close_value - previous_close if close_value is not None and previous_close not in (None, 0) else None
+        pct = (change / previous_close * 100) if change is not None and previous_close not in (None, 0) else None
+        period_return = (
+            (close_value - first_close) / first_close * 100
+            if close_value is not None and first_close not in (None, 0)
+            else None
+        )
+        result = {
+            **item,
+            "dataSymbol": selected_symbol,
+            "currency": meta.get("currency") or "",
+            "exchange": item.get("exchange") or meta.get("exchangeName") or meta.get("fullExchangeName") or "",
+            "date": latest.get("date") or "",
+            "open": f"{open_value:.2f}" if open_value is not None else "--",
+            "high": f"{high_value:.2f}" if high_value is not None else "--",
+            "low": f"{low_value:.2f}" if low_value is not None else "--",
+            "close": f"{close_value:.2f}" if close_value is not None else "--",
+            "previousClose": f"{previous_close:.2f}" if previous_close is not None else "--",
+            "change": format_signed(change) if change is not None else "--",
+            "pct": format_percent(pct) if pct is not None else "--",
+            "periodReturn": format_percent(period_return) if period_return is not None else "--",
+            "volume": format_whole_number(volume_value) if volume_value is not None else "--",
+            "series": series[-240:],
+        }
+        return cache_global_market_item(item_cache_key, result)
+    except Exception as exc:
+        app.LOGGER.exception("Global market item fetch failed for symbol=%s", symbol, exc_info=exc)
+        taiwan_fallback = build_taiwan_quote_fallback_item(spec, item)
+        if taiwan_fallback:
+            return cache_global_market_item(item_cache_key, taiwan_fallback)
+        return cache_global_market_item(item_cache_key, {**item, "error": PUBLIC_MARKET_ITEM_ERROR_MESSAGE})
+
+
+def yahoo_field_raw(value: Any) -> float | str | None:
+    if isinstance(value, dict):
+        if value.get("raw") is not None:
+            return value.get("raw")
+        if value.get("fmt") is not None:
+            return value.get("fmt")
+    return value if value not in ("", None) else None
+
+
+def yahoo_field_fmt(value: Any, digits: int = 2) -> str:
+    if isinstance(value, dict):
+        if value.get("fmt") not in (None, ""):
+            return str(value.get("fmt"))
+        value = value.get("raw")
+    parsed = parse_float(str(value or ""))
+    if parsed is None:
+        return "--"
+    return f"{parsed:,.{digits}f}"
+
+
+def format_us_large_number(value: Any) -> str:
+    parsed = parse_float(str(value if not isinstance(value, dict) else value.get("raw") or ""))
+    if parsed is None:
+        return "--"
+    abs_value = abs(parsed)
+    if abs_value >= 1_000_000_000_000:
+        return f"{parsed / 1_000_000_000_000:.2f}T"
+    if abs_value >= 1_000_000_000:
+        return f"{parsed / 1_000_000_000:.2f}B"
+    if abs_value >= 1_000_000:
+        return f"{parsed / 1_000_000:.2f}M"
+    return f"{parsed:,.0f}"
+
+
+def us_value_missing(value: Any) -> bool:
+    text = str(value or "").strip()
+    return text in {"", "--", "-", "N/A", "NA", "None", "null", "--%", "-%"}
+
+
+def display_or_na(value: Any) -> str:
+    return "N/A" if us_value_missing(value) else str(value).strip()
+
+
+def parse_us_display_number(value: Any) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        value = value.get("raw") if value.get("raw") is not None else value.get("value") or value.get("fmt")
+    text = str(value).strip()
+    if us_value_missing(text):
+        return None
+    negative = text.startswith("-") or (text.startswith("(") and text.endswith(")"))
+    multiplier = 1.0
+    suffix_match = re.search(r"([KMBT])(?:\s|\(|$)", text, re.IGNORECASE)
+    if suffix_match:
+        suffix = suffix_match.group(1).upper()
+        multiplier = {"K": 1_000, "M": 1_000_000, "B": 1_000_000_000, "T": 1_000_000_000_000}.get(suffix, 1.0)
+    cleaned = (
+        text.replace("$", "")
+        .replace(",", "")
+        .replace("%", "")
+        .replace("+", "")
+        .replace("約", "")
+        .replace("估", "")
+        .replace("(", "")
+        .replace(")", "")
+        .strip()
+    )
+    cleaned = re.sub(r"[KMBT]", "", cleaned, flags=re.IGNORECASE).strip()
+    if not cleaned:
+        return None
+    try:
+        parsed = float(cleaned) * multiplier
+    except ValueError:
+        return None
+    return -parsed if negative and parsed > 0 else parsed
+
+
+# DEADCODE-CANDIDATE (confirmed zero callers 2026-07-19)
+def format_us_ratio(value: Any, digits: int = 2) -> str:
+    parsed = parse_us_display_number(value)
+    return f"{parsed:.{digits}f}" if parsed is not None else "N/A"
+
+
+# DEADCODE-CANDIDATE (confirmed zero callers 2026-07-19)
+def format_us_percent_value(value: Any, digits: int = 2) -> str:
+    parsed = parse_us_display_number(value)
+    return f"{parsed:.{digits}f}" if parsed is not None else "N/A"
+
+
+def format_us_large_number_from_float(value: float | None, estimated: bool = False) -> str:
+    if value is None or not math.isfinite(value):
+        return "N/A"
+    text = format_us_large_number(value)
+    return f"{text} (估)" if estimated and text != "--" else text
+
+
+def nasdaq_labeled_value(container: dict[str, Any] | None, key: str) -> Any:
+    item = (container or {}).get(key)
+    if isinstance(item, dict):
+        return item.get("value")
+    return item
+
+
+def nasdaq_table_row_value(table: dict[str, Any] | None, row_names: list[str], column: str = "value2") -> Any:
+    names = [name.lower() for name in row_names]
+    for row in (table or {}).get("rows") or []:
+        label = str(row.get("value1") or "").strip().lower()
+        if any(name in label for name in names):
+            value = row.get(column)
+            if not us_value_missing(value):
+                return value
+    return None
+
+
+def parse_nasdaq_financial_value(value: Any) -> float | None:
+    parsed = parse_us_display_number(value)
+    if parsed is None:
+        return None
+    return parsed * 1000
+
+
+def parse_us_date(value: Any) -> str:
+    text = str(value or "").strip()
+    if us_value_missing(text):
+        return "--"
+    for fmt in ("%m/%d/%Y", "%b %d, %Y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(text, fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return text
+
+
+def format_us_unix_date(value: Any) -> str:
+    import app
+
+    raw = yahoo_field_raw(value)
+    parsed = parse_float(str(raw or ""))
+    if parsed is None:
+        return "--"
+    try:
+        return datetime.fromtimestamp(parsed, app.TZ).strftime("%Y-%m-%d")
+    except (OSError, ValueError):
+        return "--"
+
+
+def build_us_valuation(summary: dict[str, Any]) -> dict[str, Any]:
+    import app
+
+    summary_detail = summary.get("summaryDetail") or {}
+    key_stats = summary.get("defaultKeyStatistics") or {}
+    financial = summary.get("financialData") or {}
+    price = summary.get("price") or {}
+    dividend_yield = yahoo_field_raw(summary_detail.get("dividendYield"))
+    if isinstance(dividend_yield, (int, float)):
+        dividend_yield = dividend_yield * 100
+    return {
+        "date": datetime.now(app.TZ).strftime("%Y-%m-%d"),
+        "peRatio": yahoo_field_fmt(summary_detail.get("trailingPE") or key_stats.get("trailingPE")),
+        "forwardPE": yahoo_field_fmt(summary_detail.get("forwardPE") or key_stats.get("forwardPE")),
+        "pbRatio": yahoo_field_fmt(key_stats.get("priceToBook")),
+        "priceToSales": yahoo_field_fmt(key_stats.get("priceToSalesTrailing12Months")),
+        "dividendYield": f"{dividend_yield:.2f}" if isinstance(dividend_yield, (int, float)) else yahoo_field_fmt(summary_detail.get("dividendYield")),
+        "dividendPerShare": yahoo_field_fmt(summary_detail.get("dividendRate")),
+        "marketCap": format_us_large_number(price.get("marketCap") or summary_detail.get("marketCap")),
+        "enterpriseValue": format_us_large_number(key_stats.get("enterpriseValue")),
+        "beta": yahoo_field_fmt(summary_detail.get("beta")),
+        "profitMargins": yahoo_field_fmt(financial.get("profitMargins")),
+        "revenueGrowth": yahoo_field_fmt(financial.get("revenueGrowth")),
+        "sourceNote": "Yahoo Finance quote summary；美股估值欄位可能因標的或資料授權而缺漏。",
+    }
+
+
+def build_us_fallback_valuation(item: dict[str, Any]) -> dict[str, Any]:
+    import app
+
+    return {
+        "date": datetime.now(app.TZ).strftime("%Y-%m-%d"),
+        "peRatio": "N/A",
+        "forwardPE": "N/A",
+        "pbRatio": "N/A",
+        "priceToSales": "N/A",
+        "dividendYield": "N/A",
+        "dividendPerShare": "N/A",
+        "marketCap": "N/A",
+        "enterpriseValue": "N/A",
+        "beta": "N/A",
+        "profitMargins": "N/A",
+        "revenueGrowth": "N/A",
+        "sourceNote": "Yahoo quote summary 進階估值暫時無法授權取得；目前以行情、歷史價格與外部連結提供基本分析骨架。",
+    }
+
+
+def nasdaq_dividend_header_value(dividends_data: dict[str, Any], label: str) -> Any:
+    target = label.lower()
+    for item in dividends_data.get("dividendHeaderValues") or []:
+        if target in str(item.get("label") or "").lower():
+            return item.get("value")
+    return None
+
+
+def merge_us_nasdaq_valuation(
+    valuation: dict[str, Any],
+    nasdaq: dict[str, Any],
+    item: dict[str, Any],
+) -> dict[str, Any]:
+    merged = dict(valuation or {})
+    summary_data = ((nasdaq.get("summary") or {}).get("data") or {}).get("summaryData") or {}
+    dividends_data = (nasdaq.get("dividends") or {}).get("data") or {}
+    financials = nasdaq.get("financials") or {}
+    latest_close = parse_us_display_number(item.get("close"))
+
+    market_cap = parse_us_display_number(nasdaq_labeled_value(summary_data, "MarketCap"))
+    annual_dividend = (
+        parse_us_display_number(nasdaq_labeled_value(summary_data, "AnnualizedDividend"))
+        or parse_us_display_number(dividends_data.get("annualizedDividend"))
+        or parse_us_display_number(nasdaq_dividend_header_value(dividends_data, "Annual Dividend"))
+    )
+    dividend_yield = (
+        parse_us_display_number(nasdaq_labeled_value(summary_data, "Yield"))
+        or parse_us_display_number(dividends_data.get("yield"))
+        or parse_us_display_number(nasdaq_dividend_header_value(dividends_data, "Dividend Yield"))
+    )
+    pe_ratio = (
+        parse_us_display_number(nasdaq_dividend_header_value(dividends_data, "P/E Ratio"))
+        or parse_us_display_number(dividends_data.get("payoutRatio"))
+    )
+    beta = parse_us_display_number(nasdaq_labeled_value(summary_data, "Beta"))
+
+    income_table = financials.get("incomeStatementTable") or {}
+    balance_table = financials.get("balanceSheetTable") or {}
+    ratios_table = financials.get("financialRatiosTable") or {}
+    latest_revenue = parse_nasdaq_financial_value(nasdaq_table_row_value(income_table, ["Total Revenue"]))
+    prior_revenue = parse_nasdaq_financial_value(nasdaq_table_row_value(income_table, ["Total Revenue"], "value3"))
+    latest_equity = parse_nasdaq_financial_value(nasdaq_table_row_value(
+        balance_table,
+        ["Total Equity", "Stockholders' Equity", "Shareholders' Equity", "Total Stockholder"],
+    ))
+    profit_margin = parse_us_display_number(nasdaq_table_row_value(ratios_table, ["Profit Margin"]))
+
+    if market_cap is not None:
+        merged["marketCap"] = format_us_large_number(market_cap)
+        if us_value_missing(merged.get("enterpriseValue")):
+            merged["enterpriseValue"] = f"約 {format_us_large_number(market_cap)}"
+    if annual_dividend is not None:
+        merged["dividendPerShare"] = f"{annual_dividend:.2f}"
+    if dividend_yield is not None:
+        merged["dividendYield"] = f"{dividend_yield:.2f}"
+    if pe_ratio is not None:
+        merged["peRatio"] = f"{pe_ratio:.2f}"
+    if beta is not None:
+        merged["beta"] = f"{beta:.2f}"
+    if profit_margin is not None:
+        merged["profitMargins"] = f"{profit_margin:.2f}"
+    if latest_revenue and prior_revenue:
+        merged["revenueGrowth"] = f"{((latest_revenue - prior_revenue) / prior_revenue * 100):.2f}"
+    if market_cap is not None and latest_revenue:
+        merged["priceToSales"] = f"{(market_cap / latest_revenue):.2f}"
+    if market_cap is not None and latest_equity:
+        merged["pbRatio"] = f"{(market_cap / latest_equity):.2f}"
+    if us_value_missing(merged.get("forwardPE")):
+        merged["forwardPE"] = "N/A"
+
+    one_year_target = nasdaq_labeled_value(summary_data, "OneYrTarget")
+    average_volume = nasdaq_labeled_value(summary_data, "AverageVolume") or nasdaq_labeled_value(summary_data, "FiftyDayAvgDailyVol")
+    range_52w = nasdaq_labeled_value(summary_data, "FiftTwoWeekHighLow") or nasdaq_labeled_value(summary_data, "fiftyTwoWeekHighLow")
+    aum = parse_us_display_number(nasdaq_labeled_value(summary_data, "AUM"))
+    expense_ratio = nasdaq_labeled_value(summary_data, "ExpenseRatio")
+    if not us_value_missing(one_year_target):
+        merged["oneYearTarget"] = str(one_year_target)
+    if not us_value_missing(average_volume):
+        merged["averageVolume"] = str(average_volume)
+    if not us_value_missing(range_52w):
+        merged["fiftyTwoWeekRange"] = str(range_52w)
+    if aum is not None:
+        merged["aum"] = format_us_large_number(aum * 1000)
+    if not us_value_missing(expense_ratio):
+        merged["expenseRatio"] = str(expense_ratio)
+
+    for key in ("peRatio", "forwardPE", "pbRatio", "priceToSales", "dividendYield", "dividendPerShare", "marketCap", "enterpriseValue", "beta", "profitMargins", "revenueGrowth"):
+        merged[key] = display_or_na(merged.get(key))
+    if latest_close and pe_ratio and us_value_missing(merged.get("trailingEps")):
+        merged["trailingEps"] = f"{(latest_close / pe_ratio):.2f}"
+    merged["sourceNote"] = (
+        "估值欄位優先使用 Yahoo quote summary；缺漏時以 Nasdaq summary、dividends 與 annual financials 補齊，"
+        "Enterprise Value 若無公開值則以市值近似標示。"
+    )
+    return merged
+
+
+def build_us_company_profile(symbol: str, summary: dict[str, Any], fallback_name: str = "") -> dict[str, Any]:
+    profile = summary.get("assetProfile") or summary.get("summaryProfile") or {}
+    fund_profile = summary.get("fundProfile") or {}
+    price = summary.get("price") or {}
+    long_name = price.get("longName") or price.get("shortName") or fallback_name or symbol
+    address_parts = [
+        profile.get("address1"),
+        profile.get("city"),
+        profile.get("state"),
+        profile.get("zip"),
+        profile.get("country"),
+    ]
+    return {
+        "fullName": str(long_name or symbol),
+        "industry": str(profile.get("industry") or fund_profile.get("categoryName") or "--"),
+        "sector": str(profile.get("sector") or fund_profile.get("family") or "--"),
+        "country": str(profile.get("country") or "--"),
+        "website": str(profile.get("website") or ""),
+        "telephone": str(profile.get("phone") or "--"),
+        "address": ", ".join(str(part) for part in address_parts if part) or "--",
+        "employees": format_us_large_number(profile.get("fullTimeEmployees")),
+        "businessSummary": str(profile.get("longBusinessSummary") or fund_profile.get("legalType") or "公司摘要目前未取得。"),
+        "exchange": str(price.get("exchangeName") or price.get("exchange") or "--"),
+    }
+
+
+def build_us_fallback_company_profile(symbol: str, item: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "fullName": str(item.get("name") or symbol),
+        "industry": str(item.get("type") or "N/A"),
+        "sector": str(item.get("group") or "N/A"),
+        "country": "United States",
+        "website": "",
+        "telephone": "N/A",
+        "address": "N/A",
+        "employees": "N/A",
+        "businessSummary": "公司基本資料暫時無法由 Yahoo quote summary 取得；請使用 Yahoo Finance、SEC EDGAR 或公司 IR 連結核對。",
+        "exchange": str(item.get("exchange") or "N/A"),
+    }
+
+
+def merge_us_nasdaq_company_profile(
+    profile: dict[str, Any],
+    nasdaq: dict[str, Any],
+    item: dict[str, Any],
+    symbol: str,
+) -> dict[str, Any]:
+    merged = dict(profile or {})
+    company = nasdaq.get("profile") or {}
+    summary_data = ((nasdaq.get("summary") or {}).get("data") or {}).get("summaryData") or {}
+    company_name = company.get("CompanyName", {}).get("value") if isinstance(company.get("CompanyName"), dict) else None
+    if company_name:
+        merged["fullName"] = str(company_name)
+    if not us_value_missing(nasdaq_labeled_value(summary_data, "Industry")):
+        merged["industry"] = str(nasdaq_labeled_value(summary_data, "Industry"))
+    if not us_value_missing(company.get("Industry", {}).get("value") if isinstance(company.get("Industry"), dict) else None):
+        merged["industry"] = str(company["Industry"]["value"])
+    if not us_value_missing(nasdaq_labeled_value(summary_data, "Sector")):
+        merged["sector"] = str(nasdaq_labeled_value(summary_data, "Sector"))
+    if not us_value_missing(company.get("Sector", {}).get("value") if isinstance(company.get("Sector"), dict) else None):
+        merged["sector"] = str(company["Sector"]["value"])
+    if not us_value_missing(nasdaq_labeled_value(summary_data, "Exchange")):
+        merged["exchange"] = str(nasdaq_labeled_value(summary_data, "Exchange"))
+    address = company.get("Address", {}).get("value") if isinstance(company.get("Address"), dict) else None
+    if not us_value_missing(address):
+        merged["address"] = str(address)
+        if "United States" in str(address):
+            merged["country"] = "United States"
+    phone = company.get("Phone", {}).get("value") if isinstance(company.get("Phone"), dict) else None
+    if not us_value_missing(phone):
+        merged["telephone"] = str(phone)
+    website = company.get("CompanyUrl", {}).get("value") if isinstance(company.get("CompanyUrl"), dict) else None
+    if not us_value_missing(website):
+        merged["website"] = str(website)
+    description = company.get("CompanyDescription", {}).get("value") if isinstance(company.get("CompanyDescription"), dict) else None
+    if not us_value_missing(description):
+        merged["businessSummary"] = str(description)
+    if us_value_missing(merged.get("fullName")):
+        merged["fullName"] = str(item.get("name") or symbol)
+    for key in ("industry", "sector", "country", "telephone", "address", "employees", "exchange"):
+        merged[key] = display_or_na(merged.get(key))
+    return merged
+
+
+def build_us_margin_proxy(summary: dict[str, Any]) -> dict[str, Any]:
+    key_stats = summary.get("defaultKeyStatistics") or {}
+    shares_short = yahoo_field_raw(key_stats.get("sharesShort"))
+    shares_short_prior = yahoo_field_raw(key_stats.get("sharesShortPriorMonth"))
+    short_change = None
+    if isinstance(shares_short, (int, float)) and isinstance(shares_short_prior, (int, float)):
+        short_change = shares_short - shares_short_prior
+    return {
+        "date": format_us_unix_date(key_stats.get("dateShortInterest")),
+        "sourceNote": "美股沒有台股融資融券同口徑資料；此區以 Yahoo Short Interest 作為空方籌碼代理。",
+        "shortInterest": format_us_large_number(shares_short),
+        "shortInterestPrior": format_us_large_number(shares_short_prior),
+        "shortInterestChange": format_us_large_number(short_change),
+        "shortRatio": yahoo_field_fmt(key_stats.get("shortRatio")),
+        "shortPercentOfFloat": yahoo_field_fmt(key_stats.get("shortPercentOfFloat")),
+        "shortPercentOfSharesOutstanding": yahoo_field_fmt(key_stats.get("shortPercentOfSharesOutstanding")),
+        "sharesOutstanding": format_us_large_number(key_stats.get("sharesOutstanding")),
+        "floatShares": format_us_large_number(key_stats.get("floatShares")),
+    }
+
+
+def build_us_fallback_margin_proxy() -> dict[str, Any]:
+    return {
+        "date": "N/A",
+        "sourceNote": "Short Interest 需 Yahoo quote summary 授權資料；目前保留融資融券分析欄位並提示資料缺口。",
+        "shortInterest": "N/A",
+        "shortInterestPrior": "N/A",
+        "shortInterestChange": "N/A",
+        "shortRatio": "N/A",
+        "shortPercentOfFloat": "N/A",
+        "shortPercentOfSharesOutstanding": "N/A",
+        "sharesOutstanding": "N/A",
+        "floatShares": "N/A",
+    }
+
+
+def merge_us_nasdaq_margin_proxy(
+    margin: dict[str, Any],
+    nasdaq: dict[str, Any],
+    item: dict[str, Any],
+    valuation: dict[str, Any],
+) -> dict[str, Any]:
+    merged = dict(margin or {})
+    short_data = (nasdaq.get("shortInterest") or {}).get("data") or {}
+    rows = (((short_data.get("shortInterestTable") or {}).get("rows")) or [])
+    latest = rows[0] if rows else {}
+    prior = rows[1] if len(rows) > 1 else {}
+    latest_interest = parse_us_display_number(latest.get("interest"))
+    prior_interest = parse_us_display_number(prior.get("interest"))
+    latest_close = parse_us_display_number(item.get("close"))
+    market_cap = parse_us_display_number(valuation.get("marketCap"))
+    estimated_shares = (market_cap / latest_close) if market_cap and latest_close else None
+    if latest:
+        merged["date"] = parse_us_date(latest.get("settlementDate"))
+        merged["shortInterest"] = format_us_large_number_from_float(latest_interest)
+        merged["shortInterestPrior"] = format_us_large_number_from_float(prior_interest)
+        merged["shortInterestChange"] = format_us_large_number_from_float(
+            latest_interest - prior_interest if latest_interest is not None and prior_interest is not None else None,
+        )
+        days_to_cover = parse_us_display_number(latest.get("daysToCover"))
+        if days_to_cover is not None:
+            merged["shortRatio"] = f"{days_to_cover:.2f}"
+    if estimated_shares:
+        merged["sharesOutstanding"] = format_us_large_number_from_float(estimated_shares, estimated=True)
+        if us_value_missing(merged.get("floatShares")):
+            merged["floatShares"] = format_us_large_number_from_float(estimated_shares, estimated=True)
+    if latest_interest is not None and estimated_shares:
+        short_pct = latest_interest / estimated_shares * 100
+        merged["shortPercentOfSharesOutstanding"] = f"{short_pct:.2f}%"
+        if us_value_missing(merged.get("shortPercentOfFloat")):
+            merged["shortPercentOfFloat"] = f"{short_pct:.2f}%"
+    for key in ("date", "shortInterest", "shortInterestPrior", "shortInterestChange", "shortRatio", "shortPercentOfFloat", "shortPercentOfSharesOutstanding", "sharesOutstanding", "floatShares"):
+        merged[key] = display_or_na(merged.get(key))
+    if latest:
+        merged["sourceNote"] = (
+            "Short Interest 使用 Nasdaq short-interest 公開資料；在外股數與 Short % 若無交易所直接欄位，"
+            "以市值 / 最新股價估算作為分析代理。"
+        )
+    else:
+        merged["sourceNote"] = "Nasdaq 未提供此標的 Short Interest；ETF 或非 Nasdaq listed 標的可能不支援空單明細。"
+    return merged
+
+
+def build_us_valuation_history(
+    series: list[dict[str, Any]],
+    summary: dict[str, Any],
+    valuation: dict[str, Any] | None = None,
+) -> list[dict[str, Any]]:
+    key_stats = summary.get("defaultKeyStatistics") or {}
+    summary_detail = summary.get("summaryDetail") or {}
+    eps = yahoo_field_raw(key_stats.get("trailingEps"))
+    book_value = yahoo_field_raw(key_stats.get("bookValue"))
+    dividend_rate = yahoo_field_raw(summary_detail.get("dividendRate"))
+    current_close = parse_us_display_number((series or [])[-1].get("close")) if series else None
+    valuation = valuation or {}
+    pe_ratio = parse_us_display_number(valuation.get("peRatio"))
+    pb_ratio = parse_us_display_number(valuation.get("pbRatio"))
+    if not isinstance(eps, (int, float)) and current_close and pe_ratio:
+        eps = current_close / pe_ratio
+    if not isinstance(book_value, (int, float)) and current_close and pb_ratio:
+        book_value = current_close / pb_ratio
+    if not isinstance(dividend_rate, (int, float)):
+        dividend_rate = parse_us_display_number(valuation.get("dividendPerShare"))
+    month_end: dict[str, dict[str, Any]] = {}
+    for item in series:
+        date_text = str(item.get("date") or "")
+        if len(date_text) < 7:
+            continue
+        month_end[date_text[:7]] = item
+    history = []
+    for item in list(month_end.values())[-6:]:
+        close_value = parse_float(str(item.get("close") or ""))
+        if close_value is None:
+            continue
+        pe_ratio = close_value / eps if isinstance(eps, (int, float)) and eps else None
+        pb_ratio = close_value / book_value if isinstance(book_value, (int, float)) and book_value else None
+        dividend_yield = (dividend_rate / close_value * 100) if isinstance(dividend_rate, (int, float)) and close_value else None
+        history.append({
+            "date": item.get("date"),
+            "close": round(close_value, 2),
+            "peRatio": round(pe_ratio, 2) if pe_ratio is not None else None,
+            "dividendPerShare": round(dividend_rate, 4) if isinstance(dividend_rate, (int, float)) else None,
+            "dividendYield": round(dividend_yield, 2) if dividend_yield is not None else None,
+            "pbRatio": round(pb_ratio, 2) if pb_ratio is not None else None,
+        })
+    return history
+
+
+def estimate_us_beta_from_series(
+    stock_series: list[dict[str, Any]],
+    benchmark_series: list[dict[str, Any]],
+) -> float | None:
+    stock_by_date = {
+        str(item.get("date")): parse_us_display_number(item.get("close"))
+        for item in stock_series or []
+        if item.get("date")
+    }
+    benchmark_by_date = {
+        str(item.get("date")): parse_us_display_number(item.get("close"))
+        for item in benchmark_series or []
+        if item.get("date")
+    }
+    dates = sorted(set(stock_by_date) & set(benchmark_by_date))
+    stock_returns: list[float] = []
+    benchmark_returns: list[float] = []
+    for previous_date, current_date in zip(dates, dates[1:]):
+        previous_stock = stock_by_date.get(previous_date)
+        current_stock = stock_by_date.get(current_date)
+        previous_benchmark = benchmark_by_date.get(previous_date)
+        current_benchmark = benchmark_by_date.get(current_date)
+        if not all(value not in (None, 0) for value in (previous_stock, current_stock, previous_benchmark, current_benchmark)):
+            continue
+        stock_returns.append((current_stock - previous_stock) / previous_stock)  # type: ignore[operator]
+        benchmark_returns.append((current_benchmark - previous_benchmark) / previous_benchmark)  # type: ignore[operator]
+    if len(stock_returns) < 60 or len(stock_returns) != len(benchmark_returns):
+        return None
+    stock_mean = sum(stock_returns) / len(stock_returns)
+    benchmark_mean = sum(benchmark_returns) / len(benchmark_returns)
+    covariance = sum((s - stock_mean) * (b - benchmark_mean) for s, b in zip(stock_returns, benchmark_returns))
+    variance = sum((b - benchmark_mean) ** 2 for b in benchmark_returns)
+    if variance == 0:
+        return None
+    beta = covariance / variance
+    return beta if math.isfinite(beta) else None
+
+
+def estimate_us_beta(symbol: str, stock_series: list[dict[str, Any]]) -> float | None:
+    clean_symbol = symbol.upper()
+    if clean_symbol in {"SPY", "^GSPC", "VOO", "IVV"}:
+        return 1.0
+    try:
+        benchmark_chart = fetch_yahoo_symbol_chart("SPY", "2y", "1d")
+        benchmark_series = build_yahoo_chart_series(benchmark_chart, volume_divisor=1)
+    except Exception:  # noqa: BLE001
+        return None
+    return estimate_us_beta_from_series(stock_series[-520:], benchmark_series[-520:])
+
+
+def build_us_etf_components(summary: dict[str, Any]) -> dict[str, Any]:
+    top_holdings = summary.get("topHoldings") or {}
+    holdings = []
+    for item in top_holdings.get("holdings") or []:
+        raw_weight = yahoo_field_raw(item.get("holdingPercent"))
+        weight = raw_weight * 100 if isinstance(raw_weight, (int, float)) and raw_weight <= 1 else raw_weight
+        holdings.append({
+            "name": item.get("holdingName") or item.get("symbol") or "--",
+            "code": item.get("symbol") or "--",
+            "weight": round(float(weight), 2) if isinstance(weight, (int, float)) else 0,
+        })
+    if not holdings:
+        return {}
+    return {
+        "title": "ETF 成分股比例",
+        "summary": "Yahoo Finance Top Holdings，實際權重請以發行商公告為準。",
+        "holdings": holdings[:12],
+        "sourceNote": "資料來源：Yahoo Finance top holdings。",
+        "sourceLink": "https://finance.yahoo.com/",
+    }
+
+
+def format_us_ownership_percent(value: Any) -> str:
+    raw = yahoo_field_raw(value)
+    parsed = parse_us_display_number(raw)
+    if parsed is None:
+        return "N/A"
+    if abs(parsed) <= 1 and "%" not in str(raw or ""):
+        parsed *= 100
+    return f"{parsed:.2f}%"
+
+
+def format_yahoo_ownership_date(value: Any) -> str:
+    import app
+
+    raw = yahoo_field_raw(value)
+    if isinstance(raw, (int, float)):
+        try:
+            return datetime.fromtimestamp(raw, app.TZ).strftime("%Y-%m-%d")
+        except (OSError, ValueError):
+            return "--"
+    return parse_us_date(raw)
+
+
+def build_us_ownership_rows(container: dict[str, Any], limit: int = 8) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for entry in (container or {}).get("ownershipList") or []:
+        rows.append({
+            "name": str(entry.get("organization") or entry.get("name") or "--"),
+            "reportDate": format_yahoo_ownership_date(entry.get("reportDate")),
+            "pctHeld": format_us_ownership_percent(entry.get("pctHeld")),
+            "position": format_us_large_number(entry.get("position")),
+            "value": format_us_large_number(entry.get("value")),
+        })
+    return rows[:limit]
+
+
+def build_us_insider_transaction_rows(container: dict[str, Any], limit: int = 8) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for entry in (container or {}).get("transactions") or []:
+        rows.append({
+            "name": str(entry.get("filerName") or entry.get("ownerName") or "--"),
+            "date": format_yahoo_ownership_date(entry.get("startDate")),
+            "transaction": str(entry.get("transactionText") or entry.get("transactionCode") or "--"),
+            "ownership": str(entry.get("ownership") or "--"),
+            "shares": format_us_large_number(entry.get("shares")),
+            "value": format_us_large_number(entry.get("value")),
+        })
+    return rows[:limit]
+
+
+def build_us_insider_holder_rows(container: dict[str, Any], limit: int = 6) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for entry in (container or {}).get("holders") or []:
+        rows.append({
+            "name": str(entry.get("name") or "--"),
+            "relation": str(entry.get("relation") or "--"),
+            "latestDate": format_yahoo_ownership_date(entry.get("latestTransDate")),
+            "directShares": format_us_large_number(entry.get("positionDirect")),
+            "indirectShares": format_us_large_number(entry.get("positionIndirect")),
+        })
+    return rows[:limit]
+
+
+def build_us_ownership_trading(summary: dict[str, Any], symbol: str) -> dict[str, Any]:
+    import app
+
+    key_stats = summary.get("defaultKeyStatistics") or {}
+    major_holders = summary.get("majorHoldersBreakdown") or {}
+    net_activity = summary.get("netSharePurchaseActivity") or {}
+    institution_rows = build_us_ownership_rows(summary.get("institutionOwnership") or {})
+    fund_rows = build_us_ownership_rows(summary.get("fundOwnership") or {})
+    insider_transactions = build_us_insider_transaction_rows(summary.get("insiderTransactions") or {})
+    insider_holders = build_us_insider_holder_rows(summary.get("insiderHolders") or {})
+    metrics = {
+        "insiderHeldPct": format_us_ownership_percent(
+            major_holders.get("insidersPercentHeld") or key_stats.get("heldPercentInsiders"),
+        ),
+        "institutionsHeldPct": format_us_ownership_percent(
+            major_holders.get("institutionsPercentHeld") or key_stats.get("heldPercentInstitutions"),
+        ),
+        "institutionsFloatPct": format_us_ownership_percent(major_holders.get("institutionsFloatPercentHeld")),
+        "institutionsCount": display_or_na(yahoo_field_fmt(major_holders.get("institutionsCount"), 0)),
+        "totalInsiderShares": format_us_large_number(net_activity.get("totalInsiderShares")),
+        "netInsiderShares": format_us_large_number(net_activity.get("netInfoShares")),
+        "netInsiderPct": format_us_ownership_percent(net_activity.get("netPercentInsiderShares")),
+        "buyInsiderShares": format_us_large_number(net_activity.get("buyInfoShares")),
+        "sellInsiderShares": format_us_large_number(net_activity.get("sellInfoShares")),
+        "period": display_or_na(net_activity.get("period")),
+    }
+    return {
+        "date": datetime.now(app.TZ).strftime("%Y-%m-%d"),
+        "metrics": metrics,
+        "institutionOwners": institution_rows,
+        "fundOwners": fund_rows,
+        "insiderTransactions": insider_transactions,
+        "insiderHolders": insider_holders,
+        "sourceNote": "資料來源：Yahoo Finance quoteSummary major holders / ownership modules；申報仍以 SEC EDGAR 與公司文件為準。",
+        "sourceLink": f"https://finance.yahoo.com/quote/{quote(symbol, safe='')}/holders",
+    }
+
+
+def build_us_fallback_ownership_trading(symbol: str) -> dict[str, Any]:
+    return {
+        "date": "N/A",
+        "metrics": {
+            "insiderHeldPct": "N/A",
+            "institutionsHeldPct": "N/A",
+            "institutionsFloatPct": "N/A",
+            "institutionsCount": "N/A",
+            "totalInsiderShares": "N/A",
+            "netInsiderShares": "N/A",
+            "netInsiderPct": "N/A",
+            "buyInsiderShares": "N/A",
+            "sellInsiderShares": "N/A",
+            "period": "N/A",
+        },
+        "institutionOwners": [],
+        "fundOwners": [],
+        "insiderTransactions": [],
+        "insiderHolders": [],
+        "sourceNote": "Yahoo Finance 持有人模組目前未回傳資料；請以 SEC EDGAR 或公司 IR 文件核對。",
+        "sourceLink": f"https://finance.yahoo.com/quote/{quote(symbol, safe='')}/holders",
+    }
+
+
+def merge_us_nasdaq_ownership_trading(
+    ownership: dict[str, Any],
+    nasdaq: dict[str, Any],
+    symbol: str,
+) -> dict[str, Any]:
+    import app
+
+    merged = dict(ownership or {})
+    metrics = dict(merged.get("metrics") or {})
+    institutional = nasdaq.get("institutionalHoldings") or {}
+    insider = nasdaq.get("insiderTrades") or {}
+    ownership_summary = institutional.get("ownershipSummary") or {}
+    holdings_transactions = institutional.get("holdingsTransactions") or {}
+    holdings_table = (holdings_transactions.get("table") or {})
+    holdings_rows = holdings_table.get("rows") or []
+    outstanding_millions = parse_us_display_number(nasdaq_labeled_value(ownership_summary, "ShareoutstandingTotal"))
+    outstanding_shares = outstanding_millions * 1_000_000 if outstanding_millions is not None else None
+
+    institutional_pct = nasdaq_labeled_value(ownership_summary, "SharesOutstandingPCT")
+    if not us_value_missing(institutional_pct):
+        metrics["institutionsHeldPct"] = format_us_ownership_percent(institutional_pct)
+    total_value = parse_us_display_number(nasdaq_labeled_value(ownership_summary, "TotalHoldingsValue"))
+    if total_value is not None:
+        metrics["totalInstitutionalValue"] = format_us_large_number_from_float(total_value * 1_000_000)
+    if outstanding_shares is not None:
+        metrics["sharesOutstanding"] = format_us_large_number_from_float(outstanding_shares)
+    if not us_value_missing(holdings_transactions.get("totalRecords")):
+        metrics["institutionsCount"] = str(holdings_transactions.get("totalRecords")).strip()
+
+    institution_rows: list[dict[str, str]] = []
+    for row in holdings_rows[:12]:
+        shares_held = parse_us_display_number(row.get("sharesHeld"))
+        market_value = parse_us_display_number(row.get("marketValue"))
+        held_pct = (shares_held / outstanding_shares * 100) if shares_held is not None and outstanding_shares else None
+        institution_rows.append({
+            "name": str(row.get("ownerName") or "--"),
+            "reportDate": parse_us_date(row.get("date")),
+            "pctHeld": f"{held_pct:.2f}%" if held_pct is not None else "N/A",
+            "position": format_us_large_number_from_float(shares_held),
+            "value": format_us_large_number_from_float(market_value * 1_000 if market_value is not None else None),
+            "changeShares": format_us_large_number_from_float(parse_us_display_number(row.get("sharesChange"))),
+            "changePct": display_or_na(row.get("sharesChangePCT")),
+        })
+    if institution_rows:
+        merged["institutionOwners"] = institution_rows
+
+    activity_rows: list[dict[str, str]] = []
+    for table_name in ("activePositions", "newSoldOutPositions"):
+        table = institutional.get(table_name) or {}
+        for row in table.get("rows") or []:
+            activity_rows.append({
+                "name": str(row.get("positions") or "--"),
+                "reportDate": parse_us_date(table.get("asOf")) if table.get("asOf") else "--",
+                "pctHeld": display_or_na(row.get("holders")),
+                "position": display_or_na(row.get("shares")),
+                "value": "持有人數 / 股數",
+            })
+    if activity_rows:
+        merged["positionActivity"] = activity_rows[:8]
+
+    share_rows = ((insider.get("numberOfSharesTraded") or {}).get("rows")) or []
+    for row in share_rows:
+        label = str(row.get("insiderTrade") or "").lower()
+        if "bought" in label:
+            metrics["buyInsiderShares"] = display_or_na(row.get("months3"))
+        elif "sold" in label:
+            metrics["sellInsiderShares"] = display_or_na(row.get("months3"))
+        elif "net activity" in label:
+            metrics["netInsiderShares"] = display_or_na(row.get("months3"))
+
+    transaction_rows = (((insider.get("transactionTable") or {}).get("table") or {}).get("rows")) or []
+    insider_transactions: list[dict[str, str]] = []
+    insider_holders_by_name: dict[str, dict[str, str]] = {}
+    for row in transaction_rows[:12]:
+        name = str(row.get("insider") or "--")
+        own_type = str(row.get("ownType") or "--")
+        shares_held = display_or_na(row.get("sharesHeld"))
+        insider_transactions.append({
+            "name": name,
+            "date": parse_us_date(row.get("lastDate")),
+            "transaction": str(row.get("transactionType") or "--"),
+            "ownership": own_type,
+            "shares": display_or_na(row.get("sharesTraded")),
+            "value": display_or_na(row.get("lastPrice")),
+            "relation": str(row.get("relation") or "--"),
+        })
+        holder = insider_holders_by_name.setdefault(name, {
+            "name": name,
+            "relation": str(row.get("relation") or "--"),
+            "latestDate": parse_us_date(row.get("lastDate")),
+            "directShares": "N/A",
+            "indirectShares": "N/A",
+        })
+        if own_type.lower() == "direct":
+            holder["directShares"] = shares_held
+        elif own_type.lower() == "indirect":
+            holder["indirectShares"] = shares_held
+    if insider_transactions:
+        merged["insiderTransactions"] = insider_transactions
+        merged["insiderHolders"] = list(insider_holders_by_name.values())[:8]
+
+    merged["metrics"] = {key: display_or_na(value) for key, value in metrics.items()}
+    if institution_rows or activity_rows or insider_transactions:
+        merged["date"] = datetime.now(app.TZ).strftime("%Y-%m-%d")
+        merged["sourceNote"] = (
+            "資料來源：Nasdaq institutional-holdings / insider-trades 公開 API；"
+            "Yahoo holders 模組若取得授權則作為補充，正式申報仍以 SEC EDGAR 為準。"
+        )
+        merged["sourceLink"] = f"https://www.nasdaq.com/market-activity/stocks/{quote(symbol.lower(), safe='')}/institutional-holdings"
+    return merged
+
+
+def build_us_market_symbol_detail(spec: dict[str, Any]) -> dict[str, Any]:
+    item = build_global_market_item(spec)
+    if item.get("error"):
+        return item
+    data_symbol = str(item.get("dataSymbol") or item.get("symbol") or spec.get("symbol") or "")
+    try:
+        chart = fetch_yahoo_symbol_chart(data_symbol, "5y", "1d")
+        long_series = build_yahoo_chart_series(chart, volume_divisor=1)
+        if len(long_series) >= len(item.get("series") or []):
+            item["series"] = long_series
+    except Exception:  # noqa: BLE001
+        pass
+
+    summary: dict[str, Any] = {}
+    company_news: list[dict[str, Any]] = []
+    nasdaq_supplement: dict[str, Any] = {}
+    is_etf_hint = item.get("group") == "美股 ETF" or "ETF" in str(item.get("type") or "").upper()
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = {
+            "summary": executor.submit(fetch_yahoo_quote_summary, data_symbol),
+            "news": executor.submit(fetch_yahoo_us_symbol_news, data_symbol, 6),
+            "nasdaq": executor.submit(fetch_nasdaq_us_supplement, data_symbol, is_etf_hint),
+        }
+        for key, future in futures.items():
+            try:
+                if key == "summary":
+                    summary = future.result(timeout=12)
+                elif key == "news":
+                    company_news = future.result(timeout=10)
+                else:
+                    nasdaq_supplement = future.result(timeout=16)
+            except Exception:  # noqa: BLE001
+                if key == "summary":
+                    summary = {}
+                elif key == "news":
+                    company_news = []
+                else:
+                    nasdaq_supplement = {}
+
+    valuation = build_us_valuation(summary) if summary else build_us_fallback_valuation(item)
+    valuation = merge_us_nasdaq_valuation(valuation, nasdaq_supplement, item)
+    if us_value_missing(valuation.get("beta")):
+        beta_estimate = estimate_us_beta(data_symbol, item.get("series") or [])
+        if beta_estimate is not None:
+            valuation["beta"] = f"{beta_estimate:.2f} (估)"
+    company_profile = (
+        build_us_company_profile(data_symbol, summary, item.get("name") or data_symbol)
+        if summary
+        else build_us_fallback_company_profile(data_symbol, item)
+    )
+    company_profile = merge_us_nasdaq_company_profile(company_profile, nasdaq_supplement, item, data_symbol)
+    margin_proxy = build_us_margin_proxy(summary) if summary else build_us_fallback_margin_proxy()
+    margin_proxy = merge_us_nasdaq_margin_proxy(margin_proxy, nasdaq_supplement, item, valuation)
+    ownership_trading = (
+        build_us_ownership_trading(summary, data_symbol)
+        if summary
+        else build_us_fallback_ownership_trading(data_symbol)
+    )
+    ownership_trading = merge_us_nasdaq_ownership_trading(ownership_trading, nasdaq_supplement, data_symbol)
+    valuation_history = build_us_valuation_history(item.get("series") or [], summary or {}, valuation)
+    etf_components = build_us_etf_components(summary) if summary else {}
+    nasdaq_asset_class = str(((nasdaq_supplement.get("summary") or {}).get("data") or {}).get("assetClass") or "")
+    quote_type = str(((summary.get("price") or {}).get("quoteType") or nasdaq_asset_class or item.get("group") or "")).upper()
+    is_etf = "ETF" in quote_type or "FUND" in quote_type or item.get("group") == "美股 ETF"
+    return {
+        **item,
+        "group": "美股 ETF" if is_etf else item.get("group") or "美股個股",
+        "type": item.get("type") or ("ETF" if is_etf else "美股個股"),
+        "detailMode": "full",
+        "historyRange": "5y",
+        "valuation": valuation,
+        "valuationHistory": valuation_history,
+        "companyProfile": company_profile,
+        "companyNews": company_news,
+        "marginTrading": margin_proxy,
+        "ownershipTrading": ownership_trading,
+        "etfComponents": etf_components if is_etf else {},
+        "isEtf": is_etf,
+        "newsLinks": {
+            "yahoo": f"https://finance.yahoo.com/quote/{quote(data_symbol, safe='')}/news",
+            "profile": f"https://finance.yahoo.com/quote/{quote(data_symbol, safe='')}/profile",
+            "sec": f"https://www.sec.gov/edgar/search/#/q={quote(data_symbol, safe='')}",
+        },
+    }
+
+
+def validate_global_market_item(item: dict[str, Any], category: str) -> dict[str, Any]:
+    import app
+
+    source_info = ASSET_CATEGORY_SOURCE_INFO.get(category, {})
+    if item.get("error"):
+        return {
+            "status": "failed",
+            "primarySource": source_info.get("primary", "Yahoo Finance 歷史行情"),
+            "referenceSource": source_info.get("reference", ""),
+            "checks": {"history": False, "ohlc": False, "closeMatch": False, "fresh": False},
+        }
+    series = item.get("series") or []
+    close = parse_float(str(item.get("close") or ""))
+    latest = series[-1] if series else {}
+    latest_close = parse_float(str(latest.get("close") or ""))
+    history_ok = len(series) >= 20
+    close_match = (
+        close is not None
+        and latest_close is not None
+        and abs(close - latest_close) <= max(0.01, abs(latest_close) * 0.001)
+    )
+    ohlc_ok = True
+    for row in series[-20:]:
+        open_value = parse_float(str(row.get("open") or ""))
+        high_value = parse_float(str(row.get("high") or ""))
+        low_value = parse_float(str(row.get("low") or ""))
+        row_close = parse_float(str(row.get("close") or ""))
+        if None in {open_value, high_value, low_value, row_close}:
+            ohlc_ok = False
+            break
+        if high_value < max(open_value, row_close) or low_value > min(open_value, row_close):
+            ohlc_ok = False
+            break
+    fresh = False
+    latest_date = str(latest.get("date") or item.get("date") or "")
+    try:
+        fresh = abs((datetime.now(app.TZ).date() - datetime.strptime(latest_date, "%Y-%m-%d").date()).days) <= 12
+    except ValueError:
+        fresh = False
+    status = "verified" if history_ok and close_match and ohlc_ok and fresh else "limited"
+    return {
+        "status": status,
+        "primarySource": source_info.get("primary", "Yahoo Finance 歷史行情"),
+        "referenceSource": source_info.get("reference", ""),
+        "referenceUrl": source_info.get("referenceUrl", ""),
+        "checks": {
+            "history": history_ok,
+            "ohlc": ohlc_ok,
+            "closeMatch": close_match,
+            "fresh": fresh,
+        },
+    }
+
+
+def apply_treasury_secondary_validation(items: list[dict[str, Any]], treasury_curve: dict[str, Any]) -> int:
+    mapping = {"^IRX": "3 Mo", "US2Y": "2 Yr", "^FVX": "5 Yr", "^TNX": "10 Yr", "^TYX": "30 Yr"}
+    treasury_yields = treasury_curve.get("yields") or {}
+    matched = 0
+    for item in items:
+        maturity = mapping.get(str(item.get("symbol") or "").upper())
+        reference_value = treasury_yields.get(maturity) if maturity else None
+        if reference_value is None:
+            continue
+        yahoo_value = parse_float(str(item.get("close") or ""))
+        if yahoo_value is None:
+            continue
+        normalized_value = min((yahoo_value, yahoo_value / 10, yahoo_value * 10), key=lambda value: abs(value - reference_value))
+        difference = abs(normalized_value - reference_value)
+        secondary_status = "matched" if difference <= 0.5 else "review"
+        item.setdefault("verification", {})["secondary"] = {
+            "source": treasury_curve.get("source"),
+            "date": treasury_curve.get("date"),
+            "referenceValue": reference_value,
+            "difference": round(difference, 3),
+            "status": secondary_status,
+        }
+        if secondary_status == "matched":
+            matched += 1
+    return matched
+
+
+def normalize_futures_yahoo_uncovered_links(item: dict[str, Any]) -> dict[str, Any]:
+    import app
+
+    if not isinstance(item, dict):
+        return item
+    quote_source_url = str(item.get("quoteSourceUrl") or "")
+    source_link = str(item.get("sourceLink") or "")
+    has_yahoo_future_quote = (
+        item.get("quoteStatus") == "yahoo-live"
+        or bool(item.get("yahooFutureCode"))
+        or quote_source_url.rstrip("/") == app.YAHOO_TW_FUTURE_URL
+        or source_link.rstrip("/") == app.YAHOO_TW_FUTURE_URL
+    )
+    if has_yahoo_future_quote:
+        item["quoteSourceUrl"] = app.YAHOO_TW_FUTURE_UNCOVERED_URL
+        if not source_link or source_link.rstrip("/") == app.YAHOO_TW_FUTURE_URL or item.get("quoteStatus") == "yahoo-live":
+            item["sourceLink"] = app.YAHOO_TW_FUTURE_UNCOVERED_URL
+    return item
+
+
+def build_global_market_payload(
+    category: str,
+    limit: int | None = None,
+    option_source: str = "auto",
+    option_underlying: str = "TXO",
+) -> dict[str, Any]:
+    import app
+
+    spec = GLOBAL_MARKET_CATEGORIES[category]
+    catalog_items = [enrich_global_market_spec(item, category) for item in spec["items"]]
+    selected_specs = catalog_items[:limit] if limit else catalog_items
+    items: list[dict[str, Any]] = []
+    # Item fetches are independent I/O-bound Yahoo Finance / TAIFEX lookups (each already
+    # throttled at its own external-source layer where that source needs it, e.g. the TAIFEX
+    # form-query semaphore), so a wider pool here mainly cuts wall-clock wait time.
+    max_workers = min(6 if category == "options" else 8, len(selected_specs))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(build_global_market_item, item) for item in selected_specs]
+        for future in as_completed(futures):
+            items.append(future.result())
+
+    item_order = {item["symbol"]: index for index, item in enumerate(selected_specs)}
+    items.sort(key=lambda item: item_order.get(item.get("symbol"), 999))
+    if category == "futures":
+        items = [normalize_futures_yahoo_uncovered_links(item) for item in items]
+    for item in items:
+        item["verification"] = validate_global_market_item(item, category)
+    treasury_curve = fetch_us_treasury_yield_curve() if category == "bonds" else {}
+    secondary_matched = apply_treasury_secondary_validation(items, treasury_curve) if treasury_curve else 0
+    usable = [item for item in items if not item.get("error") and parse_float(str(item.get("close") or "")) is not None]
+    verified_count = sum(1 for item in items if (item.get("verification") or {}).get("status") == "verified")
+    limited_count = sum(1 for item in items if (item.get("verification") or {}).get("status") == "limited")
+    advancers = sum(1 for item in usable if (parse_float(str(item.get("pct") or "")) or 0) > 0)
+    decliners = sum(1 for item in usable if (parse_float(str(item.get("pct") or "")) or 0) < 0)
+    avg_pct_values = [parse_float(str(item.get("pct") or "")) for item in usable]
+    avg_pct_values = [value for value in avg_pct_values if value is not None]
+    avg_pct = sum(avg_pct_values) / len(avg_pct_values) if avg_pct_values else None
+    strongest = max(usable, key=lambda item: parse_float(str(item.get("pct") or "")) or -999999, default=None)
+    weakest = min(usable, key=lambda item: parse_float(str(item.get("pct") or "")) or 999999, default=None)
+    region_breakdown = summarize_asset_regions(items)
+    catalog_region_breakdown = summarize_asset_regions(catalog_items)
+    payload = {
+        "category": category,
+        "title": spec["title"],
+        "kicker": spec["kicker"],
+        "subtitle": spec["subtitle"],
+        "source": ASSET_CATEGORY_SOURCE_INFO.get(category, {}).get("primary", "Yahoo Finance 線上資料"),
+        "sourceInfo": ASSET_CATEGORY_SOURCE_INFO.get(category, {}),
+        "macroSchema": GLOBAL_MACRO_ASSET_SCHEMA,
+        "updatedAt": datetime.now(app.TZ).strftime("%Y-%m-%d %H:%M:%S"),
+        "catalogCount": len(catalog_items),
+        "loadedCount": len(items),
+        "loadLimit": limit,
+        "regionBreakdown": region_breakdown,
+        "catalogRegionBreakdown": catalog_region_breakdown,
+        "validation": {
+            "verifiedCount": verified_count,
+            "limitedCount": limited_count,
+            "failedCount": len(items) - len(usable),
+            "primary": ASSET_CATEGORY_SOURCE_INFO.get(category, {}).get("primary", "Yahoo Finance 歷史行情"),
+            "reference": ASSET_CATEGORY_SOURCE_INFO.get(category, {}).get("reference", ""),
+            "referenceUrl": ASSET_CATEGORY_SOURCE_INFO.get(category, {}).get("referenceUrl", ""),
+            "secondaryMatchedCount": secondary_matched,
+            "treasuryCurve": treasury_curve if category == "bonds" else {},
+        },
+        "summary": {
+            "count": len(usable),
+            "advancers": advancers,
+            "decliners": decliners,
+            "avgPct": format_percent(avg_pct) if avg_pct is not None else "--",
+            "strongest": strongest["name"] if strongest else "--",
+            "strongestPct": strongest.get("pct") if strongest else "--",
+            "weakest": weakest["name"] if weakest else "--",
+            "weakestPct": weakest.get("pct") if weakest else "--",
+        },
+        "items": items,
+    }
+    if category == "us-stocks":
+        try:
+            payload["news"] = fetch_us_market_overview_news(8)
+            if "News" not in str(payload.get("source") or ""):
+                payload["source"] = f"{payload['source']} + Yahoo Finance News"
+        except Exception as exc:  # noqa: BLE001
+            app.LOGGER.exception("US market overview news payload fetch failed", exc_info=exc)
+            payload["news"] = []
+    if category in {"futures", "options"}:
+        payload["v1Scope"] = "domestic_derivatives"
+        payload["v1ProductStatus"] = v1_product_status(
+            [apply_taifex_defaults(item, TAIFEX_FUTURES_DAILY_URL, TAIFEX_OPTIONS_DAILY_URL) for item in TAIWAN_FUTURES_V1],
+            [apply_taifex_defaults(item, TAIFEX_FUTURES_DAILY_URL, TAIFEX_OPTIONS_DAILY_URL) for item in TAIWAN_OPTIONS_V1],
+        )
+        if category == "futures":
+            payload["futuresMarketBreakdown"] = summarize_futures_market_scopes(catalog_items, items)
+    if category == "options":
+        try:
+            payload["taiwanOptionChain"] = fetch_txo_option_chain(source=option_source, underlying=option_underlying)
+        except Exception as exc:  # noqa: BLE001
+            product = app.get_taiwan_option_product(option_underlying)
+            app.LOGGER.exception("%s option chain payload fetch failed", product["symbol"], exc_info=exc)
+            payload["taiwanOptionChain"] = {
+                "underlying": product["symbol"],
+                "name": product["name"],
+                "error": PUBLIC_TAIFEX_OPTION_CHAIN_ERROR_MESSAGE,
+                "source": {
+                    "primary": "TAIFEX / Yahoo 台灣選擇權",
+                    "primaryUrl": TAIFEX_OPTIONS_DAILY_URL,
+                    "secondaryUrl": build_yahoo_taiwan_option_url(product["symbol"]),
+                },
+            }
+    try:
+        if category == "futures":
+            app.DERIVATIVES_STORE.record_futures_payload(payload)
+        elif category == "options":
+            option_chain = payload.get("taiwanOptionChain") or {}
+            app.DERIVATIVES_STORE.record_option_chain(option_chain, str(payload.get("updatedAt") or ""))
+            if option_chain.get("analysis"):
+                app.DERIVATIVES_STORE.record_ai_report(str(option_chain.get("underlying") or option_underlying), option_chain["analysis"], str(payload.get("updatedAt") or ""))
+    except Exception as exc:  # noqa: BLE001
+        app.LOGGER.exception("Failed to persist derivatives payload", exc_info=exc)
+    return payload
+
+
+US_ETF_POPULAR_YAHOO_SYMBOLS = [
+    "SPY", "QQQ", "VOO", "IVV", "VTI", "IWM", "SPLG", "DIA",
+    "SCHD", "VIG", "VYM", "JEPI", "JEPQ", "DGRW",
+    "XLK", "XLF", "XLV", "XLE", "XLY", "XLI", "XLU", "XLP", "XLB", "XLRE",
+    "SMH", "SOXX", "XBI", "KRE", "VNQ", "IYR",
+    "EFA", "EEM", "VEA", "VWO", "IEFA", "IEMG", "VXUS",
+    "TLT", "IEF", "SHY", "BND", "AGG", "LQD", "HYG",
+    "GLD", "IAU", "SLV", "USO",
+    "IBIT", "BITO", "GBTC",
+    "TQQQ", "SQQQ", "SOXL", "SOXS",
+    "ARKK", "ARKW", "BOTZ", "CIBR", "TAN", "ICLN", "LIT",
+]
+US_ETF_POPULAR_FALLBACKS = {
+    "SPY": "SPDR S&P 500 ETF Trust",
+    "QQQ": "Invesco QQQ Trust",
+    "VOO": "Vanguard S&P 500 ETF",
+    "IVV": "iShares Core S&P 500 ETF",
+    "VTI": "Vanguard Total Stock Market ETF",
+    "IWM": "iShares Russell 2000 ETF",
+    "SPLG": "SPDR Portfolio S&P 500 ETF",
+    "DIA": "SPDR Dow Jones Industrial Average ETF",
+    "SCHD": "Schwab U.S. Dividend Equity ETF",
+    "VIG": "Vanguard Dividend Appreciation ETF",
+    "VYM": "Vanguard High Dividend Yield ETF",
+    "JEPI": "JPMorgan Equity Premium Income ETF",
+    "JEPQ": "JPMorgan Nasdaq Equity Premium Income ETF",
+    "DGRW": "WisdomTree U.S. Quality Dividend Growth Fund",
+    "XLK": "Technology Select Sector SPDR Fund",
+    "XLF": "Financial Select Sector SPDR Fund",
+    "XLV": "Health Care Select Sector SPDR Fund",
+    "XLE": "Energy Select Sector SPDR Fund",
+    "XLY": "Consumer Discretionary Select Sector SPDR Fund",
+    "XLI": "Industrial Select Sector SPDR Fund",
+    "XLU": "Utilities Select Sector SPDR Fund",
+    "XLP": "Consumer Staples Select Sector SPDR Fund",
+    "XLB": "Materials Select Sector SPDR Fund",
+    "XLRE": "Real Estate Select Sector SPDR Fund",
+    "SMH": "VanEck Semiconductor ETF",
+    "SOXX": "iShares Semiconductor ETF",
+    "XBI": "SPDR S&P Biotech ETF",
+    "KRE": "SPDR S&P Regional Banking ETF",
+    "VNQ": "Vanguard Real Estate ETF",
+    "IYR": "iShares U.S. Real Estate ETF",
+    "EFA": "iShares MSCI EAFE ETF",
+    "EEM": "iShares MSCI Emerging Markets ETF",
+    "VEA": "Vanguard FTSE Developed Markets ETF",
+    "VWO": "Vanguard FTSE Emerging Markets ETF",
+    "IEFA": "iShares Core MSCI EAFE ETF",
+    "IEMG": "iShares Core MSCI Emerging Markets ETF",
+    "VXUS": "Vanguard Total International Stock ETF",
+    "TLT": "iShares 20+ Year Treasury Bond ETF",
+    "IEF": "iShares 7-10 Year Treasury Bond ETF",
+    "SHY": "iShares 1-3 Year Treasury Bond ETF",
+    "BND": "Vanguard Total Bond Market ETF",
+    "AGG": "iShares Core U.S. Aggregate Bond ETF",
+    "LQD": "iShares iBoxx $ Investment Grade Corporate Bond ETF",
+    "HYG": "iShares iBoxx $ High Yield Corporate Bond ETF",
+    "GLD": "SPDR Gold Shares",
+    "IAU": "iShares Gold Trust",
+    "SLV": "iShares Silver Trust",
+    "USO": "United States Oil Fund",
+    "IBIT": "iShares Bitcoin Trust ETF",
+    "BITO": "ProShares Bitcoin Strategy ETF",
+    "GBTC": "Grayscale Bitcoin Trust ETF",
+    "TQQQ": "ProShares UltraPro QQQ",
+    "SQQQ": "ProShares UltraPro Short QQQ",
+    "SOXL": "Direxion Daily Semiconductor Bull 3X Shares",
+    "SOXS": "Direxion Daily Semiconductor Bear 3X Shares",
+    "ARKK": "ARK Innovation ETF",
+    "ARKW": "ARK Next Generation Internet ETF",
+    "BOTZ": "Global X Robotics & Artificial Intelligence ETF",
+    "CIBR": "First Trust Nasdaq Cybersecurity ETF",
+    "TAN": "Invesco Solar ETF",
+    "ICLN": "iShares Global Clean Energy ETF",
+    "LIT": "Global X Lithium & Battery Tech ETF",
+}
+
+
+def build_us_etf_quote_specs(directory_items: list[dict[str, Any]], quote_limit: int, prefer_directory_first: bool = False) -> list[dict[str, Any]]:
+    if quote_limit <= 0:
+        return []
+    by_symbol: dict[str, dict[str, Any]] = {}
+    for item in [*directory_items, *filter_us_etf_items(US_MARKET_SEARCH_UNIVERSE)]:
+        symbol = str(item.get("symbol") or "").upper()
+        if symbol and symbol not in by_symbol:
+            by_symbol[symbol] = normalize_us_market_search_item(item)
+    for symbol, name in US_ETF_POPULAR_FALLBACKS.items():
+        by_symbol.setdefault(symbol, normalize_us_market_search_item({
+            "symbol": symbol,
+            "name": name,
+            "quoteType": "ETF",
+            "exchange": "NYSE Arca / Nasdaq",
+            "source": "熱門美股 ETF 內建清單",
+        }))
+
+    selected: list[dict[str, Any]] = []
+    selected_symbols: set[str] = set()
+    if prefer_directory_first:
+        for item in directory_items:
+            symbol = str(item.get("symbol") or "").upper()
+            if symbol and symbol not in selected_symbols:
+                selected.append(normalize_us_market_search_item(item))
+                selected_symbols.add(symbol)
+            if len(selected) >= quote_limit:
+                break
+    for symbol in US_ETF_POPULAR_YAHOO_SYMBOLS:
+        item = by_symbol.get(symbol)
+        if item and symbol not in selected_symbols:
+            selected.append(item)
+            selected_symbols.add(symbol)
+        if len(selected) >= quote_limit:
+            break
+    if len(selected) < quote_limit:
+        for item in directory_items:
+            symbol = str(item.get("symbol") or "").upper()
+            if symbol and symbol not in selected_symbols:
+                selected.append(normalize_us_market_search_item(item))
+                selected_symbols.add(symbol)
+            if len(selected) >= quote_limit:
+                break
+
+    specs = []
+    for item in selected[:quote_limit]:
+        symbol = normalize_us_symbol_for_yahoo(str(item.get("symbol") or ""))
+        if not symbol:
+            continue
+        specs.append(enrich_global_market_spec({
+            "symbol": symbol,
+            "name": item.get("name") or symbol,
+            "type": item.get("type") or "ETF",
+            "group": "美股 ETF",
+            "region": "美國",
+            "market": "美股ETF",
+            "exchange": item.get("exchange") or "NYSE Arca / Nasdaq",
+            "dataSource": "Yahoo Finance 美股 ETF 行情",
+            "referenceSource": item.get("source") or "美股 ETF 線上清單",
+            "sourceUrl": f"https://finance.yahoo.com/quote/{quote(symbol)}",
+            "metricLabel": "成交量",
+        }, "us-stocks"))
+    return specs
+
+
+def build_us_etf_center_payload(query: str = "", directory_limit: int = 7000, quote_limit: int = 48, refresh: bool = False) -> dict[str, Any]:
+    import app
+
+    directory_items, directory_total, directory_source, directory_error = fetch_us_etf_directory_items(query, directory_limit, refresh)
+    quote_specs = build_us_etf_quote_specs(directory_items, quote_limit, bool(query.strip()))
+    quote_items: list[dict[str, Any]] = []
+    if quote_specs:
+        with ThreadPoolExecutor(max_workers=min(6, len(quote_specs))) as executor:
+            futures = [executor.submit(build_global_market_item, spec) for spec in quote_specs]
+            for future in as_completed(futures):
+                quote_items.append(future.result())
+        order = {item["symbol"]: index for index, item in enumerate(quote_specs)}
+        quote_items.sort(key=lambda item: order.get(item.get("symbol"), 999))
+
+    usable = [item for item in quote_items if not item.get("error") and parse_float(str(item.get("close") or "")) is not None]
+    pct_values = [parse_float(str(item.get("pct") or "")) for item in usable]
+    pct_values = [value for value in pct_values if value is not None]
+    avg_pct = sum(pct_values) / len(pct_values) if pct_values else None
+    strongest = max(usable, key=lambda item: parse_float(str(item.get("pct") or "")) or -999999, default=None)
+    weakest = min(usable, key=lambda item: parse_float(str(item.get("pct") or "")) or 999999, default=None)
+    volume_leader = max(usable, key=lambda item: parse_float(str(item.get("volume") or "")) or -1, default=None)
+    quote_source = "Yahoo Finance 美股 ETF 行情" if quote_specs else ""
+    source_parts = [directory_source, quote_source]
+    return {
+        "category": "us-etf",
+        "title": "美股ETF",
+        "kicker": "US ETF Center",
+        "subtitle": "整合美股 ETF 官方上市清單與 Yahoo Finance 美股 ETF 行情。",
+        "query": query,
+        "source": " + ".join(part for part in source_parts if part),
+        "sourceInfo": {
+            "primary": directory_source,
+            "quote": quote_source,
+            "reference": "Nasdaq Trader Symbol Directory / NYSE Listings Directory / Yahoo Finance",
+        },
+        "updatedAt": datetime.now(app.TZ).strftime("%Y-%m-%d %H:%M:%S"),
+        "directory": {
+            "query": query,
+            "kind": "etf",
+            "instrumentType": "EXCHANGE_TRADED_FUND",
+            "group": "美股 ETF",
+            "total": directory_total,
+            "count": len(directory_items),
+            "returned": len(directory_items),
+            "source": directory_source,
+            "error": directory_error,
+            "results": directory_items,
+        },
+        "catalogCount": directory_total,
+        "loadedCount": len(quote_items),
+        "loadLimit": quote_limit,
+        "summary": {
+            "directoryCount": len(directory_items),
+            "directoryTotal": directory_total,
+            "quoteCount": len(usable),
+            "advancers": sum(1 for item in usable if (parse_float(str(item.get("pct") or "")) or 0) > 0),
+            "decliners": sum(1 for item in usable if (parse_float(str(item.get("pct") or "")) or 0) < 0),
+            "avgPct": format_percent(avg_pct) if avg_pct is not None else "--",
+            "strongest": strongest.get("symbol") if strongest else "--",
+            "strongestPct": strongest.get("pct") if strongest else "--",
+            "weakest": weakest.get("symbol") if weakest else "--",
+            "weakestPct": weakest.get("pct") if weakest else "--",
+            "volumeLeader": volume_leader.get("symbol") if volume_leader else "--",
+        },
+        "items": quote_items,
+        "error": directory_error,
+    }
