@@ -18,6 +18,7 @@ os.environ.setdefault("MARKET_PULSE_DISABLE_BACKGROUND", "1")
 os.environ.setdefault("MARKET_PULSE_LOG_LEVEL", "CRITICAL")
 
 import app
+import builders
 import cache
 import fetchers
 import security
@@ -217,10 +218,10 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertEqual(app.TAIWAN_OPTION_PRODUCTS["DVO"]["taifexCommodity"], "DVO")
         self.assertEqual(app.TAIWAN_OPTION_PRODUCTS["DHO"]["taifexCommodity"], "DHO")
         self.assertEqual(app.TAIWAN_OPTION_PRODUCTS["T50O"]["taifexCommodity"], "NYO")
-        self.assertEqual(app.BARCHART_FUTURES_OPTIONS_ROOTS["ZT=F"], "ZT")
-        self.assertEqual(app.BARCHART_FUTURES_OPTIONS_ROOTS["ZF=F"], "ZF")
-        self.assertEqual(app.BARCHART_FUTURES_OPTIONS_ROOTS["ZN=F"], "ZN")
-        self.assertEqual(app.BARCHART_FUTURES_OPTIONS_ROOTS["ZB=F"], "ZB")
+        self.assertEqual(builders.BARCHART_FUTURES_OPTIONS_ROOTS["ZT=F"], "ZT")
+        self.assertEqual(builders.BARCHART_FUTURES_OPTIONS_ROOTS["ZF=F"], "ZF")
+        self.assertEqual(builders.BARCHART_FUTURES_OPTIONS_ROOTS["ZN=F"], "ZN")
+        self.assertEqual(builders.BARCHART_FUTURES_OPTIONS_ROOTS["ZB=F"], "ZB")
 
         option_specs = app.GLOBAL_MARKET_CATEGORIES["options"]["items"]
         option_symbols = {item["symbol"] for item in option_specs}
@@ -234,9 +235,9 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertEqual(by_symbol["XRP-USD"]["optionChainSymbol"], "BYBIT_XRP")
         self.assertIn("沒有掛牌選擇權", by_symbol["0056.TW"]["optionChainUnavailableReason"])
 
-    @patch.object(app, "write_memory_cache")
-    @patch.object(app, "read_memory_cache", return_value=None)
-    @patch.object(app, "fetch_json")
+    @patch.object(builders, "write_memory_cache")
+    @patch.object(builders, "read_memory_cache", return_value=None)
+    @patch.object(builders, "fetch_json")
     def test_bybit_option_chain_uses_real_call_put_tickers(self, fetch_json_mock, _read_cache, _write_cache):
         fetch_json_mock.return_value = {
             "retCode": 0,
@@ -293,7 +294,7 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertEqual(data["summary"]["status"], "source_pending")
         self.assertEqual(len(data["rows"]), 4)
 
-    @patch.object(app, "fetch_taifex_institution_detail_rows", return_value=[
+    @patch.object(builders, "fetch_taifex_institution_detail_rows", return_value=[
         {"Date": "20260708", "ContractCode": "臺股期貨", "Item": "自營商", "TradingVolume(Long)": "100", "TradingVolume(Short)": "40", "TradingVolume(Net)": "60"},
         {"Date": "20260708", "ContractCode": "臺股期貨", "Item": "投信", "TradingVolume(Long)": "10", "TradingVolume(Short)": "5", "TradingVolume(Net)": "5"},
         {"Date": "20260708", "ContractCode": "臺股期貨", "Item": "外資及陸資", "TradingVolume(Long)": "200", "TradingVolume(Short)": "300", "TradingVolume(Net)": "-100"},
@@ -308,12 +309,12 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         total_row = next(row for row in data["rows"] if row["institution"] == "合計")
         self.assertEqual(total_row["netContracts"], -35)
 
-    @patch.object(app, "fetch_taifex_openapi_list")
+    @patch.object(builders, "fetch_taifex_openapi_list")
     def test_stock_futures_and_options_aggregate_connected(self, mock_fetch):
         def fake_fetch(url, cache_seconds, timeout=20):
-            if url == app.TAIFEX_SSF_LIST_OPENAPI_URL:
+            if url == builders.TAIFEX_SSF_LIST_OPENAPI_URL:
                 return [{"Contract": "CDF", "StockCode": "2330", "StockName": "台積電", "Type": "上市普通股標的證券"}]
-            if url == app.TAIFEX_FUTURES_DAILY_OPENAPI_URL:
+            if url == builders.TAIFEX_FUTURES_DAILY_OPENAPI_URL:
                 return [{"Date": "20260708", "Contract": "CDF", "Volume": "500", "OpenInterest": "1200", "Last": "1100"}]
             return []
         mock_fetch.side_effect = fake_fetch
