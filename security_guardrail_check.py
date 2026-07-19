@@ -212,7 +212,7 @@ def check_sql_parameterization() -> None:
 
 def check_dangerous_functions() -> None:
     python_forbidden = {"eval", "exec", "os.system", "os.popen", "pickle.loads", "pickle.load"}
-    for filename in ("app.py", "security.py", "cache.py", "fetchers.py", "builders.py", "parsers.py", "routes_system.py", "derivatives_store.py", "market_config.py"):
+    for filename in ("app.py", "security.py", "cache.py", "fetchers.py", "builders.py", "parsers.py", "routes_system.py", "routes_global_market.py", "derivatives_store.py", "market_config.py"):
         tree = ast.parse(read_text(filename), filename=filename)
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
@@ -234,7 +234,7 @@ def check_dangerous_functions() -> None:
 
 
 def check_hardcoded_secrets() -> None:
-    candidates = ["app.py", "security.py", "cache.py", "fetchers.py", "builders.py", "parsers.py", "routes_system.py", "market_config.py", "derivatives_store.py", "app.js", "derivatives-ui.js"]
+    candidates = ["app.py", "security.py", "cache.py", "fetchers.py", "builders.py", "parsers.py", "routes_system.py", "routes_global_market.py", "market_config.py", "derivatives_store.py", "app.js", "derivatives-ui.js"]
     secret_assignment = re.compile(
         r"(?i)\b(api[_-]?key|secret|password|token)\b\s*[:=]\s*['\"]([^'\"]{8,})['\"]"
     )

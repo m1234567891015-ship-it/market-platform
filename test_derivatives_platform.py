@@ -21,6 +21,7 @@ import app
 import builders
 import cache
 import fetchers
+import routes_global_market
 import security
 from derivatives_store import DerivativesStore
 
@@ -483,9 +484,9 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertEqual(detail["code"], "2330")
         self.assertEqual(detail["cachedAt"], "2026-06-20 12:00:00")
 
-    @patch.object(app, "fetch_yahoo_us_market_search", return_value=[])
-    @patch.object(app, "fetch_nyse_us_market_search", return_value=([], {}))
-    @patch.object(app, "search_us_listed_universe", return_value=([
+    @patch.object(routes_global_market, "fetch_yahoo_us_market_search", return_value=[])
+    @patch.object(routes_global_market, "fetch_nyse_us_market_search", return_value=([], {}))
+    @patch.object(routes_global_market, "search_us_listed_universe", return_value=([
         {"symbol": "AAPL", "name": "Apple Inc.", "group": "美股個股", "source": "test"}
     ], {"美股個股": 1}, "test source"))
     def test_us_market_search_route_merges_mocked_sources(self, _listed, _nyse, _yahoo):
