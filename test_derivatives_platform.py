@@ -781,6 +781,57 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertEqual(supplemented["chain"][0]["call"]["openInterestSource"], "Yahoo 股市盤中未平倉")
         self.assertEqual(supplemented["source"]["intradayOiProvider"], "Yahoo 股市台灣選擇權盤中未平倉")
 
+    @patch.object(fetchers, "get_yahoo_options_crumb", return_value="test-crumb")
+    def test_fetch_yahoo_options_payload_reaches_cboe_expiration_parser(self, _crumb):
+        """Regression guard (TD-01 slice 5 batch B4): fetch_yahoo_options_payload's
+        deferred `import builders` call for parse_cboe_expiration_request must
+        resolve. TD-01 slice 4 moved this function from app.py to builders.py
+        without fetchers.py's `app.parse_cboe_expiration_request` reference
+        being updated - a silent AttributeError on every call, undetected until
+        a slice-5 full-repo audit. This test exercises the exact call site."""
+        captured_urls = []
+
+        class FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return b'{"optionChain": {"result": []}}'
+
+        def fake_open(req, timeout=20):
+            captured_urls.append(req.full_url)
+            return FakeResponse()
+
+        with patch.object(fetchers, "_yahoo_options_opener") as mock_opener:
+            mock_opener.open.side_effect = fake_open
+            result = fetchers.fetch_yahoo_options_payload("AAPL", expiration="2026-08-21")
+
+        self.assertEqual(result, {"optionChain": {"result": []}})
+        self.assertEqual(len(captured_urls), 1)
+        expected_timestamp = builders.parse_cboe_expiration_request("2026-08-21")
+        self.assertIsNotNone(expected_timestamp)
+        self.assertIn(f"date={expected_timestamp}", captured_urls[0])
+
+    def test_fetch_taifex_txo_option_chain_uses_public_error_message_on_empty_result(self):
+        """Regression guard (TD-01 slice 5 batch B4): fetch_taifex_txo_option_chain's
+        deferred `import builders` call for PUBLIC_TAIFEX_OPTION_CHAIN_ERROR_MESSAGE
+        must resolve. TD-01 slice 4 moved this constant from app.py to
+        builders.py without fetchers.py's `app.PUBLIC_TAIFEX_OPTION_CHAIN_ERROR_MESSAGE`
+        reference being updated - a silent AttributeError on the all-sources-
+        empty fallback path, undetected until a slice-5 full-repo audit."""
+        market_date = datetime.now(app.TZ).strftime("%Y%m%d")
+        cache_key_prefix = "TXO:"
+        with cache.cache_lock:
+            for key in [key for key in cache.cache_data["taifex_options_chain"] if key.startswith(cache_key_prefix)]:
+                del cache.cache_data["taifex_options_chain"][key]
+        with patch.object(fetchers, "fetch_form_text", side_effect=RuntimeError("no data available")):
+            result = fetchers.fetch_taifex_txo_option_chain(underlying="TXO", market_date=market_date)
+        self.assertEqual(result["error"], builders.PUBLIC_TAIFEX_OPTION_CHAIN_ERROR_MESSAGE)
+        self.assertIn("availableProducts", result)
+
     def test_yahoo_txo_underlying_snapshot_parses_benchmark_line(self):
         snapshot = app.parse_yahoo_txo_underlying_snapshot([
             "加權股價指數：45,734.41",

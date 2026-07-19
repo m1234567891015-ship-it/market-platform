@@ -28,6 +28,33 @@ treatment now also applies to `app.parse_taifex_txo_option_rows`
 line ~3559) - both functions themselves moved from app.py to `parsers.py` in
 batch A1, for the identical one-directional-dependency reason above.
 
+TD-01 slice 5 batch B4 regression fix: batch 2's and batch 3's notes below
+(describing `app.parse_cboe_expiration_request` and
+`app.PUBLIC_TAIFEX_OPTION_CHAIN_ERROR_MESSAGE`) were accurate when written in
+slice 3, but became **stale and silently broken** in TD-01 slice 4 (batches 2
+and 4), when both names moved from app.py to `builders.py` without either
+deferred-import call site being updated - a real regression (the original
+app.py-resident references were valid; the slice-4 move is what broke them),
+caught by a full-repo audit during slice 5's closing batch. Both call sites
+(`fetch_yahoo_options_payload`, `fetch_taifex_txo_option_chain`) now use a
+separate deferred `import builders` targeting `builders.parse_cboe_expiration_request`
+/ `builders.PUBLIC_TAIFEX_OPTION_CHAIN_ERROR_MESSAGE` directly, alongside the
+existing `import app` where a function still needs both (`fetch_taifex_txo_option_chain`
+still reaches `app.get_taiwan_option_product`/`app.supplement_taifex_option_payload_with_yahoo_oi`/
+`app.parse_taifex_txo_option_rows`/`app.build_taifex_txo_option_payload`/
+`app.TAIWAN_OPTION_PRODUCTS` for names that either stayed in app.py or are
+re-exported through it). A full-repo scan (all `app.X`/`builders.X`/
+`fetchers.X`/`parsers.X`/`cache.X`/`security.X`/`market_config.X`/
+`derivatives_store.X` deferred-import references checked against each target
+module's actual namespace) confirmed these were the only 2 broken references
+anywhere in the repo - see `test_derivatives_platform.py`'s
+`test_fetch_yahoo_options_payload_reaches_cboe_expiration_parser` and
+`test_fetch_taifex_txo_option_chain_uses_public_error_message_on_empty_result`
+for the regression-guard tests added alongside this fix. The batch 2/3 prose
+below is left as originally written for historical accuracy about the
+reasoning *at the time*; it no longer describes where these two names
+currently live.
+
 These are the foundational functions ~80% of app.py's 86 `fetch_*` functions
 build on: `fetch_json`/`fetch_nasdaq_json`/`post_json` for JSON APIs, and
 `fetch_text`/`fetch_binary`/`fetch_form_text` for scraped/CSV/form-POSTed
@@ -3034,11 +3061,11 @@ def fetch_yahoo_us_market_search(query: str, limit: int = 20) -> list[dict[str, 
 
 
 def fetch_yahoo_options_payload(clean_symbol: str, expiration: str | None = None, retry: bool = True) -> dict[str, Any]:
-    import app  # deferred: parse_cboe_expiration_request is CBOE-domain, stays in app.py (slice 3 batch 5)
+    import builders  # deferred: parse_cboe_expiration_request moved to builders.py in TD-01 slice 4 (was app.py-resident when this comment was originally written in slice 3 batch 5) - deferred to avoid a load-time fetchers.py<->builders.py cycle, same reasoning as every `import app` deferred-import elsewhere in this file, just targeting builders.py directly since that's this name's actual home now
 
     crumb = get_yahoo_options_crumb(clean_symbol)
     params = {"crumb": crumb}
-    requested_expiration = app.parse_cboe_expiration_request(expiration)
+    requested_expiration = builders.parse_cboe_expiration_request(expiration)
     if requested_expiration is not None:
         params["date"] = str(requested_expiration)
     url = f"{YAHOO_OPTIONS_CHAIN_BASE}/{quote(clean_symbol, safe='')}?{urlencode(params)}"
@@ -3454,6 +3481,7 @@ def fetch_taifex_txo_option_chain(
     underlying: str | None = "TXO",
 ) -> dict[str, Any]:
     import app  # deferred: option-chain response builders + TAIFEX product config stay in app.py
+    import builders  # deferred: PUBLIC_TAIFEX_OPTION_CHAIN_ERROR_MESSAGE moved to builders.py in TD-01 slice 4 - separate deferred import from `app` above since this one name's home diverged from the rest of this function's app.X references
 
     product = app.get_taiwan_option_product(underlying)
     query_date = parse_taifex_query_date(market_date)
@@ -3518,7 +3546,7 @@ def fetch_taifex_txo_option_chain(
             "shortName": product["shortName"],
             "market": "台灣",
             "exchange": "TAIFEX",
-            "error": app.PUBLIC_TAIFEX_OPTION_CHAIN_ERROR_MESSAGE,
+            "error": builders.PUBLIC_TAIFEX_OPTION_CHAIN_ERROR_MESSAGE,
             "source": {"primary": "TAIFEX 選擇權每日交易行情查詢", "primaryUrl": TAIFEX_OPTIONS_DAILY_URL, "mode": "taifex"},
             "availableProducts": [
                 {"symbol": key, "name": item["name"], "shortName": item["shortName"]}
