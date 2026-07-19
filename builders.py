@@ -7,6 +7,25 @@ extended with the TAIFEX/options-chain + derivatives-misc cluster (batch 1,
 and the site-data composites (batch 5, FINAL - 3 functions). This completes
 the full 79-function `build_*` extraction from app.py.
 
+TD-01 slice 5 batch A0 follow-up: `get_taiwan_option_product`, `TAIWAN_OPTION_PRODUCTS`,
+`TAIWAN_OPTION_DEFAULT_PRODUCT`, `YAHOO_TW_FUTURE_URL`, `YAHOO_TW_FUTURE_UNCOVERED_URL`,
+`YAHOO_TW_OPTION_URL`, and `YAHOO_TW_FUTURE_TECHNICAL_GROUPS` - documented
+throughout the batch notes below as deferred-`import app` STAYS names - have
+now moved out of app.py into a new `parsers.py` module (app.py's own
+never-modularized parsing/helper layer, finally given a home now that all
+`build_*`/`fetch_*` extraction is complete). Every call site in this file
+that reached them via `app.X` has been simplified to a direct bare name
+(module-level `from parsers import (...)` added above), since
+`builders.py -> parsers.py` is a safe one-directional import edge. The batch
+notes below are left as originally written for historical accuracy about
+*why* each name was classified STAYS at the time: that reasoning ("heavily
+shared with still-resident app.py code") is exactly what made them
+extraction candidates once the code sharing them all moved out too.
+`normalize_taiwan_option_underlying` (this module) is the one exception still
+reached by `parsers.py` via a deferred `import app` rather than a direct
+import, to avoid a `parsers.py -> builders.py -> parsers.py` cycle - see
+`parsers.py`'s own docstring for the full explanation.
+
 Batch 5 brings the three top-level site-data composites -
 `build_site_data`, `build_live_sector_site_data`, `build_live_market_overview_data` -
 the last functions in this slice because they depend on nearly every builder
@@ -299,6 +318,15 @@ from fetchers import (
     parse_taifex_market_number,
     shift_month,
 )
+from parsers import (
+    TAIWAN_OPTION_DEFAULT_PRODUCT,
+    TAIWAN_OPTION_PRODUCTS,
+    YAHOO_TW_FUTURE_TECHNICAL_GROUPS,
+    YAHOO_TW_FUTURE_UNCOVERED_URL,
+    YAHOO_TW_FUTURE_URL,
+    YAHOO_TW_OPTION_URL,
+    get_taiwan_option_product,
+)
 from market_config import (
     ASSET_CATEGORY_SOURCE_INFO,
     ASSET_REGION_ORDER,
@@ -426,21 +454,17 @@ def build_site_data_view(site_data: dict[str, Any] | None, view: str) -> dict[st
 
 
 def build_yahoo_taiwan_future_technical_url(code: str) -> str:
-    import app
-
     clean_code = str(code or "").strip().upper()
     if not clean_code:
         return ""
-    return f"{app.YAHOO_TW_FUTURE_URL}/{quote(clean_code, safe='')}/technical-analysis"
+    return f"{YAHOO_TW_FUTURE_URL}/{quote(clean_code, safe='')}/technical-analysis"
 
 
 def build_yahoo_taiwan_option_url(underlying: str | None = None, expiry: str | None = None) -> str:
-    import app
-
-    product = app.get_taiwan_option_product(underlying)
+    product = get_taiwan_option_product(underlying)
     opcm = str(product.get("yahooOpcm") or "").strip()
     if not opcm:
-        return app.YAHOO_TW_OPTION_URL
+        return YAHOO_TW_OPTION_URL
     params = {
         "opmr": "optionfull",
         "opcm": opcm,
@@ -448,7 +472,7 @@ def build_yahoo_taiwan_option_url(underlying: str | None = None, expiry: str | N
     expiry_text = str(expiry or "").strip()
     if expiry_text:
         params["opym"] = expiry_text
-    return f"{app.YAHOO_TW_OPTION_URL}?{urlencode(params)}"
+    return f"{YAHOO_TW_OPTION_URL}?{urlencode(params)}"
 
 
 def build_institutions_url(date_str: str) -> str:
@@ -495,10 +519,8 @@ def parse_yahoo_taiwan_future_contract_month(label: str, code: str, kind: str) -
 
 
 def build_yahoo_taiwan_future_technical_profile(symbol: str) -> dict[str, Any]:
-    import app
-
     clean_symbol = str(symbol or "").strip().upper()
-    group = app.YAHOO_TW_FUTURE_TECHNICAL_GROUPS.get(clean_symbol)
+    group = YAHOO_TW_FUTURE_TECHNICAL_GROUPS.get(clean_symbol)
     if not group:
         return {}
     primary_code = str(group.get("primaryCode") or "").strip().upper()
@@ -533,10 +555,8 @@ def format_price_value(value: float | None) -> str:
 
 
 def normalize_taiwan_option_underlying(value: str | None = None) -> str:
-    import app
-
-    clean = str(value or app.TAIWAN_OPTION_DEFAULT_PRODUCT).strip().upper()
-    return clean if clean in app.TAIWAN_OPTION_PRODUCTS else app.TAIWAN_OPTION_DEFAULT_PRODUCT
+    clean = str(value or TAIWAN_OPTION_DEFAULT_PRODUCT).strip().upper()
+    return clean if clean in TAIWAN_OPTION_PRODUCTS else TAIWAN_OPTION_DEFAULT_PRODUCT
 
 
 def select_option_atm_strike(chain: list[dict[str, Any]], spot: float | None, max_pain: dict[str, Any]) -> float | None:
@@ -713,7 +733,7 @@ def build_taifex_txo_option_payload(
 ) -> dict[str, Any]:
     import app
 
-    product = app.get_taiwan_option_product(underlying)
+    product = get_taiwan_option_product(underlying)
     expiry_groups: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
         expiry_groups.setdefault(str(row.get("expiry") or ""), []).append(row)
@@ -786,7 +806,7 @@ def build_taifex_txo_option_payload(
         },
         "availableProducts": [
             {"symbol": key, "name": item["name"], "shortName": item["shortName"]}
-            for key, item in app.TAIWAN_OPTION_PRODUCTS.items()
+            for key, item in TAIWAN_OPTION_PRODUCTS.items()
         ],
     }
 
@@ -798,9 +818,7 @@ def build_yahoo_txo_option_payload(
     spot_snapshot: dict[str, Any],
     underlying: str | None = "TXO",
 ) -> dict[str, Any]:
-    import app
-
-    product = app.get_taiwan_option_product(underlying)
+    product = get_taiwan_option_product(underlying)
     chain = build_taifex_option_chain(rows)
     summary = summarize_taifex_option_rows(rows)
     max_pain = calculate_taifex_max_pain(chain)
@@ -844,7 +862,7 @@ def build_yahoo_txo_option_payload(
         },
         "availableProducts": [
             {"symbol": key, "name": item["name"], "shortName": item["shortName"]}
-            for key, item in app.TAIWAN_OPTION_PRODUCTS.items()
+            for key, item in TAIWAN_OPTION_PRODUCTS.items()
         ],
     }
 
@@ -998,7 +1016,7 @@ def build_taifex_open_interest_item(spec: dict[str, Any]) -> dict[str, Any]:
         "quoteDate": str((yahoo_quote or {}).get("date") or "--"),
         "quoteStatus": quote_status,
         "quoteSource": "Yahoo 股市即時期指報價" if yahoo_quote else "",
-        "quoteSourceUrl": app.YAHOO_TW_FUTURE_UNCOVERED_URL if yahoo_quote else "",
+        "quoteSourceUrl": YAHOO_TW_FUTURE_UNCOVERED_URL if yahoo_quote else "",
         "yahooFutureCode": (yahoo_quote or {}).get("yahooCode") or technical_profile.get("primaryCode") or "",
         "technicalAnalysisUrl": technical_profile.get("primaryUrl") or "",
         "technicalAnalysisSource": technical_profile.get("source") or "",
@@ -1006,7 +1024,7 @@ def build_taifex_open_interest_item(spec: dict[str, Any]) -> dict[str, Any]:
         "source": "Yahoo 股市即時期指報價 / TAIFEX 官方期貨日報" if use_yahoo_quote else "TAIFEX 官方期貨日報",
         "dataSource": "Yahoo 股市即時期指報價 / TAIFEX 官方期貨日報" if use_yahoo_quote else "TAIFEX 官方期貨日報",
         "sourceNote": " ".join(source_note_parts),
-        "sourceLink": app.YAHOO_TW_FUTURE_UNCOVERED_URL if use_yahoo_quote else (snapshot or {}).get("sourceLink") or base_item["sourceUrl"],
+        "sourceLink": YAHOO_TW_FUTURE_UNCOVERED_URL if use_yahoo_quote else (snapshot or {}).get("sourceLink") or base_item["sourceUrl"],
         "taifexSourceLink": (snapshot or {}).get("sourceLink") or TAIFEX_FUTURES_DAILY_OPENAPI_URL,
         "series": series,
     }
@@ -1016,7 +1034,7 @@ def build_txo_option_market_item(spec: dict[str, Any]) -> dict[str, Any]:
     import app
 
     symbol = normalize_taiwan_option_underlying(str(spec.get("taifexCommodity") or spec.get("symbol") or "TXO"))
-    product = app.get_taiwan_option_product(symbol)
+    product = get_taiwan_option_product(symbol)
 
     def first_number(*values: Any) -> float | None:
         for value in values:
@@ -6407,8 +6425,6 @@ def apply_treasury_secondary_validation(items: list[dict[str, Any]], treasury_cu
 
 
 def normalize_futures_yahoo_uncovered_links(item: dict[str, Any]) -> dict[str, Any]:
-    import app
-
     if not isinstance(item, dict):
         return item
     quote_source_url = str(item.get("quoteSourceUrl") or "")
@@ -6416,13 +6432,13 @@ def normalize_futures_yahoo_uncovered_links(item: dict[str, Any]) -> dict[str, A
     has_yahoo_future_quote = (
         item.get("quoteStatus") == "yahoo-live"
         or bool(item.get("yahooFutureCode"))
-        or quote_source_url.rstrip("/") == app.YAHOO_TW_FUTURE_URL
-        or source_link.rstrip("/") == app.YAHOO_TW_FUTURE_URL
+        or quote_source_url.rstrip("/") == YAHOO_TW_FUTURE_URL
+        or source_link.rstrip("/") == YAHOO_TW_FUTURE_URL
     )
     if has_yahoo_future_quote:
-        item["quoteSourceUrl"] = app.YAHOO_TW_FUTURE_UNCOVERED_URL
-        if not source_link or source_link.rstrip("/") == app.YAHOO_TW_FUTURE_URL or item.get("quoteStatus") == "yahoo-live":
-            item["sourceLink"] = app.YAHOO_TW_FUTURE_UNCOVERED_URL
+        item["quoteSourceUrl"] = YAHOO_TW_FUTURE_UNCOVERED_URL
+        if not source_link or source_link.rstrip("/") == YAHOO_TW_FUTURE_URL or item.get("quoteStatus") == "yahoo-live":
+            item["sourceLink"] = YAHOO_TW_FUTURE_UNCOVERED_URL
     return item
 
 
@@ -6523,7 +6539,7 @@ def build_global_market_payload(
         try:
             payload["taiwanOptionChain"] = fetch_txo_option_chain(source=option_source, underlying=option_underlying)
         except Exception as exc:  # noqa: BLE001
-            product = app.get_taiwan_option_product(option_underlying)
+            product = get_taiwan_option_product(option_underlying)
             app.LOGGER.exception("%s option chain payload fetch failed", product["symbol"], exc_info=exc)
             payload["taiwanOptionChain"] = {
                 "underlying": product["symbol"],

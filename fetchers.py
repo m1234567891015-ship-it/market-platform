@@ -2,6 +2,25 @@
 extended with the TWSE/TPEX fetch_* functions and their supporting pure
 utilities (batch 1).
 
+TD-01 slice 5 batch A0 note: every `app.X` deferred-import call site described
+below for `get_taiwan_option_product`, `TAIWAN_OPTION_PRODUCTS`,
+`normalize_taiwan_option_source`, `YAHOO_TW_FUTURE_UNCOVERED_URL`,
+`YAHOO_TW_OPTION_URL`, and `YAHOO_TW_FUTURE_CODE_TO_SYMBOL`/
+`YAHOO_TW_FUTURE_TECHNICAL_GROUPS` (the latter two reached transitively via
+`app.parse_yahoo_taiwan_future_quotes`) now resolve through a `parsers.py`
+module rather than app.py-local definitions - but the call sites themselves
+are **unchanged** (still `import app; app.X(...)`), and deliberately so: this
+module must not import `parsers.py` directly, because `parsers.py` itself
+needs a `from fetchers import TAIFEX_FUTURES_DATA_DOWNLOAD_URL` at module
+level, and a `fetchers.py -> parsers.py -> fetchers.py` cycle would break at
+import time. app.py re-imports these names from `parsers.py` the same way it
+re-imports STAYS names from `builders.py`, so `app.get_taiwan_option_product`
+etc. keep resolving exactly as before - just with one more hop behind the
+scenes. See `parsers.py`'s own docstring and `builders.py`'s TD-01 slice 5
+batch A0 note for the full picture (builders.py's equivalent call sites *were*
+simplified to direct imports, since `builders.py -> parsers.py` is a safe
+one-directional edge with no such cycle).
+
 These are the foundational functions ~80% of app.py's 86 `fetch_*` functions
 build on: `fetch_json`/`fetch_nasdaq_json`/`post_json` for JSON APIs, and
 `fetch_text`/`fetch_binary`/`fetch_form_text` for scraped/CSV/form-POSTed
