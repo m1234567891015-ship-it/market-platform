@@ -8735,7 +8735,7 @@ async function loadWatchlistAiAnalyses(force = false) {
   let cursor = 0;
   let completed = items.length - queue.length;
   let failed = 0;
-  async function worker() {
+  async function runWatchlistAnalysisWorker() {
     while (cursor < queue.length) {
       const stock = queue[cursor++];
       const key = watchlistKey(stock);
@@ -8773,7 +8773,7 @@ async function loadWatchlistAiAnalyses(force = false) {
       }
     }
   }
-  await Promise.all([worker(), worker()]);
+  await Promise.all([runWatchlistAnalysisWorker(), runWatchlistAnalysisWorker()]);
   if (requestId === watchlistAnalysisRequestId) {
     const statusText = failed
       ? `AI 分析完成 ${completed}/${items.length} 檔，${failed} 檔資料同步失敗；資料時間 ${data?.snapshotDate || "--"}。`
@@ -22557,7 +22557,7 @@ async function loadUsWatchlistAiAnalyses(force = false) {
   setText("us-watchlist-status", "正在更新美股 AI 多因子分析...");
   const queue = items.filter((item) => !usWatchlistAnalysisCache.has(usWatchlistKey(item)));
   let cursor = 0;
-  async function worker() {
+  async function runUsWatchlistAnalysisWorker() {
     while (cursor < queue.length) {
       const stock = queue[cursor++];
       const key = usWatchlistKey(stock);
@@ -22593,7 +22593,7 @@ async function loadUsWatchlistAiAnalyses(force = false) {
       }
     }
   }
-  await Promise.all([worker(), worker()]);
+  await Promise.all([runUsWatchlistAnalysisWorker(), runUsWatchlistAnalysisWorker()]);
   if (requestId === usWatchlistAnalysisRequestId) {
     setText("us-watchlist-status", `AI 分析已更新，完成 ${items.length} 檔美股自選標的。`);
     renderUsWatchlist();
