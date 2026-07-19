@@ -19,7 +19,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode, urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from flask import Flask, Response, abort, jsonify, redirect, request, send_from_directory
+from flask import Flask, Response, jsonify, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from derivatives.analytics import build_basis_payload
@@ -281,7 +281,6 @@ from parsers import (
     refresh_tpex_cache,
 )
 from market_config import (
-    ASSET_STATIC_FILES,
     CBOE_OPTIONS_BASE,
     EXCLUDED_SECTOR_SOURCE_NAMES,
     GLOBAL_MARKET_CACHE_SECONDS,
@@ -294,8 +293,6 @@ from market_config import (
     LISTED_SECTOR_INDEX_SPECS,
     NASDAQ_API_BASE,
     NASDAQ_USER_AGENT,
-    PAGE_ROUTES,
-    ROOT_STATIC_FILES,
     SECTOR_INDEX_DISPLAY_NAMES,
     TAIFEX_FUTURES_DAILY_URL,
     TAIFEX_OPTIONS_DAILY_URL,
@@ -319,6 +316,7 @@ from market_config import (
     YAHOO_TPEX_ETF_URL,
     YAHOO_TPEX_OTC_CLASS_URL,
 )
+from routes_system import bp as system_bp
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -522,6 +520,7 @@ def api_exception_response(code: str, public_message: str, exc: Exception, statu
 
 app.after_request(add_security_headers)
 app.before_request(enforce_api_rate_limit)
+app.register_blueprint(system_bp)
 
 
 def taipei_now() -> datetime:
@@ -825,18 +824,6 @@ def format_market_date(date_str: str | None) -> str | None:
         return datetime.strptime(date_str, "%Y%m%d").strftime("%Y-%m-%d")
     except ValueError:
         return date_str
-
-
-@app.route("/api/health")
-def api_health():
-    with cache_lock:
-        return jsonify(
-            {
-                "status": "ok" if cache_data["site_data"] else "warming",
-                "cachedAt": cache_data["cached_at"],
-                "lastError": cache_data["last_error"],
-            }
-        )
 
 
 @app.route("/api/twse/site-data")
@@ -2415,77 +2402,6 @@ def api_stock_institutional_history(code: str):
             "cachedAt": taipei_now().strftime("%Y-%m-%d %H:%M:%S"),
         }
     )
-
-@app.route("/manifest.webmanifest")
-def pwa_manifest():
-    response = send_from_directory(BASE_DIR, "manifest.webmanifest", mimetype="application/manifest+json")
-    return no_store_static_response(response)
-
-
-@app.route("/service-worker.js")
-def pwa_service_worker():
-    response = send_from_directory(BASE_DIR, "service-worker.js", mimetype="application/javascript")
-    response.headers["Service-Worker-Allowed"] = "/"
-    return no_store_static_response(response)
-
-
-def no_store_static_response(response: Response) -> Response:
-    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    return response
-
-
-def send_no_store_root_file(filename: str, **kwargs: Any) -> Response:
-    response = send_from_directory(BASE_DIR, filename, **kwargs)
-    return no_store_static_response(response)
-
-
-def redirect_legacy_page(target: str):
-    query = request.query_string.decode("utf-8")
-    if query:
-        target = f"{target}?{query}"
-    return redirect(target, code=301)
-
-
-@app.route("/sectors.html")
-def legacy_sectors_page():
-    return redirect_legacy_page("/tw-stocks.html")
-
-
-@app.route("/stock-search.html")
-def legacy_stock_search_page():
-    return redirect_legacy_page("/tw-stock-search.html")
-
-
-@app.route("/Optional-stocks.html")
-def legacy_optional_stocks_page():
-    return redirect_legacy_page("/tw-Optional-stocks.html")
-
-
-
-for page_index, (route, filename) in enumerate(PAGE_ROUTES.items()):
-    app.add_url_rule(
-        route,
-        endpoint=f"static_page_{page_index}_{filename}",
-        view_func=lambda filename=filename: send_no_store_root_file(filename),
-    )
-
-
-@app.route("/assets/<path:filename>")
-def whitelisted_assets(filename: str):
-    normalized = filename.replace("\\", "/").lstrip("/")
-    if "/" in normalized or normalized not in ASSET_STATIC_FILES:
-        abort(404)
-    return send_from_directory(BASE_DIR / "assets", normalized)
-
-
-@app.route("/<path:filename>")
-def static_files(filename: str):
-    normalized = filename.replace("\\", "/").lstrip("/")
-    if "/" in normalized or normalized not in ROOT_STATIC_FILES:
-        abort(404)
-    return send_no_store_root_file(normalized)
 
 
 @app.errorhandler(404)
