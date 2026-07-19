@@ -86,16 +86,19 @@ def add_security_headers(response: Response) -> Response:
     return response
 
 
-def enforce_api_rate_limit():
-    if (
+def is_rate_limit_exempt_request() -> bool:
+    return (
         API_RATE_LIMIT_PER_WINDOW <= 0
         or not request.path.startswith("/api/")
         or request.path in API_RATE_LIMIT_EXEMPT_PATHS
-    ):
-        return None
+    )
 
-    now = time.monotonic()
-    client_key = api_client_identity()
+
+def register_rate_limit_window_hit(client_key: str, now: float) -> int | None:
+    """Record a hit for *client_key* in the sliding window.
+
+    Returns the Retry-After seconds if the client is over the limit, else None.
+    """
     with API_RATE_LIMIT_LOCK:
         cleanup_api_rate_limit_state(now)
         recent = [
@@ -103,19 +106,34 @@ def enforce_api_rate_limit():
             if now - timestamp < API_RATE_LIMIT_WINDOW_SECONDS
         ]
         if len(recent) >= API_RATE_LIMIT_PER_WINDOW:
-            retry_after = max(1, int(API_RATE_LIMIT_WINDOW_SECONDS - (now - recent[0])))
-            response = jsonify(
-                {
-                    "success": False,
-                    "error_code": "RATE_LIMITED",
-                    "error": {"code": "RATE_LIMITED", "message": "請求過於頻繁，請稍後再試"},
-                }
-            )
-            response.status_code = 429
-            response.headers["Retry-After"] = str(retry_after)
-            return response
+            return max(1, int(API_RATE_LIMIT_WINDOW_SECONDS - (now - recent[0])))
         recent.append(now)
         API_RATE_LIMIT_STATE[client_key] = recent
+        return None
+
+
+def build_rate_limit_exceeded_response(retry_after: int) -> Response:
+    response = jsonify(
+        {
+            "success": False,
+            "error_code": "RATE_LIMITED",
+            "error": {"code": "RATE_LIMITED", "message": "請求過於頻繁，請稍後再試"},
+        }
+    )
+    response.status_code = 429
+    response.headers["Retry-After"] = str(retry_after)
+    return response
+
+
+def enforce_api_rate_limit():
+    if is_rate_limit_exempt_request():
+        return None
+
+    now = time.monotonic()
+    client_key = api_client_identity()
+    retry_after = register_rate_limit_window_hit(client_key, now)
+    if retry_after is not None:
+        return build_rate_limit_exceeded_response(retry_after)
     return None
 
 
