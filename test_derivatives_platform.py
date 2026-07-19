@@ -21,6 +21,7 @@ import app
 import builders
 import cache
 import fetchers
+import routes_derivatives
 import routes_global_market
 import routes_twse
 import security
@@ -151,7 +152,7 @@ class DerivativesPlatformApiTests(unittest.TestCase):
             app.cache_data["stock_details"] = {}
         return site_data, stocks
 
-    @patch.object(app, "build_global_market_payload", side_effect=lambda category, limit=None, **kwargs: market_payload(category))
+    @patch.object(routes_derivatives, "build_global_market_payload", side_effect=lambda category, limit=None, **kwargs: market_payload(category))
     def test_index_futures_and_options_contracts(self, _payload):
         index_data = self.assert_success(self.client.get("/api/index"))
         self.assertIn("futures", index_data)
@@ -160,8 +161,8 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         options_data = self.assert_success(self.client.get("/api/options?underlying=TXO"))
         self.assertEqual(options_data["selectedExpiry"], "202606")
 
-    @patch.object(app, "fetch_taifex_futures_price_candles", return_value=[])
-    @patch.object(app, "build_global_market_item", return_value=FUTURES_ITEM)
+    @patch.object(routes_derivatives, "fetch_taifex_futures_price_candles", return_value=[])
+    @patch.object(routes_derivatives, "build_global_market_item", return_value=FUTURES_ITEM)
     def test_future_detail_candles_and_open_interest(self, _item, _taifex_candles):
         detail = self.assert_success(self.client.get("/api/futures/TX"))
         self.assertEqual(detail["symbol"], "TX")
@@ -194,7 +195,7 @@ class DerivativesPlatformApiTests(unittest.TestCase):
                 "selectedExpiry": expiry or OPTIONS_CHAIN["selectedExpiry"],
             }
 
-        with patch.object(app, "fetch_txo_option_chain", side_effect=fake_chain):
+        with patch.object(routes_derivatives, "fetch_txo_option_chain", side_effect=fake_chain):
             for symbol in ("TXO", "TFO", "TEO", "CDO", "DVO", "DHO", "T50O"):
                 chain = self.assert_success(
                     self.client.get(f"/api/options/chain?underlying={symbol}&expiry=202703&source=auto")
@@ -280,13 +281,13 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertEqual(chain["calls"][0]["strike"], 100.0)
         self.assertEqual(chain["puts"][0]["openInterest"], 22.0)
     @patch.object(app.DERIVATIVES_STORE, "record_news")
-    @patch.object(app, "fetch_yahoo_us_symbol_news", return_value=[{
+    @patch.object(routes_derivatives, "fetch_yahoo_us_symbol_news", return_value=[{
         "title": "Options market update",
         "source": "Test News",
         "publishedAt": "2026-06-20 12:00",
         "link": "https://example.test/news",
     }])
-    @patch.object(app, "build_institution_payload_live", return_value=None)
+    @patch.object(routes_derivatives, "build_institution_payload_live", return_value=None)
     def test_news_and_institution_pending_response(self, _live, _news, _record):
         news = self.assert_success(self.client.get("/api/news?symbol=%5EVIX"))
         self.assertEqual(news["count"], 1)
@@ -445,8 +446,8 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertIn("sourceLinks", site_data)
         self.assertIn("yahooSectorGroups", site_data)
 
-    @patch.object(app, "fetch_taiex_spot_snapshot", return_value={"value": 20900, "date": "2026-06-20", "source": "TWSE"})
-    @patch.object(app, "build_global_market_item", return_value=FUTURES_ITEM)
+    @patch.object(routes_derivatives, "fetch_taiex_spot_snapshot", return_value={"value": 20900, "date": "2026-06-20", "source": "TWSE"})
+    @patch.object(routes_derivatives, "build_global_market_item", return_value=FUTURES_ITEM)
     def test_basis_contract(self, _item, _spot):
         basis = self.assert_success(self.client.get("/api/basis?future=TX&spot=TAIEX"))
         self.assertEqual(basis["future"], "TX")

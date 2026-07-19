@@ -88,10 +88,12 @@ def check_api_error_sanitization() -> None:
 def check_admin_token_guard() -> None:
     app_source = read_text("app.py")
     security_source = read_text("security.py")
+    routes_derivatives_source = read_text("routes_derivatives.py")
     assert_true("DERIVATIVES_ADMIN_TOKEN" in security_source, "Admin token must come from environment")
     assert_true("hmac.compare_digest" in security_source, "Admin token comparison must use constant-time compare")
-    assert_true('request.args.get("admin_token")' not in app_source and 'request.args.get("admin_token")' not in security_source, "Admin token must not be accepted in query string")
-    assert_true('request.values.get("admin_token")' not in app_source and 'request.values.get("admin_token")' not in security_source, "Admin token must not be accepted from request values")
+    for source in (app_source, security_source, routes_derivatives_source):
+        assert_true('request.args.get("admin_token")' not in source, "Admin token must not be accepted in query string")
+        assert_true('request.values.get("admin_token")' not in source, "Admin token must not be accepted from request values")
 
 
 def check_security_headers_static() -> None:
@@ -212,7 +214,7 @@ def check_sql_parameterization() -> None:
 
 def check_dangerous_functions() -> None:
     python_forbidden = {"eval", "exec", "os.system", "os.popen", "pickle.loads", "pickle.load"}
-    for filename in ("app.py", "security.py", "cache.py", "fetchers.py", "builders.py", "parsers.py", "routes_system.py", "routes_global_market.py", "routes_twse.py", "derivatives_store.py", "market_config.py"):
+    for filename in ("app.py", "security.py", "cache.py", "fetchers.py", "builders.py", "parsers.py", "routes_system.py", "routes_global_market.py", "routes_twse.py", "routes_derivatives.py", "derivatives_store.py", "market_config.py"):
         tree = ast.parse(read_text(filename), filename=filename)
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
@@ -234,7 +236,7 @@ def check_dangerous_functions() -> None:
 
 
 def check_hardcoded_secrets() -> None:
-    candidates = ["app.py", "security.py", "cache.py", "fetchers.py", "builders.py", "parsers.py", "routes_system.py", "routes_global_market.py", "routes_twse.py", "market_config.py", "derivatives_store.py", "app.js", "derivatives-ui.js"]
+    candidates = ["app.py", "security.py", "cache.py", "fetchers.py", "builders.py", "parsers.py", "routes_system.py", "routes_global_market.py", "routes_twse.py", "routes_derivatives.py", "market_config.py", "derivatives_store.py", "app.js", "derivatives-ui.js"]
     secret_assignment = re.compile(
         r"(?i)\b(api[_-]?key|secret|password|token)\b\s*[:=]\s*['\"]([^'\"]{8,})['\"]"
     )

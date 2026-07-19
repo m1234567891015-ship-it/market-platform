@@ -22,11 +22,6 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from flask import Flask, Response, jsonify, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from derivatives.analytics import build_basis_payload
-from derivatives.ai import build_unavailable_ai_analysis as build_derivatives_unavailable_ai_analysis
-from derivatives.catalog import TAIWAN_FUTURES_V1, TAIWAN_OPTIONS_V1, apply_taifex_defaults, v1_product_status
-from derivatives.institution import build_institution_payload_from_rows, build_pending_institution_payload, normalize_institution_row, parse_institution_csv
-from derivatives.options import build_unavailable_option_chain as build_derivatives_unavailable_option_chain
 from derivatives_store import DerivativesStore
 from cache import (
     BUNDLED_CACHE_FILE,
@@ -59,15 +54,10 @@ from cache import (
 from security import (
     add_security_headers,
     enforce_api_rate_limit,
-    is_authorized_derivatives_admin,
     _urlopen_with_ssl_fallback,
 )
 from fetchers import (
     EXTERNAL_TEXT_CACHE_SECONDS,
-    TAIFEX_FUTURES_DAILY_OPENAPI_URL,
-    TAIFEX_FUTURES_DATA_DOWNLOAD_URL,
-    TAIFEX_INSTITUTION_FUTURES_DETAIL_OPENAPI_URL,
-    TAIFEX_INSTITUTION_OPTIONS_DETAIL_OPENAPI_URL,
     barchart_options_headers,
     build_index_activity_url,
     build_index_intraday_url,
@@ -114,10 +104,7 @@ from fetchers import (
     fetch_stock_valuation,
     fetch_stock_valuation_history,
     fetch_stock_valuation_on_date,
-    fetch_taiex_spot_snapshot,
     fetch_taifex_futures_open_interest,
-    fetch_taifex_futures_price_candles,
-    fetch_taifex_futures_technical_candles,
     fetch_taifex_institution_detail_rows,
     fetch_taifex_latest_futures_market_snapshot,
     fetch_taifex_openapi_list,
@@ -131,7 +118,6 @@ from fetchers import (
     fetch_trading_economics_taiwan_10y,
     fetch_twse_listed_industry_map,
     fetch_twse_margin_summary,
-    fetch_txo_option_chain,
     fetch_us_etf_directory_items,
     fetch_us_listed_universe_with_fallback,
     fetch_us_market_overview_news,
@@ -154,7 +140,6 @@ from fetchers import (
     fetch_yahoo_tw_stock_resource,
     fetch_yahoo_txo_option_chain,
     fetch_yahoo_us_market_search,
-    fetch_yahoo_us_symbol_news,
     filter_us_etf_items,
     find_latest_dataset,
     format_percent,
@@ -183,20 +168,16 @@ from fetchers import (
 from builders import (
     STOCK_HISTORY_RECENT_MONTHS,
     build_derivative_candles,
-    build_futures_ai_analysis,
     build_index_technical_analysis,
-    build_institution_payload_live,
     build_institution_summary,
     build_institution_trend,
-    build_global_market_item,
-    build_global_market_payload,
     build_institutions_url,
     build_intraday_index_candles,
     build_intraday_technical_analysis,
     build_news,
-    build_public_options_chain,
     build_sector_fund_flow,
     build_sector_history_series,
+    build_public_options_chain,
     build_site_data,
     build_site_data_view,
     build_stock_detail,
@@ -223,7 +204,6 @@ from builders import (
     calculate_taifex_max_pain,
     enrich_global_market_spec,
     is_valid_history_row,
-    normalize_futures_yahoo_uncovered_links,
     normalize_taiwan_option_underlying,
     parse_yahoo_quote_items,
     resolve_sector_key,
@@ -231,14 +211,12 @@ from builders import (
     summarize_taifex_option_rows,
 )
 from parsers import (
-    TAIWAN_OPTION_DEFAULT_PRODUCT,
     TAIWAN_OPTION_PRODUCTS,
     YAHOO_TW_FUTURE_CODE_PREFIX_TO_SYMBOL,
     YAHOO_TW_FUTURE_CODE_TO_SYMBOL,
     YAHOO_TW_FUTURE_TECHNICAL_GROUPS,
     YAHOO_TW_FUTURE_UNCOVERED_URL,
     estimate_index_option_iv,
-    find_derivative_spec,
     find_stock_by_query,
     get_taiwan_option_product,
     market_payload_has_complete_index_tables,
@@ -267,8 +245,6 @@ from market_config import (
     NASDAQ_USER_AGENT,
     SECTOR_INDEX_DISPLAY_NAMES,
     TAIFEX_FUTURES_DAILY_URL,
-    TAIFEX_OPTIONS_DAILY_URL,
-    TAIFEX_OPTIONS_PC_RATIO_URL,
     TARGET_INDEX_NAMES,
     TPEX_OPENAPI_BASE,
     TWSE_BASE,
@@ -287,6 +263,7 @@ from market_config import (
 )
 from routes_global_market import bp as global_market_bp
 from routes_system import bp as system_bp
+from routes_derivatives import bp as derivatives_bp
 from routes_twse import bp as twse_bp
 
 
@@ -472,7 +449,7 @@ if str(os.environ.get("MARKET_PULSE_TRUST_PROXY") or "").strip().lower() in {"1"
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 PUBLIC_DATA_SOURCE_ERROR_MESSAGE = "資料來源暫不可用，請稍後再試"
-PUBLIC_TAIFEX_OPEN_INTEREST_ERROR_MESSAGE = "TAIFEX 未平倉資料暫時無法載入，請稍後再試"
+PUBLIC_TAIFEX_OPEN_INTEREST_ERROR_MESSAGE = "TAIFEX 未平倉資料暫時無法載入，請稍後再試"  # DEADCODE-CANDIDATE (confirmed zero callers 2026-07-19)
 
 
 def api_success_payload(data: dict[str, Any]) -> dict[str, Any]:
@@ -493,6 +470,7 @@ app.before_request(enforce_api_rate_limit)
 app.register_blueprint(system_bp)
 app.register_blueprint(global_market_bp)
 app.register_blueprint(twse_bp)
+app.register_blueprint(derivatives_bp)
 
 
 def taipei_now() -> datetime:
@@ -794,468 +772,6 @@ def global_market_refresh_requested() -> bool:
         return request.args.get("refresh") in {"1", "true", "yes"}
     except RuntimeError:
         return False
-
-
-def derivative_request_limit(default: int = 24, maximum: int = 100) -> int:
-    raw_limit = str(request.args.get("limit") or default).strip().lower()
-    if raw_limit in {"all", "full", "0"}:
-        return maximum
-    try:
-        requested = int(raw_limit)
-    except ValueError:
-        requested = default
-    return min(max(requested, 1), maximum)
-
-
-@app.route("/api/index")
-def api_derivatives_index():
-    try:
-        futures = build_global_market_payload("futures", min(12, derivative_request_limit(12, 24)))
-        options = build_global_market_payload("options", min(12, derivative_request_limit(12, 24)))
-        chain = options.get("taiwanOptionChain") or {}
-        return jsonify(api_success_payload({
-            "futures": futures.get("summary") or {},
-            "options": options.get("summary") or {},
-            "taiwanOption": {
-                "tradeDate": chain.get("tradeDate"),
-                "expiry": chain.get("selectedExpiry"),
-                "summary": chain.get("summary") or {},
-                "analysis": chain.get("analysis") or {},
-            },
-            "sources": {"futures": futures.get("source"), "options": options.get("source")},
-        }))
-    except Exception as exc:  # noqa: BLE001
-        return api_exception_response("DATA_SOURCE_ERROR", PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc, 502)
-
-
-@app.route("/api/derivatives/v1-status")
-def api_derivatives_v1_status():
-    futures_items = [apply_taifex_defaults(item, TAIFEX_FUTURES_DAILY_URL, TAIFEX_OPTIONS_DAILY_URL) for item in TAIWAN_FUTURES_V1]
-    option_items = [apply_taifex_defaults(item, TAIFEX_FUTURES_DAILY_URL, TAIFEX_OPTIONS_DAILY_URL) for item in TAIWAN_OPTIONS_V1]
-    institutional_count = len(DERIVATIVES_STORE.institutional_positions(str(request.args.get("product") or "TX").strip().upper(), 200))
-    return jsonify(api_success_payload({
-        "version": "V1.0",
-        "scope": "domestic_derivatives",
-        "futures": futures_items,
-        "options": option_items,
-        "coverage": v1_product_status(futures_items, option_items),
-        "institutionImport": {
-            "endpoint": "/api/institution/import",
-            "formats": ["JSON rows", "CSV"],
-            "requiredFields": ["institution", "product_code", "trade_date"],
-            "optionalFields": ["long_contracts", "short_contracts", "net_contracts"],
-            "currentProductRows": institutional_count,
-        },
-        "aiScoreFormula": {
-            "marketScore": "Options: PCR, Volume PCR, Max Pain gap, OI wall; Futures: price change. All scores clamped 0-100.",
-            "riskScore": "Options: PCR imbalance, Volume PCR imbalance, Max Pain gap and OI wall break; Futures: downside momentum and OI availability.",
-            "confidenceScore": "Count of available evidence layers plus chain/candle depth bonus.",
-            "sourcePendingPenalty": "Missing evidence lowers confidence and raises data-risk messaging; no fake data is generated.",
-        },
-        "basis": {
-            "endpoint": "/api/basis?future=TX&spot=TAIEX",
-            "formula": "basis = futurePrice - spotPrice; basisPct = basis / spotPrice * 100",
-        },
-    }))
-
-
-@app.route("/api/futures")
-def api_futures():
-    category_filter = str(request.args.get("category") or "").strip().lower()
-    sort_key = str(request.args.get("sort") or "").strip().lower()
-    try:
-        payload = build_global_market_payload("futures", derivative_request_limit())
-        items = [normalize_futures_yahoo_uncovered_links(item) for item in list(payload.get("items") or [])]
-        if category_filter:
-            items = [item for item in items if category_filter in f"{item.get('type', '')} {item.get('group', '')}".lower()]
-        if sort_key in {"pct", "change", "volume", "open_interest"}:
-            field = "openInterest" if sort_key == "open_interest" else sort_key
-            items.sort(key=lambda item: parse_float(str(item.get(field) or "")) or float("-inf"), reverse=True)
-        return jsonify(api_success_payload({**payload, "items": items, "count": len(items)}))
-    except Exception as exc:  # noqa: BLE001
-        return api_exception_response("DATA_SOURCE_ERROR", PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc, 502)
-
-
-@app.route("/api/futures/<symbol>")
-def api_future_detail(symbol: str):
-    spec = find_derivative_spec("futures", symbol)
-    if not spec:
-        return jsonify(api_error_payload("INVALID_SYMBOL", "商品代碼不存在")), 404
-    try:
-        item = build_global_market_item(spec)
-        if item.get("error"):
-            return jsonify(api_error_payload("EMPTY_RESULT", str(item.get("error")))), 200
-        return jsonify(api_success_payload(item))
-    except Exception as exc:  # noqa: BLE001
-        return api_exception_response("DATA_SOURCE_ERROR", PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc, 502)
-
-
-@app.route("/api/futures/<symbol>/candles")
-def api_future_candles(symbol: str):
-    interval = str(request.args.get("interval") or "day").strip().lower()
-    if interval not in {"day", "week", "month", "all"}:
-        return jsonify(api_error_payload("INVALID_DATE", "interval 僅支援 day、week、month、all")), 400
-    spec = find_derivative_spec("futures", symbol)
-    if not spec:
-        return jsonify(api_error_payload("INVALID_SYMBOL", "商品代碼不存在")), 404
-    try:
-        if spec.get("dataProvider") in {"taifex_tx_open_interest", "taifex_txo_open_interest", "taifex_futures_open_interest"}:
-            commodity = str(spec.get("taifexCommodity") or spec.get("symbol") or symbol).strip().upper()
-            candles = fetch_taifex_futures_price_candles(commodity, max_observations=30)
-            if interval not in {"day", "all"}:
-                candles = build_derivative_candles({"series": [
-                    {
-                        "date": row.get("time"),
-                        "open": row.get("open"),
-                        "high": row.get("high"),
-                        "low": row.get("low"),
-                        "close": row.get("close"),
-                        "volume": row.get("volume"),
-                    }
-                    for row in candles
-                ]}, interval)
-            if not candles:
-                fallback_item = build_global_market_item(spec)
-                fallback_candles = build_derivative_candles(fallback_item, interval)
-                if fallback_candles:
-                    return jsonify(api_success_payload({
-                        "symbol": spec.get("symbol"),
-                        "interval": interval,
-                        "candles": fallback_candles,
-                        "source": fallback_item.get("source") or "期貨商品既有序列",
-                    }))
-                return jsonify(api_error_payload("EMPTY_RESULT", "TAIFEX 官方 K 線資料暫時無法載入")), 200
-            return jsonify(api_success_payload({"symbol": spec.get("symbol"), "interval": interval, "candles": candles, "source": "TAIFEX 官方期貨每日交易行情"}))
-        item = build_global_market_item(spec)
-        candles = build_derivative_candles(item, interval)
-        if not candles:
-            return jsonify(api_error_payload("EMPTY_RESULT", str(item.get("error") or "查無 K 線資料"))), 200
-        return jsonify(api_success_payload({"symbol": item.get("symbol"), "interval": interval, "candles": candles, "source": item.get("source")}))
-    except Exception as exc:  # noqa: BLE001
-        return api_exception_response("DATA_SOURCE_ERROR", PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc, 502)
-
-
-@app.route("/api/options")
-def api_options():
-    underlying = str(request.args.get("underlying") or "TXO").strip().upper()
-    source = normalize_taiwan_option_source(str(request.args.get("source") or request.args.get("optionSource") or "auto"))
-    if underlying in {"STO", "ETO"}:
-        spec = find_derivative_spec("options", underlying)
-        if not spec:
-            return jsonify(api_error_payload("INVALID_SYMBOL", "商品代碼不存在")), 404
-        item = build_global_market_item(spec)
-        chain_status = "source_pending" if item.get("status") == "source_pending" or item.get("error") else "aggregate_connected"
-        return jsonify(api_success_payload({
-            "underlying": underlying,
-            "products": [item],
-            "selectedExpiry": None,
-            "expirations": [],
-            "optionChainSource": {
-                "primary": item.get("dataSource") or spec.get("dataSource"),
-                "primaryUrl": item.get("sourceLink") or spec.get("sourceUrl"),
-                "status": chain_status,
-            },
-            "message": item.get("dataStatus") or item.get("error") or "TAIFEX 標的選擇權目前僅提供未平倉量／成交量彙總，尚未提供逐履約價選擇權鏈。",
-        }))
-    if underlying not in TAIWAN_OPTION_PRODUCTS:
-        supported = "、".join(TAIWAN_OPTION_PRODUCTS.keys())
-        return jsonify(api_error_payload("INVALID_SYMBOL", f"目前國內選擇權鏈支援 {supported}；STO/ETO 以彙總資料揭露")), 400
-    try:
-        payload = build_global_market_payload("options", derivative_request_limit(default=100), option_source=source, option_underlying=underlying)
-        chain = payload.get("taiwanOptionChain") or {}
-        if chain.get("error"):
-            chain = build_derivatives_unavailable_option_chain(str(chain.get("error")), TAIFEX_OPTIONS_DAILY_URL, underlying)
-            payload["taiwanOptionChain"] = chain
-        return jsonify(api_success_payload({
-            **payload,
-            "underlying": underlying,
-            "products": payload.get("items") or [],
-            "expirations": chain.get("expirations") or [],
-            "selectedExpiry": chain.get("selectedExpiry"),
-            "optionChainSource": chain.get("source") or {},
-        }))
-    except Exception as exc:  # noqa: BLE001
-        return api_exception_response("DATA_SOURCE_ERROR", PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc, 502)
-
-
-@app.route("/api/open-interest")
-def api_open_interest():
-    symbol = str(request.args.get("symbol") or "TXO").strip().upper()
-    date = str(request.args.get("date") or "").strip() or None
-    source = normalize_taiwan_option_source(str(request.args.get("source") or request.args.get("optionSource") or "auto"))
-    try:
-        if symbol in TAIWAN_OPTION_PRODUCTS:
-            data = fetch_txo_option_chain(market_date=date, source=source, underlying=symbol)
-            if data.get("error"):
-                return jsonify(api_error_payload("EMPTY_RESULT", str(data.get("error")))), 200
-            summary = data.get("summary") or {}
-            return jsonify(api_success_payload({
-                "symbol": symbol,
-                "tradeDate": data.get("tradeDate"),
-                "callOpenInterest": summary.get("callOpenInterest"),
-                "putOpenInterest": summary.get("putOpenInterest"),
-                "putCallRatio": summary.get("putCallRatio"),
-                "distribution": data.get("distribution") or [],
-                "source": data.get("source") or {},
-            }))
-        spec = find_derivative_spec("futures", symbol)
-        if not spec or not str(spec.get("dataProvider") or "").startswith("taifex_"):
-            return jsonify(api_error_payload("INVALID_SYMBOL", "目前僅支援 TAIFEX 期貨或國內官方選擇權鏈")), 400
-        item = build_global_market_item(spec)
-        if item.get("error"):
-            return jsonify(api_error_payload("EMPTY_RESULT", str(item.get("error")))), 200
-        return jsonify(api_success_payload({
-            "symbol": symbol,
-            "tradeDate": item.get("date"),
-            "openInterest": item.get("openInterest"),
-            "previousOpenInterest": item.get("previousOpenInterest"),
-            "change": item.get("change"),
-            "changePct": item.get("pct"),
-            "source": item.get("sourceLink") or item.get("sourceUrl"),
-        }))
-    except ValueError:
-        return jsonify(api_error_payload("INVALID_DATE", "日期格式需為 YYYYMMDD 或 YYYY-MM-DD")), 400
-    except Exception as exc:  # noqa: BLE001
-        return api_exception_response("DATA_SOURCE_ERROR", PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc, 502)
-
-
-@app.route("/api/institution")
-def api_institutional_position():
-    product = str(request.args.get("product") or "TX").strip().upper()
-    rows = DERIVATIVES_STORE.institutional_positions(product)
-    if rows:
-        payload = build_institution_payload_from_rows(product, rows, TAIFEX_FUTURES_DAILY_URL)
-    else:
-        is_option = product in {"TXO", "STO", "ETO"}
-        source_url = TAIFEX_INSTITUTION_OPTIONS_DETAIL_OPENAPI_URL if is_option else TAIFEX_INSTITUTION_FUTURES_DETAIL_OPENAPI_URL
-        payload = build_institution_payload_live(product, source_url) or build_pending_institution_payload(product, TAIFEX_FUTURES_DAILY_URL)
-    return jsonify(api_success_payload(payload))
-
-
-@app.route("/api/institution/import", methods=["POST"])
-def api_institution_import():
-    if not is_authorized_derivatives_admin():
-        return jsonify(api_error_payload("ADMIN_AUTH_REQUIRED", "法人資料匯入需提供有效管理金鑰")), 403
-    rows: list[dict[str, Any]] = []
-    if request.is_json:
-        body = request.get_json(silent=True) or {}
-        raw_rows = body.get("rows") if isinstance(body, dict) else None
-        if isinstance(raw_rows, list):
-            rows = [normalize_institution_row(row) for row in raw_rows if isinstance(row, dict)]
-        elif isinstance(body, dict) and "csv" in body:
-            rows = parse_institution_csv(str(body.get("csv") or ""))
-    else:
-        rows = parse_institution_csv(request.get_data(as_text=True) or "")
-    rows = [row for row in rows if row.get("institution") and row.get("product_code") and row.get("trade_date")]
-    if not rows:
-        return jsonify(api_error_payload("INVALID_PAYLOAD", "請提供 rows JSON 或 CSV，欄位需含 institution/product_code/trade_date")), 400
-    inserted = DERIVATIVES_STORE.record_institutional_positions(rows)
-    product = str(rows[0].get("product_code") or "").upper()
-    payload = build_institution_payload_from_rows(product, DERIVATIVES_STORE.institutional_positions(product), TAIFEX_FUTURES_DAILY_URL)
-    return jsonify(api_success_payload({"inserted": inserted, "product": product, "institution": payload}))
-
-
-@app.route("/api/basis")
-def api_basis():
-    future_symbol = str(request.args.get("future") or "TX").strip().upper()
-    spot_symbol = str(request.args.get("spot") or "TAIEX").strip().upper()
-    if spot_symbol not in {"TAIEX", "TWII", "加權指數"}:
-        return jsonify(api_error_payload("INVALID_SYMBOL", "spot 目前支援 TAIEX 台灣加權指數")), 400
-    spec = find_derivative_spec("futures", future_symbol)
-    if not spec:
-        return jsonify(api_error_payload("INVALID_SYMBOL", "期貨商品代碼不存在")), 404
-    try:
-        future_item = build_global_market_item(spec)
-        spot_snapshot = fetch_taiex_spot_snapshot()
-        history = []
-        future_series = future_item.get("series") or []
-        spot_value = parse_float(str(spot_snapshot.get("value") or ""))
-        for row in future_series[-20:]:
-            future_close = parse_float(str(row.get("close") or ""))
-            basis = future_close - spot_value if future_close is not None and spot_value is not None else None
-            history.append({
-                "date": row.get("date") or row.get("time"),
-                "futurePrice": future_close,
-                "spotPrice": spot_value,
-                "basis": basis,
-                "basisPct": (basis / spot_value * 100) if basis is not None and spot_value else None,
-            })
-        payload = build_basis_payload(future_item, spot_snapshot, history)
-        return jsonify(api_success_payload(payload))
-    except Exception as exc:  # noqa: BLE001
-        return api_exception_response("DATA_SOURCE_ERROR", PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc, 502)
-
-
-@app.route("/api/news")
-def api_derivatives_news():
-    category = str(request.args.get("category") or "derivatives").strip().lower()
-    symbol = str(request.args.get("symbol") or "^VIX").strip().upper()
-    limit = derivative_request_limit(8, 20)
-    try:
-        items = fetch_yahoo_us_symbol_news(symbol, limit)
-        if not items:
-            return jsonify(api_error_payload("EMPTY_RESULT", "目前查無市場新聞資料")), 200
-        for item in items:
-            item.setdefault("summary", "公開新聞標題與來源，請開啟連結查看完整內容。")
-        DERIVATIVES_STORE.record_news(category, items)
-        return jsonify(api_success_payload({"category": category, "symbol": symbol, "items": items, "count": len(items)}))
-    except Exception as exc:  # noqa: BLE001
-        return api_exception_response("DATA_SOURCE_ERROR", PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc, 502)
-
-
-@app.route("/api/ai-analysis")
-def api_derivatives_ai_analysis():
-    target = str(request.args.get("target") or "TXO").strip().upper()
-    source = normalize_taiwan_option_source(str(request.args.get("source") or request.args.get("optionSource") or "auto"))
-    try:
-        if target in TAIWAN_OPTION_PRODUCTS:
-            data = fetch_txo_option_chain(expiry=str(request.args.get("expiry") or "").strip() or None, source=source, underlying=target)
-            if data.get("error"):
-                analysis = build_derivatives_unavailable_ai_analysis(target, str(data.get("error")))
-                return jsonify(api_success_payload(analysis))
-            analysis = data.get("analysis") or {}
-        else:
-            spec = find_derivative_spec("futures", target)
-            if not spec:
-                return jsonify(api_error_payload("INVALID_SYMBOL", "商品代碼不存在")), 404
-            item = build_global_market_item(spec)
-            if item.get("error"):
-                analysis = build_derivatives_unavailable_ai_analysis(target, str(item.get("error")))
-                return jsonify(api_success_payload(analysis))
-            analysis = build_futures_ai_analysis(item)
-        DERIVATIVES_STORE.record_ai_report(target, analysis, datetime.now(TZ).isoformat())
-        return jsonify(api_success_payload(analysis))
-    except Exception as exc:  # noqa: BLE001
-        return api_exception_response("DATA_SOURCE_ERROR", PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc, 502)
-
-
-@app.route("/api/futures/<symbol>/technical-candles")
-def api_future_technical_candles(symbol: str):
-    interval = str(request.args.get("interval") or "day").strip().lower()
-    if interval not in {"day", "week", "month", "all"}:
-        return jsonify(api_error_payload("INVALID_DATE", "interval 只能是 day、week、month 或 all")), 400
-    spec = find_derivative_spec("futures", symbol)
-    if not spec:
-        return jsonify(api_error_payload("INVALID_SYMBOL", "期貨商品不存在")), 404
-    commodity = str(spec.get("taifexCommodity") or spec.get("symbol") or symbol).strip().upper()
-    code = str(request.args.get("code") or "").strip().upper()
-    try:
-        payload = fetch_taifex_futures_technical_candles(commodity, code=code, interval=interval)
-        if payload.get("error"):
-            return jsonify(api_error_payload("EMPTY_RESULT", str(payload.get("error")))), 200
-        if not payload.get("candles"):
-            contract = payload.get("contract") or {}
-            label = contract.get("label") or payload.get("code") or code or commodity
-            month = payload.get("contractMonth") or "主力連續"
-            return jsonify(api_error_payload(
-                "EMPTY_RESULT",
-                f"{commodity} {label}（{month}）目前沒有足夠的 TAIFEX K 線資料。",
-            )), 200
-        return jsonify(api_success_payload(payload))
-    except Exception as exc:  # noqa: BLE001
-        return api_exception_response("DATA_SOURCE_ERROR", PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc, 502)
-
-
-@app.route("/api/options/chain")
-def api_options_chain():
-    underlying = normalize_taiwan_option_underlying(str(request.args.get("underlying") or "TXO"))
-    expiry = str(request.args.get("expiry") or "").strip() or None
-    date = str(request.args.get("date") or "").strip() or None
-    source = normalize_taiwan_option_source(str(request.args.get("source") or request.args.get("optionSource") or "auto"))
-    try:
-        data = fetch_txo_option_chain(expiry=expiry, market_date=date, source=source, underlying=underlying)
-    except ValueError:
-        return jsonify(api_error_payload("INVALID_DATE", "日期格式需為 YYYYMMDD 或 YYYY-MM-DD")), 400
-    except Exception as exc:  # noqa: BLE001
-        return api_exception_response("DATA_SOURCE_ERROR", PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc, 502)
-    if data.get("error"):
-        return jsonify(api_success_payload(build_derivatives_unavailable_option_chain(str(data.get("error")), TAIFEX_OPTIONS_DAILY_URL, underlying)))
-    DERIVATIVES_STORE.record_option_chain(data, datetime.now(TZ).isoformat())
-    return jsonify(api_success_payload(data))
-
-
-@app.route("/api/pcr")
-def api_options_pcr():
-    underlying = normalize_taiwan_option_underlying(str(request.args.get("underlying") or "TXO"))
-    expiry = str(request.args.get("expiry") or "").strip() or None
-    source = normalize_taiwan_option_source(str(request.args.get("source") or request.args.get("optionSource") or "auto"))
-    try:
-        data = fetch_txo_option_chain(expiry=expiry, market_date=str(request.args.get("date") or "").strip() or None, source=source, underlying=underlying)
-    except ValueError:
-        return jsonify(api_error_payload("INVALID_DATE", "日期格式需為 YYYYMMDD 或 YYYY-MM-DD")), 400
-    except Exception as exc:  # noqa: BLE001
-        return api_exception_response("DATA_SOURCE_ERROR", PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc, 502)
-    if data.get("error"):
-        data = build_derivatives_unavailable_option_chain(str(data.get("error")), TAIFEX_OPTIONS_DAILY_URL, underlying)
-        summary = data.get("summary") or {}
-        return jsonify(api_success_payload({
-            "underlying": underlying,
-            "expiry": None,
-            "tradeDate": None,
-            "putCallRatio": summary.get("putCallRatio"),
-            "volumePutCallRatio": summary.get("volumePutCallRatio"),
-            "putOpenInterest": summary.get("putOpenInterest"),
-            "callOpenInterest": summary.get("callOpenInterest"),
-            "history": DERIVATIVES_STORE.option_pcr_history(underlying),
-            "source": (data.get("source") or {}).get("primary"),
-            "status": data.get("status"),
-            "message": data.get("message"),
-        }))
-    DERIVATIVES_STORE.record_option_chain(data, datetime.now(TZ).isoformat())
-    summary = data.get("summary") or {}
-    return jsonify(api_success_payload({
-        "underlying": underlying,
-        "expiry": data.get("selectedExpiry"),
-        "tradeDate": data.get("tradeDate"),
-        "putCallRatio": summary.get("putCallRatio"),
-        "volumePutCallRatio": summary.get("volumePutCallRatio"),
-        "putOpenInterest": summary.get("putOpenInterest"),
-        "callOpenInterest": summary.get("callOpenInterest"),
-        "history": DERIVATIVES_STORE.option_pcr_history(underlying),
-        "source": (data.get("source") or {}).get("primary"),
-    }))
-
-
-@app.route("/api/maxpain")
-def api_options_maxpain():
-    underlying = normalize_taiwan_option_underlying(str(request.args.get("underlying") or "TXO"))
-    expiry = str(request.args.get("expiry") or "").strip() or None
-    source = normalize_taiwan_option_source(str(request.args.get("source") or request.args.get("optionSource") or "auto"))
-    try:
-        data = fetch_txo_option_chain(expiry=expiry, market_date=str(request.args.get("date") or "").strip() or None, source=source, underlying=underlying)
-    except ValueError:
-        return jsonify(api_error_payload("INVALID_DATE", "日期格式需為 YYYYMMDD 或 YYYY-MM-DD")), 400
-    except Exception as exc:  # noqa: BLE001
-        return api_exception_response("DATA_SOURCE_ERROR", PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc, 502)
-    if data.get("error"):
-        data = build_derivatives_unavailable_option_chain(str(data.get("error")), TAIFEX_OPTIONS_DAILY_URL, underlying)
-        summary = data.get("summary") or {}
-        analysis = data.get("analysis") or {}
-        return jsonify(api_success_payload({
-            "underlying": underlying,
-            "expiry": None,
-            "tradeDate": None,
-            "maxPain": summary.get("maxPain"),
-            "maxPainLoss": summary.get("maxPainLoss"),
-            "supportLevel": analysis.get("supportLevel"),
-            "resistanceLevel": analysis.get("resistanceLevel"),
-            "source": (data.get("source") or {}).get("primary"),
-            "status": data.get("status"),
-            "message": data.get("message"),
-        }))
-    DERIVATIVES_STORE.record_option_chain(data, datetime.now(TZ).isoformat())
-    summary = data.get("summary") or {}
-    analysis = data.get("analysis") or {}
-    return jsonify(api_success_payload({
-        "underlying": underlying,
-        "expiry": data.get("selectedExpiry"),
-        "tradeDate": data.get("tradeDate"),
-        "maxPain": summary.get("maxPain"),
-        "maxPainLoss": summary.get("maxPainLoss"),
-        "supportLevel": analysis.get("supportLevel"),
-        "resistanceLevel": analysis.get("resistanceLevel"),
-        "source": (data.get("source") or {}).get("primary"),
-    }))
 
 
 @app.errorhandler(404)
