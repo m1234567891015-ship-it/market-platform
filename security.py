@@ -200,7 +200,12 @@ def _urlopen_with_ssl_fallback(request: Request, timeout: int):
 
     Unverified fallback is disabled by default.  It can be enabled only for
     explicit maintenance/debug sessions with ALLOW_UNVERIFIED_SSL_FALLBACK=1
-    and only for known market-data domains.
+    and only for known market-data domains - this opt-in is required in
+    every environment, not auto-granted outside production (TD-07: closed a
+    gap where any non-production environment silently allowed fallback with
+    no explicit flag, and smart.tdcc.com.tw skipped verification
+    unconditionally in non-production without even attempting a verified
+    connection first).
     """
     host = (urlsplit(request.full_url).hostname or "").lower()
     allowed_hosts = {
@@ -217,12 +222,7 @@ def _urlopen_with_ssl_fallback(request: Request, timeout: int):
         "tradingeconomics.com",
         "cdn.cboe.com",
     }
-    fallback_allowed = (
-        os.environ.get("ALLOW_UNVERIFIED_SSL_FALLBACK") == "1"
-        or not _is_production_environment()
-    )
-    if host == "smart.tdcc.com.tw" and fallback_allowed and not _is_production_environment():
-        return urlopen(request, timeout=timeout, context=ssl._create_unverified_context())
+    fallback_allowed = os.environ.get("ALLOW_UNVERIFIED_SSL_FALLBACK") == "1"
 
     try:
         verified_context = _get_verified_ssl_context()
@@ -246,5 +246,5 @@ def _urlopen_with_ssl_fallback(request: Request, timeout: int):
             )
         except Exception as log_exc:
             LOGGER.warning("Failed to persist SSL fallback warning: %s", log_exc)
-        LOGGER.debug("Using unverified SSL fallback for host=%s: %s", host, exc)
+        LOGGER.warning("Using unverified SSL fallback for host=%s: %s", host, exc)
         return urlopen(request, timeout=timeout, context=ssl._create_unverified_context())

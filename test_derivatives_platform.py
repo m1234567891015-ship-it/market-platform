@@ -1103,10 +1103,62 @@ class DerivativesPlatformApiTests(unittest.TestCase):
                 raise cert_error
             return sentinel
 
-        with patch.object(security, "urlopen", side_effect=fake_urlopen), patch.object(security, "_is_production_environment", return_value=False):
+        with patch.object(security, "urlopen", side_effect=fake_urlopen), \
+                patch.object(security, "_is_production_environment", return_value=False), \
+                patch.dict(os.environ, {"ALLOW_UNVERIFIED_SSL_FALLBACK": "1"}):
             result = security._urlopen_with_ssl_fallback(request, timeout=5)
         self.assertIs(result, sentinel)
         self.assertEqual(calls["count"], 2)
+
+    def test_urlopen_with_ssl_fallback_requires_explicit_opt_in_outside_production(self):
+        """TD-07 regression guard: non-production must not auto-allow fallback without ALLOW_UNVERIFIED_SSL_FALLBACK=1.
+
+        fake_urlopen only fails the *first* (verified) call and would succeed
+        on a second (unverified) call, so this only passes if the code never
+        reaches that second call - i.e. the opt-in gate actually blocked it,
+        not merely because the mock ran out of failures to raise.
+        """
+        request = Request("https://www.twse.com.tw/some/path")
+        cert_error = ssl.SSLCertVerificationError("certificate verify failed")
+        sentinel = object()
+        calls = {"count": 0}
+
+        def fake_urlopen(_req, timeout=None, context=None):
+            calls["count"] += 1
+            if calls["count"] == 1:
+                raise cert_error
+            return sentinel
+
+        removed = os.environ.pop("ALLOW_UNVERIFIED_SSL_FALLBACK", None)
+        try:
+            with patch.object(security, "urlopen", side_effect=fake_urlopen), \
+                    patch.object(security, "_is_production_environment", return_value=False):
+                with self.assertRaises(ssl.SSLCertVerificationError):
+                    security._urlopen_with_ssl_fallback(request, timeout=5)
+            self.assertEqual(calls["count"], 1, "must not attempt an unverified fallback call without explicit opt-in")
+        finally:
+            if removed is not None:
+                os.environ["ALLOW_UNVERIFIED_SSL_FALLBACK"] = removed
+
+    def test_urlopen_with_ssl_fallback_tdcc_attempts_verified_connection_first(self):
+        """TD-07 regression guard: smart.tdcc.com.tw must no longer skip verification unconditionally."""
+        request = Request("https://smart.tdcc.com.tw/some/path")
+        cert_error = ssl.SSLCertVerificationError("certificate verify failed")
+        sentinel = object()
+        calls = {"count": 0}
+
+        def fake_urlopen(_req, timeout=None, context=None):
+            calls["count"] += 1
+            if calls["count"] == 1:
+                raise cert_error
+            return sentinel
+
+        with patch.object(security, "urlopen", side_effect=fake_urlopen), \
+                patch.object(security, "_is_production_environment", return_value=False), \
+                patch.dict(os.environ, {"ALLOW_UNVERIFIED_SSL_FALLBACK": "1"}):
+            result = security._urlopen_with_ssl_fallback(request, timeout=5)
+        self.assertIs(result, sentinel)
+        self.assertEqual(calls["count"], 2, "verified urlopen must be attempted before any unverified fallback")
 
     def test_urlopen_with_ssl_fallback_blocks_in_production(self):
         request = Request("https://www.twse.com.tw/some/path")
