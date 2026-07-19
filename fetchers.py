@@ -21,6 +21,13 @@ batch A0 note for the full picture (builders.py's equivalent call sites *were*
 simplified to direct imports, since `builders.py -> parsers.py` is a safe
 one-directional edge with no such cycle).
 
+TD-01 slice 5 batch A1 note: the same "call site unchanged, destination moved"
+treatment now also applies to `app.parse_taifex_txo_option_rows`
+(`fetch_taifex_txo_option_chain`, line ~3496) and
+`app.parse_yahoo_taiwan_future_quotes` (`fetch_yahoo_taiwan_future_quotes`,
+line ~3559) - both functions themselves moved from app.py to `parsers.py` in
+batch A1, for the identical one-directional-dependency reason above.
+
 These are the foundational functions ~80% of app.py's 86 `fetch_*` functions
 build on: `fetch_json`/`fetch_nasdaq_json`/`post_json` for JSON APIs, and
 `fetch_text`/`fetch_binary`/`fetch_form_text` for scraped/CSV/form-POSTed

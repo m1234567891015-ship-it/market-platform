@@ -419,15 +419,15 @@ class DerivativesPlatformApiTests(unittest.TestCase):
     @patch.object(builders, "find_latest_dataset", return_value=({"stat": "OK", "data": []}, "20260718"))
     @patch.object(app, "weighted_index_history_has_volume", return_value=True)
     @patch.object(app, "upsert_latest_weighted_index_point", side_effect=lambda series, *a, **kw: series)
-    @patch.object(app, "parse_tpex_quotes", return_value=[])
-    @patch.object(app, "parse_all_stocks", return_value=[{
+    @patch.object(builders, "parse_tpex_quotes", return_value=[])
+    @patch.object(builders, "parse_all_stocks", return_value=[{
         "code": "2330", "name": "台積電", "market": "TWSE", "securityType": "STOCK",
         "close": "600", "pct": "+1.00%",
     }])
-    @patch.object(app, "parse_market_overview", return_value=[])
-    @patch.object(app, "parse_sectors", return_value=[])
-    @patch.object(app, "parse_institutions", return_value=[])
-    @patch.object(app, "parse_market_statistics", return_value={})
+    @patch.object(builders, "parse_market_overview", return_value=[])
+    @patch.object(builders, "parse_sectors", return_value=[])
+    @patch.object(builders, "parse_institutions", return_value=[])
+    @patch.object(builders, "parse_market_statistics", return_value={})
     def test_build_site_data_assembles_snapshot_from_sub_builders(self, *_mocks):
         site_data, all_stocks, market_date = app.build_site_data()
         self.assertEqual(market_date, "20260718")

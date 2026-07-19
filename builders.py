@@ -325,7 +325,15 @@ from parsers import (
     YAHOO_TW_FUTURE_UNCOVERED_URL,
     YAHOO_TW_FUTURE_URL,
     YAHOO_TW_OPTION_URL,
+    find_table_by_field,
     get_taiwan_option_product,
+    parse_all_stocks,
+    parse_index_activities,
+    parse_institutions,
+    parse_market_overview,
+    parse_market_statistics,
+    parse_sectors,
+    parse_tpex_quotes,
 )
 from market_config import (
     ASSET_CATEGORY_SOURCE_INFO,
@@ -2408,10 +2416,8 @@ def build_intraday_index_candles(
 
 
 def parse_index_close_values(payload: dict[str, Any], target_names: list[str]) -> dict[str, float]:
-    import app
-
     try:
-        index_table = app.find_table_by_field(payload, "指數")
+        index_table = find_table_by_field(payload, "指數")
     except RuntimeError:
         index_table = find_table_by_field_candidates(payload, ["指數", "收盤指數", "發行量加權股價指數"])
     rows = {row[0]: row for row in index_table.get("data", [])}
@@ -2436,8 +2442,6 @@ def build_sector_history_snapshot(
     target_names: list[str],
     include_activity: bool = True,
 ) -> tuple[str, dict[str, float], dict[str, Any], dict[str, dict[str, Any]]] | None:
-    import app
-
     try:
         payload = fetch_json(build_market_url(date_str), STOCK_HISTORY_TIMEOUT_SECONDS)
     except Exception:  # noqa: BLE001
@@ -2449,7 +2453,7 @@ def build_sector_history_snapshot(
     if include_activity:
         try:
             activity_payload = fetch_json(build_index_activity_url(date_str), STOCK_HISTORY_TIMEOUT_SECONDS)
-            activities = app.parse_index_activities(activity_payload) if dataset_has_rows(activity_payload) else {}
+            activities = parse_index_activities(activity_payload) if dataset_has_rows(activity_payload) else {}
         except Exception:  # noqa: BLE001
             activities = {}
 
@@ -2464,7 +2468,7 @@ def build_sector_history_snapshot(
     return (
         datetime.strptime(date_str, "%Y%m%d").strftime("%Y-%m-%d"),
         close_values,
-        app.parse_market_statistics(payload),
+        parse_market_statistics(payload),
         canonical_activities,
     )
 
@@ -3765,7 +3769,7 @@ def build_institution_trend(
     def append_payload(payload: dict[str, Any] | None, date_str: str | None) -> None:
         if not payload or not date_str or date_str in seen_dates or not dataset_has_rows(payload):
             return
-        institutions = app.parse_institutions(payload)
+        institutions = parse_institutions(payload)
         summary = build_institution_summary(institutions)
         foreign = next((item for item in summary if item.get("key") == "foreign"), None)
         dealer = next((item for item in summary if item.get("key") == "dealer"), None)
@@ -6891,23 +6895,23 @@ def build_site_data(
         market_payload,
         intraday_payload,
     )
-    tpex_stocks = app.parse_tpex_quotes(tpex_mainboard_quotes, yahoo_tpex_etfs)
-    twse_stocks = app.parse_all_stocks(market_payload)
+    tpex_stocks = parse_tpex_quotes(tpex_mainboard_quotes, yahoo_tpex_etfs)
+    twse_stocks = parse_all_stocks(market_payload)
     all_stocks = [*twse_stocks, *tpex_stocks]
     yahoo_sector_groups = {
         key: app.enrich_yahoo_cards_with_market_stats(cards, all_stocks)
         for key, cards in yahoo_sector_groups.items()
     }
-    market_overview = app.parse_market_overview(market_payload)
-    sectors = app.parse_sectors(market_payload, activity_payload, intraday_payload, history_series_by_index)
-    institutions = app.parse_institutions(institution_payload)
+    market_overview = parse_market_overview(market_payload)
+    sectors = parse_sectors(market_payload, activity_payload, intraday_payload, history_series_by_index)
+    institutions = parse_institutions(institution_payload)
     institution_summary = build_institution_summary(institutions)
     try:
         institution_trend = build_institution_trend(institution_payload, institution_date)
     except Exception:  # noqa: BLE001
         app.LOGGER.exception("Institution trend build failed")
         institution_trend = {}
-    market_stats = app.parse_market_statistics(market_payload)
+    market_stats = parse_market_statistics(market_payload)
     try:
         market_volatility = fetch_market_volatility_indicator(
             history_series_by_index.get("發行量加權股價指數", []),
@@ -7069,7 +7073,7 @@ def build_live_sector_site_data() -> dict[str, Any]:
     )
 
     benchmark_day_series = history_series_by_index.get("發行量加權股價指數", [])
-    twse_stocks = app.parse_all_stocks(market_payload)
+    twse_stocks = parse_all_stocks(market_payload)
     sector_fund_flow = build_sector_fund_flow(twse_stocks, market_date)
     yahoo_sector_groups["listed"] = []
     yahoo_sector_groups = {
@@ -7079,16 +7083,16 @@ def build_live_sector_site_data() -> dict[str, Any]:
     tpex_mainboard_highlight = yahoo_sector_groups.get("otc", [])[:6]
     tpex_esb_highlight = yahoo_sector_groups.get("emerging", [])[:6]
 
-    sectors = app.parse_sectors(market_payload, activity_payload, intraday_payload, history_series_by_index)
-    institutions = app.parse_institutions(institution_payload)
+    sectors = parse_sectors(market_payload, activity_payload, intraday_payload, history_series_by_index)
+    institutions = parse_institutions(institution_payload)
     institution_summary = build_institution_summary(institutions)
     try:
         institution_trend = build_institution_trend(institution_payload, institution_date)
     except Exception:  # noqa: BLE001
         app.LOGGER.exception("Live sectors institution trend build failed")
         institution_trend = {}
-    market_overview = app.parse_market_overview(market_payload)
-    market_stats = app.parse_market_statistics(market_payload)
+    market_overview = parse_market_overview(market_payload)
+    market_stats = parse_market_statistics(market_payload)
     cached_at = app.taipei_now().strftime("%Y-%m-%d %H:%M:%S")
     activity_date = market_date if activity_payload else None
 
@@ -7183,18 +7187,18 @@ def build_live_market_overview_data() -> dict[str, Any]:
 
     activity_payload = fetch_live_index_activity(market_date)
     intraday_payload = fetch_live_index_intraday(market_date)
-    sectors = app.parse_sectors(market_payload, activity_payload, intraday_payload, {})
-    market_overview = app.parse_market_overview(market_payload)
-    institutions = app.parse_institutions(institution_payload)
+    sectors = parse_sectors(market_payload, activity_payload, intraday_payload, {})
+    market_overview = parse_market_overview(market_payload)
+    institutions = parse_institutions(institution_payload)
     institution_summary = build_institution_summary(institutions)
     try:
         institution_trend = build_institution_trend(institution_payload, institution_date)
     except Exception:  # noqa: BLE001
         app.LOGGER.exception("Live overview institution trend build failed")
         institution_trend = {}
-    twse_stocks = app.parse_all_stocks(market_payload)
+    twse_stocks = parse_all_stocks(market_payload)
     sector_fund_flow = build_sector_fund_flow(twse_stocks, market_date)
-    tpex_stocks = app.parse_tpex_quotes(tpex_quotes, {}) if tpex_quotes else []
+    tpex_stocks = parse_tpex_quotes(tpex_quotes, {}) if tpex_quotes else []
     all_stocks = [*twse_stocks, *tpex_stocks]
     site_data = {
         "snapshotDate": datetime.strptime(market_date, "%Y%m%d").strftime("%Y-%m-%d"),
@@ -7208,7 +7212,7 @@ def build_live_market_overview_data() -> dict[str, Any]:
         "yahooOtcDate": yahoo_sector_dates.get("otc"),
         "yahooEmergingDate": yahoo_sector_dates.get("emerging"),
         "yahooSectorDates": yahoo_sector_dates,
-        "marketStats": app.parse_market_statistics(market_payload),
+        "marketStats": parse_market_statistics(market_payload),
         "marketVolatility": market_volatility,
         "marketInternationalIndexes": copy.deepcopy((cache_data.get("site_data") or {}).get("marketInternationalIndexes") or []),
         "marketMacroFactors": {},
