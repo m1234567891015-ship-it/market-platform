@@ -96,47 +96,47 @@ const US_MAJOR_INDEX_SECTOR_SYMBOLS = {
   "^RUT": ["^SP500-20", "^SP500-40", "^SP500-25", "^SP500-35", "^SP500-10", "^SP500-15", "^SP500-60"],
 };
 
-function normalizeNavigationLabels() {
-  const labels = {
-    "market-overview.html": "台股盤勢",
-    "tw-stocks.html": "台股類股",
-    "tw-etf.html": "台股 ETF",
-    "tw-stock-search.html": "個股搜尋",
-    "tw-Optional-stocks.html": "自選股",
-    "us-market-overview.html": "美股盤勢",
-    "us-stocks.html": "美股市場",
-    "us-etf.html": "美股ETF",
-    "us-stock-search.html": "美股搜尋",
-    "us-watchlist.html": "美股自選",
-    "international-finance.html": "貴金屬與債券",
-    "bonds.html": "債券",
-    "derivatives-assets.html": "期權",
-    "futures.html": "期貨",
-    "options.html": "選擇權",
-    "derivatives-analytics.html": "期權分析",
-    "derivatives-status.html": "系統維護",
-  };
-  document.querySelectorAll('.nav-links a[href="derivatives-ai.html"]').forEach((link) => link.remove());
-  document.querySelectorAll(".nav-links a").forEach((link) => {
-    const href = String(link.getAttribute("href") || "").split("?")[0].split("#")[0];
-    if (labels[href]) link.textContent = labels[href];
-  });
-  document.querySelectorAll(".nav-links").forEach((nav) => {
-    Object.entries(labels).forEach(([href, label]) => {
-      if (nav.querySelector(`a[href="${href}"]`)) return;
+// TD-08: single source of truth for the site nav. Every *.html page ships
+// the same static `<nav class="navbar"><a class="brand">...<div
+// class="nav-links"></div></nav>` shell; this function is what actually
+// populates the brand text and the link list on every page load, so
+// changing a nav link/label now means editing this one list instead of
+// hand-syncing up to 21 divergent static <nav> blocks.
+function renderSharedNavigation() {
+  const BRAND_TEXT = "Market Pulse";
+  const NAV_LINKS = [
+    ["market-overview.html", "台股盤勢"],
+    ["tw-stocks.html", "台股類股"],
+    ["tw-etf.html", "台股 ETF"],
+    ["tw-stock-search.html", "個股搜尋"],
+    ["tw-Optional-stocks.html", "自選股"],
+    ["us-market-overview.html", "美股盤勢"],
+    ["us-stocks.html", "美股市場"],
+    ["us-etf.html", "美股ETF"],
+    ["us-stock-search.html", "美股搜尋"],
+    ["us-watchlist.html", "美股自選"],
+    ["international-finance.html", "貴金屬與債券"],
+    ["bonds.html", "債券"],
+    ["precious-metals.html", "貴金屬"],
+    ["derivatives-assets.html", "期權"],
+    ["futures.html", "期貨"],
+    ["options.html", "選擇權"],
+    ["derivatives-analytics.html", "期權分析"],
+    ["derivatives-status.html", "系統維護"],
+  ];
+  const current = window.location.pathname.split("/").pop() || "index.html";
+  document.querySelectorAll(".navbar").forEach((nav) => {
+    const brandLabel = nav.querySelector(".brand span:last-child");
+    if (brandLabel) brandLabel.textContent = BRAND_TEXT;
+    const links = nav.querySelector(".nav-links");
+    if (!links) return;
+    links.innerHTML = "";
+    NAV_LINKS.forEach(([href, label]) => {
       const link = document.createElement("a");
       link.href = href;
       link.textContent = label;
-      nav.appendChild(link);
-    });
-    Object.keys(labels).forEach((href) => {
-      const link = nav.querySelector(`a[href="${href}"]`);
-      if (link) nav.appendChild(link);
-    });
-    const current = window.location.pathname.split("/").pop() || "index.html";
-    nav.querySelectorAll("a").forEach((link) => {
-      const href = String(link.getAttribute("href") || "").split("?")[0].split("#")[0];
-      link.classList.toggle("is-active", href === current);
+      if (href === current) link.classList.add("is-active");
+      links.appendChild(link);
     });
   });
 }
@@ -34126,7 +34126,7 @@ async function loadLiveData() {
   }
 }
 
-normalizeNavigationLabels();
+renderSharedNavigation();
 if (document.body.dataset.page === "search") initSearchPage();
 if (document.body.dataset.page === "watchlist") initWatchlistPage();
 document.addEventListener("click", (event) => {
