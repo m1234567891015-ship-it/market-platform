@@ -22,6 +22,7 @@ import builders
 import cache
 import fetchers
 import routes_global_market
+import routes_twse
 import security
 from derivatives_store import DerivativesStore
 
@@ -471,7 +472,7 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertIn("aiScoreFormula", status)
         self.assertIn("institutionImport", status)
 
-    @patch.object(app, "build_stock_detail", return_value={"code": "2330", "name": "台積電", "historyCount": 1})
+    @patch.object(routes_twse, "build_stock_detail", return_value={"code": "2330", "name": "台積電", "historyCount": 1})
     def test_twse_core_routes_use_cached_payloads(self, _detail):
         self.set_fake_twse_cache()
         site = self.client.get("/api/twse/site-data").get_json()
