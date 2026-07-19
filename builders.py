@@ -325,8 +325,11 @@ from parsers import (
     YAHOO_TW_FUTURE_UNCOVERED_URL,
     YAHOO_TW_FUTURE_URL,
     YAHOO_TW_OPTION_URL,
+    enrich_yahoo_cards_with_market_stats,
     find_table_by_field,
     get_taiwan_option_product,
+    market_payload_has_complete_index_tables,
+    merge_site_data_with_fallback,
     parse_all_stocks,
     parse_index_activities,
     parse_institutions,
@@ -334,6 +337,9 @@ from parsers import (
     parse_market_statistics,
     parse_sectors,
     parse_tpex_quotes,
+    upsert_latest_weighted_index_point,
+    weighted_index_history_has_volume,
+    weighted_index_history_is_usable,
 )
 from market_config import (
     ASSET_CATEGORY_SOURCE_INFO,
@@ -6787,7 +6793,7 @@ def build_site_data(
 
     market_payload, market_date = find_latest_dataset(
         build_market_url,
-        validator=app.market_payload_has_complete_index_tables,
+        validator=market_payload_has_complete_index_tables,
     )
     institution_payload, institution_date = find_latest_dataset(build_institutions_url)
     tpex_mainboard_quotes: list[dict[str, Any]] = []
@@ -6877,19 +6883,19 @@ def build_site_data(
             if item.get("sourceName")
         }
         weighted_series = history_series_by_index.get("發行量加權股價指數", [])
-        if not app.weighted_index_history_is_usable(weighted_series, market_date) or not app.weighted_index_history_has_volume(weighted_series):
+        if not weighted_index_history_is_usable(weighted_series, market_date) or not weighted_index_history_has_volume(weighted_series):
             history_series_by_index["發行量加權股價指數"] = build_weighted_index_history_series(
                 market_date,
                 app.WEIGHTED_INDEX_HISTORY_TRADING_DAYS,
             )
     else:
         history_series_by_index = build_sector_history_series(market_date, TARGET_INDEX_NAMES)
-    if not app.weighted_index_history_has_volume(history_series_by_index.get("發行量加權股價指數", [])):
+    if not weighted_index_history_has_volume(history_series_by_index.get("發行量加權股價指數", [])):
         history_series_by_index["發行量加權股價指數"] = build_weighted_index_history_series(
             market_date,
             app.WEIGHTED_INDEX_HISTORY_TRADING_DAYS,
         )
-    history_series_by_index["發行量加權股價指數"] = app.upsert_latest_weighted_index_point(
+    history_series_by_index["發行量加權股價指數"] = upsert_latest_weighted_index_point(
         history_series_by_index.get("發行量加權股價指數", []),
         market_date,
         market_payload,
@@ -6899,7 +6905,7 @@ def build_site_data(
     twse_stocks = parse_all_stocks(market_payload)
     all_stocks = [*twse_stocks, *tpex_stocks]
     yahoo_sector_groups = {
-        key: app.enrich_yahoo_cards_with_market_stats(cards, all_stocks)
+        key: enrich_yahoo_cards_with_market_stats(cards, all_stocks)
         for key, cards in yahoo_sector_groups.items()
     }
     market_overview = parse_market_overview(market_payload)
@@ -6982,7 +6988,7 @@ def build_site_data(
         "yahooSectorGroups": yahoo_sector_groups,
         "yahooSectorCatalog": yahoo_sector_catalog,
     }
-    site_data = app.merge_site_data_with_fallback(site_data, existing_site_data)
+    site_data = merge_site_data_with_fallback(site_data, existing_site_data)
     site_data["news"] = build_news(site_data)
 
     return sanitize_site_data(site_data), all_stocks, market_date
@@ -6997,7 +7003,7 @@ def build_live_sector_site_data() -> dict[str, Any]:
             find_latest_dataset,
             build_market_url,
             7,
-            app.market_payload_has_complete_index_tables,
+            market_payload_has_complete_index_tables,
         )
         institution_future = executor.submit(find_latest_dataset, build_institutions_url, 7)
         yahoo_groups_future = executor.submit(build_yahoo_sector_groups, 12, 8)
@@ -7059,13 +7065,13 @@ def build_live_sector_site_data() -> dict[str, Any]:
             app.LOGGER.exception("Live sectors VIX fetch failed")
             market_volatility = None
 
-    if not app.weighted_index_history_has_volume(history_series_by_index.get("發行量加權股價指數", [])):
+    if not weighted_index_history_has_volume(history_series_by_index.get("發行量加權股價指數", [])):
         try:
             history_series_by_index["發行量加權股價指數"] = build_weighted_index_history_series(market_date, 120)
         except Exception:  # noqa: BLE001
             app.LOGGER.exception("Live sectors weighted index history fetch failed")
 
-    history_series_by_index["發行量加權股價指數"] = app.upsert_latest_weighted_index_point(
+    history_series_by_index["發行量加權股價指數"] = upsert_latest_weighted_index_point(
         history_series_by_index.get("發行量加權股價指數", []),
         market_date,
         market_payload,
@@ -7160,7 +7166,7 @@ def build_live_market_overview_data() -> dict[str, Any]:
             find_latest_dataset,
             build_market_url,
             7,
-            app.market_payload_has_complete_index_tables,
+            market_payload_has_complete_index_tables,
         )
         institution_future = executor.submit(find_latest_dataset, build_institutions_url, 7)
         vix_future = executor.submit(fetch_market_volatility_indicator, [])

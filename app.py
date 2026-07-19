@@ -259,8 +259,12 @@ from parsers import (
     YAHOO_TW_FUTURE_CODE_TO_SYMBOL,
     YAHOO_TW_FUTURE_TECHNICAL_GROUPS,
     YAHOO_TW_FUTURE_UNCOVERED_URL,
+    enrich_stocks_with_industry,
     estimate_index_option_iv,
+    find_derivative_spec,
+    find_stock_by_query,
     get_taiwan_option_product,
+    market_payload_has_complete_index_tables,
     normalize_taiwan_option_source,
     parse_all_stocks,
     parse_institutions,
@@ -273,6 +277,8 @@ from parsers import (
     parse_yahoo_tw_future_date,
     parse_yahoo_tw_future_number,
     parse_yahoo_txo_option_table,
+    pick_exact_live_stock,
+    refresh_tpex_cache,
 )
 from market_config import (
     ASSET_STATIC_FILES,
@@ -518,112 +524,8 @@ app.after_request(add_security_headers)
 app.before_request(enforce_api_rate_limit)
 
 
-def merge_site_data_with_fallback(
-    fresh_site_data: dict[str, Any],
-    existing_site_data: dict[str, Any] | None,
-) -> dict[str, Any]:
-    if not existing_site_data:
-        return fresh_site_data
-
-    merged = dict(fresh_site_data)
-
-    def keep_existing_list(key: str) -> None:
-        fresh_value = merged.get(key)
-        existing_value = existing_site_data.get(key)
-        if isinstance(fresh_value, list) and fresh_value:
-            return
-        if isinstance(existing_value, list) and existing_value:
-            merged[key] = existing_value
-
-    keep_existing_list("sectors")
-    keep_existing_list("institutions")
-    keep_existing_list("marketOverview")
-    keep_existing_list("news")
-
-    fresh_sector_flow = merged.get("sectorFundFlow") or {}
-    existing_sector_flow = existing_site_data.get("sectorFundFlow") or {}
-    if (
-        not (isinstance(fresh_sector_flow, dict) and fresh_sector_flow.get("rows"))
-        and isinstance(existing_sector_flow, dict)
-        and existing_sector_flow.get("rows")
-    ):
-        merged["sectorFundFlow"] = existing_sector_flow
-
-    fresh_highlights = dict(merged.get("tpexHighlights") or {})
-    existing_highlights = existing_site_data.get("tpexHighlights") or {}
-    for key in ("mainboard", "emerging", "emergingStats"):
-        fresh_value = fresh_highlights.get(key)
-        existing_value = existing_highlights.get(key)
-        if isinstance(fresh_value, list) and fresh_value:
-            continue
-        if isinstance(existing_value, list) and existing_value:
-            fresh_highlights[key] = existing_value
-    if fresh_highlights:
-        merged["tpexHighlights"] = fresh_highlights
-
-    fresh_yahoo_groups = dict(merged.get("yahooSectorGroups") or {})
-    existing_yahoo_groups = existing_site_data.get("yahooSectorGroups") or {}
-    for key in ("listed", "otc", "emerging", "electronic", "concept", "group"):
-        fresh_value = fresh_yahoo_groups.get(key)
-        existing_value = existing_yahoo_groups.get(key)
-        if isinstance(fresh_value, list) and fresh_value:
-            continue
-        if isinstance(existing_value, list) and existing_value:
-            fresh_yahoo_groups[key] = existing_value
-    if fresh_yahoo_groups:
-        merged["yahooSectorGroups"] = fresh_yahoo_groups
-
-    fresh_yahoo_catalog = dict(merged.get("yahooSectorCatalog") or {})
-    existing_yahoo_catalog = existing_site_data.get("yahooSectorCatalog") or {}
-    for key in ("listed", "otc", "emerging", "electronic", "concept", "group"):
-        fresh_value = fresh_yahoo_catalog.get(key)
-        existing_value = existing_yahoo_catalog.get(key)
-        if isinstance(fresh_value, list) and fresh_value:
-            continue
-        if isinstance(existing_value, list) and existing_value:
-            fresh_yahoo_catalog[key] = existing_value
-    if fresh_yahoo_catalog:
-        merged["yahooSectorCatalog"] = fresh_yahoo_catalog
-
-    if not merged.get("marketVolatility") and existing_site_data.get("marketVolatility"):
-        merged["marketVolatility"] = existing_site_data["marketVolatility"]
-    if not merged.get("marketInternationalIndexes") and existing_site_data.get("marketInternationalIndexes"):
-        merged["marketInternationalIndexes"] = existing_site_data["marketInternationalIndexes"]
-    fresh_macro = dict(merged.get("marketMacroFactors") or {})
-    existing_macro = existing_site_data.get("marketMacroFactors") or {}
-    for key in ("dxy", "us10y", "usdTwd", "marginTrading", "txOpenInterest"):
-        if not fresh_macro.get(key) and existing_macro.get(key):
-            fresh_macro[key] = existing_macro[key]
-    if fresh_macro:
-        merged["marketMacroFactors"] = fresh_macro
-
-    return merged
-
-
 def taipei_now() -> datetime:
     return datetime.now(TZ)
-
-
-def merge_trade_counts(
-    series: list[dict[str, str]],
-    history_rows: list[list[str]],
-) -> list[dict[str, str]]:
-    trades_by_date: dict[str, str] = {}
-    for row in history_rows:
-        if len(row) <= 8:
-            continue
-        try:
-            trade_date = parse_roc_date(str(row[0])).strftime("%Y-%m-%d")
-        except (TypeError, ValueError):
-            continue
-        trades = format_whole_number(parse_float(str(row[8])))
-        if trades != "--":
-            trades_by_date[trade_date] = trades
-
-    return [
-        {**item, **({"trades": trades_by_date[item["date"]]} if item.get("date") in trades_by_date else {})}
-        for item in series
-    ]
 
 
 def infer_yahoo_taiwan_future_symbol_from_code(code: str) -> str:
@@ -879,182 +781,6 @@ def supplement_taifex_option_payload_with_yahoo_oi(payload: dict[str, Any]) -> d
     return next_payload
 
 
-def enrich_yahoo_cards_with_market_stats(
-    cards: list[dict[str, Any]],
-    stocks: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    stock_lookup = {
-        str(stock.get("code") or "").strip().upper(): stock
-        for stock in stocks
-        if stock.get("code")
-    }
-    enriched: list[dict[str, Any]] = []
-    for card in cards:
-        source_name = str(card.get("sourceName") or "").strip().upper()
-        code = source_name.split(".", 1)[0]
-        stock = stock_lookup.get(code)
-        if not stock:
-            enriched.append(card)
-            continue
-
-        volume_shares = parse_float(str(stock.get("volume") or ""))
-        volume_lots = volume_shares / 1000 if volume_shares is not None else None
-        turnover_value = parse_float(str(stock.get("turnover") or ""))
-        enriched.append(
-            {
-                **card,
-                "volume": format_whole_number(volume_lots) if volume_lots is not None else card.get("volume", "--"),
-                "volumeValue": volume_lots if volume_lots is not None else card.get("volumeValue"),
-                "turnover": format_whole_number(turnover_value) if turnover_value is not None else card.get("turnover", "--"),
-                "turnoverValue": turnover_value if turnover_value is not None else card.get("turnoverValue"),
-            }
-        )
-    return enriched
-
-
-def enrich_stocks_with_industry(stocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    try:
-        industry_map = fetch_twse_listed_industry_map()
-    except Exception as exc:  # noqa: BLE001
-        LOGGER.warning("TWSE industry enrichment unavailable: %s", exc)
-        industry_map = {}
-    enriched: list[dict[str, Any]] = []
-    for stock in stocks:
-        code = str(stock.get("code") or "").strip()
-        market = str(stock.get("market") or "").strip().upper()
-        security_type = str(stock.get("securityType") or "").strip().upper()
-        market_label = str(stock.get("marketLabel") or "").strip()
-        industry = str(stock.get("industry") or "").strip()
-        if market == "TWSE" and code in industry_map:
-            industry = industry_map[code]
-        elif security_type == "ETF":
-            industry = "ETF"
-        elif market == "TPEX":
-            industry = market_label or "上櫃股票"
-        enriched.append({**stock, **({"industry": industry} if industry else {})})
-    return enriched
-
-
-def payload_has_field_candidates(payload: dict[str, Any], candidates: list[str]) -> bool:
-    if isinstance(payload.get("fields"), list) and any(candidate in payload.get("fields", []) for candidate in candidates):
-        return True
-    return any(
-        isinstance(table.get("fields"), list)
-        and any(candidate in table.get("fields", []) for candidate in candidates)
-        and isinstance(table.get("data"), list)
-        and bool(table.get("data"))
-        for table in payload.get("tables", [])
-    )
-
-
-def market_payload_has_stock_table(payload: dict[str, Any]) -> bool:
-    return payload_has_field_candidates(payload, ["證券代號"])
-
-
-def market_payload_has_index_table(payload: dict[str, Any]) -> bool:
-    return payload_has_field_candidates(payload, ["指數", "收盤指數", "發行量加權股價指數"])
-
-
-def market_payload_has_complete_index_tables(payload: dict[str, Any]) -> bool:
-    return market_payload_has_stock_table(payload) and market_payload_has_index_table(payload)
-
-
-def sector_aliases(key: str) -> list[str]:
-    if key == "發行量加權股價指數":
-        return ["發行量加權股價指數"]
-    for item in LISTED_SECTOR_INDEX_SPECS:
-        if item["key"] == key:
-            return [key, *item.get("aliases", [])]
-    return [key]
-
-
-def weighted_index_history_is_usable(series: list[dict[str, Any]], latest_market_date: str) -> bool:
-    if len(series) < min(WEIGHTED_INDEX_HISTORY_TRADING_DAYS, 360):
-        return False
-    expected_latest = datetime.strptime(latest_market_date, "%Y%m%d").strftime("%Y-%m-%d")
-    dates: list[datetime] = []
-    for item in series:
-        try:
-            dates.append(datetime.strptime(str(item.get("date", "")), "%Y-%m-%d"))
-        except ValueError:
-            return False
-    if dates[-1].strftime("%Y-%m-%d") != expected_latest:
-        return False
-    return all(
-        0 < (current - previous).days <= 15
-        for previous, current in zip(dates, dates[1:])
-    )
-
-
-def weighted_index_history_has_volume(series: list[dict[str, Any]]) -> bool:
-    if len(series) < 20:
-        return False
-    volume_count = sum(
-        1
-        for item in series
-        if parse_float(str(item.get("volumeValue") or item.get("volume") or "")) not in (None, 0)
-    )
-    return volume_count >= min(60, max(20, len(series) // 3))
-
-
-def upsert_latest_weighted_index_point(
-    series: list[dict[str, Any]],
-    market_date: str,
-    market_payload: dict[str, Any],
-    intraday_payload: dict[str, Any] | None,
-) -> list[dict[str, Any]]:
-    latest_iso = datetime.strptime(market_date, "%Y%m%d").strftime("%Y-%m-%d")
-    try:
-        close_value = parse_index_close_values(
-            market_payload,
-            ["發行量加權股價指數"],
-        ).get("發行量加權股價指數")
-    except Exception:  # noqa: BLE001
-        LOGGER.warning("Weighted index close table unavailable for date=%s", market_date)
-        close_value = None
-    candles = (
-        build_intraday_index_candles(intraday_payload, ["發行量加權股價指數"], 5)
-        .get("發行量加權股價指數", [])
-        if intraday_payload else []
-    )
-    if close_value is None and candles:
-        close_value = parse_float(candles[-1].get("close"))
-    if close_value is None:
-        return series
-
-    point: dict[str, Any] = {
-        "date": latest_iso,
-        "close": f"{close_value:.2f}",
-    }
-    if candles:
-        open_value = parse_float(candles[0].get("open"))
-        highs = [parse_float(item.get("high")) for item in candles]
-        lows = [parse_float(item.get("low")) for item in candles]
-        valid_highs = [value for value in highs if value is not None]
-        valid_lows = [value for value in lows if value is not None]
-        if open_value is not None:
-            point["open"] = f"{open_value:.2f}"
-        if valid_highs:
-            point["high"] = f"{max(valid_highs):.2f}"
-        if valid_lows:
-            point["low"] = f"{min(valid_lows):.2f}"
-    market_stats = parse_market_statistics(market_payload)
-    if market_stats:
-        for key in ("volume", "turnover", "trades"):
-            value = market_stats.get(key)
-            if value and value != "--":
-                point[key] = value
-        if market_stats.get("volumeValue") is not None:
-            volume_lots = float(market_stats["volumeValue"]) / 1000
-            point["volume"] = format_whole_number(volume_lots)
-            point["volumeValue"] = str(volume_lots)
-
-    updated = [item for item in series if item.get("date") != latest_iso]
-    updated.append(point)
-    updated.sort(key=lambda item: item.get("date", ""))
-    return updated[-WEIGHTED_INDEX_HISTORY_TRADING_DAYS:]
-
-
 def apply_yahoo_quote(stock: dict[str, Any]) -> dict[str, Any]:
     if stock.get("market") != "TPEx":
         return stock
@@ -1092,139 +818,6 @@ def apply_yahoo_quote(stock: dict[str, Any]) -> dict[str, Any]:
     return updated
 
 
-def sync_yahoo_quotes(stocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    tpex_indices = [index for index, stock in enumerate(stocks) if stock.get("market") == "TPEx"]
-    if not tpex_indices:
-        return stocks
-
-    synced = list(stocks)
-    with ThreadPoolExecutor(max_workers=min(6, len(tpex_indices))) as executor:
-        futures = {executor.submit(apply_yahoo_quote, stocks[index]): index for index in tpex_indices}
-        for future in as_completed(futures):
-            index = futures[future]
-            try:
-                synced[index] = future.result()
-            except Exception:  # noqa: BLE001
-                synced[index] = stocks[index]
-    return synced
-
-
-def find_stock_by_query(query: str, stocks: list[dict[str, Any]], limit: int = 20) -> list[dict[str, Any]]:
-    keyword = query.strip().lower()
-    if not keyword:
-        return []
-
-    exact_code: list[dict[str, Any]] = []
-    prefix_code: list[dict[str, Any]] = []
-    partial_code: list[dict[str, Any]] = []
-    prefix_name: list[dict[str, Any]] = []
-    name_matches: list[dict[str, Any]] = []
-
-    for stock in stocks:
-        code = str(stock["code"]).lower()
-        name = str(stock["name"]).lower()
-        if code == keyword:
-            exact_code.append(stock)
-        elif code.startswith(keyword):
-            prefix_code.append(stock)
-        elif keyword in code:
-            partial_code.append(stock)
-        elif name.startswith(keyword):
-            prefix_name.append(stock)
-        elif keyword in name:
-            name_matches.append(stock)
-
-    combined = exact_code + prefix_code + partial_code + prefix_name + name_matches
-    unique: list[dict[str, Any]] = []
-    seen: set[tuple[str, str]] = set()
-    for item in combined:
-        item_key = (str(item.get("market", "")), str(item["code"]))
-        if item_key in seen:
-            continue
-        seen.add(item_key)
-        unique.append(item)
-        if len(unique) >= limit:
-            break
-    return unique
-
-
-def refresh_tpex_cache() -> None:
-    quotes, quote_date = fetch_tpex_mainboard_quotes()
-    try:
-        yahoo_etfs = fetch_yahoo_tpex_etfs()
-    except Exception:  # noqa: BLE001
-        yahoo_etfs = {}
-    tpex_stocks = parse_tpex_quotes(quotes, yahoo_etfs)
-    if not tpex_stocks:
-        return
-
-    with cache_lock:
-        existing_site_data = copy.deepcopy(cache_data["site_data"])
-        existing_market_date = cache_data["market_date"]
-    if existing_site_data and existing_market_date:
-        history_series_by_index = {
-            item.get("sourceName"): (item.get("comparisonSeries", {}) or {}).get("day", [])
-            for item in existing_site_data.get("sectors", [])
-            if item.get("sourceName")
-        }
-    else:
-        history_series_by_index = build_sector_history_series(existing_market_date or quote_date, TARGET_INDEX_NAMES)
-    benchmark_day_series = history_series_by_index.get("發行量加權股價指數", [])
-
-    try:
-        tpex_mainboard_highlight, yahoo_tpex_otc_date = build_yahoo_class_quote_cards(YAHOO_TPEX_OTC_CLASS_URL, "上櫃", limit=6)
-    except Exception:  # noqa: BLE001
-        tpex_mainboard_highlight = []
-        yahoo_tpex_otc_date = None
-    try:
-        tpex_esb_highlight, yahoo_tpex_emerging_date = build_yahoo_class_quote_cards(YAHOO_TPEX_EMERGING_CLASS_URL, "興櫃", limit=6)
-    except Exception:  # noqa: BLE001
-        tpex_esb_highlight = []
-        yahoo_tpex_emerging_date = None
-    if not tpex_mainboard_highlight:
-        tpex_mainboard_highlight = build_summary_cards_from_payload(
-            fetch_json(build_tpex_openapi_url("tpex_mainborad_highlight")),
-            "上櫃",
-            limit=6,
-        )
-    if not tpex_esb_highlight:
-        tpex_esb_highlight = build_summary_cards_from_payload(
-            fetch_json(build_tpex_openapi_url("tpex_esb_highlight")),
-            "興櫃",
-            limit=6,
-        )
-    tpex_mainboard_highlight = build_yahoo_summary_series(tpex_mainboard_highlight, benchmark_day_series)
-    tpex_esb_highlight = build_yahoo_summary_series(tpex_esb_highlight, benchmark_day_series)
-
-    with cache_lock:
-        listed_stocks = [
-            stock for stock in cache_data["all_stocks"]
-            if stock.get("market") != "TPEx"
-        ]
-        cache_data["all_stocks"] = [*listed_stocks, *tpex_stocks]
-        if cache_data["site_data"]:
-            site_data = dict(cache_data["site_data"])
-            site_data["stockCount"] = len(cache_data["all_stocks"])
-            site_data["tpexStockCount"] = len(tpex_stocks)
-            site_data["tpexEtfCount"] = sum(
-                1 for stock in tpex_stocks
-                if stock.get("securityType") == "ETF"
-            )
-            site_data["tpexStockDate"] = (
-                datetime.strptime(quote_date, "%Y%m%d").strftime("%Y-%m-%d")
-                if quote_date else None
-            )
-            site_data["yahooOtcDate"] = yahoo_tpex_otc_date
-            site_data["yahooEmergingDate"] = yahoo_tpex_emerging_date
-            site_data["tpexHighlights"] = {
-                "mainboard": tpex_mainboard_highlight,
-                "emerging": tpex_esb_highlight,
-                "emergingStats": [],
-            }
-            cache_data["site_data"] = site_data
-    save_disk_cache()
-
-
 def format_market_date(date_str: str | None) -> str | None:
     if not date_str:
         return None
@@ -1232,76 +825,6 @@ def format_market_date(date_str: str | None) -> str | None:
         return datetime.strptime(date_str, "%Y%m%d").strftime("%Y-%m-%d")
     except ValueError:
         return date_str
-
-
-def site_data_has_complete_sector_payload(site_data: dict[str, Any] | None) -> bool:
-    if not site_data:
-        return False
-    sectors = site_data.get("sectors") or []
-    international = site_data.get("marketInternationalIndexes") or []
-    volatility = site_data.get("marketVolatility") or {}
-    weighted = next(
-        (
-            item for item in sectors
-            if item.get("sourceName") == "發行量加權股價指數" or item.get("name") == "台灣加權指數"
-        ),
-        {},
-    )
-    weighted_history_count = len(((weighted.get("comparisonSeries") or {}).get("day") or []))
-    sector_history_counts = [
-        len(((item.get("comparisonSeries") or {}).get("day") or []))
-        for item in sectors
-        if item.get("sourceName") != "發行量加權股價指數" and item.get("name") != "台灣加權指數"
-    ]
-    complete_sector_histories = sum(1 for count in sector_history_counts if count >= 20)
-    return (
-        len(sectors) >= 20
-        and weighted_history_count >= min(WEIGHTED_INDEX_HISTORY_TRADING_DAYS, 360)
-        and complete_sector_histories >= 10
-        and len(international) >= 18
-        and len(volatility.get("series") or []) >= 20
-    )
-
-
-def site_data_recent_enough(site_data: dict[str, Any] | None, max_age_seconds: int = 1800) -> bool:
-    cached_at = str((site_data or {}).get("cachedAt") or "")
-    if not cached_at:
-        return False
-    try:
-        cached_dt = datetime.strptime(cached_at, "%Y-%m-%d %H:%M:%S").replace(tzinfo=TZ)
-    except ValueError:
-        return False
-    return (taipei_now() - cached_dt).total_seconds() <= max_age_seconds
-
-
-def pick_exact_live_stock(
-    code: str,
-    requested_market: str = "",
-) -> tuple[dict[str, Any] | None, str, str | None, list[str]]:
-    normalized_code = str(code or "").strip().upper()
-    matches, market_date, tpex_quote_date, sources = fetch_live_stock_search_results(
-        normalized_code,
-        requested_market=requested_market,
-        limit=20,
-    )
-    normalized_market = normalize_market_request(requested_market)
-    stock = next(
-        (
-            item for item in matches
-            if str(item.get("code") or "").strip().upper() == normalized_code
-            and (not normalized_market or normalize_market_request(str(item.get("market"))) == normalized_market)
-        ),
-        None,
-    )
-    if stock is None and matches:
-        stock = next(
-            (
-                item for item in matches
-                if str(item.get("code") or "").strip().upper() == normalized_code
-            ),
-            None,
-        )
-    return stock, market_date, tpex_quote_date, sources
 
 
 @app.route("/api/health")
@@ -1680,14 +1203,6 @@ def derivative_request_limit(default: int = 24, maximum: int = 100) -> int:
     except ValueError:
         requested = default
     return min(max(requested, 1), maximum)
-
-
-def find_derivative_spec(category: str, symbol: str) -> dict[str, Any] | None:
-    clean_symbol = str(symbol or "").strip().upper()
-    for item in GLOBAL_MARKET_CATEGORIES.get(category, {}).get("items", []):
-        if str(item.get("symbol") or "").strip().upper() == clean_symbol:
-            return enrich_global_market_spec(item, category)
-    return None
 
 
 @app.route("/api/index")

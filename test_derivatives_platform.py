@@ -417,8 +417,8 @@ class DerivativesPlatformApiTests(unittest.TestCase):
     @patch.object(builders, "fetch_market_volatility_indicator", return_value=None)
     @patch.object(builders, "fetch_json", return_value={"stat": "OK", "data": []})
     @patch.object(builders, "find_latest_dataset", return_value=({"stat": "OK", "data": []}, "20260718"))
-    @patch.object(app, "weighted_index_history_has_volume", return_value=True)
-    @patch.object(app, "upsert_latest_weighted_index_point", side_effect=lambda series, *a, **kw: series)
+    @patch.object(builders, "weighted_index_history_has_volume", return_value=True)
+    @patch.object(builders, "upsert_latest_weighted_index_point", side_effect=lambda series, *a, **kw: series)
     @patch.object(builders, "parse_tpex_quotes", return_value=[])
     @patch.object(builders, "parse_all_stocks", return_value=[{
         "code": "2330", "name": "台積電", "market": "TWSE", "securityType": "STOCK",
