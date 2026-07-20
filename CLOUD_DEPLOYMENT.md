@@ -43,3 +43,31 @@ unless a cross-worker scheduler lock or external cron-based refresh is introduce
 
 `ALLOW_UNVERIFIED_SSL_FALLBACK=1` is for local maintenance only. It is ignored in
 production/Render environments to avoid accidental certificate-verification bypass.
+
+## Service Worker Cache Version (breaking frontend/backend changes)
+
+Static assets (`app.js`, `styles.css`, `pwa.js`, page shells, icons, manifest) are cached
+client-side by `service-worker.js` using stale-while-revalidate (TD-09). `pwa.js` compares
+its own `VERSION` constant against a value stored in the visitor's `localStorage`
+(`market-pulse-static-version`); when they differ, it unregisters any existing service
+worker and clears all Cache Storage before re-registering, so a version bump is the only
+mechanism that forces every returning visitor's stale cache to fully clear.
+
+**Any deploy that changes the contract between the cached frontend and the backend it
+talks to (renamed/removed API routes or response fields the frontend depends on, changed
+request formats, anything that would break if an old cached `app.js` kept running against
+the new backend) must bump both:**
+
+- `CACHE_VERSION` in `service-worker.js`
+- `VERSION` in `pwa.js`
+
+in the same deploy. Skipping this means visitors with a previously cached `app.js` can
+keep running old frontend code against the new backend indefinitely, since the server
+already serves all static files with `Cache-Control: no-store` (so the *files themselves*
+are always fetched fresh) but that does nothing to evict what's already sitting in a
+visitor's Cache Storage from a prior visit - only the `pwa.js` version-compare check does
+that, and only if `pwa.js`'s own `VERSION` actually changed.
+
+Routine, backward-compatible frontend/backend changes do not require a bump - the SW's
+stale-while-revalidate strategy already refreshes the cache in the background on every
+matching request, so visitors self-heal within a page load or two on their own.
