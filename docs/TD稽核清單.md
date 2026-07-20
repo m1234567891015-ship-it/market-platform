@@ -19,6 +19,7 @@
 | TD-11 | 低 | 品質 | app.js 出現兩個同名 function worker(後者遮蔽前者) | app.js L8738、L22560 | IIFE 作用域內重名,實際行為依定義順序,屬地雷 | 重新命名並確認兩處呼叫點 | 0.5天 | 11 |
 | TD-12 | 低 | 品質 | 快取設定發散:25 個 *_CACHE_* TTL 常數散落各處,無統一快取抽象、幾乎無 eviction | 見「快取與鎖」表 | 記憶體僅增不減(bounded 僅 1 處);TTL 語意不一致 | 併入 TD-05 fetcher 層:宣告式 TTL + 上限 LRU | 併入TD-05 | 12 |
 | TD-13 | 低 | 品質 | Python 檔混入 CRLF 行尾;broad except Exception 約 150 處(多數有 log/fallback,少數靜默) | app.py(try ×241、except Exception ×154) | 跨平台 diff 噪音;個別靜默 except 吞錯 | .gitattributes 統一 LF;為靜默 except 補 LOGGER.debug 最低限度記錄 | 0.5天 | 13 |
+| TD-14 | 低 | 架構 | CSS 單檔巨石:styles.css 21,972 行,原稽核清單未列項(記帳補登) | styles.css 全檔 | 與 TD-02 同類問題(無法 tree-shake、難以定位規則歸屬) | 併入 TD-02 一體拆分處理,含未使用規則掃描 | 併入TD-02 | 14 |
 
 ## 總覽
 
