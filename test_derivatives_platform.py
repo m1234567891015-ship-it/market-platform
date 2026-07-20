@@ -1497,6 +1497,60 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertEqual(timeout, 10)
         self.assertEqual(result, payload)
 
+    # ---- TD-05 batch 4: TWSE/TPEX misc + fan-out characterization ----
+    # fetch_live_stock_universe and fetch_live_stock_search_results are unchanged
+    # in this batch - both are pure orchestration (ThreadPoolExecutor fan-out over
+    # find_latest_dataset + fetch_tpex_mainboard_quotes + fetch_yahoo_tpex_etfs,
+    # plus deferred app.* parsers) with no direct fetch_json/fetch_text calls of
+    # their own; they benefit from the two functions below being migrated without
+    # any changes of their own, so no new tests needed for them specifically.
+
+    def _fake_text_response(self, text, content_type=""):
+        response = MagicMock()
+        response.read.return_value = text.encode("utf-8")
+        response.headers = {"Content-Type": content_type}
+        response.__enter__ = lambda self=response: self
+        response.__exit__ = lambda self, *exc: False
+        return response
+
+    def test_fetch_yahoo_tpex_etfs_parses_code_to_name_map(self):
+        html = (
+            'blah <a href="https://tw.stock.yahoo.com/quote/1234.TWO">'
+            '<div class="Lh(20px)">測試ETF</div></a>'
+        )
+        with cache.cache_lock:
+            cache.cache_data.pop("external_text", None)
+        self.addCleanup(lambda: cache.cache_data.pop("external_text", None))
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_text_response(html)) as mock_urlopen:
+            result = fetchers.fetch_yahoo_tpex_etfs(timeout=8)
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, fetchers.YAHOO_TPEX_ETF_URL)
+        self.assertEqual(timeout, 8)
+        self.assertEqual(result, {"1234": "測試ETF"})
+
+    def test_fetch_yahoo_tpex_etfs_second_call_served_from_cache(self):
+        html = (
+            'blah <a href="https://tw.stock.yahoo.com/quote/1234.TWO">'
+            '<div class="Lh(20px)">測試ETF</div></a>'
+        )
+        with cache.cache_lock:
+            cache.cache_data.pop("external_text", None)
+        self.addCleanup(lambda: cache.cache_data.pop("external_text", None))
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_text_response(html)) as mock_urlopen:
+            fetchers.fetch_yahoo_tpex_etfs(timeout=8)
+            fetchers.fetch_yahoo_tpex_etfs(timeout=8)
+        self.assertEqual(mock_urlopen.call_count, 1, "second call must be served from the external_text cache")
+
+    def test_fetch_tpex_mainboard_quotes_extracts_snapshot_date(self):
+        payload = [{"Date": "1150719", "SecuritiesCompanyCode": "1234"}]
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response(payload)) as mock_urlopen:
+            rows, snapshot_date = fetchers.fetch_tpex_mainboard_quotes(timeout=10)
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, fetchers.build_tpex_openapi_url("tpex_mainboard_quotes"))
+        self.assertEqual(timeout, 10)
+        self.assertEqual(rows, payload)
+        self.assertEqual(snapshot_date, fetchers.parse_compact_roc_date("1150719"))
+
 
 if __name__ == "__main__":
     unittest.main()

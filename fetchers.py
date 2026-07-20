@@ -1916,8 +1916,20 @@ def fetch_form_text(url: str, fields: dict[str, str], timeout: int = 30) -> str:
     return text
 
 
+register(SourceSpec(
+    name="yahoo_tpex_etf_page",
+    url=YAHOO_TPEX_ETF_URL,
+    response_type="text",
+    decode="sniff_cp950_big5",
+    decode_errors="ignore",
+    cache_bucket="external_text",
+    cache_key=lambda: f"GET:{YAHOO_TPEX_ETF_URL}",
+    ttl_seconds=EXTERNAL_TEXT_CACHE_SECONDS,
+))
+
+
 def fetch_yahoo_tpex_etfs(timeout: int = 8) -> dict[str, str]:
-    page = fetch_text(YAHOO_TPEX_ETF_URL, timeout=timeout)
+    page = fetch_from_registry("yahoo_tpex_etf_page", timeout=timeout)
     etfs: dict[str, str] = {}
     link_pattern = re.compile(r'href="https://tw\.stock\.yahoo\.com/quote/([^"]+)\.TWO"', re.IGNORECASE)
     name_pattern = re.compile(r'<div class="[^"]*Lh\(20px\)[^"]*">([^<]+)</div>', re.IGNORECASE)
@@ -1931,8 +1943,11 @@ def fetch_yahoo_tpex_etfs(timeout: int = 8) -> dict[str, str]:
     return etfs
 
 
+register(SourceSpec(name="tpex_mainboard_quotes", url=build_tpex_openapi_url("tpex_mainboard_quotes")))
+
+
 def fetch_tpex_mainboard_quotes(timeout: int = 10) -> tuple[list[dict[str, Any]], str | None]:
-    payload = fetch_json(build_tpex_openapi_url("tpex_mainboard_quotes"), timeout=timeout)
+    payload = fetch_from_registry("tpex_mainboard_quotes", timeout=timeout)
     if not isinstance(payload, list):
         return [], None
 
