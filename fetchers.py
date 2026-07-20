@@ -4578,6 +4578,21 @@ def fetch_stock_news(stock: dict[str, Any], limit: int = 6) -> list[dict[str, An
     return build_stock_news_fallback(stock, limit)
 
 
+register(SourceSpec(
+    name="us_treasury_yield_curve_csv",
+    url=US_TREASURY_YIELD_CURVE_CSV_URL,
+    response_type="text",
+    # home.treasury.gov is in fetch_text's should_cache_external_text allowlist,
+    # so the original fetch_text(...) call was always cached via the
+    # external_text bucket - this preserves that, separate from (and in
+    # addition to) fetch_us_treasury_yield_curve_rows's own outer
+    # time.time()-based cache wrapper.
+    cache_bucket="external_text",
+    cache_key=lambda: f"GET:{US_TREASURY_YIELD_CURVE_CSV_URL}",
+    ttl_seconds=EXTERNAL_TEXT_CACHE_SECONDS,
+))
+
+
 def fetch_us_treasury_yield_curve_rows() -> list[tuple[datetime, dict[str, str]]]:
     now = time.time()
     with cache_lock:
@@ -4587,7 +4602,7 @@ def fetch_us_treasury_yield_curve_rows() -> list[tuple[datetime, dict[str, str]]
         if rows:
             return rows
 
-    text = fetch_text(US_TREASURY_YIELD_CURVE_CSV_URL, timeout=12)
+    text = fetch_from_registry("us_treasury_yield_curve_csv", timeout=12)
     rows = list(csv.DictReader(io.StringIO(text)))
     dated_rows: list[tuple[datetime, dict[str, str]]] = []
     for row in rows:
@@ -4604,12 +4619,23 @@ def fetch_us_treasury_yield_curve_rows() -> list[tuple[datetime, dict[str, str]]
     return sorted_rows
 
 
+register(SourceSpec(
+    name="fred_observation_csv",
+    url=lambda clean_id: f"{FRED_GRAPH_CSV_BASE}?{urlencode({'id': clean_id})}",
+    response_type="text",
+    # fred.stlouisfed.org is in fetch_text's should_cache_external_text
+    # allowlist - preserve that caching.
+    cache_bucket="external_text",
+    cache_key=lambda clean_id: f"GET:{FRED_GRAPH_CSV_BASE}?{urlencode({'id': clean_id})}",
+    ttl_seconds=EXTERNAL_TEXT_CACHE_SECONDS,
+))
+
+
 def fetch_fred_observation_rows(series_id: str, timeout: int = 8) -> list[tuple[datetime, float]]:
     clean_id = str(series_id or "").strip().upper()
     if not clean_id:
         return []
-    url = f"{FRED_GRAPH_CSV_BASE}?{urlencode({'id': clean_id})}"
-    text = fetch_text(url, timeout=timeout)
+    text = fetch_from_registry("fred_observation_csv", clean_id, timeout=timeout)
     rows = list(csv.DictReader(io.StringIO(text)))
     observations: list[tuple[datetime, float]] = []
     for row in rows:
@@ -4627,8 +4653,20 @@ def fetch_fred_observation_rows(series_id: str, timeout: int = 8) -> list[tuple[
     return sorted(observations, key=lambda item: item[0])
 
 
+register(SourceSpec(
+    name="trading_economics_taiwan_10y_page",
+    url=TRADING_ECONOMICS_TAIWAN_10Y_URL,
+    response_type="text",
+    # tradingeconomics.com is in fetch_text's should_cache_external_text
+    # allowlist - preserve that caching.
+    cache_bucket="external_text",
+    cache_key=lambda: f"GET:{TRADING_ECONOMICS_TAIWAN_10Y_URL}",
+    ttl_seconds=EXTERNAL_TEXT_CACHE_SECONDS,
+))
+
+
 def fetch_trading_economics_taiwan_10y(timeout: int = 10) -> dict[str, Any] | None:
-    html = fetch_text(TRADING_ECONOMICS_TAIWAN_10Y_URL, timeout=timeout)
+    html = fetch_from_registry("trading_economics_taiwan_10y_page", timeout=timeout)
     description = extract_meta_description(html)
     if not description:
         return None
@@ -4669,11 +4707,23 @@ def fetch_trading_economics_taiwan_10y(timeout: int = 10) -> dict[str, Any] | No
     }
 
 
+register(SourceSpec(
+    name="nasdaq_api",
+    url=lambda path: path if path.startswith("http") else f"{NASDAQ_API_BASE}{path}",
+    headers={
+        "User-Agent": NASDAQ_USER_AGENT,
+        "Accept": "application/json, text/plain, */*",
+        "Origin": "https://www.nasdaq.com",
+        "Referer": "https://www.nasdaq.com/",
+    },
+))
+
+
 def fetch_nasdaq_quote_endpoint(symbol: str, endpoint: str, asset_classes: list[str]) -> dict[str, Any]:
     clean_symbol = quote(symbol.upper(), safe="")
     for asset_class in asset_classes:
         try:
-            payload = fetch_nasdaq_json(f"/quote/{clean_symbol}/{endpoint}?assetclass={asset_class}", timeout=10)
+            payload = fetch_from_registry("nasdaq_api", f"/quote/{clean_symbol}/{endpoint}?assetclass={asset_class}", timeout=10)
         except Exception:  # noqa: BLE001
             continue
         data = nasdaq_data(payload)
@@ -4684,7 +4734,7 @@ def fetch_nasdaq_quote_endpoint(symbol: str, endpoint: str, asset_classes: list[
 
 def fetch_nasdaq_company_profile(symbol: str) -> dict[str, Any]:
     try:
-        payload = fetch_nasdaq_json(f"/company/{quote(symbol.upper(), safe='')}/company-profile", timeout=10)
+        payload = fetch_from_registry("nasdaq_api", f"/company/{quote(symbol.upper(), safe='')}/company-profile", timeout=10)
     except Exception:  # noqa: BLE001
         return {}
     data = nasdaq_data(payload)
@@ -4693,7 +4743,7 @@ def fetch_nasdaq_company_profile(symbol: str) -> dict[str, Any]:
 
 def fetch_nasdaq_company_financials(symbol: str) -> dict[str, Any]:
     try:
-        payload = fetch_nasdaq_json(f"/company/{quote(symbol.upper(), safe='')}/financials?frequency=1", timeout=12)
+        payload = fetch_from_registry("nasdaq_api", f"/company/{quote(symbol.upper(), safe='')}/financials?frequency=1", timeout=12)
     except Exception:  # noqa: BLE001
         return {}
     data = nasdaq_data(payload)
@@ -4702,7 +4752,7 @@ def fetch_nasdaq_company_financials(symbol: str) -> dict[str, Any]:
 
 def fetch_nasdaq_company_institutional_holdings(symbol: str) -> dict[str, Any]:
     try:
-        payload = fetch_nasdaq_json(f"/company/{quote(symbol.upper(), safe='')}/institutional-holdings", timeout=12)
+        payload = fetch_from_registry("nasdaq_api", f"/company/{quote(symbol.upper(), safe='')}/institutional-holdings", timeout=12)
     except Exception:  # noqa: BLE001
         return {}
     data = nasdaq_data(payload)
@@ -4711,7 +4761,7 @@ def fetch_nasdaq_company_institutional_holdings(symbol: str) -> dict[str, Any]:
 
 def fetch_nasdaq_company_insider_trades(symbol: str) -> dict[str, Any]:
     try:
-        payload = fetch_nasdaq_json(f"/company/{quote(symbol.upper(), safe='')}/insider-trades", timeout=12)
+        payload = fetch_from_registry("nasdaq_api", f"/company/{quote(symbol.upper(), safe='')}/insider-trades", timeout=12)
     except Exception:  # noqa: BLE001
         return {}
     data = nasdaq_data(payload)
@@ -4758,6 +4808,9 @@ def fetch_us_treasury_yield_curve() -> dict[str, Any]:
     }
 
 
+register(SourceSpec(name="nasdaq_trader_symbol_directory", url=lambda url: url, response_type="text"))
+
+
 def fetch_nasdaq_trader_us_listed_universe(force: bool = False) -> tuple[list[dict[str, Any]], dict[str, int]]:
     now = time.time()
     with cache_lock:
@@ -4785,7 +4838,7 @@ def fetch_nasdaq_trader_us_listed_universe(force: bool = False) -> tuple[list[di
         ]
         items: list[dict[str, Any]] = []
         for url, source in sources:
-            text = fetch_text(url, timeout=12)
+            text = fetch_from_registry("nasdaq_trader_symbol_directory", url, timeout=12)
             items.extend(parse_nasdaq_symbol_directory(text, source))
 
         merged: dict[str, dict[str, Any]] = {}

@@ -1887,6 +1887,101 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertTrue(any(item["title"] == "台積電法說會重點" for item in news))
         self.assertTrue(any(item["source"] == "經濟日報" for item in news))
 
+    # ---- TD-05 batch 11: everything-else fetcher characterization ----
+    # fetch_nasdaq_us_supplement (fan-out over the 6 nasdaq_api-backed
+    # functions below), fetch_us_treasury_yield_curve (thin wrapper over
+    # fetch_us_treasury_yield_curve_rows), fetch_us_listed_universe_with_fallback
+    # and fetch_us_etf_directory_items (composite dispatchers: Nasdaq Trader ->
+    # NYSE -> built-in seed list), fetch_nyse_us_market_search and
+    # fetch_nyse_directory_items (both use post_json with a JSON body and a
+    # per-call-varying Referer header - fetch_from_registry's POST support
+    # doesn't attach a body at all yet, and SourceSpec.headers is a static
+    # dict, so neither fits without extending the registry beyond this
+    # batch's scope), and fetch_barchart_options_context (the plan's own
+    # named fresh-CookieJar-per-call exception) are all confirmed unchanged
+    # by reading each in full.
+
+    def test_fetch_us_treasury_yield_curve_rows_parses_csv(self):
+        csv_text = "Date,1 Mo,3 Mo,2 Yr,5 Yr,10 Yr,30 Yr\n07/17/2026,5.20,5.15,4.10,4.05,4.20,4.45\n"
+        with cache.cache_lock:
+            cache.cache_data.pop("treasury_yield_curve_rows", None)
+            cache.cache_data.pop("external_text", None)
+        self.addCleanup(lambda: cache.cache_data.pop("treasury_yield_curve_rows", None))
+        self.addCleanup(lambda: cache.cache_data.pop("external_text", None))
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_text_response(csv_text)) as mock_urlopen:
+            rows = fetchers.fetch_us_treasury_yield_curve_rows()
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, fetchers.US_TREASURY_YIELD_CURVE_CSV_URL)
+        self.assertEqual(timeout, 12)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][1]["10 Yr"], "4.20")
+
+    def test_fetch_fred_observation_rows_parses_csv(self):
+        csv_text = "observation_date,CPIAUCSL\n2026-06-01,320.5\n2026-07-01,321.1\n"
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_text_response(csv_text)) as mock_urlopen:
+            rows = fetchers.fetch_fred_observation_rows("cpiaucsl", timeout=8)
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, f"{fetchers.FRED_GRAPH_CSV_BASE}?{fetchers.urlencode({'id': 'CPIAUCSL'})}")
+        self.assertEqual(timeout, 8)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[-1][1], 321.1)
+
+    def test_fetch_trading_economics_taiwan_10y_parses_description(self):
+        html = (
+            '<html><head><meta name="description" content="Taiwan 10Y Bond Yield rose to 1.65% on July 17, 2026, '
+            'marking a 0.05 percentage points increase from the previous session."></head></html>'
+        )
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_text_response(html)) as mock_urlopen:
+            result = fetchers.fetch_trading_economics_taiwan_10y(timeout=10)
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, fetchers.TRADING_ECONOMICS_TAIWAN_10Y_URL)
+        self.assertEqual(timeout, 10)
+        self.assertEqual(result["value"], 1.65)
+        self.assertEqual(result["change"], 0.05)
+
+    def test_fetch_nasdaq_quote_endpoint_tries_asset_classes_in_order(self):
+        responses = [
+            self._fake_json_response({"status": {"rCode": 200}, "data": None}),
+            self._fake_json_response({"status": {"rCode": 200}, "data": {"summary": "ok"}}),
+        ]
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", side_effect=responses) as mock_urlopen:
+            result = fetchers.fetch_nasdaq_quote_endpoint("AAPL", "summary", ["stocks", "etf"])
+        self.assertEqual(mock_urlopen.call_count, 2)
+        first_request = mock_urlopen.call_args_list[0].args[0]
+        self.assertEqual(first_request.full_url, f"{fetchers.NASDAQ_API_BASE}/quote/AAPL/summary?assetclass=stocks")
+        self.assertEqual(first_request.get_header("User-agent"), fetchers.NASDAQ_USER_AGENT)
+        self.assertEqual(result["assetClass"], "etf")
+        self.assertEqual(result["data"], {"summary": "ok"})
+
+    def test_fetch_nasdaq_company_profile_uses_shared_nasdaq_api_entry(self):
+        with patch.object(
+            fetch_registry, "_urlopen_with_ssl_fallback",
+            return_value=self._fake_json_response({"status": {"rCode": 200}, "data": {"companyName": "Apple Inc."}}),
+        ) as mock_urlopen:
+            result = fetchers.fetch_nasdaq_company_profile("aapl")
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, f"{fetchers.NASDAQ_API_BASE}/company/AAPL/company-profile")
+        self.assertEqual(timeout, 10)
+        self.assertEqual(result["companyName"], "Apple Inc.")
+
+    def test_fetch_nasdaq_trader_us_listed_universe_merges_two_sources(self):
+        nasdaq_listed = "Symbol|Security Name|ETF|Test Issue\nAAPL|Apple Inc.|N|N\n"
+        other_listed = "ACT Symbol|Security Name|Exchange|ETF|Test Issue\nSPY|SPDR S&P 500|P|Y|N\n"
+        with cache.cache_lock:
+            cache.cache_data.pop("us_listed_universe", None)
+        self.addCleanup(lambda: cache.cache_data.pop("us_listed_universe", None))
+        with patch.object(
+            fetch_registry, "_urlopen_with_ssl_fallback",
+            side_effect=[self._fake_text_response(nasdaq_listed), self._fake_text_response(other_listed)],
+        ) as mock_urlopen:
+            results, totals = fetchers.fetch_nasdaq_trader_us_listed_universe(force=True)
+        self.assertEqual(mock_urlopen.call_count, 2)
+        urls = [call.args[0].full_url for call in mock_urlopen.call_args_list]
+        self.assertEqual(urls, [fetchers.NASDAQ_LISTED_URL, fetchers.NASDAQ_OTHER_LISTED_URL])
+        symbols = {item["symbol"] for item in results}
+        self.assertIn("AAPL", symbols)
+        self.assertGreaterEqual(totals["美股個股"] + totals["美股 ETF"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
