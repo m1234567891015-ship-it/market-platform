@@ -1614,6 +1614,51 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertEqual(result["value"], 110.0)
         self.assertEqual(result["change"], 10.0)
 
+    # ---- TD-05 batch 6: Yahoo Finance global remainder characterization ----
+    # fetch_us_market_overview_news (ThreadPoolExecutor fan-out over
+    # fetch_yahoo_us_symbol_news) and fetch_taiwan_option_spot_snapshot
+    # (dispatches to fetch_taiex_spot_snapshot/fetch_yahoo_spot_snapshot, both
+    # already registry-backed since batch 5) are unchanged - pure orchestration,
+    # confirmed by reading each in full. fetch_yahoo_options_payload and its
+    # get_yahoo_options_crumb helper are the plan's documented cookie-jar
+    # exception (own _yahoo_options_opener, bypasses _urlopen_with_ssl_fallback
+    # entirely) - confirmed unchanged, already covered by the existing
+    # test_fetch_yahoo_options_payload_reaches_cboe_expiration_parser regression
+    # guard from TD-01, which still passes untouched.
+
+    def test_fetch_yahoo_us_symbol_news_maps_items(self):
+        payload = {"news": [{"title": "Headline", "publisher": "Reuters", "providerPublishTime": 1750000000, "link": "https://example.com/a"}]}
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response(payload)) as mock_urlopen:
+            result = fetchers.fetch_yahoo_us_symbol_news("AAPL", limit=6)
+        request, timeout = mock_urlopen.call_args[0]
+        expected_params = fetchers.urlencode({"q": "AAPL", "quotesCount": "0", "newsCount": "6", "enableFuzzyQuery": "false"})
+        self.assertEqual(request.full_url, f"{fetchers.YAHOO_SEARCH_BASE}?{expected_params}")
+        self.assertEqual(timeout, 8)
+        self.assertEqual(result[0]["title"], "Headline")
+        self.assertEqual(result[0]["source"], "Reuters")
+        self.assertEqual(result[0]["link"], "https://example.com/a")
+
+    def test_fetch_yahoo_us_market_search_filters_by_quote_type_and_exchange(self):
+        payload = {"quotes": [
+            {"quoteType": "EQUITY", "symbol": "AAPL", "exchange": "NMS", "shortname": "Apple Inc."},
+            {"quoteType": "EQUITY", "symbol": "AAPL.TW", "exchange": "NMS", "shortname": "Wrong market"},
+            {"quoteType": "CRYPTOCURRENCY", "symbol": "BTC-USD", "exchange": "CCC"},
+        ]}
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response(payload)) as mock_urlopen:
+            result = fetchers.fetch_yahoo_us_market_search("apple", limit=20)
+        request, timeout = mock_urlopen.call_args[0]
+        expected_params = fetchers.urlencode({"q": "apple", "quotesCount": "20", "newsCount": "0", "enableFuzzyQuery": "true"})
+        self.assertEqual(request.full_url, f"{fetchers.YAHOO_SEARCH_BASE}?{expected_params}")
+        self.assertEqual(timeout, 8)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["symbol"], "AAPL")
+
+    def test_fetch_yahoo_us_market_search_empty_query_returns_empty_without_fetching(self):
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback") as mock_urlopen:
+            result = fetchers.fetch_yahoo_us_market_search("   ", limit=20)
+        mock_urlopen.assert_not_called()
+        self.assertEqual(result, [])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -3044,14 +3044,17 @@ def fetch_yahoo_quote_summary(symbol: str) -> dict[str, Any]:
     return result or {}
 
 
+register(SourceSpec(
+    name="yahoo_us_symbol_news",
+    url=lambda symbol, limit=6: f"{YAHOO_SEARCH_BASE}?" + urlencode({
+        "q": symbol, "quotesCount": "0", "newsCount": str(limit), "enableFuzzyQuery": "false",
+    }),
+    timeout=8,
+))
+
+
 def fetch_yahoo_us_symbol_news(symbol: str, limit: int = 6) -> list[dict[str, Any]]:
-    params = urlencode({
-        "q": symbol,
-        "quotesCount": "0",
-        "newsCount": str(limit),
-        "enableFuzzyQuery": "false",
-    })
-    payload = fetch_json(f"{YAHOO_SEARCH_BASE}?{params}", timeout=8)
+    payload = fetch_from_registry("yahoo_us_symbol_news", symbol, limit=limit)
     news = payload.get("news") if isinstance(payload, dict) else []
     results: list[dict[str, Any]] = []
     for item in news or []:
@@ -3101,16 +3104,19 @@ def fetch_us_market_overview_news(limit: int = 8) -> list[dict[str, Any]]:
     return news_items[:limit]
 
 
+register(SourceSpec(
+    name="yahoo_us_market_search",
+    url=lambda query, limit=20: f"{YAHOO_SEARCH_BASE}?" + urlencode({
+        "q": query, "quotesCount": str(limit), "newsCount": "0", "enableFuzzyQuery": "true",
+    }),
+    timeout=8,
+))
+
+
 def fetch_yahoo_us_market_search(query: str, limit: int = 20) -> list[dict[str, Any]]:
     if not query.strip():
         return []
-    params = urlencode({
-        "q": query.strip(),
-        "quotesCount": str(limit),
-        "newsCount": "0",
-        "enableFuzzyQuery": "true",
-    })
-    payload = fetch_json(f"{YAHOO_SEARCH_BASE}?{params}", timeout=8)
+    payload = fetch_from_registry("yahoo_us_market_search", query.strip(), limit=limit)
     quotes = payload.get("quotes") if isinstance(payload, dict) else []
     results = []
     for quote_item in quotes or []:
