@@ -269,6 +269,13 @@ BARCHART_FUTURES_OPTIONS_PAGE_BASE = "https://www.barchart.com/futures/quotes"
 YAHOO_TW_FUTURE_CACHE_SECONDS = 60
 YAHOO_TW_OPTION_CACHE_SECONDS = 60
 YAHOO_TW_STOCK_RESOURCE_CACHE_SECONDS = 5 * 60
+# TD-12 Finding B: this TTL was previously a bare `900` literal at the
+# read_memory_cache/write_memory_cache call sites in
+# fetch_taifex_futures_technical_candles - never promoted to a named
+# constant, which is why the audit's 25-constant count didn't match a plain
+# grep for *_CACHE_SECONDS identifiers (24 named + this 1 literal). Value
+# unchanged (900s = 15min); this is a pure rename, no behavior change.
+YAHOO_TW_FUTURE_TECHNICAL_CANDLE_CACHE_SECONDS = 15 * 60
 
 TAIFEX_FORM_QUERY_CONCURRENCY = 2
 TAIFEX_FUTURES_DAILY_OPENAPI_URL = "https://openapi.taifex.com.tw/v1/DailyMarketReportFut"
@@ -3178,8 +3185,11 @@ def fetch_taiwan_option_spot_snapshot(underlying: str | None = None) -> dict[str
     }
 
 
+register(SourceSpec(name="taifex_latest_futures_market_snapshot", url=TAIFEX_FUTURES_DAILY_OPENAPI_URL, timeout=15))
+
+
 def fetch_taifex_latest_futures_market_snapshot(symbol: str) -> dict[str, Any] | None:
-    rows = fetch_json(TAIFEX_FUTURES_DAILY_OPENAPI_URL, timeout=15)
+    rows = fetch_from_registry("taifex_latest_futures_market_snapshot")
     if not isinstance(rows, list):
         return None
     selected = select_taifex_daily_market_row(rows, symbol)
@@ -3252,8 +3262,21 @@ def fetch_taifex_futures_download_candles(
     return sorted(combined.values(), key=lambda row: str(row.get("time") or ""))[-max_observations:]
 
 
+register(SourceSpec(
+    name="taifex_previous30_sales_page",
+    url=TAIFEX_FUTURES_PREVIOUS30_SALES_URL,
+    response_type="text",
+    decode="sniff_cp950_big5",
+    decode_errors="ignore",
+    cache_bucket="external_text",
+    cache_key=lambda: f"GET:{TAIFEX_FUTURES_PREVIOUS30_SALES_URL}",
+    ttl_seconds=EXTERNAL_TEXT_CACHE_SECONDS,
+    timeout=15,
+))
+
+
 def fetch_taifex_previous30_tick_dates() -> list[str]:
-    html = fetch_text(TAIFEX_FUTURES_PREVIOUS30_SALES_URL, timeout=15)
+    html = fetch_from_registry("taifex_previous30_sales_page")
     dates: list[str] = []
     seen: set[str] = set()
     for match in re.finditer(r"Daily_(\d{4})_(\d{2})_(\d{2})\.zip", html):
@@ -3265,6 +3288,17 @@ def fetch_taifex_previous30_tick_dates() -> list[str]:
     return dates
 
 
+register(SourceSpec(
+    name="taifex_daily_tick_csv",
+    url=build_taifex_daily_tick_csv_url,
+    response_type="binary",
+    cache_bucket="external_text",
+    cache_key=lambda date_text: f"BIN:{build_taifex_daily_tick_csv_url(date_text)}",
+    ttl_seconds=EXTERNAL_TEXT_CACHE_SECONDS,
+    timeout=20,
+))
+
+
 def fetch_taifex_previous30_futures_tick_candles(symbol: str, max_observations: int = 30) -> list[dict[str, Any]]:
     clean_symbol = str(symbol or "").strip().upper()
     if not clean_symbol:
@@ -3272,9 +3306,8 @@ def fetch_taifex_previous30_futures_tick_candles(symbol: str, max_observations: 
     dates = fetch_taifex_previous30_tick_dates()
     candles: list[dict[str, Any]] = []
     for date_text in dates[:max(1, int(max_observations))]:
-        url = build_taifex_daily_tick_csv_url(date_text)
         try:
-            payload = fetch_binary(url, timeout=20)
+            payload = fetch_from_registry("taifex_daily_tick_csv", date_text, cache_key_args=(date_text,))
         except Exception:  # noqa: BLE001
             LOGGER.warning("TAIFEX daily tick csv fetch failed for %s %s", clean_symbol, date_text, exc_info=True)
             continue
@@ -3381,7 +3414,7 @@ def fetch_taifex_futures_technical_candles(
 
     contract_month = str(selected_contract.get("contractMonth") or "").strip()
     cache_key = f"{clean_symbol}:{selected_code}:{contract_month or 'continuous'}:{clean_interval}"
-    cached = read_memory_cache("yahoo_tw_future_technical_candles", cache_key, 900)
+    cached = read_memory_cache("yahoo_tw_future_technical_candles", cache_key, YAHOO_TW_FUTURE_TECHNICAL_CANDLE_CACHE_SECONDS)
     if cached is not None:
         return cached
 

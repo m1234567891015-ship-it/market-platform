@@ -1659,6 +1659,66 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         mock_urlopen.assert_not_called()
         self.assertEqual(result, [])
 
+    # ---- TD-05 batch 7: TAIFEX simple lookups + Finding B TTL promotion ----
+    # The rest of the 13-function TAIFEX cluster (download candles, daily market
+    # report scan loop, price/technical candle orchestrators, all 3 open-interest
+    # functions) turned out NOT to be registry-eligible under re-verification:
+    # each is either a FORM-POST fetch (fetch_form_text - the registry has no FORM
+    # support, matching the plan's own prediction this would be rarely used given
+    # how structurally complex TAIFEX's form endpoints already are) or a pure
+    # orchestrator over other hand-written functions. Deferred to batch 8's
+    # explicit "stays hand-written" confirmation pass rather than forced in here.
+
+    def test_fetch_taifex_latest_futures_market_snapshot_uses_registry_entry(self):
+        rows = [{"symbol": "TX"}]
+        with patch.object(fetchers, "select_taifex_daily_market_row", return_value=rows[0]) as mock_select, \
+                patch.object(fetchers, "normalize_taifex_daily_market_row", return_value={"date": "2026-07-19"}), \
+                patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response(rows)) as mock_urlopen:
+            result = fetchers.fetch_taifex_latest_futures_market_snapshot("TX")
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, fetchers.TAIFEX_FUTURES_DAILY_OPENAPI_URL)
+        self.assertEqual(timeout, 15)
+        mock_select.assert_called_once_with(rows, "TX")
+        self.assertEqual(result["date"], "2026-07-19")
+        self.assertEqual(result["sourceLink"], fetchers.TAIFEX_FUTURES_DAILY_OPENAPI_URL)
+
+    def test_fetch_taifex_previous30_tick_dates_extracts_and_dedupes(self):
+        html = "Daily_2026_07_17.zip Daily_2026_07_16.zip Daily_2026_07_17.zip"
+        with cache.cache_lock:
+            cache.cache_data.pop("external_text", None)
+        self.addCleanup(lambda: cache.cache_data.pop("external_text", None))
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_text_response(html)) as mock_urlopen:
+            dates = fetchers.fetch_taifex_previous30_tick_dates()
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, fetchers.TAIFEX_FUTURES_PREVIOUS30_SALES_URL)
+        self.assertEqual(timeout, 15)
+        self.assertEqual(dates, ["2026-07-17", "2026-07-16"])
+
+    def test_fetch_taifex_previous30_futures_tick_candles_fetches_binary_per_date(self):
+        with patch.object(fetchers, "fetch_taifex_previous30_tick_dates", return_value=["2026-07-17"]), \
+                patch.object(fetchers, "parse_taifex_daily_tick_csv_candle", return_value={"time": "2026-07-17"}) as mock_parse, \
+                patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_text_response("binary-ish")) as mock_urlopen:
+            candles = fetchers.fetch_taifex_previous30_futures_tick_candles("TX", max_observations=5)
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, fetchers.build_taifex_daily_tick_csv_url("2026-07-17"))
+        self.assertEqual(timeout, 20)
+        mock_parse.assert_called_once()
+        self.assertEqual(candles, [{"time": "2026-07-17"}])
+
+    def test_yahoo_tw_future_technical_candle_ttl_is_named_constant_not_literal(self):
+        """Finding B regression guard: the TTL must come from a named constant."""
+        self.assertEqual(fetchers.YAHOO_TW_FUTURE_TECHNICAL_CANDLE_CACHE_SECONDS, 900)
+        cache_key = "TX:TX01:202607:day"
+        with cache.cache_lock:
+            cache.cache_data.setdefault("yahoo_tw_future_technical_candles", {})[cache_key] = {
+                "stored_at": time.time(), "payload": {"sentinel": True},
+            }
+        self.addCleanup(lambda: cache.cache_data.pop("yahoo_tw_future_technical_candles", None))
+        cached = cache.read_memory_cache(
+            "yahoo_tw_future_technical_candles", cache_key, fetchers.YAHOO_TW_FUTURE_TECHNICAL_CANDLE_CACHE_SECONDS,
+        )
+        self.assertEqual(cached, {"sentinel": True})
+
 
 if __name__ == "__main__":
     unittest.main()
