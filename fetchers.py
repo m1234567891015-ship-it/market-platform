@@ -240,8 +240,8 @@ from market_config import (
     NASDAQ_OTHER_LISTED_URL,
     NASDAQ_USER_AGENT,
     NYSE_QUOTES_FILTER_URL,
+    OPTIONS_CHAIN_CACHE_SECONDS,
     TAIFEX_FUTURES_DAILY_URL,
-    TAIFEX_OPTIONS_CHAIN_CACHE_SECONDS,
     TAIFEX_OPTIONS_DAILY_URL,
     TDCC_HOLDING_CACHE_SECONDS,
     TDCC_HOLDING_DISTRIBUTION_FALLBACK_URL,
@@ -3601,7 +3601,7 @@ def fetch_taifex_txo_option_chain(
     now = time.time()
     with cache_lock:
         cached = cache_data["taifex_options_chain"].get(cache_key)
-    if cached and now - cached.get("stored_at", 0) < TAIFEX_OPTIONS_CHAIN_CACHE_SECONDS:
+    if cached and now - cached.get("stored_at", 0) < OPTIONS_CHAIN_CACHE_SECONDS:
         return {**app.supplement_taifex_option_payload_with_yahoo_oi(cached["payload"]), "cached": True}
 
     with taifex_options_chain_inflight_lock:
@@ -3615,7 +3615,7 @@ def fetch_taifex_txo_option_chain(
         leader_event.wait(timeout=30)
         with cache_lock:
             cached = cache_data["taifex_options_chain"].get(cache_key)
-        if cached and time.time() - cached.get("stored_at", 0) < TAIFEX_OPTIONS_CHAIN_CACHE_SECONDS:
+        if cached and time.time() - cached.get("stored_at", 0) < OPTIONS_CHAIN_CACHE_SECONDS:
             return {**app.supplement_taifex_option_payload_with_yahoo_oi(cached["payload"]), "cached": True}
         # The leader's scan didn't leave a usable cache entry (e.g. no data for any
         # scanned date) -- fall through and run our own scan rather than giving up.

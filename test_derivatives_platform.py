@@ -22,6 +22,7 @@ import builders
 import cache
 import fetch_registry
 import fetchers
+import market_config
 import routes_derivatives
 import routes_global_market
 import routes_twse
@@ -1718,6 +1719,32 @@ class DerivativesPlatformApiTests(unittest.TestCase):
             "yahoo_tw_future_technical_candles", cache_key, fetchers.YAHOO_TW_FUTURE_TECHNICAL_CANDLE_CACHE_SECONDS,
         )
         self.assertEqual(cached, {"sentinel": True})
+
+    # ---- TD-05 batch 8: TAIFEX complex fetchers stay hand-written + TTL merge ----
+    # fetch_taifex_txo_option_chain (12-day scan + leader/follower coalescing +
+    # FORM-POST + direct cache_data manipulation), fetch_taifex_openapi_list (a
+    # generic caller-parameterized cache wrapper, not a single fixed source - its
+    # url/cache_seconds come from the CALLER, so it doesn't fit a one-row
+    # SourceSpec any more than fetch_json itself would), fetch_taifex_institution_detail_rows
+    # (thin dispatcher delegating to fetch_taifex_openapi_list), and
+    # fetch_taiwan_option_chain (TAIFEX-vs-Yahoo source-mode dispatcher/fallback)
+    # are all confirmed unchanged by reading each in full - no new fetch tests
+    # needed since none of their fetch behavior changed.
+
+    def test_options_chain_cache_seconds_merged_across_modules(self):
+        """TD-12: US_/YAHOO_/BARCHART_/TAIFEX_OPTIONS_CHAIN_CACHE_SECONDS (4 names,
+        all 300s) are now one constant, imported from market_config by both
+        fetchers.py and builders.py - not 4 independently-declared 300s."""
+        self.assertEqual(market_config.OPTIONS_CHAIN_CACHE_SECONDS, 300)
+        self.assertIs(fetchers.OPTIONS_CHAIN_CACHE_SECONDS, market_config.OPTIONS_CHAIN_CACHE_SECONDS)
+        self.assertIs(builders.OPTIONS_CHAIN_CACHE_SECONDS, market_config.OPTIONS_CHAIN_CACHE_SECONDS)
+        for removed_name in (
+            "US_OPTIONS_CHAIN_CACHE_SECONDS", "YAHOO_OPTIONS_CHAIN_CACHE_SECONDS",
+            "BARCHART_OPTIONS_CHAIN_CACHE_SECONDS", "TAIFEX_OPTIONS_CHAIN_CACHE_SECONDS",
+        ):
+            self.assertFalse(hasattr(builders, removed_name))
+            self.assertFalse(hasattr(fetchers, removed_name))
+            self.assertFalse(hasattr(market_config, removed_name))
 
 
 if __name__ == "__main__":

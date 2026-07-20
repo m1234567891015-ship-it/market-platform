@@ -347,6 +347,7 @@ from market_config import (
     CBOE_OPTIONS_BASE,
     GLOBAL_MACRO_ASSET_SCHEMA,
     GLOBAL_MARKET_CATEGORIES,
+    OPTIONS_CHAIN_CACHE_SECONDS,
     SECTOR_INDEX_LOOKUP,
     SUPPORTED_CHART_INTERVALS,
     TAIFEX_FUTURES_DAILY_URL,
@@ -1514,10 +1515,7 @@ def build_institution_payload_live(product: str, source_url: str) -> dict[str, A
     }
 
 
-US_OPTIONS_CHAIN_CACHE_SECONDS = 5 * 60
-YAHOO_OPTIONS_CHAIN_CACHE_SECONDS = 5 * 60
 BARCHART_CORE_QUOTES_URL = "https://www.barchart.com/proxies/core-api/v1/quotes/get"
-BARCHART_OPTIONS_CHAIN_CACHE_SECONDS = 5 * 60
 BARCHART_FUTURES_OPTIONS_ROOTS = {
     "GC=F": "GC",
     "SI=F": "SI",
@@ -1669,7 +1667,7 @@ def build_cboe_options_chain(symbol: str, expiration: str | None = None) -> dict
     contract_root = clean_symbol[1:] if clean_symbol.startswith("_") else clean_symbol
     cache_key = f"{clean_symbol}:{expiration or ''}"
     if not app.global_market_refresh_requested():
-        cached_chain = read_memory_cache("us_options_chains", cache_key, US_OPTIONS_CHAIN_CACHE_SECONDS)
+        cached_chain = read_memory_cache("us_options_chains", cache_key, OPTIONS_CHAIN_CACHE_SECONDS)
         if cached_chain is not None:
             return copy.deepcopy(cached_chain)
     url = f"{CBOE_OPTIONS_BASE}/{quote(clean_symbol)}.json"
@@ -1755,7 +1753,7 @@ def build_yahoo_options_chain(symbol: str, expiration: str | None = None) -> dic
         return {"error": "Invalid option underlying symbol."}
     cache_key = f"yahoo:{clean_symbol}:{expiration or ''}"
     if not app.global_market_refresh_requested():
-        cached_chain = read_memory_cache("us_options_chains", cache_key, YAHOO_OPTIONS_CHAIN_CACHE_SECONDS)
+        cached_chain = read_memory_cache("us_options_chains", cache_key, OPTIONS_CHAIN_CACHE_SECONDS)
         if cached_chain is not None:
             return copy.deepcopy(cached_chain)
 
@@ -1835,7 +1833,7 @@ def build_barchart_futures_options_chain(symbol: str, expiration: str | None = N
 
     cache_key = f"barchart:{clean_symbol}:{expiration or ''}"
     if not app.global_market_refresh_requested():
-        cached_chain = read_memory_cache("us_options_chains", cache_key, BARCHART_OPTIONS_CHAIN_CACHE_SECONDS)
+        cached_chain = read_memory_cache("us_options_chains", cache_key, OPTIONS_CHAIN_CACHE_SECONDS)
         if cached_chain is not None:
             return copy.deepcopy(cached_chain)
 
