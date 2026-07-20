@@ -2348,6 +2348,9 @@ def fetch_stock_institutional_trades(stock: dict[str, Any], date_str: str) -> di
     }
 
 
+register(SourceSpec(name="stock_institutional_trade_for_date", url=build_stock_institutions_url))
+
+
 def fetch_stock_institutional_trade_for_date(
     stock: dict[str, Any],
     date_str: str,
@@ -2357,7 +2360,7 @@ def fetch_stock_institutional_trade_for_date(
     payload: dict[str, Any] = {}
     for attempt in range(3):
         try:
-            payload = fetch_json(build_stock_institutions_url(date_str), timeout=10)
+            payload = fetch_from_registry("stock_institutional_trade_for_date", date_str, timeout=10)
             break
         except Exception:  # noqa: BLE001
             if attempt >= 2:
@@ -2460,6 +2463,9 @@ def fetch_stock_institutional_trade_history(
     }
 
 
+register(SourceSpec(name="stock_day_candles", url=build_stock_day_url))
+
+
 def fetch_stock_history_rows(stock_no: str, date_str: str, months_back: int = STOCK_HISTORY_MAX_MONTHS) -> list[list[str]]:
     rows_by_date: dict[str, list[str]] = {}
     empty_months_after_data = 0
@@ -2467,7 +2473,7 @@ def fetch_stock_history_rows(stock_no: str, date_str: str, months_back: int = ST
     def fetch_month(offset: int) -> list[list[str]]:
         target = shift_month(date_str, offset)
         try:
-            payload = fetch_json(build_stock_day_url(target, stock_no), timeout=STOCK_HISTORY_TIMEOUT_SECONDS)
+            payload = fetch_from_registry("stock_day_candles", target, stock_no, timeout=STOCK_HISTORY_TIMEOUT_SECONDS)
         except Exception:  # noqa: BLE001
             return []
         return payload.get("data", []) if isinstance(payload, dict) else []
@@ -2501,10 +2507,7 @@ def fetch_recent_trade_rows(stock_no: str, date_str: str) -> list[list[str]]:
 
     def fetch_month(target: str) -> list[list[str]]:
         try:
-            payload = fetch_json(
-                build_stock_day_url(target, stock_no),
-                timeout=SECTOR_CHART_TRADE_TIMEOUT_SECONDS,
-            )
+            payload = fetch_from_registry("stock_day_candles", target, stock_no, timeout=SECTOR_CHART_TRADE_TIMEOUT_SECONDS)
         except Exception:  # noqa: BLE001
             return []
         return payload.get("data", []) if isinstance(payload, dict) else []
@@ -2519,9 +2522,13 @@ def fetch_recent_trade_rows(stock_no: str, date_str: str) -> list[list[str]]:
     return sorted(rows_by_date.values(), key=lambda row: parse_roc_date(row[0]))
 
 
+register(SourceSpec(name="live_index_activity", url=build_index_activity_url))
+register(SourceSpec(name="live_index_intraday", url=build_index_intraday_url))
+
+
 def fetch_live_index_activity(market_date: str) -> dict[str, Any] | None:
     try:
-        payload = fetch_json(build_index_activity_url(market_date), timeout=10)
+        payload = fetch_from_registry("live_index_activity", market_date, timeout=10)
     except Exception:  # noqa: BLE001
         LOGGER.exception("Live index activity fetch failed")
         return None
@@ -2530,7 +2537,7 @@ def fetch_live_index_activity(market_date: str) -> dict[str, Any] | None:
 
 def fetch_live_index_intraday(market_date: str) -> dict[str, Any] | None:
     try:
-        payload = fetch_json(build_index_intraday_url(market_date), timeout=10)
+        payload = fetch_from_registry("live_index_intraday", market_date, timeout=10)
     except Exception:  # noqa: BLE001
         LOGGER.exception("Live index intraday fetch failed")
         return None

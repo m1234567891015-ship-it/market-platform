@@ -1435,6 +1435,68 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertEqual(result["fullName"], "台積電")
         self.assertEqual(result["chairman"], "劉德音")
 
+    # ---- TD-05 batch 3: TWSE institutional/history fetcher characterization ----
+    # fetch_stock_institutional_trades and fetch_stock_institutional_trade_history
+    # are unchanged in this batch (the former calls the shared find_latest_dataset
+    # retry helper, unrelated to any single SourceSpec; the latter is a pure
+    # ThreadPoolExecutor fan-out over fetch_stock_institutional_trade_for_date and
+    # benefits from that function's migration transparently) - no new tests needed
+    # for functions with zero behavioral surface changed.
+
+    def test_fetch_stock_institutional_trade_for_date_retries_and_delegates_to_builder(self):
+        stock = {"code": "2330"}
+        payload = {"stat": "OK", "data": [["2330", "x"]]}
+        sentinel = {"date": "2026-07-19"}
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response(payload)) as mock_urlopen, \
+                patch.object(app, "build_stock_institutional_trade_record", return_value=sentinel) as mock_builder:
+            result = fetchers.fetch_stock_institutional_trade_for_date(stock, "20260719")
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, fetchers.build_stock_institutions_url("20260719"))
+        self.assertEqual(timeout, 10)
+        mock_builder.assert_called_once_with(["2330", "x"], "20260719")
+        self.assertEqual(result, sentinel)
+
+    def test_fetch_stock_history_rows_uses_stock_day_registry_entry(self):
+        payload = {"data": [["115/07/01", "x"], ["115/07/02", "y"]]}
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response(payload)) as mock_urlopen:
+            rows = fetchers.fetch_stock_history_rows("2330", "20260719", months_back=1)
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, fetchers.build_stock_day_url(fetchers.shift_month("20260719", 0), "2330"))
+        self.assertEqual(timeout, fetchers.STOCK_HISTORY_TIMEOUT_SECONDS)
+        self.assertEqual(len(rows), 2)
+
+    def test_fetch_recent_trade_rows_uses_stock_day_registry_entry(self):
+        payload = {"data": [["115/07/01", "a", "b", "c", "d", "e", "f", "g", "h"]]}
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response(payload)) as mock_urlopen:
+            rows = fetchers.fetch_recent_trade_rows("2330", "20260719")
+        self.assertEqual(mock_urlopen.call_count, fetchers.SECTOR_CHART_TRADE_MONTHS)
+        _, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(timeout, fetchers.SECTOR_CHART_TRADE_TIMEOUT_SECONDS)
+        self.assertEqual(len(rows), 1)
+
+    def test_fetch_live_index_activity_returns_payload_when_dataset_has_rows(self):
+        payload = {"stat": "OK", "data": [["x"]]}
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response(payload)) as mock_urlopen:
+            result = fetchers.fetch_live_index_activity("20260719")
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, fetchers.build_index_activity_url("20260719"))
+        self.assertEqual(timeout, 10)
+        self.assertEqual(result, payload)
+
+    def test_fetch_live_index_activity_returns_none_on_fetch_error(self):
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", side_effect=RuntimeError("boom")):
+            result = fetchers.fetch_live_index_activity("20260719")
+        self.assertIsNone(result)
+
+    def test_fetch_live_index_intraday_returns_payload_when_dataset_has_rows(self):
+        payload = {"stat": "OK", "data": [["x"]]}
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response(payload)) as mock_urlopen:
+            result = fetchers.fetch_live_index_intraday("20260719")
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, fetchers.build_index_intraday_url("20260719"))
+        self.assertEqual(timeout, 10)
+        self.assertEqual(result, payload)
+
 
 if __name__ == "__main__":
     unittest.main()
