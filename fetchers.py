@@ -4393,6 +4393,9 @@ def fetch_etf_dividend_info(stock: dict[str, Any], limit: int = 6) -> dict[str, 
     }
 
 
+register(SourceSpec(name="tdcc_holding_distribution_page", url=lambda url: url, response_type="text"))
+
+
 def fetch_tdcc_holding_distribution_text(timeout: int = 12) -> str:
     attempts = (
         TDCC_HOLDING_DISTRIBUTION_URL,
@@ -4403,7 +4406,7 @@ def fetch_tdcc_holding_distribution_text(timeout: int = 12) -> str:
     last_exc: Exception | None = None
     for index, url in enumerate(attempts):
         try:
-            return fetch_text(url, timeout=timeout)
+            return fetch_from_registry("tdcc_holding_distribution_page", url, timeout=timeout)
         except Exception as exc:  # noqa: BLE001
             last_exc = exc
             errors.append(f"{url}: {exc!r}")
@@ -4483,6 +4486,13 @@ def fetch_shareholder_distribution(code: str) -> dict[str, Any]:
     return distributions.get(normalized_code, unavailable("集保持股分布目前未提供此代號資料。"))
 
 
+register(SourceSpec(
+    name="google_news_rss",
+    url=lambda query: f"{GOOGLE_NEWS_RSS_BASE}?{urlencode({'q': query, 'hl': 'zh-TW', 'gl': 'TW', 'ceid': 'TW:zh-Hant'})}",
+    response_type="text",
+))
+
+
 def fetch_stock_news(stock: dict[str, Any], limit: int = 6) -> list[dict[str, Any]]:
     code = str(stock.get("code") or "").strip()
     name = str(stock.get("name") or "").strip()
@@ -4504,9 +4514,8 @@ def fetch_stock_news(stock: dict[str, Any], limit: int = 6) -> list[dict[str, An
     queries = [query for query in queries if query.strip()]
 
     def fetch_news_query(query: str) -> list[dict[str, Any]]:
-        url = f"{GOOGLE_NEWS_RSS_BASE}?{urlencode({'q': query, 'hl': 'zh-TW', 'gl': 'TW', 'ceid': 'TW:zh-Hant'})}"
         try:
-            xml_text = fetch_text(url, timeout=7)
+            xml_text = fetch_from_registry("google_news_rss", query, timeout=7)
             root = ET.fromstring(xml_text)
         except Exception:  # noqa: BLE001
             LOGGER.exception("Google News RSS fetch failed for %s", code)

@@ -509,10 +509,17 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         sanitized = app.sanitize_history_rows(rows)
         self.assertEqual([row[0] for row in sanitized], ["115/06/30", "115/07/02"])
 
-    @patch.object(fetchers, "fetch_text", side_effect=RuntimeError("news unavailable"))
-    def test_etf_stock_news_uses_non_empty_fallback(self, _fetch_text):
+    def test_etf_stock_news_uses_non_empty_fallback(self):
+        # TD-05 batch 10: fetch_stock_news's inner query fetch now routes
+        # through fetch_from_registry("google_news_rss", ...) instead of
+        # fetchers.fetch_text directly. Patching fetch_text here would no
+        # longer intercept anything - the real _urlopen_with_ssl_fallback
+        # would run unmocked, and this test would "pass" only because the
+        # test sandbox happens to have no network access, not because the
+        # fallback path was actually exercised deterministically.
         stock = {"code": "0050", "name": "元大台灣50", "market": "TWSE", "securityType": "ETF"}
-        news = app.fetch_stock_news(stock, 6)
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", side_effect=RuntimeError("news unavailable")):
+            news = app.fetch_stock_news(stock, 6)
         self.assertGreaterEqual(len(news), 3)
         self.assertIn("Yahoo ETF 新聞", news[0]["title"])
         self.assertIn("news.google.com/search", news[1]["link"])
@@ -1231,6 +1238,32 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         problems = fetch_registry.validate_registry()
         self.assertFalse(any("td05_test_well_formed" in problem for problem in problems))
 
+    def test_fetch_registry_validate_registry_flags_cache_key_url_arity_mismatch(self):
+        """cache_key_args defaults to url_args (fetch_from_registry) - a
+        cache_key callable that takes a different number of args than url
+        would silently break under that default, so this must be caught at
+        registration time, not discovered later at a specific call site."""
+        self._register_temp_spec(fetch_registry.SourceSpec(
+            name="td05_test_arity_mismatch",
+            url=lambda a, b: f"https://example.com/{a}/{b}",
+            cache_bucket="td05_test_bucket",
+            cache_key=lambda a: f"key:{a}",
+        ))
+        problems = fetch_registry.validate_registry()
+        self.assertTrue(any(
+            "td05_test_arity_mismatch" in problem and "cache_key takes" in problem for problem in problems
+        ))
+
+    def test_fetch_registry_validate_registry_passes_when_cache_key_arity_matches_url(self):
+        self._register_temp_spec(fetch_registry.SourceSpec(
+            name="td05_test_arity_match",
+            url=lambda a, b: f"https://example.com/{a}/{b}",
+            cache_bucket="td05_test_bucket",
+            cache_key=lambda a, b: f"key:{a}:{b}",
+        ))
+        problems = fetch_registry.validate_registry()
+        self.assertFalse(any("td05_test_arity_match" in problem for problem in problems))
+
     def test_fetch_from_registry_parses_and_caches_json_response(self):
         calls = {"count": 0}
 
@@ -1808,6 +1841,51 @@ class DerivativesPlatformApiTests(unittest.TestCase):
             fetchers.fetch_yahoo_major_holders(stock, 30)
         self.assertEqual(mock_urlopen.call_count, 1)
         self.assertEqual(mock_urlopen2.call_count, 1, "second page must not be served from the first page's cache entry")
+
+    # ---- TD-05 batch 10: Yahoo Taiwan remainder + market macro composite ----
+    # fetch_market_macro_factors is the plan's named cross-source composite
+    # dispatcher (ThreadPoolExecutor fan-out combining build_yahoo_macro_snapshot
+    # - itself already registry-backed via fetch_yahoo_symbol_chart since batch
+    # 5 - plus fetch_twse_margin_summary and fetch_taifex_tx_open_interest) -
+    # confirmed unchanged by reading it in full, benefits transparently.
+    # fetch_shareholder_distribution has its own time.time()-based cache wrapper
+    # (cache_data["shareholder_distributions"]) and calls
+    # fetch_tdcc_holding_distribution_text, not fetch_text/fetch_json directly -
+    # unchanged, benefits transparently from that function's migration below.
+
+    def test_fetch_tdcc_holding_distribution_text_retries_then_falls_back(self):
+        responses = [RuntimeError("boom"), RuntimeError("boom"), self._fake_text_response("持股分布資料")]
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", side_effect=responses) as mock_urlopen, \
+                patch.object(fetchers.time, "sleep"):
+            result = fetchers.fetch_tdcc_holding_distribution_text(timeout=12)
+        self.assertEqual(result, "持股分布資料")
+        self.assertEqual(mock_urlopen.call_count, 3)
+        urls = [call.args[0].full_url for call in mock_urlopen.call_args_list]
+        self.assertEqual(urls, [
+            fetchers.TDCC_HOLDING_DISTRIBUTION_URL,
+            fetchers.TDCC_HOLDING_DISTRIBUTION_URL,
+            fetchers.TDCC_HOLDING_DISTRIBUTION_FALLBACK_URL,
+        ])
+
+    def test_fetch_stock_news_uses_google_news_rss_registry_entry(self):
+        rss_xml = """<?xml version="1.0"?>
+        <rss><channel>
+          <item>
+            <title>台積電法說會重點</title>
+            <link>https://news.google.com/articles/abc</link>
+            <pubDate>Mon, 20 Jul 2026 09:00:00 GMT</pubDate>
+            <source>經濟日報</source>
+          </item>
+        </channel></rss>
+        """
+        stock = {"code": "2330", "name": "台積電", "market": "TWSE", "securityType": "STOCK"}
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_text_response(rss_xml)) as mock_urlopen:
+            news = fetchers.fetch_stock_news(stock, limit=6)
+        self.assertGreaterEqual(mock_urlopen.call_count, 1)
+        request = mock_urlopen.call_args_list[0].args[0]
+        self.assertTrue(request.full_url.startswith(fetchers.GOOGLE_NEWS_RSS_BASE))
+        self.assertTrue(any(item["title"] == "台積電法說會重點" for item in news))
+        self.assertTrue(any(item["source"] == "經濟日報" for item in news))
 
 
 if __name__ == "__main__":

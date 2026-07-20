@@ -37,6 +37,7 @@ imported BY fetchers.py, never the reverse.
 """
 from __future__ import annotations
 
+import inspect
 import json
 from dataclasses import dataclass
 from typing import Any, Callable, Literal
@@ -165,6 +166,14 @@ def validate_registry() -> list[str]:
     - every SourceSpec.ttl_seconds, if set, matches a named constant in
       market_config.py (catches the Finding B class of bug: a bare TTL
       literal that was never promoted to a named constant)
+    - every SourceSpec.cache_key, if set, is callable and takes the same
+      number of parameters as spec.url does (0 if url is a static string).
+      fetch_from_registry() defaults cache_key_args to url_args, so a
+      cache_key callable that doesn't accept the same shape of arguments
+      as url would either crash at call time or (worse) only work by
+      accident for calls that happen to pass a matching cache_key_args
+      override explicitly - this check catches the mismatch at registration
+      time instead of waiting for a specific call site to expose it.
 
     Name uniqueness is enforced at register() time, not here (see above).
     """
@@ -180,4 +189,20 @@ def validate_registry() -> list[str]:
                 f"{spec.name}: ttl_seconds={spec.ttl_seconds} does not match any "
                 f"*_CACHE_SECONDS/*_TTL_SECONDS constant in market_config.py"
             )
+        if spec.cache_key is not None:
+            if not callable(spec.cache_key):
+                problems.append(f"{spec.name}: cache_key is not callable")
+            else:
+                expected_params = len(inspect.signature(spec.url).parameters) if callable(spec.url) else 0
+                try:
+                    actual_params = len(inspect.signature(spec.cache_key).parameters)
+                except (TypeError, ValueError):
+                    actual_params = None
+                if actual_params is not None and actual_params != expected_params:
+                    problems.append(
+                        f"{spec.name}: cache_key takes {actual_params} arg(s) but url takes "
+                        f"{expected_params} - cache_key_args defaults to url_args in "
+                        f"fetch_from_registry(), so these must match unless every call site "
+                        f"passes an explicit cache_key_args override"
+                    )
     return problems
