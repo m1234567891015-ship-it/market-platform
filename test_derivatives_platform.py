@@ -1551,6 +1551,69 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertEqual(rows, payload)
         self.assertEqual(snapshot_date, fetchers.parse_compact_roc_date("1150719"))
 
+    # ---- TD-05 batch 5: Yahoo Finance global core characterization ----
+    # fetch_market_volatility_indicator, fetch_international_market_indexes,
+    # fetch_taiex_spot_snapshot, fetch_yahoo_spot_snapshot,
+    # fetch_yahoo_trading_dates_for_institutional_range, and fetch_yahoo_history_rows
+    # are all unchanged in this batch - each is pure orchestration over
+    # fetch_yahoo_chart/fetch_yahoo_symbol_chart (confirmed by reading each in full,
+    # zero direct fetch_json calls), so they benefit from those two functions'
+    # migration transparently. The plan flagged fetch_market_volatility_indicator
+    # for a shape check before assuming it was registry-eligible; it turned out to
+    # be an orchestrator, not a flat fetcher - this is exactly the kind of
+    # re-verification-at-batch-time the plan called for.
+
+    def test_fetch_yahoo_chart_unwraps_first_chart_result(self):
+        payload = {"chart": {"result": [{"timestamp": [1]}]}}
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response(payload)) as mock_urlopen:
+            result = fetchers.fetch_yahoo_chart("2330", range_name="5d", interval="1d", market="TWSE")
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, fetchers.build_yahoo_chart_url("2330", "5d", "1d", "TWSE"))
+        self.assertEqual(timeout, 10)
+        self.assertEqual(result, {"timestamp": [1]})
+
+    def test_fetch_yahoo_chart_returns_none_when_no_results(self):
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response({"chart": {"result": []}})):
+            result = fetchers.fetch_yahoo_chart("2330")
+        self.assertIsNone(result)
+
+    def test_fetch_yahoo_symbol_chart_unwraps_first_chart_result(self):
+        payload = {"chart": {"result": [{"timestamp": [1, 2]}]}}
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response(payload)) as mock_urlopen:
+            result = fetchers.fetch_yahoo_symbol_chart("^VIX", "3mo", "1d")
+        request, timeout = mock_urlopen.call_args[0]
+        expected_params = fetchers.urlencode({"range": "3mo", "interval": "1d", "includePrePost": "false"})
+        self.assertEqual(request.full_url, f"{fetchers.YAHOO_CHART_BASE}/%5EVIX?{expected_params}")
+        self.assertEqual(timeout, 10)
+        self.assertEqual(result, {"timestamp": [1, 2]})
+
+    def test_fetch_yahoo_quote_summary_unwraps_first_result(self):
+        payload = {"quoteSummary": {"result": [{"price": {"regularMarketPrice": 123.4}}]}}
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response(payload)) as mock_urlopen:
+            result = fetchers.fetch_yahoo_quote_summary("AAPL")
+        request, timeout = mock_urlopen.call_args[0]
+        expected_params = fetchers.urlencode({"modules": fetchers.YAHOO_QUOTE_SUMMARY_MODULES})
+        self.assertEqual(request.full_url, f"{fetchers.YAHOO_QUOTE_SUMMARY_BASE}/AAPL?{expected_params}")
+        self.assertEqual(timeout, 10)
+        self.assertEqual(result, {"price": {"regularMarketPrice": 123.4}})
+
+    def test_fetch_yahoo_spot_snapshot_derives_change_from_migrated_chart(self):
+        """Integration check: fetch_yahoo_spot_snapshot -> fetch_yahoo_symbol_chart -> registry, end to end."""
+        payload = {
+            "chart": {"result": [{
+                "meta": {"regularMarketPrice": 110.0, "chartPreviousClose": 100.0},
+                "timestamp": [1, 2],
+                "indicators": {"quote": [{"close": [100.0, 110.0], "open": [99.0, 108.0], "high": [111.0, 111.0], "low": [98.0, 107.0], "volume": [1000, 2000]}]},
+            }]},
+        }
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response(payload)) as mock_urlopen:
+            result = fetchers.fetch_yahoo_spot_snapshot("^TWII", "台灣加權指數")
+        request, _ = mock_urlopen.call_args[0]
+        expected_params = fetchers.urlencode({"range": "5d", "interval": "1d", "includePrePost": "false"})
+        self.assertEqual(request.full_url, f"{fetchers.YAHOO_CHART_BASE}/%5ETWII?{expected_params}")
+        self.assertEqual(result["value"], 110.0)
+        self.assertEqual(result["change"], 10.0)
+
 
 if __name__ == "__main__":
     unittest.main()

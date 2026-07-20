@@ -2655,20 +2655,30 @@ def fetch_live_stock_search_results(
     )
 
 
+register(SourceSpec(name="yahoo_chart", url=build_yahoo_chart_url, timeout=10))
+register(SourceSpec(
+    name="yahoo_symbol_chart",
+    url=lambda symbol, range_name="2y", interval="1d": (
+        f"{YAHOO_CHART_BASE}/{quote(symbol, safe='')}?"
+        f"{urlencode({'range': range_name, 'interval': interval, 'includePrePost': 'false'})}"
+    ),
+    timeout=10,
+))
+
+
 def fetch_yahoo_chart(
     code: str,
     range_name: str = "5d",
     interval: str = "1d",
     market: str = "TPEx",
 ) -> dict[str, Any] | None:
-    payload = fetch_json(build_yahoo_chart_url(code, range_name, interval, market), timeout=10)
+    payload = fetch_from_registry("yahoo_chart", code, range_name, interval, market)
     results = ((payload or {}).get("chart") or {}).get("result") or []
     return results[0] if results else None
 
 
 def fetch_yahoo_symbol_chart(symbol: str, range_name: str = "2y", interval: str = "1d") -> dict[str, Any] | None:
-    params = urlencode({"range": range_name, "interval": interval, "includePrePost": "false"})
-    payload = fetch_json(f"{YAHOO_CHART_BASE}/{quote(symbol, safe='')}?{params}", timeout=10)
+    payload = fetch_from_registry("yahoo_symbol_chart", symbol, range_name=range_name, interval=interval)
     results = ((payload or {}).get("chart") or {}).get("result") or []
     return results[0] if results else None
 
@@ -3001,26 +3011,35 @@ def fetch_yahoo_history_rows(
     return rows
 
 
+YAHOO_QUOTE_SUMMARY_MODULES = ",".join([
+    "price",
+    "summaryProfile",
+    "assetProfile",
+    "summaryDetail",
+    "defaultKeyStatistics",
+    "financialData",
+    "calendarEvents",
+    "fundProfile",
+    "topHoldings",
+    "majorHoldersBreakdown",
+    "institutionOwnership",
+    "fundOwnership",
+    "insiderTransactions",
+    "insiderHolders",
+    "netSharePurchaseActivity",
+])
+register(SourceSpec(
+    name="yahoo_quote_summary",
+    url=lambda symbol: (
+        f"{YAHOO_QUOTE_SUMMARY_BASE}/{quote(symbol, safe='')}?"
+        f"{urlencode({'modules': YAHOO_QUOTE_SUMMARY_MODULES})}"
+    ),
+    timeout=10,
+))
+
+
 def fetch_yahoo_quote_summary(symbol: str) -> dict[str, Any]:
-    modules = ",".join([
-        "price",
-        "summaryProfile",
-        "assetProfile",
-        "summaryDetail",
-        "defaultKeyStatistics",
-        "financialData",
-        "calendarEvents",
-        "fundProfile",
-        "topHoldings",
-        "majorHoldersBreakdown",
-        "institutionOwnership",
-        "fundOwnership",
-        "insiderTransactions",
-        "insiderHolders",
-        "netSharePurchaseActivity",
-    ])
-    params = urlencode({"modules": modules})
-    payload = fetch_json(f"{YAHOO_QUOTE_SUMMARY_BASE}/{quote(symbol, safe='')}?{params}", timeout=10)
+    payload = fetch_from_registry("yahoo_quote_summary", symbol)
     result = ((payload.get("quoteSummary") or {}).get("result") or [None])[0] if isinstance(payload, dict) else None
     return result or {}
 
