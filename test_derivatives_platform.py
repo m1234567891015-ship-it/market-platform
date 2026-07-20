@@ -10,7 +10,7 @@ import subprocess
 import sys
 from pathlib import Path
 from datetime import datetime, timedelta
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from urllib.error import URLError
 from urllib.request import Request
 
@@ -20,6 +20,7 @@ os.environ.setdefault("MARKET_PULSE_LOG_LEVEL", "CRITICAL")
 import app
 import builders
 import cache
+import fetch_registry
 import fetchers
 import routes_derivatives
 import routes_global_market
@@ -1181,6 +1182,77 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         with patch.object(security, "urlopen", side_effect=fake_urlopen), patch.object(security, "_is_production_environment", return_value=False):
             with self.assertRaises(ssl.SSLCertVerificationError):
                 security._urlopen_with_ssl_fallback(request, timeout=5)
+
+    # ---- TD-05 batch 1: fetch_registry self-audit invariants ----
+    # These tests register synthetic SourceSpecs (not real production entries -
+    # those start appearing in batch 2) purely to prove register()/validate_registry()
+    # actually catch the violations they claim to catch, since an empty registry
+    # would make the checks trivially pass without proving anything.
+
+    def _register_temp_spec(self, spec):
+        self.addCleanup(fetch_registry.REGISTRY.pop, spec.name, None)
+        fetch_registry.register(spec)
+
+    def test_fetch_registry_register_rejects_duplicate_name(self):
+        self._register_temp_spec(fetch_registry.SourceSpec(name="td05_test_dup", url="https://example.com/a"))
+        with self.assertRaises(ValueError):
+            fetch_registry.register(fetch_registry.SourceSpec(name="td05_test_dup", url="https://example.com/b"))
+
+    def test_fetch_registry_validate_registry_flags_empty_url(self):
+        self._register_temp_spec(fetch_registry.SourceSpec(name="td05_test_empty_url", url=""))
+        problems = fetch_registry.validate_registry()
+        self.assertTrue(any("td05_test_empty_url" in problem and "url is empty" in problem for problem in problems))
+
+    def test_fetch_registry_validate_registry_flags_unresolvable_parser(self):
+        self._register_temp_spec(fetch_registry.SourceSpec(
+            name="td05_test_bad_parser", url="https://example.com/a", parser="not-callable",
+        ))
+        problems = fetch_registry.validate_registry()
+        self.assertTrue(any("td05_test_bad_parser" in problem and "parser is not callable" in problem for problem in problems))
+
+    def test_fetch_registry_validate_registry_flags_ttl_not_a_named_constant(self):
+        self._register_temp_spec(fetch_registry.SourceSpec(
+            name="td05_test_bad_ttl", url="https://example.com/a", ttl_seconds=123456789,
+        ))
+        problems = fetch_registry.validate_registry()
+        self.assertTrue(any("td05_test_bad_ttl" in problem and "ttl_seconds" in problem for problem in problems))
+
+    def test_fetch_registry_validate_registry_passes_for_well_formed_entry(self):
+        known_ttl = next(iter(fetch_registry._known_ttl_values()))
+        self._register_temp_spec(fetch_registry.SourceSpec(
+            name="td05_test_well_formed", url="https://example.com/a", parser=str, ttl_seconds=known_ttl,
+        ))
+        problems = fetch_registry.validate_registry()
+        self.assertFalse(any("td05_test_well_formed" in problem for problem in problems))
+
+    def test_fetch_from_registry_parses_and_caches_json_response(self):
+        calls = {"count": 0}
+
+        def fake_urlopen(_req, timeout=None):
+            calls["count"] += 1
+            response = MagicMock()
+            response.read.return_value = b'{"value": 42}'
+            response.headers = {}
+            response.__enter__ = lambda self=response: self
+            response.__exit__ = lambda self, *exc: False
+            return response
+
+        self._register_temp_spec(fetch_registry.SourceSpec(
+            name="td05_test_fetch",
+            url="https://example.com/data",
+            parser=lambda payload: payload["value"],
+            cache_bucket="td05_test_bucket",
+            ttl_seconds=next(iter(fetch_registry._known_ttl_values())),
+        ))
+        self.addCleanup(cache.cache_data.pop, "td05_test_bucket", None)
+
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", side_effect=fake_urlopen):
+            first = fetch_registry.fetch_from_registry("td05_test_fetch")
+            second = fetch_registry.fetch_from_registry("td05_test_fetch")
+
+        self.assertEqual(first, 42)
+        self.assertEqual(second, 42)
+        self.assertEqual(calls["count"], 1, "second call must be served from cache, not a second HTTP request")
 
 
 if __name__ == "__main__":
