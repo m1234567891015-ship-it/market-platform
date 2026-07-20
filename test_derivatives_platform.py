@@ -517,9 +517,13 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertIn("Yahoo ETF 新聞", news[0]["title"])
         self.assertIn("news.google.com/search", news[1]["link"])
 
-    @patch.object(fetchers, "fetch_text")
-    def test_yahoo_broker_trading_parser_reads_broker_tables(self, fetch_text_mock):
-        fetch_text_mock.return_value = """
+    def test_yahoo_broker_trading_parser_reads_broker_tables(self):
+        # TD-05 batch 9: fetch_yahoo_broker_trading now routes through
+        # fetch_from_registry("yahoo_quote_page", ...) instead of calling
+        # fetchers.fetch_text directly, so the mock target moved to the real
+        # post-migration network choke point (same reasoning as every other
+        # batch's test repointing this session).
+        html = """
         <section>
           <div>資料時間：</div><div>2026/07/01</div>
           <div>主力買賣超(張)</div><div>20,960</div>
@@ -533,14 +537,14 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         </section>
         """
         stock = {"code": "0050", "name": "元大台灣50", "market": "TWSE", "securityType": "ETF"}
-        payload = app.fetch_yahoo_broker_trading(stock, 15)
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_text_response(html)):
+            payload = app.fetch_yahoo_broker_trading(stock, 15)
         self.assertEqual(payload["summary"]["netLots"], 20960)
         self.assertEqual(payload["buyBrokers"][0]["broker"], "元大總公司")
         self.assertEqual(payload["sellBrokers"][0]["net"], -1795)
 
-    @patch.object(fetchers, "fetch_text")
-    def test_yahoo_major_holders_parser_reads_rows(self, fetch_text_mock):
-        fetch_text_mock.return_value = """
+    def test_yahoo_major_holders_parser_reads_rows(self):
+        html = """
         <section>
           <div>年度/日期</div><div>外資籌碼</div><div>大戶籌碼</div><div>董監持股</div><div>股價</div>
           <div>2026/06/26</div><div>5.24%</div><div>18.42%</div><div>10.58%</div><div>103.10</div>
@@ -548,7 +552,8 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         </section>
         """
         stock = {"code": "1513", "name": "中興電", "market": "TWSE", "securityType": "STOCK"}
-        payload = app.fetch_yahoo_major_holders(stock, 30)
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_text_response(html)):
+            payload = app.fetch_yahoo_major_holders(stock, 30)
         self.assertEqual(payload["latest"]["date"], "2026-06-26")
         self.assertEqual(payload["latest"]["majorHolderRatio"], 18.42)
         self.assertEqual(len(payload["rows"]), 2)
@@ -1745,6 +1750,64 @@ class DerivativesPlatformApiTests(unittest.TestCase):
             self.assertFalse(hasattr(builders, removed_name))
             self.assertFalse(hasattr(fetchers, removed_name))
             self.assertFalse(hasattr(market_config, removed_name))
+
+    # ---- TD-05 batch 9: Yahoo Taiwan fetcher characterization ----
+    # fetch_yahoo_class_quote_pages (ThreadPoolExecutor pagination fan-out),
+    # fetch_yahoo_tw_stock_resource (its own bare-Request + per-call Referer
+    # header - SourceSpec.headers is a static dict, so a per-call-varying
+    # header doesn't fit without a design change beyond this batch's scope),
+    # fetch_yahoo_margin_period_rows/fetch_yahoo_margin_accumulation_rows/
+    # fetch_yahoo_margin_trading (all 3 call fetch_yahoo_tw_stock_resource, not
+    # fetch_json/fetch_text directly), fetch_yahoo_taiwan_future_quotes/
+    # fetch_yahoo_txo_option_chain (both reach their URL/constants via a
+    # deferred `import app` specifically to dodge a load-time cycle - the
+    # registry's SourceSpec.url would need to be evaluated at fetchers.py
+    # import time, before app.py exists, so these stay hand-written), and
+    # fetch_yahoo_taiwan_future_quote/fetch_txo_option_chain (thin wrappers
+    # around the above) are all confirmed unchanged by reading each in full.
+
+    def test_fetch_yahoo_sector_catalog_uses_registry_entry(self):
+        html = '<h2>上市類股</h2><a href="/class-quote?sectorId=1">水泥</a>'
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_text_response(html)) as mock_urlopen:
+            result = fetchers.fetch_yahoo_sector_catalog(timeout=8)
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, fetchers.YAHOO_CLASS_HOME_URL)
+        self.assertEqual(timeout, 8)
+        self.assertEqual(len(result["listed"]), 1)
+        self.assertEqual(result["listed"][0]["name"], "水泥")
+        self.assertIn("/class-quote?sectorId=1", result["listed"][0]["url"])
+
+    def test_fetch_yahoo_institutional_trading_uses_registry_entry(self):
+        stock = {"code": "2330", "market": "TWSE"}
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_text_response("<p>no data</p>")) as mock_urlopen:
+            result = fetchers.fetch_yahoo_institutional_trading(stock, limit=10)
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, fetchers.build_yahoo_quote_page_url(stock, "institutional-trading"))
+        self.assertEqual(timeout, 10)
+        self.assertEqual(result, {})
+
+    def test_fetch_etf_dividend_info_uses_shared_quote_page_entry(self):
+        stock = {"code": "0050", "market": "TWSE"}
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_text_response("<p>no data</p>")) as mock_urlopen:
+            fetchers.fetch_etf_dividend_info(stock, limit=6)
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, fetchers.build_yahoo_quote_page_url(stock, "dividend"))
+        self.assertEqual(timeout, 20)
+
+    def test_yahoo_quote_page_cache_keys_do_not_collide_across_pages(self):
+        """Regression guard for the cache_key_args omission bug found in this
+        batch: two different pages for the same stock must be cached
+        independently, not share one cache_key() called with zero args."""
+        stock = {"code": "2330", "market": "TWSE"}
+        with cache.cache_lock:
+            cache.cache_data.pop("external_text", None)
+        self.addCleanup(lambda: cache.cache_data.pop("external_text", None))
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_text_response("<p>broker page</p>")) as mock_urlopen:
+            fetchers.fetch_yahoo_broker_trading(stock, 15)
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_text_response("<p>holders page</p>")) as mock_urlopen2:
+            fetchers.fetch_yahoo_major_holders(stock, 30)
+        self.assertEqual(mock_urlopen.call_count, 1)
+        self.assertEqual(mock_urlopen2.call_count, 1, "second page must not be served from the first page's cache entry")
 
 
 if __name__ == "__main__":

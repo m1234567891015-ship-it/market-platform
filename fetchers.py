@@ -3307,7 +3307,7 @@ def fetch_taifex_previous30_futures_tick_candles(symbol: str, max_observations: 
     candles: list[dict[str, Any]] = []
     for date_text in dates[:max(1, int(max_observations))]:
         try:
-            payload = fetch_from_registry("taifex_daily_tick_csv", date_text, cache_key_args=(date_text,))
+            payload = fetch_from_registry("taifex_daily_tick_csv", date_text)
         except Exception:  # noqa: BLE001
             LOGGER.warning("TAIFEX daily tick csv fetch failed for %s %s", clean_symbol, date_text, exc_info=True)
             continue
@@ -3794,8 +3794,31 @@ def fetch_taiwan_option_chain(
     }
 
 
+register(SourceSpec(
+    name="yahoo_class_home_page",
+    url=YAHOO_CLASS_HOME_URL,
+    response_type="text",
+    decode="sniff_cp950_big5",
+    decode_errors="ignore",
+    cache_bucket="external_text",
+    cache_key=lambda: f"GET:{YAHOO_CLASS_HOME_URL}",
+    ttl_seconds=EXTERNAL_TEXT_CACHE_SECONDS,
+))
+register(SourceSpec(
+    name="yahoo_quote_page",
+    url=build_yahoo_quote_page_url,
+    response_type="text",
+    decode="sniff_cp950_big5",
+    decode_errors="ignore",
+    cache_bucket="external_text",
+    cache_key=lambda stock, page: f"GET:{build_yahoo_quote_page_url(stock, page)}",
+    ttl_seconds=EXTERNAL_TEXT_CACHE_SECONDS,
+    timeout=10,
+))
+
+
 def fetch_yahoo_sector_catalog(timeout: int = 8) -> dict[str, list[dict[str, str]]]:
-    html = fetch_text(YAHOO_CLASS_HOME_URL, timeout=timeout)
+    html = fetch_from_registry("yahoo_class_home_page", timeout=timeout)
     parser = YahooClassCatalogParser()
     parser.feed(html)
     parser.close()
@@ -3922,7 +3945,7 @@ def fetch_yahoo_margin_accumulation_rows(symbol: str, referer: str) -> list[dict
 def fetch_yahoo_broker_trading(stock: dict[str, Any], limit: int = 15) -> dict[str, Any]:
     url = build_yahoo_quote_page_url(stock, "broker-trading")
     try:
-        lines = extract_visible_text_lines(fetch_text(url, timeout=10))
+        lines = extract_visible_text_lines(fetch_from_registry("yahoo_quote_page", stock, "broker-trading"))
     except Exception:  # noqa: BLE001
         LOGGER.exception("Yahoo broker trading fetch failed for %s", stock.get("code"))
         return {}
@@ -3973,7 +3996,7 @@ def fetch_yahoo_broker_trading(stock: dict[str, Any], limit: int = 15) -> dict[s
 def fetch_yahoo_major_holders(stock: dict[str, Any], limit: int = 260) -> dict[str, Any]:
     url = build_yahoo_quote_page_url(stock, "major-holders")
     try:
-        lines = extract_visible_text_lines(fetch_text(url, timeout=10))
+        lines = extract_visible_text_lines(fetch_from_registry("yahoo_quote_page", stock, "major-holders"))
     except Exception:  # noqa: BLE001
         LOGGER.exception("Yahoo major holders fetch failed for %s", stock.get("code"))
         return {}
@@ -4057,7 +4080,7 @@ def fetch_yahoo_major_holders(stock: dict[str, Any], limit: int = 260) -> dict[s
 def fetch_yahoo_institutional_trading(stock: dict[str, Any], limit: int = 1300) -> dict[str, Any]:
     url = build_yahoo_quote_page_url(stock, "institutional-trading")
     try:
-        lines = extract_visible_text_lines(fetch_text(url, timeout=10))
+        lines = extract_visible_text_lines(fetch_from_registry("yahoo_quote_page", stock, "institutional-trading"))
     except Exception:  # noqa: BLE001
         LOGGER.exception("Yahoo institutional trading fetch failed for %s", stock.get("code"))
         return {}
@@ -4290,11 +4313,12 @@ def fetch_yahoo_margin_trading(stock: dict[str, Any], limit: int = 60) -> dict[s
 
 
 def fetch_etf_dividend_info(stock: dict[str, Any], limit: int = 6) -> dict[str, Any]:
-    market = str(stock.get("market") or "TWSE").upper()
-    suffix = "TWO" if market == "TPEX" else "TW"
-    symbol = f"{stock['code']}.{suffix}"
-    url = f"https://tw.stock.yahoo.com/quote/{quote(symbol, safe='')}/dividend"
-    html = fetch_text(url, timeout=20)
+    # URL is byte-identical to build_yahoo_quote_page_url(stock, "dividend") -
+    # confirmed same market->suffix->symbol construction - so this reuses the
+    # yahoo_quote_page registry entry rather than declaring a near-duplicate.
+    symbol = build_yahoo_quote_symbol(stock)
+    url = build_yahoo_quote_page_url(stock, "dividend")
+    html = fetch_from_registry("yahoo_quote_page", stock, "dividend", timeout=20)
 
     fundamental: dict[str, Any] = {}
     fundamental_marker = '"QuoteFundamental":{"fundamental":{"data":'

@@ -83,7 +83,7 @@ def register(spec: SourceSpec) -> None:
 def fetch_from_registry(
     name: str,
     *url_args: Any,
-    cache_key_args: tuple = (),
+    cache_key_args: tuple | None = None,
     force: bool = False,
     timeout: int | None = None,
     **params: Any,
@@ -94,14 +94,24 @@ def fetch_from_registry(
     (several existing fetch_* wrappers accept a caller-overridable timeout
     parameter; this preserves that without threading it through the URL
     builder's **params).
+
+    *cache_key_args*, if omitted, defaults to *url_args* - the common case is
+    that whatever identifies the URL also identifies the cache entry. Pass it
+    explicitly only when the two genuinely differ. Defaulting this way (rather
+    than to `()`) matters: a `spec.cache_key` callable that needs args but
+    silently receives none raises a TypeError deep inside this function,
+    which a caller wrapped in a broad `except Exception` (a common pattern in
+    this codebase) will swallow into a misleadingly "successful" empty
+    result - safer to default to the args that are already right there.
     """
     spec = REGISTRY[name]
     url = spec.url(*url_args, **params) if callable(spec.url) else spec.url
     headers = spec.headers or {"User-Agent": DEFAULT_USER_AGENT}
+    resolved_cache_key_args = url_args if cache_key_args is None else cache_key_args
 
     cache_key = None
     if spec.cache_bucket and not force:
-        cache_key = spec.cache_key(*cache_key_args) if spec.cache_key else url
+        cache_key = spec.cache_key(*resolved_cache_key_args) if spec.cache_key else url
         cached = read_memory_cache(spec.cache_bucket, cache_key, spec.ttl_seconds or 0)
         if cached is not None:
             return cached
