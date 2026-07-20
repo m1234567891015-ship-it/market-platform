@@ -229,6 +229,7 @@ from cache import (
     taifex_options_chain_inflight_lock,
     write_memory_cache,
 )
+from fetch_registry import SourceSpec, fetch_from_registry, register
 from market_config import (
     FRED_GRAPH_CSV_BASE,
     GLOBAL_MARKET_CACHE_SECONDS,
@@ -1939,8 +1940,11 @@ def fetch_tpex_mainboard_quotes(timeout: int = 10) -> tuple[list[dict[str, Any]]
     return payload, snapshot_date
 
 
+register(SourceSpec(name="twse_margin_summary", url=TWSE_MARGIN_URL, timeout=15))
+
+
 def fetch_twse_margin_summary() -> dict[str, Any] | None:
-    rows = fetch_json(TWSE_MARGIN_URL, timeout=15)
+    rows = fetch_from_registry("twse_margin_summary")
     if not isinstance(rows, list) or not rows:
         return None
     financing_current = 0.0
@@ -1980,13 +1984,17 @@ def fetch_twse_margin_summary() -> dict[str, Any] | None:
     }
 
 
+register(SourceSpec(name="stock_margin_trading_tpex", url=build_tpex_openapi_url("tpex_mainboard_margin_balance"), timeout=15))
+register(SourceSpec(name="stock_margin_trading_twse", url=TWSE_MARGIN_URL, timeout=15))
+
+
 def fetch_stock_margin_trading(stock: dict[str, Any]) -> dict[str, Any] | None:
     code = str(stock.get("code") or "").strip()
     market = str(stock.get("market") or "TWSE").upper()
     if not code:
         return None
     if market == "TPEX":
-        rows = fetch_json(build_tpex_openapi_url("tpex_mainboard_margin_balance"), timeout=15)
+        rows = fetch_from_registry("stock_margin_trading_tpex")
         row = next(
             (
                 item for item in rows if isinstance(item, dict)
@@ -2020,7 +2028,7 @@ def fetch_stock_margin_trading(stock: dict[str, Any]) -> dict[str, Any] | None:
             "sourceNote": "櫃買中心上櫃股票融資融券餘額。",
         }
     else:
-        rows = fetch_json(TWSE_MARGIN_URL, timeout=15)
+        rows = fetch_from_registry("stock_margin_trading_twse")
         row = next(
             (
                 item for item in rows if isinstance(item, dict)
@@ -2067,6 +2075,9 @@ def fetch_stock_margin_trading(stock: dict[str, Any]) -> dict[str, Any] | None:
     return payload
 
 
+register(SourceSpec(name="twse_listed_industry_rows", url=f"{TWSE_OPENAPI_BASE}/opendata/t187ap03_L"))
+
+
 def fetch_twse_listed_industry_map(timeout: int = 12) -> dict[str, str]:
     now = time.monotonic()
     with cache_lock:
@@ -2080,7 +2091,7 @@ def fetch_twse_listed_industry_map(timeout: int = 12) -> dict[str, str]:
             return dict(cached_items)
 
     try:
-        rows = fetch_json(f"{TWSE_OPENAPI_BASE}/opendata/t187ap03_L", timeout=timeout)
+        rows = fetch_from_registry("twse_listed_industry_rows", timeout=timeout)
     except Exception:  # noqa: BLE001
         LOGGER.exception("TWSE listed industry map fetch failed")
         return {}
@@ -2101,6 +2112,9 @@ def fetch_twse_listed_industry_map(timeout: int = 12) -> dict[str, str]:
     return items
 
 
+register(SourceSpec(name="stock_institutions_payload", url=build_stock_institutions_url))
+
+
 def fetch_stock_institutions_payload_near(date_str: str, lookback_days: int = 7) -> tuple[dict[str, Any], str]:
     try:
         base_date = datetime.strptime(str(date_str), "%Y%m%d").date()
@@ -2110,7 +2124,7 @@ def fetch_stock_institutions_payload_near(date_str: str, lookback_days: int = 7)
     for offset in range(lookback_days + 1):
         target = (base_date - timedelta(days=offset)).strftime("%Y%m%d")
         try:
-            payload = fetch_json(build_stock_institutions_url(target), timeout=15)
+            payload = fetch_from_registry("stock_institutions_payload", target, timeout=15)
         except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
             LOGGER.warning("TWSE T86 sector fund flow fetch failed for date=%s: %s", target, exc)
             continue
@@ -2119,10 +2133,14 @@ def fetch_stock_institutions_payload_near(date_str: str, lookback_days: int = 7)
     return {}, date_str
 
 
+register(SourceSpec(name="stock_valuation_tpex", url=build_tpex_openapi_url("tpex_mainboard_peratio_analysis"), timeout=10))
+register(SourceSpec(name="stock_valuation_twse", url=f"{TWSE_OPENAPI_BASE}/exchangeReport/BWIBBU_ALL", timeout=10))
+
+
 def fetch_stock_valuation(stock: dict[str, Any]) -> dict[str, Any]:
     market = str(stock.get("market") or "TWSE").upper()
     if market == "TPEX":
-        rows = fetch_json(build_tpex_openapi_url("tpex_mainboard_peratio_analysis"), timeout=10)
+        rows = fetch_from_registry("stock_valuation_tpex")
         code_key = "SecuritiesCompanyCode"
         field_map = {
             "date": "Date",
@@ -2132,7 +2150,7 @@ def fetch_stock_valuation(stock: dict[str, Any]) -> dict[str, Any]:
             "dividendPerShare": "DividendPerShare",
         }
     else:
-        rows = fetch_json(f"{TWSE_OPENAPI_BASE}/exchangeReport/BWIBBU_ALL", timeout=10)
+        rows = fetch_from_registry("stock_valuation_twse")
         code_key = "Code"
         field_map = {
             "date": "Date",
@@ -2155,16 +2173,30 @@ def fetch_stock_valuation(stock: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+register(SourceSpec(
+    name="stock_valuation_on_date_tpex",
+    url=lambda date_value: (
+        "https://www.tpex.org.tw/www/zh-tw/afterTrading/peQryDate?"
+        + urlencode({"date": date_value, "id": "", "response": "json"})
+    ),
+    timeout=15,
+))
+register(SourceSpec(
+    name="stock_valuation_on_date_twse",
+    url=lambda date_str: (
+        f"{TWSE_BASE}/rwd/zh/afterTrading/BWIBBU_d?"
+        + urlencode({"date": date_str, "selectType": "ALL", "response": "json"})
+    ),
+    timeout=15,
+))
+
+
 def fetch_stock_valuation_on_date(stock: dict[str, Any], date_str: str) -> dict[str, Any]:
     market = str(stock.get("market") or "TWSE").upper()
     code = str(stock["code"])
     if market == "TPEX":
         date_value = datetime.strptime(date_str, "%Y%m%d").strftime("%Y/%m/%d")
-        payload = fetch_json(
-            f"https://www.tpex.org.tw/www/zh-tw/afterTrading/peQryDate?"
-            + urlencode({"date": date_value, "id": "", "response": "json"}),
-            timeout=15,
-        )
+        payload = fetch_from_registry("stock_valuation_on_date_tpex", date_value)
         tables = payload.get("tables") or []
         rows = tables[0].get("data", []) if tables else []
         row = next((item for item in rows if str(item[0]).strip() == code), None)
@@ -2178,11 +2210,7 @@ def fetch_stock_valuation_on_date(stock: dict[str, Any], date_str: str) -> dict[
             "pbRatio": parse_float(str(row[6])),
         }
 
-    payload = fetch_json(
-        f"{TWSE_BASE}/rwd/zh/afterTrading/BWIBBU_d?"
-        + urlencode({"date": date_str, "selectType": "ALL", "response": "json"}),
-        timeout=15,
-    )
+    payload = fetch_from_registry("stock_valuation_on_date_twse", date_str)
     row = next(
         (item for item in payload.get("data", []) if str(item[0]).strip() == code),
         None,
@@ -2241,11 +2269,15 @@ def fetch_stock_valuation_history(
     return sorted(points, key=lambda item: item["date"])
 
 
+register(SourceSpec(name="stock_company_profile_tpex", url=build_tpex_openapi_url("mopsfin_t187ap03_O"), timeout=10))
+register(SourceSpec(name="stock_company_profile_twse", url=f"{TWSE_OPENAPI_BASE}/opendata/t187ap03_L", timeout=10))
+
+
 def fetch_stock_company_profile(stock: dict[str, Any]) -> dict[str, Any]:
     market = str(stock.get("market") or "TWSE").upper()
     code = str(stock["code"])
     if market == "TPEX":
-        rows = fetch_json(build_tpex_openapi_url("mopsfin_t187ap03_O"), timeout=10)
+        rows = fetch_from_registry("stock_company_profile_tpex")
         matched = next(
             (
                 row for row in rows
@@ -2268,7 +2300,7 @@ def fetch_stock_company_profile(stock: dict[str, Any]) -> dict[str, Any]:
             "website": str(matched.get("WebAddress") or "").strip().rstrip("　"),
         }
 
-    rows = fetch_json(f"{TWSE_OPENAPI_BASE}/opendata/t187ap03_L", timeout=10)
+    rows = fetch_from_registry("stock_company_profile_twse")
     matched = next(
         (row for row in rows if str(row.get("公司代號", "")).strip() == code),
         None,

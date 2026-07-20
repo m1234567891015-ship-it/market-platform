@@ -80,8 +80,21 @@ def register(spec: SourceSpec) -> None:
     REGISTRY[spec.name] = spec
 
 
-def fetch_from_registry(name: str, *url_args: Any, cache_key_args: tuple = (), force: bool = False, **params: Any) -> Any:
-    """Resolve and execute the SourceSpec registered under *name*."""
+def fetch_from_registry(
+    name: str,
+    *url_args: Any,
+    cache_key_args: tuple = (),
+    force: bool = False,
+    timeout: int | None = None,
+    **params: Any,
+) -> Any:
+    """Resolve and execute the SourceSpec registered under *name*.
+
+    *timeout*, if given, overrides the spec's own default for this one call
+    (several existing fetch_* wrappers accept a caller-overridable timeout
+    parameter; this preserves that without threading it through the URL
+    builder's **params).
+    """
     spec = REGISTRY[name]
     url = spec.url(*url_args, **params) if callable(spec.url) else spec.url
     headers = spec.headers or {"User-Agent": DEFAULT_USER_AGENT}
@@ -94,7 +107,7 @@ def fetch_from_registry(name: str, *url_args: Any, cache_key_args: tuple = (), f
             return cached
 
     req = Request(url, headers=headers, method="POST" if spec.method == "POST" else "GET")
-    with _urlopen_with_ssl_fallback(req, spec.timeout) as response:
+    with _urlopen_with_ssl_fallback(req, timeout if timeout is not None else spec.timeout) as response:
         raw = response.read()
         if spec.response_type == "binary":
             payload: Any = raw

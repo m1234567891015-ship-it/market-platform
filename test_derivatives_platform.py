@@ -1254,6 +1254,187 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertEqual(second, 42)
         self.assertEqual(calls["count"], 1, "second call must be served from cache, not a second HTTP request")
 
+    # ---- TD-05 batch 2: TWSE core fetcher characterization ----
+    # These patch fetch_registry._urlopen_with_ssl_fallback (the real network
+    # choke point after migration), NOT fetchers.fetch_json - fetch_from_registry
+    # builds its own Request rather than delegating to fetch_json, so a mock on
+    # fetch_json would silently never be called post-migration and these tests
+    # would stop testing anything. Each fake response is a context-manager mock
+    # matching what `with _urlopen_with_ssl_fallback(...) as response:` expects.
+
+    def _fake_json_response(self, payload):
+        response = MagicMock()
+        response.read.return_value = json.dumps(payload).encode("utf-8")
+        response.headers = {}
+        response.__enter__ = lambda self=response: self
+        response.__exit__ = lambda self, *exc: False
+        return response
+
+    def test_fetch_twse_margin_summary_aggregates_rows(self):
+        rows = [
+            {"融資今日餘額": "100", "融資前日餘額": "80", "融券今日餘額": "10", "融券前日餘額": "5"},
+            {"融資今日餘額": "50", "融資前日餘額": "50", "融券今日餘額": "0", "融券前日餘額": "0"},
+        ]
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response(rows)) as mock_urlopen:
+            result = fetchers.fetch_twse_margin_summary()
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, fetchers.TWSE_MARGIN_URL)
+        self.assertEqual(timeout, 15)
+        self.assertEqual(result["financingBalance"], 150.0)
+        self.assertEqual(result["financingPrevious"], 130.0)
+        self.assertEqual(result["financingChange"], 20.0)
+        self.assertEqual(result["shortBalance"], 10.0)
+        self.assertEqual(result["sourceLink"], fetchers.TWSE_MARGIN_URL)
+
+    def test_fetch_stock_margin_trading_tpex_branch(self):
+        stock = {"code": "1234", "market": "TPEX"}
+        row = {
+            "SecuritiesCompanyCode": "1234", "Date": "1150719", "MarginPurchase": "1", "MarginSales": "2",
+            "CashRedemption": "3", "MarginPurchaseBalancePreviousDay": "10", "MarginPurchaseBalance": "12",
+            "MarginPurchaseUtilizationRate": "5", "ShortConvering": "1", "ShortSale": "2",
+            "StockRedemption": "0", "ShortSaleBalancePreviousDay": "4", "ShortSaleBalance": "5",
+            "ShortSaleUtilizationRate": "1", "Offsetting": "0",
+        }
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response([row])) as mock_urlopen:
+            result = fetchers.fetch_stock_margin_trading(stock)
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, fetchers.build_tpex_openapi_url("tpex_mainboard_margin_balance"))
+        self.assertEqual(timeout, 15)
+        self.assertEqual(result["financingBalance"], 12.0)
+        self.assertEqual(result["financingPrevious"], 10.0)
+        self.assertEqual(result["financingChange"], 2.0)
+        self.assertEqual(result["shortBalance"], 5.0)
+        self.assertEqual(result["sourceNote"], "櫃買中心上櫃股票融資融券餘額。")
+
+    def test_fetch_stock_margin_trading_twse_branch(self):
+        stock = {"code": "2330", "market": "TWSE"}
+        row = {
+            "股票代號": "2330", "融資買進": "1", "融資賣出": "2", "融資現金償還": "0",
+            "融資前日餘額": "10", "融資今日餘額": "12", "融券買進": "1", "融券賣出": "2",
+            "融券現券償還": "0", "融券前日餘額": "4", "融券今日餘額": "5", "資券互抵": "0",
+        }
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response([row])) as mock_urlopen:
+            result = fetchers.fetch_stock_margin_trading(stock)
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, fetchers.TWSE_MARGIN_URL)
+        self.assertEqual(timeout, 15)
+        self.assertEqual(result["financingBalance"], 12.0)
+        self.assertEqual(result["financingPrevious"], 10.0)
+        self.assertEqual(result["shortBalance"], 5.0)
+        self.assertEqual(result["sourceLink"], fetchers.TWSE_MARGIN_URL)
+
+    def test_fetch_twse_listed_industry_map_builds_code_to_industry_map(self):
+        rows = [{"公司代號": "2330", "產業別": "24"}]
+        with cache.cache_lock:
+            cache.cache_data.pop("twse_company_industries", None)
+        self.addCleanup(lambda: cache.cache_data.pop("twse_company_industries", None))
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response(rows)) as mock_urlopen:
+            result = fetchers.fetch_twse_listed_industry_map(timeout=12)
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, f"{fetchers.TWSE_OPENAPI_BASE}/opendata/t187ap03_L")
+        self.assertEqual(timeout, 12)
+        self.assertEqual(result, {"2330": fetchers.TWSE_INDUSTRY_CODE_NAMES["24"]})
+
+    def test_fetch_stock_institutions_payload_near_scans_backward_on_empty_dataset(self):
+        empty_payload = {"stat": "OK!not-a-stat-match", "data": []}
+        good_payload = {"stat": "OK", "data": [["x"]]}
+        with patch.object(
+            fetch_registry, "_urlopen_with_ssl_fallback",
+            side_effect=[self._fake_json_response(empty_payload), self._fake_json_response(good_payload)],
+        ) as mock_urlopen:
+            payload, used_date = fetchers.fetch_stock_institutions_payload_near("20260721", lookback_days=3)
+        self.assertEqual(mock_urlopen.call_count, 2)
+        self.assertEqual(payload, good_payload)
+        self.assertEqual(used_date, "20260720")
+
+    def test_fetch_stock_valuation_tpex_branch(self):
+        stock = {"code": "1234", "market": "TPEX"}
+        row = {
+            "SecuritiesCompanyCode": "1234", "Date": "1150719", "PriceEarningRatio": "10.5",
+            "YieldRatio": "2.1", "PriceBookRatio": "1.5", "DividendPerShare": "1.0",
+        }
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response([row])) as mock_urlopen:
+            result = fetchers.fetch_stock_valuation(stock)
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, fetchers.build_tpex_openapi_url("tpex_mainboard_peratio_analysis"))
+        self.assertEqual(timeout, 10)
+        self.assertEqual(result["peRatio"], "10.5")
+        self.assertEqual(result["dividendYield"], "2.1")
+        self.assertEqual(result["date"], "2026-07-19")
+
+    def test_fetch_stock_valuation_twse_branch(self):
+        stock = {"code": "2330", "market": "TWSE"}
+        row = {"Code": "2330", "Date": "1150719", "PEratio": "18.2", "DividendYield": "1.9", "PBratio": "5.1"}
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response([row])) as mock_urlopen:
+            result = fetchers.fetch_stock_valuation(stock)
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, f"{fetchers.TWSE_OPENAPI_BASE}/exchangeReport/BWIBBU_ALL")
+        self.assertEqual(timeout, 10)
+        self.assertEqual(result["peRatio"], "18.2")
+        self.assertEqual(result["dividendYield"], "1.9")
+
+    def test_fetch_stock_valuation_on_date_tpex_branch(self):
+        stock = {"code": "1234", "market": "TPEX"}
+        payload = {"date": "20260719", "tables": [{"data": [["1234", "x", "10.5", "1.0", "x", "2.1", "1.5"]]}]}
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response(payload)) as mock_urlopen:
+            result = fetchers.fetch_stock_valuation_on_date(stock, "20260719")
+        request, timeout = mock_urlopen.call_args[0]
+        expected_url = "https://www.tpex.org.tw/www/zh-tw/afterTrading/peQryDate?" + fetchers.urlencode(
+            {"date": "2026/07/19", "id": "", "response": "json"}
+        )
+        self.assertEqual(request.full_url, expected_url)
+        self.assertEqual(timeout, 15)
+        self.assertEqual(result["peRatio"], 10.5)
+        self.assertEqual(result["dividendYield"], 2.1)
+        self.assertEqual(result["pbRatio"], 1.5)
+
+    def test_fetch_stock_valuation_on_date_twse_branch(self):
+        stock = {"code": "2330", "market": "TWSE"}
+        payload = {"date": "20260719", "data": [["2330", "x", "500", "2.0", "x", "18.2", "5.1"]]}
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response(payload)) as mock_urlopen:
+            result = fetchers.fetch_stock_valuation_on_date(stock, "20260719")
+        request, timeout = mock_urlopen.call_args[0]
+        expected_url = f"{fetchers.TWSE_BASE}/rwd/zh/afterTrading/BWIBBU_d?" + fetchers.urlencode(
+            {"date": "20260719", "selectType": "ALL", "response": "json"}
+        )
+        self.assertEqual(request.full_url, expected_url)
+        self.assertEqual(timeout, 15)
+        self.assertEqual(result["peRatio"], 18.2)
+        self.assertEqual(result["dividendYield"], 2.0)
+        self.assertEqual(result["dividendPerShare"], round(500 * 2.0 / 100, 4))
+
+    def test_fetch_stock_company_profile_tpex_branch(self):
+        stock = {"code": "1234", "name": "Fallback Name", "market": "TPEX"}
+        row = {
+            "SecuritiesCompanyCode": "1234", "CompanyName": "測試公司", "SecuritiesIndustryCode": "24",
+            "Chairman": "王小明", "GeneralManager": "李小華", "Paidin.Capital.NTDollars": "1000000000",
+            "DateOfIncorporation": "19900101", "DateOfListing": "20000101", "Address": "台北市",
+            "Telephone": "02-1234", "WebAddress": "https://example.com",
+        }
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response([row])) as mock_urlopen:
+            result = fetchers.fetch_stock_company_profile(stock)
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, fetchers.build_tpex_openapi_url("mopsfin_t187ap03_O"))
+        self.assertEqual(timeout, 10)
+        self.assertEqual(result["fullName"], "測試公司")
+        self.assertEqual(result["chairman"], "王小明")
+        self.assertEqual(result["capital"], fetchers.format_company_capital("1000000000"))
+
+    def test_fetch_stock_company_profile_twse_branch(self):
+        stock = {"code": "2330", "name": "Fallback Name", "market": "TWSE"}
+        row = {
+            "公司代號": "2330", "公司名稱": "台積電", "產業別": "半導體業", "董事長": "劉德音",
+            "總經理": "魏哲家", "實收資本額": "259304805200", "成立日期": "760221",
+            "上市日期": "870704", "地址": "新竹市", "總機電話": "03-5636688", "網址": "https://tsmc.com",
+        }
+        with patch.object(fetch_registry, "_urlopen_with_ssl_fallback", return_value=self._fake_json_response([row])) as mock_urlopen:
+            result = fetchers.fetch_stock_company_profile(stock)
+        request, timeout = mock_urlopen.call_args[0]
+        self.assertEqual(request.full_url, f"{fetchers.TWSE_OPENAPI_BASE}/opendata/t187ap03_L")
+        self.assertEqual(timeout, 10)
+        self.assertEqual(result["fullName"], "台積電")
+        self.assertEqual(result["chairman"], "劉德音")
+
 
 if __name__ == "__main__":
     unittest.main()
