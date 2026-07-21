@@ -1,0 +1,254 @@
+{
+  "page_count": 1,
+  "pages": {
+    "tw-stock-search.html": {
+      "render_only": false,
+      "step_count": 9,
+      "steps": [
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "min_count",
+              "n": 1,
+              "pattern": null,
+              "target": "#search-results [data-code]"
+            },
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#stock-detail"
+            }
+          ],
+          "id": "tw-stock-search__search-form-submit",
+          "note": "表單送出→live 搜尋 2330→自動選取第一筆→載入個股詳情(app.js:33195,33139)",
+          "pre_fill": [
+            "#stock-search-input",
+            "2330"
+          ],
+          "selector": "#stock-search-form button[type=submit]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "fill",
+          "action_index": 0,
+          "action_value": "0050",
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#search-results"
+            }
+          ],
+          "id": "tw-stock-search__input-debounce",
+          "note": "輸入去抖 600ms 觸發 live 搜尋,不自動選取(app.js:33205-33214)",
+          "pre_fill": null,
+          "selector": "#stock-search-input",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "response",
+            "pattern": "**/api/twse/live-search**",
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            },
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#stock-detail"
+            }
+          ],
+          "id": "tw-stock-search__result-click",
+          "note": "點擊搜尋結果→標記 is-active→更新 URL→載入個股詳情(app.js:8880-8898)",
+          "pre_fill": null,
+          "selector": "#search-results [data-code]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#stock-detail"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-added",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "tw-stock-search__watchlist-toggle",
+          "note": "加入自選→按鈕文字/樣式切換(app.js:32188-32198)",
+          "pre_fill": null,
+          "selector": "#stock-detail [data-stock-watchlist-toggle]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-added",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "tw-stock-search__interval-week",
+          "note": "切換週線→active 樣式切換,重繪技術圖表(app.js:32477-32487)",
+          "pre_fill": null,
+          "selector": "#stock-detail [data-interval=\"week\"]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#stock-detail"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "tw-stock-search__ma-period-20",
+          "note": "切換 MA20 疊圖(app.js:32497-32509)",
+          "pre_fill": null,
+          "selector": "#stock-detail [data-ma-period=\"20\"]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "tw-stock-search__chart-indicator-bollinger",
+          "note": "切換布林通道疊圖指標(app.js:32511-32524)",
+          "pre_fill": null,
+          "selector": "#stock-detail [data-chart-indicator=\"bollinger\"]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "not_disabled",
+              "n": null,
+              "pattern": null,
+              "target": "#stock-detail [data-stock-zoom=\"out\"]"
+            }
+          ],
+          "id": "tw-stock-search__stock-zoom-in",
+          "note": "縮放圖表可視K棒數→縮小/重設按鈕從 disabled 變為可用(app.js:32452-32463)",
+          "pre_fill": null,
+          "selector": "#stock-detail [data-stock-zoom=\"in\"]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#stock-detail"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#stock-detail"
+            }
+          ],
+          "id": "tw-stock-search__institution-range-3m",
+          "note": "切換法人 3 個月區間(純前端重渲染,預設為 1m)→重建法人買賣超區塊(app.js:32209-32276)",
+          "pre_fill": null,
+          "selector": "#stock-detail [data-institution-range=\"3m\"]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#stock-detail"
+          }
+        }
+      ]
+    }
+  },
+  "step_count_total": 9
+}
