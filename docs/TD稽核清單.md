@@ -20,6 +20,7 @@
 | TD-12 | 低 | 品質 | 快取設定發散:25 個 *_CACHE_* TTL 常數散落各處,無統一快取抽象、幾乎無 eviction | 見「快取與鎖」表 | 記憶體僅增不減(bounded 僅 1 處);TTL 語意不一致 | 併入 TD-05 fetcher 層:宣告式 TTL + 上限 LRU | 併入TD-05 | 12 |
 | TD-13 | 低 | 品質 | Python 檔混入 CRLF 行尾;broad except Exception 約 150 處(多數有 log/fallback,少數靜默) | app.py(try ×241、except Exception ×154) | 跨平台 diff 噪音;個別靜默 except 吞錯 | .gitattributes 統一 LF;為靜默 except 補 LOGGER.debug 最低限度記錄 | 0.5天 | 13 |
 | TD-14 | 低 | 架構 | CSS 單檔巨石:styles.css 21,972 行,原稽核清單未列項(記帳補登) | styles.css 全檔 | 與 TD-02 同類問題(無法 tree-shake、難以定位規則歸屬) | 併入 TD-02 一體拆分處理,含未使用規則掃描 | 併入TD-02 | 14 |
+| TD-15 | 中 | 正確性/死碼 | 前端死碼與失效控制項:工單00-B互動路徑盤點發現16項死碼/不可達UI元素,其中1項為使用者看得到、點得到但無反應的按鈕(原稽核清單未列項,記帳補登) | 見下方「TD-15 佐證清單」,涵蓋 app.js 多處與 6 個 HTML 頁面 | `options.html` 的 `[data-asset-option-underlying]`(`renderOptionsUsChainCard()` 提早 `return ""`,100%不可達)是使用者可見、可點但無反應的按鈕,屬使用者可感知的正確性問題;其餘 15 項為維護負擔(死碼佔心智負擔,易誤導未來重構者誤判功能存在) | 逐項核實後刪除不可達程式碼路徑,或修復判斷邏輯使其重新可達(需個別評估是否為刻意停用之功能);`[data-asset-option-underlying]` 優先處理 | 待評估(16項,依複雜度分批) | 15 |
 
 ## 總覽
 
@@ -36,7 +37,7 @@
 | 快取 TTL 常數 | 25 | 無統一快取層,見 TD-12 |
 | unit tests | 42 | 另有 e2e_smoke / fixtures / release integrity(正面) |
 
-債項數(依嚴重度):高 5 件、中 5 件、低 3 件。
+債項數(依嚴重度):高 5 件、中 6 件、低 3 件。
 
 ## 超長函式清單(重構優先標的)
 
@@ -133,6 +134,30 @@
 | us-watchlist.html | 4068ec23 | 變體 1 |
 
 合計:21 頁 / 10 種變體。目標:1 種。
+
+## TD-15 佐證清單(前端死碼與失效控制項)
+
+來源:工單 00-B 第一部分互動路徑盤點,`regression/interaction_inventory.md`「彙整」章節。
+本工單(00-B)僅記錄,不修復;逐項核實與修復留待 TD-15 獨立工單。
+
+| # | 頁面/位置 | 問題 | 優先度 |
+|---|---|---|---|
+| 1 | `options.html` | `[data-asset-option-underlying]`:`renderOptionsUsChainCard()` 在到達自己模板前就 `return ""`,100% 不可達,使用者看得到、點得到但無反應 | **最高** |
+| 2 | `options.html` | `[data-options-chain-source]` 無對應UI渲染;`[data-tw-option-product]`/`[data-derivative-watch-symbol]` 只存在於從未插入的 `renderDerivativesOptionsPanel` 輸出中;`[data-asset-region-toggle="options-regional-market"]` 被 CSS `.options-hero-regional-market.is-hidden{display:none}` 硬編碼隱藏且無 JS 清除 | 中 |
+| 3 | `derivatives-assets.html` | `renderAssetHubPage()` 在 `!isFinanceMode` 時提早 return 到 `renderDerivativesMarketOverview()`,`initAssetFinanceTrendSwitchers`/`initAssetFinanceVolumeSelectors`/`initAssetFinanceBondFocusControls` 等控制項全部綁定成功但目標元素從未出現在 DOM | 中 |
+| 4 | `derivatives-status.html` | `renderCurrentPage()` 排除清單(app.js:34146)未包含 `"derivatives-status"`,導致本頁意外落入 TWSE dashboard 的 `loadLiveData()` 60秒輪詢分支,抓到的資料無處使用即被丟棄(浪費流量) | 低 |
+| 5 | `derivatives-ai.html` | HTML `<meta refresh>` 與 JS 的 `window.location.replace()` 同時存在,兩者競速執行同一轉址目的地(非錯誤,但寫測試時應斷言最終URL) | 低 |
+| 6 | `us-watchlist.html` | `renderUsWatchlistSearchResults()`/`runUsWatchlistSearch()` 定義但從未被呼叫,`#us-watchlist-results`/`#us-watchlist-detail` 永久留空,靜態文案與實際行為(完整頁面導航)不符 | 中 |
+| 7 | `tw-stocks.html` | `renderSectorSyncView()`(含 `[data-sector-source]`/`[data-sync-mode]`)從未被 `renderSectorPageV2()`/`renderSectorGroup()` 呼叫,對本頁完全不可達(實際使用的是 `renderSectorSyncViewV2()`) | 低 |
+| 8 | `us-etf.html` | `renderUsEtfCategoryFilters()` 只在 `kind !== "etf"` 分支被引用,但 ETF 頁面 `kind==="etf"` 會提早 return,容器 `us-nyse-etf-category-filters` 從未出現在實際 DOM | 低 |
+| 9 | `app.js:18910-18916` | `renderDerivativeAssetSummarySection` 完全是死碼,定義但全檔無任何呼叫處 | 低 |
+| 10 | `app.js` | `renderAssetFinanceInternationalTrendPanel()` 定義但從未被呼叫 | 低 |
+| 11 | `app.js` | `renderAssetHubMetals()` 是永遠回傳空字串的 stub | 低 |
+| 12 | `market-overview.html` / `news.html` | 兩頁 `data-page="market"` 完全相同,`renderMarketPage()` 只以 id 選取元素,互動介面(及所抓取的資料)逐位元組相同,屬功能重複頁面(非死碼,記帳供未來合併評估) | 資訊 |
+| 13 | `tw-Optional-stocks.html` | 檔名與 `data-page`(`"watchlist"`)不符,是唯一一個檔名完全對不上任何 data-page/data-*-mode 判別值的頁面 | 資訊 |
+| 14 | `tw-stocks.html` | `data-page` 實際是 `"sectors"`,與檔名不符 | 資訊 |
+| 15 | `us-stocks.html` / `us-market-overview.html` | 共用 `data-page="global-market"` + `data-market-category="us-stocks"`,唯一區分靠 `data-market-view="overview"` 是否存在(app.js:20597 單一布林值分岔),render tree 完全不同 | 資訊 |
+| 16 | `tw-etf.html` | `renderTwEtfPage()` 自建一份 `#tw-etf-filter-form` 後立即刪除,真正生效的是 `.tw-etf-list-toolbar` 內第二份同id副本(功能正常,但屬易誤導的重複渲染,測試/未來維護須用範圍選擇器) | 低 |
 
 ## 既有優點(重構時必須保留的資產)
 
