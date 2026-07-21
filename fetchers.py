@@ -223,6 +223,7 @@ from cache import (
     cache_data,
     cache_lock,
     claim_cache_flight,
+    enforce_bucket_cap,
     finish_cache_flight,
     read_memory_cache,
     save_disk_cache,
@@ -3639,6 +3640,7 @@ def fetch_taifex_txo_option_chain(
             )
             with cache_lock:
                 cache_data["taifex_options_chain"][cache_key] = {"stored_at": now, "payload": payload}
+                enforce_bucket_cap("taifex_options_chain")
             return {**payload, "cached": False}
         return {
             "underlying": product["symbol"],
@@ -3734,6 +3736,7 @@ def fetch_yahoo_txo_option_chain(expiry: str | None = None, underlying: str | No
     if not payload.get("error"):
         with cache_lock:
             cache_data["yahoo_tw_option_chain"][cache_key] = {"stored_at": now, "payload": payload}
+            enforce_bucket_cap("yahoo_tw_option_chain")
     return {**payload, "cached": False}
 
 

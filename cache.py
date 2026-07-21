@@ -107,9 +107,63 @@ cache_data: dict[str, Any] = {
     "sector_fund_flow": {},
     "yahoo_tw_future_quotes": {"stored_at": 0.0, "items": {}},
     "yahoo_tw_future_technical_candles": {},
+    "taifex_openapi_list": {},
 }
 
 _yahoo_options_crumb: dict[str, Any] = {"value": "", "stored_at": 0.0}
+
+# TD-12: bounded LRU cap for the per-key caches that grow one entry per
+# distinct (symbol/code/query) combination for the life of the process, with
+# no other bound (TD-03/TD-12's "memory only grows, never shrinks" finding).
+# Buckets NOT listed here are wholesale-overwrite single blobs (the whole
+# dataset replaces atomically on refresh, e.g. international_market_indexes,
+# treasury_yield_curve_rows, us_listed_universe) and don't need a cap.
+# live_search_dedup already had its own eviction (a full O(n) rebuild-filter
+# per write) before this and is deliberately handled as its own follow-up
+# change, not folded in here.
+BUCKET_CAPS: dict[str, int] = {
+    "stock_details": 2500,
+    "yahoo_tw_stock_resources": 3000,
+    "us_options_chains": 500,
+    "yahoo_tw_option_chain": 150,
+    "taifex_options_chain": 300,
+    "external_text": 500,
+    "global_market_items": 300,
+    "global_markets": 100,
+    "us_etf_center": 500,
+    "sector_charts": 150,
+    "yahoo_tw_future_technical_candles": 200,
+    "taifex_openapi_list": 100,
+}
+
+
+def enforce_bucket_cap(bucket: str) -> None:
+    """Bound cache_data[bucket] to its BUCKET_CAPS entry (no-op if the bucket
+    isn't listed there) by evicting the oldest-inserted keys once it grows
+    past the cap. Must be called while already holding cache_lock - this
+    mutates cache_data directly, same as every other in-place cache_data
+    write in this module and its callers.
+
+    This is insertion-order eviction (relying on a plain dict's guaranteed
+    insertion order), not access-recency LRU - the goal is bounding
+    previously-unbounded memory growth, not optimizing which entry survives
+    longest. True recency-based LRU would need every direct
+    `cache_data[bucket].get(key)` read site across the repo to also promote
+    that key (not just writes), which is a bigger change than this cleanup
+    warrants - the caps below are sized with headroom precisely because
+    eviction order is coarse, not perfectly recency-aware.
+    """
+    cap = BUCKET_CAPS.get(bucket)
+    if cap is None:
+        return
+    entries = cache_data.get(bucket)
+    if not isinstance(entries, dict):
+        return
+    overflow = len(entries) - cap
+    if overflow <= 0:
+        return
+    for key in list(entries.keys())[:overflow]:
+        entries.pop(key, None)
 
 
 def read_memory_cache(bucket: str, key: str, ttl_seconds: int | float) -> Any | None:
@@ -124,6 +178,7 @@ def read_memory_cache(bucket: str, key: str, ttl_seconds: int | float) -> Any | 
 def write_memory_cache(bucket: str, key: str, payload: Any) -> None:
     with cache_lock:
         cache_data.setdefault(bucket, {})[key] = {"stored_at": time.time(), "payload": payload}
+        enforce_bucket_cap(bucket)
 
 
 def claim_cache_flight(key: str) -> tuple[bool, threading.Event]:

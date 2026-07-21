@@ -72,6 +72,7 @@ from cache import (
     cache_lock,
     claim_cache_flight,
     ensure_cache,
+    enforce_bucket_cap,
     finish_cache_flight,
     save_disk_cache,
 )
@@ -379,6 +380,7 @@ def api_yahoo_sector_chart():
             "stored_at": now,
             "payload": payload,
         }
+        enforce_bucket_cap("sector_charts")
     return jsonify(payload)
 
 
@@ -745,6 +747,7 @@ def api_stock_detail(code: str):
                 )
                 with cache_lock:
                     cache_data["stock_details"][cache_key] = detail
+                    enforce_bucket_cap("stock_details")
             finally:
                 finish_cache_flight(f"stock-detail:{cache_key}", flight)
 

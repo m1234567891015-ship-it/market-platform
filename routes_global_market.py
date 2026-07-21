@@ -78,6 +78,7 @@ from cache import (
     cache_data,
     cache_lock,
     claim_cache_flight,
+    enforce_bucket_cap,
     finish_cache_flight,
 )
 from fetchers import (
@@ -165,6 +166,7 @@ def api_global_market(category: str):
         payload = build_global_market_payload(category_key, limit, option_source=option_source, option_underlying=option_underlying)
         with cache_lock:
             cache_data["global_markets"][cache_key] = {"stored_at": time.time(), "payload": payload}
+            enforce_bucket_cap("global_markets")
         return jsonify({**payload, "cached": False})
     finally:
         finish_cache_flight(f"global-market:{cache_key}", flight)
@@ -257,6 +259,7 @@ def api_us_market_etf_center():
         payload = build_us_etf_center_payload(query, directory_limit, quote_limit, refresh)
         with cache_lock:
             cache_data["us_etf_center"][cache_key] = {"stored_at": time.time(), "payload": payload}
+            enforce_bucket_cap("us_etf_center")
         return jsonify({**payload, "cached": False})
     finally:
         finish_cache_flight(f"us-etf-center:{cache_key}", flight)

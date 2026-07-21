@@ -1982,6 +1982,49 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertIn("AAPL", symbols)
         self.assertGreaterEqual(totals["美股個股"] + totals["美股 ETF"], 1)
 
+    # ---- TD-12 batch 12b: shared LRU cap enforcement ----
+
+    def test_enforce_bucket_cap_evicts_oldest_entries_when_over_cap(self):
+        with cache.cache_lock:
+            cache.cache_data["td12_test_bucket"] = {f"k{i}": i for i in range(5)}
+        self.addCleanup(lambda: cache.cache_data.pop("td12_test_bucket", None))
+        with patch.dict(cache.BUCKET_CAPS, {"td12_test_bucket": 3}):
+            cache.enforce_bucket_cap("td12_test_bucket")
+        remaining = cache.cache_data["td12_test_bucket"]
+        self.assertEqual(len(remaining), 3)
+        # oldest-inserted (k0, k1) evicted, newest 3 (k2,k3,k4) survive
+        self.assertEqual(set(remaining.keys()), {"k2", "k3", "k4"})
+
+    def test_enforce_bucket_cap_is_noop_under_cap_and_for_unlisted_bucket(self):
+        with cache.cache_lock:
+            cache.cache_data["td12_test_bucket"] = {"k0": 0, "k1": 1}
+        self.addCleanup(lambda: cache.cache_data.pop("td12_test_bucket", None))
+        with patch.dict(cache.BUCKET_CAPS, {"td12_test_bucket": 10}):
+            cache.enforce_bucket_cap("td12_test_bucket")
+        self.assertEqual(len(cache.cache_data["td12_test_bucket"]), 2, "must not evict when under cap")
+
+        cache.cache_data["td12_unlisted_bucket"] = {"k0": 0, "k1": 1, "k2": 2}
+        self.addCleanup(lambda: cache.cache_data.pop("td12_unlisted_bucket", None))
+        cache.enforce_bucket_cap("td12_unlisted_bucket")
+        self.assertEqual(len(cache.cache_data["td12_unlisted_bucket"]), 3, "unlisted bucket must never be capped")
+
+    def test_write_memory_cache_applies_bucket_cap_automatically(self):
+        with cache.cache_lock:
+            cache.cache_data["td12_test_bucket"] = {}
+        self.addCleanup(lambda: cache.cache_data.pop("td12_test_bucket", None))
+        with patch.dict(cache.BUCKET_CAPS, {"td12_test_bucket": 2}):
+            cache.write_memory_cache("td12_test_bucket", "a", 1)
+            cache.write_memory_cache("td12_test_bucket", "b", 2)
+            cache.write_memory_cache("td12_test_bucket", "c", 3)
+        self.assertEqual(len(cache.cache_data["td12_test_bucket"]), 2)
+        self.assertNotIn("a", cache.cache_data["td12_test_bucket"], "oldest key must be evicted once the cap is exceeded")
+
+    def test_all_bucket_caps_target_real_cache_data_buckets(self):
+        """Every BUCKET_CAPS key must correspond to a real cache_data bucket -
+        a typo here would silently cap nothing."""
+        for bucket in cache.BUCKET_CAPS:
+            self.assertIn(bucket, cache.cache_data, f"BUCKET_CAPS references unknown bucket {bucket!r}")
+
 
 if __name__ == "__main__":
     unittest.main()
