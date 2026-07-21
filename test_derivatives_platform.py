@@ -2025,6 +2025,45 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         for bucket in cache.BUCKET_CAPS:
             self.assertIn(bucket, cache.cache_data, f"BUCKET_CAPS references unknown bucket {bucket!r}")
 
+    # ---- TD-12 batch 12c: live_search_dedup mechanism swap (行為微調) ----
+
+    def test_remember_and_get_recent_live_search_result_still_dedups_within_ttl(self):
+        """The actual feature (coalesce identical rapid-fire searches within
+        LIVE_SEARCH_DEDUP_SECONDS) must survive the mechanism swap unchanged."""
+        with cache.cache_lock:
+            cache.cache_data["live_search_dedup"] = {}
+        self.addCleanup(lambda: cache.cache_data.pop("live_search_dedup", None))
+        payload = ([{"code": "2330"}], "20260721", None, ["TWSE"])
+        fetchers.remember_live_search_result("2330", "", 20, payload)
+        recalled = fetchers.get_recent_live_search_result("2330", "", 20)
+        self.assertEqual(recalled, payload)
+
+    def test_get_recent_live_search_result_expires_after_ttl(self):
+        with cache.cache_lock:
+            cache.cache_data["live_search_dedup"] = {
+                fetchers.live_search_dedup_key("2330", "", 20): {
+                    "stored_at": time.time() - fetchers.LIVE_SEARCH_DEDUP_SECONDS - 1,
+                    "payload": "stale",
+                },
+            }
+        self.addCleanup(lambda: cache.cache_data.pop("live_search_dedup", None))
+        self.assertIsNone(fetchers.get_recent_live_search_result("2330", "", 20))
+
+    def test_remember_live_search_result_uses_count_cap_not_ttl_purge(self):
+        """This is the actual observable behavior change: writing past the cap
+        now evicts the oldest entry by insertion order, even though every
+        entry here is still well within the old TTL window (the previous
+        mechanism would have kept all of them since none had expired yet)."""
+        with cache.cache_lock:
+            cache.cache_data["live_search_dedup"] = {}
+        self.addCleanup(lambda: cache.cache_data.pop("live_search_dedup", None))
+        with patch.dict(cache.BUCKET_CAPS, {"live_search_dedup": 3}):
+            for index in range(5):
+                fetchers.remember_live_search_result(f"query{index}", "", 20, ([], "", None, []))
+            self.assertEqual(len(cache.cache_data["live_search_dedup"]), 3)
+            self.assertIsNone(fetchers.get_recent_live_search_result("query0", "", 20), "oldest entry must be evicted by the count cap")
+            self.assertIsNotNone(fetchers.get_recent_live_search_result("query4", "", 20))
+
 
 if __name__ == "__main__":
     unittest.main()

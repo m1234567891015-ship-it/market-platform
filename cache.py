@@ -118,9 +118,14 @@ _yahoo_options_crumb: dict[str, Any] = {"value": "", "stored_at": 0.0}
 # Buckets NOT listed here are wholesale-overwrite single blobs (the whole
 # dataset replaces atomically on refresh, e.g. international_market_indexes,
 # treasury_yield_curve_rows, us_listed_universe) and don't need a cap.
-# live_search_dedup already had its own eviction (a full O(n) rebuild-filter
-# per write) before this and is deliberately handled as its own follow-up
-# change, not folded in here.
+#
+# live_search_dedup (行為微調, TD-05 batch 12c): previously the only bucket
+# with any bound at all - a hand-rolled O(n) full-dict-rebuild filtering out
+# entries older than LIVE_SEARCH_DEDUP_SECONDS on every write. Converted to
+# this same shared mechanism: bounded by entry COUNT instead of by
+# TTL-triggered purge. This is a genuine behavior change (not pure
+# behavior-preserving cleanup like the other 12 buckets below), called out
+# separately per its own commit.
 BUCKET_CAPS: dict[str, int] = {
     "stock_details": 2500,
     "yahoo_tw_stock_resources": 3000,
@@ -134,6 +139,7 @@ BUCKET_CAPS: dict[str, int] = {
     "sector_charts": 150,
     "yahoo_tw_future_technical_candles": 200,
     "taifex_openapi_list": 100,
+    "live_search_dedup": 500,
 }
 
 

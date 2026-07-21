@@ -546,15 +546,17 @@ def remember_live_search_result(
     limit: int,
     payload: tuple[list[dict[str, Any]], str, str | None, list[str]],
 ) -> tuple[list[dict[str, Any]], str, str | None, list[str]]:
+    # TD-12 (行為微調, batch 12c): was a hand-rolled O(n) full-dict-rebuild
+    # filtering out entries older than LIVE_SEARCH_DEDUP_SECONDS on every
+    # write - the only bucket in the file with any bound at all before this
+    # batch. Now uses the same shared write_memory_cache + BUCKET_CAPS
+    # mechanism as the other 12 buckets: bounded by entry COUNT (500,
+    # insertion-order eviction) instead of by TTL-triggered purge. The
+    # read-side freshness check in get_recent_live_search_result (below,
+    # LIVE_SEARCH_DEDUP_SECONDS) is unchanged - a stale-but-not-yet-evicted
+    # entry still won't be served past its 8-second dedup window.
     key = live_search_dedup_key(query, requested_market, limit)
-    now = time.time()
-    with cache_lock:
-        cache_data["live_search_dedup"] = {
-            stored_key: stored_value
-            for stored_key, stored_value in cache_data["live_search_dedup"].items()
-            if now - float(stored_value.get("stored_at") or 0) <= LIVE_SEARCH_DEDUP_SECONDS
-        }
-        cache_data["live_search_dedup"][key] = {"stored_at": now, "payload": payload}
+    write_memory_cache("live_search_dedup", key, payload)
     return payload
 
 
