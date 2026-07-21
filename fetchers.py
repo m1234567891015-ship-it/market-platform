@@ -133,9 +133,10 @@ HTML-scraping fetchers, plus their exclusive parsing-helper clusters
 (`build_yahoo_quote_symbol`/`build_yahoo_quote_page_url`/
 `build_yahoo_tw_stock_resource_url`, the `YahooClassCatalogParser` HTML
 parser, and the whole `normalize_yahoo_date_text` ... `parse_yahoo_broker_rows_from_lines`
-margin/broker parsing cluster - including `parse_yahoo_broker_row`, which a
-whole-file grep found has zero callers anywhere, dead code carried over
-verbatim since a behavior-preserving move doesn't delete things). Two more
+margin/broker parsing cluster - `parse_yahoo_broker_row`, once part of this
+cluster, was confirmed to have zero callers anywhere and was deleted in
+TD-05 batch 12 after a final repo-wide scan found nothing referencing it).
+Two more
 shared pure helpers used by both this batch and staying HTML/JSON scrapers
 (`extract_visible_text_lines`/`VisibleTextExtractor`, `extract_balanced_segment`)
 move and get imported back into app.py, same pattern as batch 1/2's shared
@@ -1453,19 +1454,6 @@ def parse_yahoo_margin_balance_chart_rows(html: str) -> tuple[list[dict[str, Any
             "lendingBalance": lending_balance,
         })
     return [row for row in rows if row.get("date")], data_key
-
-
-def parse_yahoo_broker_row(line: str) -> dict[str, Any] | None:
-    match = re.match(r"^(.+?)\s+([0-9,]+)\s+([0-9,]+)\s*([+-]?[0-9,]+)$", line.strip())
-    if not match:
-        return None
-    broker, buy, sell, net = match.groups()
-    return {
-        "broker": broker.strip(),
-        "buy": parse_float(buy),
-        "sell": parse_float(sell),
-        "net": parse_float(net),
-    }
 
 
 def parse_yahoo_broker_rows_from_lines(

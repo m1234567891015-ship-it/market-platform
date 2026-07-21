@@ -174,11 +174,13 @@ near the top of its own file (before those constants are even defined), so a
 module-level `from app import ...` would be a load-time circular import.
 
 Three functions found with zero callers anywhere in the repo (confirmed by
-two independent full-repo searches) move here unmodified rather than being
-deleted, per the standing behavior-preserving-refactor rule - each is marked
-with a `# DEADCODE-CANDIDATE` comment for a future TD-05 registry cleanup:
-`build_stock_search_url`, `build_site_data_view`, and (added in batch 1)
-`build_yahoo_options_chain`.
+two independent full-repo searches) moved here unmodified rather than being
+deleted at the time, each marked with a `# DEADCODE-CANDIDATE` comment for
+the eventual TD-05 registry cleanup: `build_stock_search_url`,
+`build_site_data_view`, and (added in batch 1) `build_yahoo_options_chain`.
+All 3 were reconfirmed zero-callers via a final repo-wide scan (including
+app.js/HTML/test files, and a check for dynamic/reflective dispatch) and
+deleted in TD-05 batch 12.
 
 Batch 1 (TAIFEX/options-chain + derivatives misc, 19 functions) brings the
 TAIFEX/Yahoo TXO option-chain builders, the TAIFEX global-market item
@@ -429,12 +431,6 @@ SEARCH_SITE_DATA_KEYS = (
 )
 
 
-# DEADCODE-CANDIDATE (confirmed zero callers 2026-07-18)
-def build_stock_search_url(date_str: str, keyword: str) -> str:
-    params = {"response": "json", "date": date_str, "keyword": keyword}
-    return f"{TWSE_BASE}/rwd/zh/afterTrading/STOCK_DAY_AVG?{urlencode(params)}"
-
-
 def slim_stock_for_bootstrap(stock: dict[str, Any]) -> dict[str, Any]:
     return {
         key: stock[key]
@@ -447,25 +443,6 @@ def build_stocks_view(stocks: list[dict[str, Any]], view: str) -> list[dict[str,
     if view == "sectors":
         return []
     return [slim_stock_for_bootstrap(stock) for stock in stocks]
-
-
-# DEADCODE-CANDIDATE (confirmed zero callers 2026-07-18)
-def build_site_data_view(site_data: dict[str, Any] | None, view: str) -> dict[str, Any] | None:
-    if not site_data:
-        return site_data
-    if view == "sectors":
-        return {
-            key: site_data[key]
-            for key in SECTOR_SITE_DATA_KEYS
-            if key in site_data
-        }
-    if view == "search":
-        return {
-            key: site_data[key]
-            for key in SEARCH_SITE_DATA_KEYS
-            if key in site_data
-        }
-    return site_data
 
 
 def build_yahoo_taiwan_future_technical_url(code: str) -> str:
@@ -1742,62 +1719,6 @@ def normalize_yahoo_option_contract(contract: dict[str, Any]) -> dict[str, Any]:
         "inTheMoney": contract.get("inTheMoney"),
         "type": "put" if symbol.upper().rfind("P") > symbol.upper().rfind("C") else "call",
     }
-
-
-# DEADCODE-CANDIDATE (confirmed zero callers 2026-07-18)
-def build_yahoo_options_chain(symbol: str, expiration: str | None = None) -> dict[str, Any]:
-    import app
-
-    clean_symbol = normalize_us_symbol_for_yahoo(re.sub(r"[^A-Za-z0-9=.^_-]", "", symbol or "").upper())
-    if not clean_symbol:
-        return {"error": "Invalid option underlying symbol."}
-    cache_key = f"yahoo:{clean_symbol}:{expiration or ''}"
-    if not app.global_market_refresh_requested():
-        cached_chain = read_memory_cache("us_options_chains", cache_key, OPTIONS_CHAIN_CACHE_SECONDS)
-        if cached_chain is not None:
-            return copy.deepcopy(cached_chain)
-
-    payload = fetch_yahoo_options_payload(clean_symbol, expiration)
-    option_chain = payload.get("optionChain") if isinstance(payload, dict) else {}
-    result = ((option_chain or {}).get("result") or [None])[0]
-    if not result:
-        error = (option_chain or {}).get("error") or {}
-        description = error.get("description") if isinstance(error, dict) else None
-        return {"symbol": clean_symbol, "error": description or "Yahoo options source returned no contracts.", "source": "Yahoo Finance Options"}
-
-    quote_info = result.get("quote") or {}
-    expirations = [int(value) for value in (result.get("expirationDates") or []) if str(value).isdigit()]
-    options = (result.get("options") or [{}])[0] or {}
-    selected_expiration = options.get("expirationDate") or pick_cboe_expiration(expirations, parse_cboe_expiration_request(expiration))
-    calls = [normalize_yahoo_option_contract(item) for item in (options.get("calls") or [])]
-    puts = [normalize_yahoo_option_contract(item) for item in (options.get("puts") or [])]
-    if not calls and not puts:
-        return {"symbol": clean_symbol, "error": "Yahoo options source returned no contracts.", "source": "Yahoo Finance Options"}
-
-    result_payload = {
-        "symbol": clean_symbol,
-        "name": quote_info.get("shortName") or quote_info.get("longName") or quote_info.get("symbol") or clean_symbol,
-        "price": quote_info.get("regularMarketPrice"),
-        "change": quote_info.get("regularMarketChange"),
-        "pct": quote_info.get("regularMarketChangePercent"),
-        "currency": quote_info.get("currency") or "USD",
-        "source": "Yahoo Finance Options",
-        "sourceUrl": f"https://finance.yahoo.com/quote/{quote(clean_symbol, safe='')}/options/",
-        "timestamp": payload.get("timestamp"),
-        "expirationDates": expirations,
-        "selectedExpiration": selected_expiration,
-        "summary": {
-            "callCount": len(calls),
-            "putCount": len(puts),
-            "totalContracts": len(calls) + len(puts),
-            "callOpenInterest": sum_contract_metric(calls, "openInterest"),
-            "putOpenInterest": sum_contract_metric(puts, "openInterest"),
-        },
-        "calls": sorted(calls, key=lambda item: parse_float(str(item.get("strike") or "")) or 0)[:200],
-        "puts": sorted(puts, key=lambda item: parse_float(str(item.get("strike") or "")) or 0)[:200],
-    }
-    write_memory_cache("us_options_chains", cache_key, copy.deepcopy(result_payload))
-    return result_payload
 
 
 def normalize_barchart_option_contract(contract: dict[str, Any], option_type: str, expiration: int | None, expiration_date: str | None) -> dict[str, Any] | None:
