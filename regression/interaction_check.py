@@ -89,7 +89,7 @@ def _is_expected_background_error(message: str) -> bool:
     return any(prefix in message for prefix in _EXPECTED_BACKGROUND_ERROR_PREFIXES)
 
 
-def _background_route_handler(route) -> None:
+def _background_route_handler(route, page_file: str) -> None:
     url = route.request.url
     if "institutional-history" in url:
         route.fulfill(status=200, content_type="application/json", body=_SYNTHETIC_INSTITUTIONAL_HISTORY)
@@ -98,6 +98,14 @@ def _background_route_handler(route) -> None:
         route.fulfill(status=503, content_type="application/json", body='{"error":"regression-fast-fail"}')
         return
     if "/api/twse/stock/" in url and "refresh=1" in url and "quick=1" not in url and "history=all" not in url:
+        route.fulfill(status=503, content_type="application/json", body='{"error":"regression-fast-fail"}')
+        return
+    if page_file == "us-etf.html" and "/api/us-market/symbol/" in url:
+        # loadUsEtfDetail() 的 Promise.all 第二個請求純屬錦上添花的個股補充資料,
+        # 已用 .catch(() => null) 包住不影響渲染;client 自己的 fetchWithTimeout
+        # 24 秒逾時常在慢請求上先於伺服器回應觸發,讓 HAR 錄成無效回應。同一個
+        # URL pattern 在 us-stock-search.html 是核心受測路徑,不可全域短路,
+        # 只在 us-etf.html 這裡快速失敗。
         route.fulfill(status=503, content_type="application/json", body='{"error":"regression-fast-fail"}')
         return
     route.fallback()
@@ -141,7 +149,7 @@ def _measure_stability(page, target: str | None):
     return page.evaluate("() => document.documentElement.scrollHeight")
 
 
-def _wait_dom_stable(page, target: str | None, rounds_required: int = 2, poll_ms: int = 300, max_rounds: int = 20) -> None:
+def _wait_dom_stable(page, target: str | None, rounds_required: int = 2, poll_ms: int = 300, max_rounds: int = 60) -> None:
     previous = None
     stable_rounds = 0
     for _ in range(max_rounds):
@@ -284,6 +292,11 @@ def run_step(page, step: Step, requests_seen: list[str]) -> dict:
     end_idx = len(requests_seen)
     fired_urls = requests_seen[start_idx:end_idx]
 
+    if step.wait_for.kind == "response":
+        # 回應到達網路層之後,JS 還要 parse JSON + 重渲染 DOM,兩者間有一段
+        # 短暫落差;固定的小緩衝比再疊一個 DOM 穩定輪詢便宜,也足夠。
+        page.wait_for_timeout(400)
+
     after = {t: _snapshot(page, t[0], t[1]) for t in needed_targets}
 
     failures = []
@@ -337,7 +350,7 @@ def _visit_page(browser, base_url: str, page_spec: PageSpec, mode: str) -> dict:
     # 錄到無效回應(compare 重播時會整個中斷,見 _har_broken_entries)或拖慢每次
     # capture。這些端點的內容不是任何 P0/P1 斷言的對象,用 _background_route_handler
     # 統一短路/快速失敗,讓測試穩定且快速,不依賴外部資料源在冷快取下的回應時間。
-    context.route("**/api/**", _background_route_handler)
+    context.route("**/api/**", lambda route: _background_route_handler(route, page_spec.file))
 
     page = context.new_page()
     page.on(
@@ -349,6 +362,14 @@ def _visit_page(browser, base_url: str, page_spec: PageSpec, mode: str) -> dict:
     page.on("request", lambda req: requests_seen.append(req.url) if _API_REQUEST_MARK in req.url else None)
 
     page.goto(f"{base_url}/{page_spec.file}", wait_until="load", timeout=30000)
+    # 有些頁面初始載入本身就要打較重的即時資料(如 tw-etf.html 的
+    # limit=all),寬鬆的 networkidle 比固定輪詢上限更能等到它真的載完;
+    # 逾時就退回原本的穩定輪詢當保底(frontend_check.py 已有的教訓:輪詢式
+    # 背景請求會讓 networkidle 永遠不觸發,所以還是要有退路)。
+    try:
+        page.wait_for_load_state("networkidle", timeout=30000)
+    except Exception:  # noqa: BLE001
+        pass
     _wait_dom_stable(page, None)
 
     step_results = []
@@ -371,7 +392,7 @@ def _visit_page(browser, base_url: str, page_spec: PageSpec, mode: str) -> dict:
         # 用 networkidle 讓這類背景請求有機會落地成真正的回應,逾時就放棄
         # (frontend_check.py 已踩過同樣的坑:輪詢式背景請求會讓 networkidle 永遠不觸發)。
         try:
-            page.wait_for_load_state("networkidle", timeout=20000)
+            page.wait_for_load_state("networkidle", timeout=40000)
         except Exception:  # noqa: BLE001
             pass
 

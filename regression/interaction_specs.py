@@ -233,8 +233,225 @@ TW_STOCK_SEARCH = PageSpec(
 )
 
 
+# ---------------------------------------------------------------------------
+# Batch 1:搜尋/名錄頁
+# ---------------------------------------------------------------------------
+
+US_STOCK_SEARCH = PageSpec(
+    file="us-stock-search.html",
+    steps=(
+        Step(
+            id="us-stock-search__search-form-submit",
+            tier="P0",
+            selector="#us-stock-search-form button[type=submit]",
+            action="click",
+            pre_fill=("#us-stock-search-input", "AAPL"),
+            # #us-stock-detail 內含技術走勢圖(SVG),outerHTML 可能因圖表持續重繪
+            # 而永遠等不到 wait_stable 要求的連續兩輪不變;改成直接等待驅動這次
+            # 更新的網路回應本身,更精準也更快。
+            wait_for=wait_response("**/api/us-market/symbol/**"),
+            asserts=(
+                a_min_count("#us-search-results .us-result-main-button[data-us-symbol]", 1),
+                a_content_changed("#us-stock-detail"),
+            ),
+            note="表單送出→搜尋 AAPL→自動選取第一筆→載入美股詳情(app.js:22277-22285,22235,autoSelect=true)",
+        ),
+        Step(
+            id="us-stock-search__input-debounce",
+            tier="P0",
+            selector="#us-stock-search-input",
+            action="fill",
+            action_value="MSFT",
+            wait_for=wait_response("**/api/us-market/search**"),
+            asserts=(a_content_changed("#us-search-results"),),
+            note="輸入去抖 300ms 觸發搜尋,不自動選取(app.js:22287-22297)",
+        ),
+        Step(
+            id="us-stock-search__result-click",
+            tier="P0",
+            selector="#us-search-results .us-result-main-button[data-us-symbol]",
+            action="click",
+            action_index=0,
+            # 同 search-form-submit:#us-stock-detail 含技術走勢圖(SVG),
+            # wait_stable 在此容器上不可靠,改等驅動更新的網路回應本身。
+            wait_for=wait_response("**/api/us-market/symbol/**"),
+            asserts=(a_content_changed("#us-stock-detail"),),
+            note="點擊搜尋結果→卡片標記 is-active→呼叫 loadUsStockSymbol()(app.js:22198-22204,22207)",
+        ),
+        Step(
+            id="us-stock-search__watchlist-toggle",
+            tier="P1",
+            selector="#us-stock-detail [data-us-stock-watchlist-toggle]",
+            action="click",
+            wait_for=wait_class("is-added"),
+            asserts=(a_class_present("is-added"),),
+            note="加入自選→按鈕文字/樣式切換(app.js:22140-22145)",
+        ),
+        Step(
+            id="us-stock-search__interval-week",
+            tier="P0",
+            selector='#us-stock-detail [data-us-interval="week"]',
+            action="click",
+            wait_for=wait_class("is-active"),
+            asserts=(a_class_present("is-active"),),
+            note="切換週線,資料已內嵌不需重新請求(app.js:21983-21991)",
+        ),
+        Step(
+            id="us-stock-search__ma-period-20",
+            tier="P1",
+            selector='#us-stock-detail [data-us-ma-period="20"]',
+            action="click",
+            wait_for=wait_class("is-active"),
+            asserts=(a_class_present("is-active"),),
+            note="切換 MA20 疊圖(app.js:21992-21999)",
+        ),
+        Step(
+            id="us-stock-search__chart-indicator-bollinger",
+            tier="P1",
+            selector='#us-stock-detail [data-us-chart-indicator="bollinger"]',
+            action="click",
+            wait_for=wait_class("is-active"),
+            asserts=(a_class_present("is-active"),),
+            note="切換布林通道疊圖指標(app.js:22001-22009)",
+        ),
+        Step(
+            id="us-stock-search__stock-zoom-in",
+            tier="P1",
+            selector='#us-stock-detail [data-us-stock-zoom="in"]',
+            action="click",
+            # 縮放按鈕的 disabled 狀態切換是同步的(updateZoom 沒有 await),等小範圍
+            # 容器(.stock-chart-zoom)穩定就夠,不必等含 SVG 圖表、持續重繪的
+            # #us-stock-detail 整塊(見 search-form-submit/result-click 的教訓)。
+            wait_for=wait_stable("#us-stock-detail .stock-chart-zoom"),
+            asserts=(a_not_disabled('#us-stock-detail [data-us-stock-zoom="out"]'),),
+            note="縮放圖表可視範圍→縮小/重設按鈕從 disabled 變為可用(app.js:21942-21944,22021-22023)",
+        ),
+    ),
+)
+
+
+TW_ETF = PageSpec(
+    file="tw-etf.html",
+    # 初始載入用 limit=all 打一次全量即時 ETF 報價,冷快取時很慢;先在開瀏覽器前
+    # 暖身一次,降低 capture 時初始等待逾時的機率。
+    warmup_urls=("/api/twse/etfs?category=all&sort=return_desc&limit=all",),
+    steps=(
+        # 分頁測試放最前面,趁清單還是初始「全部分類、無查詢字串」的最大狀態,
+        # 確保「下一頁」按鈕確實可點——後面幾步會依序疊加查詢字串/分類篩選,
+        # 篩選越疊越窄,若分頁測試排在後面容易篩到只剩一頁而按鈕變 disabled。
+        Step(
+            id="tw-etf__page-next",
+            tier="P1",
+            selector='[data-tw-etf-page="next"]',
+            action="click",
+            wait_for=wait_stable("#tw-etf-table-section"),
+            asserts=(a_content_changed("#tw-etf-table-section"),),
+            note="下一頁→對已載入資料切片重繪表格與分頁(純前端,app.js:33671)",
+        ),
+        Step(
+            id="tw-etf__filter-form-submit",
+            tier="P0",
+            selector=".tw-etf-list-toolbar #tw-etf-filter-form button[type=submit]",
+            action="click",
+            # 頁面自建一份 #tw-etf-filter-form 後立刻移除,真正生效的是
+            # .tw-etf-list-toolbar 內的第二份同 id 副本(interaction_inventory.md
+            # 已記錄的死碼陷阱),測試必須用範圍選擇器鎖定,不可假設裸 id 唯一。
+            # 查詢字串刻意用寬鬆的 "00" 前綴(絕大多數台股 ETF 代號的共同前綴),
+            # 避免篩到 0 筆,連累後面 category/sort/detail 幾步。
+            pre_fill=(".tw-etf-list-toolbar #tw-etf-query", "00"),
+            wait_for=wait_response("**/api/twse/etfs**"),
+            asserts=(a_content_changed("#tw-etf-table-section"),),
+            note="篩選送出→依 query+category+sort 重建清單(app.js:33889-33892,33873)",
+        ),
+        Step(
+            id="tw-etf__category-select",
+            tier="P0",
+            selector=".tw-etf-list-toolbar #tw-etf-category",
+            action="select",
+            action_value="high-dividend",
+            wait_for=wait_response("**/api/twse/etfs**"),
+            asserts=(a_content_changed("#tw-etf-table-section"),),
+            note="切換分類→重渲染清單+分頁(app.js:33893,routes_twse.py TW_ETF_CATEGORY_DEFINITIONS)",
+        ),
+        Step(
+            id="tw-etf__sort-select",
+            tier="P1",
+            selector=".tw-etf-list-toolbar #tw-etf-sort",
+            action="select",
+            action_value="code",
+            wait_for=wait_response("**/api/twse/etfs**"),
+            asserts=(a_content_changed("#tw-etf-table-section"),),
+            note="依代號排序→重新排序清單(app.js:33894)",
+        ),
+        Step(
+            id="tw-etf__detail-button-click",
+            tier="P0",
+            selector="button.tw-etf-detail-button[data-tw-etf-detail]",
+            action="click",
+            action_index=0,
+            wait_for=wait_response("**/api/twse/stock/**"),
+            asserts=(a_content_changed("#tw-etf-detail"),),
+            note="查看→#tw-etf-detail 替換為 ETF 分析/持股/配息卡片(app.js:33903-33915,33965)",
+        ),
+    ),
+)
+
+
+US_ETF = PageSpec(
+    file="us-etf.html",
+    # 初始載入打 directoryLimit=6000&quoteLimit=56 的全量美股 ETF 目錄+報價,
+    # 前端自己給到 120 秒逾時,冷快取極慢;先暖身降低 capture 逾時機率。
+    warmup_urls=("/api/us-market/etf-center?directoryLimit=6000&quoteLimit=56",),
+    steps=(
+        # 分頁測試放最前面,理由同 tw-etf.html:避免後面的篩選把清單縮到只剩一頁。
+        Step(
+            id="us-etf__page-next",
+            tier="P0",
+            selector='[data-us-nyse-page="etf"][data-page="next"]',
+            action="click",
+            wait_for=wait_stable("#us-nyse-etf-table"),
+            asserts=(a_content_changed("#us-nyse-etf-table"),),
+            note="下一頁→更新 #us-nyse-etf-table(前端切片,app.js:12850-12865)",
+        ),
+        Step(
+            id="us-etf__page-size-select",
+            tier="P1",
+            selector='[data-us-nyse-page-size="etf"]',
+            action="select",
+            action_value="50",
+            wait_for=wait_stable("#us-nyse-etf-table"),
+            asserts=(a_content_changed("#us-nyse-etf-table"),),
+            note="切換每頁筆數→重渲染表格(前端切片,app.js:12818-12827)",
+        ),
+        Step(
+            id="us-etf__search-form-submit",
+            tier="P0",
+            selector='[data-us-nyse-search-form="etf"] button[type=submit]',
+            action="click",
+            pre_fill=("#us-nyse-etf-search", "SPY"),
+            wait_for=wait_response("**/api/us-market/etf-center**"),
+            asserts=(a_content_changed("#us-nyse-etf-table"),),
+            note="篩選送出→重設頁碼並重新查詢(app.js:12787-12802,bindUsNyseDirectoryControls)",
+        ),
+        Step(
+            id="us-etf__detail-button-click",
+            tier="P0",
+            selector="[data-us-etf-detail]",
+            action="click",
+            action_index=0,
+            wait_for=wait_response("**/api/us-market/etf-center**"),
+            asserts=(a_content_changed("#us-etf-detail"),),
+            note="查看→#us-etf-detail 填入 ETF 行情與明細(app.js:12829-12839,11614)",
+        ),
+    ),
+)
+
+
 PAGES: tuple[PageSpec, ...] = (
     TW_STOCK_SEARCH,
+    US_STOCK_SEARCH,
+    TW_ETF,
+    US_ETF,
 )
 
 
