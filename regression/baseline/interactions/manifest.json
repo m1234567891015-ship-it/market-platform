@@ -2,6 +2,9 @@
   "page_count": 1,
   "pages": {
     "tw-stock-search.html": {
+      "known_issues": [
+        "TD-16: 個股詳情頁自動觸發的 loadInstitutionalTradeHistoryIfNeeded()(app.js:678)在法人買賣超歷史筆數<5時無限遞迴,實測 stack overflow。interaction_check.py 用合成回應短路此背景請求,僅為避免連累其他 P0/P1路徑的基準穩定性,不代表此路徑本身已驗證正常;TD-16 修復前不納入基準。"
+      ],
       "render_only": false,
       "step_count": 9,
       "steps": [

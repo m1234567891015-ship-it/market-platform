@@ -21,6 +21,7 @@
 | TD-13 | 低 | 品質 | Python 檔混入 CRLF 行尾;broad except Exception 約 150 處(多數有 log/fallback,少數靜默) | app.py(try ×241、except Exception ×154) | 跨平台 diff 噪音;個別靜默 except 吞錯 | .gitattributes 統一 LF;為靜默 except 補 LOGGER.debug 最低限度記錄 | 0.5天 | 13 |
 | TD-14 | 低 | 架構 | CSS 單檔巨石:styles.css 21,972 行,原稽核清單未列項(記帳補登) | styles.css 全檔 | 與 TD-02 同類問題(無法 tree-shake、難以定位規則歸屬) | 併入 TD-02 一體拆分處理,含未使用規則掃描 | 併入TD-02 | 14 |
 | TD-15 | 中 | 正確性/死碼 | 前端死碼與失效控制項:工單00-B互動路徑盤點發現16項死碼/不可達UI元素,其中1項為使用者看得到、點得到但無反應的按鈕(原稽核清單未列項,記帳補登) | 見下方「TD-15 佐證清單」,涵蓋 app.js 多處與 6 個 HTML 頁面 | `options.html` 的 `[data-asset-option-underlying]`(`renderOptionsUsChainCard()` 提早 `return ""`,100%不可達)是使用者可見、可點但無反應的按鈕,屬使用者可感知的正確性問題;其餘 15 項為維護負擔(死碼佔心智負擔,易誤導未來重構者誤判功能存在) | 逐項核實後刪除不可達程式碼路徑,或修復判斷邏輯使其重新可達(需個別評估是否為刻意停用之功能);`[data-asset-option-underlying]` 優先處理 | 待評估(16項,依複雜度分批) | 15 |
+| TD-16 | 高 | 正確性/當機 | 前端執行期錯誤:`loadInstitutionalTradeHistoryIfNeeded` 在法人買賣超歷史回應筆數 < 5 時無限遞迴,實測拋出 `RangeError: Maximum call stack size exceeded`,使個股詳情頁當機(原稽核清單未列項,工單00-B互動測試框架建置時發現,記帳補登) | app.js:678-733(`loadInstitutionalTradeHistoryIfNeeded`),守門判斷見 683 行 `history.rows.length >= 5` | 使用者可觸發的當機路徑,非清理項:任何法人買賣超資料筆數不足5筆的個股(如新上市股、資料稀疏交易日)在個股詳情頁(tw-stock-search.html 等)會因遞迴重渲染耗盡呼叫堆疊而當機,屬高嚴重度執行期錯誤 | 在 683 行的守門判斷失敗分支加入重試次數上限或直接停止重渲染,不應無條件遞迴呼叫 `renderStockDetail` → `loadInstitutionalTradeHistoryIfNeeded` | 待評估 | 16 |
 
 ## 總覽
 
@@ -37,7 +38,7 @@
 | 快取 TTL 常數 | 25 | 無統一快取層,見 TD-12 |
 | unit tests | 42 | 另有 e2e_smoke / fixtures / release integrity(正面) |
 
-債項數(依嚴重度):高 5 件、中 6 件、低 3 件。
+債項數(依嚴重度):高 6 件、中 6 件、低 3 件。
 
 ## 超長函式清單(重構優先標的)
 

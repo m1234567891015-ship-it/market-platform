@@ -115,6 +115,10 @@ class PageSpec:
     # 對象,而是頁面渲染時自動背景觸發(如個股詳情頁的法人買賣超),預熱可避免
     # capture 當下 context 關閉時把仍在飛行中的請求錄成無效(status<=0)的 HAR 項目。
     warmup_urls: tuple[str, ...] = ()
+    # 已知既有 bug、依使用者裁決排除於基準驗證範圍外的說明(不是「這條路徑通過測試」,
+    # 而是「這條路徑被刻意短路,不代表已驗證正常」)。寫入 manifest.json 供人工稽核,
+    # 對應的 TD 編號與細節見 docs/TD稽核清單.md 與 interaction_inventory.md。
+    known_issues: tuple[str, ...] = ()
 
 
 # ---------------------------------------------------------------------------
@@ -123,6 +127,12 @@ class PageSpec:
 
 TW_STOCK_SEARCH = PageSpec(
     file="tw-stock-search.html",
+    known_issues=(
+        "TD-16: 個股詳情頁自動觸發的 loadInstitutionalTradeHistoryIfNeeded()"
+        "(app.js:678)在法人買賣超歷史筆數<5時無限遞迴,實測 stack overflow。"
+        "interaction_check.py 用合成回應短路此背景請求,僅為避免連累其他 P0/P1"
+        "路徑的基準穩定性,不代表此路徑本身已驗證正常;TD-16 修復前不納入基準。",
+    ),
     steps=(
         Step(
             id="tw-stock-search__search-form-submit",

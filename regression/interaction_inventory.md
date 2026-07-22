@@ -263,6 +263,16 @@ app.js 綁定程式碼,確認元素真的被插入 DOM、確認 addEventListener
 
 `initSearchPage()`。搜尋框/結果清單獨立於共用 `data`/`renderCurrentPage` 機制。
 
+**known-broken(排除於基準外,見 [TD-16](../docs/TD稽核清單.md))**:個股詳情載入後會自動觸發
+`loadInstitutionalTradeHistoryIfNeeded()`(app.js:678,非本頁任何 P0/P1 控制項,頁面渲染時
+背景自動觸發),當法人買賣超歷史回應筆數 < 5 時,683 行的守門判斷不通過會不斷
+`renderStockDetail` → 重新觸發同一個 fetch → 再次不足 5 筆 → 無限遞迴,實測拋出
+`RangeError: Maximum call stack size exceeded` 讓頁面當機。這是使用者可觸發的既有 bug,
+不是本工單(00-B)造成也不在本工單修復範圍。`regression/interaction_check.py` 用合成回應
+(固定 5 筆假資料)短路這個背景請求,只為避免它連累其他 P0/P1 路徑的基準穩定性——
+**這個短路本身不驗證、也不代表這條自動背景路徑本身正常運作**,待 TD-16 修復後應移除短路、
+另外為此路徑補上明確的迴歸測試。
+
 | selector | trigger_event | handler_summary | expected_dom_impact | fires_api_request | tier |
 |---|---|---|---|---|---|
 | `#stock-search-form` | submit | app.js:33195 → `runStockSearch(query)` 33139 | `#search-results` 替換為結果按鈕,`#search-status` 更新 | 是 — `GET /api/twse/live-search?q=` | **P0** |

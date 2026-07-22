@@ -510,6 +510,7 @@ def _write_baseline(results: list[dict]) -> dict:
             "render_only": spec.render_only,
             "step_count": len(spec.steps),
             "steps": [_step_manifest_entry(s) for s in spec.steps],
+            "known_issues": list(spec.known_issues),
         }
         results_doc["pages"][result["file"]] = {
             "console_error_count": len(result["console_errors"]),
