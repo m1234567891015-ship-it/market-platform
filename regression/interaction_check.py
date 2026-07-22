@@ -164,12 +164,12 @@ def _wait_dom_stable(page, target: str | None, rounds_required: int = 2, poll_ms
         previous = current
 
 
-def _wait_class_present(page, target: str, class_name: str, timeout_ms: int = 8000, poll_ms: int = 100) -> None:
+def _wait_class_present(page, target: str, class_name: str, index: int = 0, timeout_ms: int = 8000, poll_ms: int = 100) -> None:
     deadline = time.time() + timeout_ms / 1000
     while time.time() < deadline:
         classes = page.evaluate(
-            "(sel) => { const el = document.querySelector(sel); return el ? el.className : null; }",
-            target,
+            "([sel, idx]) => { const el = document.querySelectorAll(sel)[idx]; return el ? el.className : null; }",
+            [target, index],
         )
         if classes and class_name in classes.split():
             return
@@ -203,6 +203,21 @@ def _check_assert(page, step: Step, a: Assert, before: dict, after: dict, fired_
         classes = (af["className"] if af else "") or ""
         if a.class_name not in classes.split():
             return False, f"class_present: {target}[{index}] 缺少 class {a.class_name}(現況 class={classes!r})"
+        return True, ""
+
+    if a.kind == "class_toggled":
+        # 有些切換是「預設就有這個 class,點擊後移除」(如 VIX 疊圖預設開啟),
+        # 跟 class_present 假設的「預設沒有,點擊後加上」方向相反。這裡不管方向,
+        # 只看 class 名稱的有無狀態操作前後是否真的不同。
+        target, index = _resolve_target(step, a)
+        af = after.get((target, index))
+        if af is None:
+            return False, f"class_toggled: 找不到目標元素 {target}[{index}]"
+        b = before.get((target, index))
+        after_has = a.class_name in (af["className"] or "").split()
+        before_has = a.class_name in (b["className"] or "").split() if b else None
+        if before_has is not None and before_has == after_has:
+            return False, f"class_toggled: {target}[{index}] 的 class {a.class_name} 操作前後未變化(前後皆為 {after_has})"
         return True, ""
 
     if a.kind == "value_changed":
@@ -260,7 +275,13 @@ def _perform_action(page, step: Step) -> None:
     elif step.action == "fill":
         loc.fill(step.action_value or "", timeout=10000)
     elif step.action == "select":
-        loc.select_option(step.action_value, timeout=10000)
+        if step.action_value is None:
+            # 選項的實際 value(如到期日)是伺服器動態決定的,不方便在 spec 裡硬編碼;
+            # 沒指定 action_value 時改選「第2個選項」(index=1),避開通常是預設值的
+            # 第1個選項,確保 change 事件真的代表切換到不同值。
+            loc.select_option(index=1, timeout=10000)
+        else:
+            loc.select_option(step.action_value, timeout=10000)
     else:
         raise ValueError(f"unknown action: {step.action}")
 
@@ -268,7 +289,7 @@ def _perform_action(page, step: Step) -> None:
 def run_step(page, step: Step, requests_seen: list[str]) -> dict:
     needed_targets: set[tuple[str, int]] = set()
     for a in step.asserts:
-        if a.kind in ("content_changed", "value_changed", "class_present"):
+        if a.kind in ("content_changed", "value_changed", "class_present", "class_toggled"):
             needed_targets.add(_resolve_target(step, a))
 
     before = {t: _snapshot(page, t[0], t[1]) for t in needed_targets}
@@ -288,7 +309,12 @@ def run_step(page, step: Step, requests_seen: list[str]) -> dict:
         if step.wait_for.kind == "stable":
             _wait_dom_stable(page, step.wait_for.target)
         elif step.wait_for.kind == "class_present":
-            _wait_class_present(page, step.wait_for.target or step.selector, step.wait_for.class_name)
+            # target 未指定時預設沿用「這次操作的元素」(selector+action_index),
+            # 不能只看 step.selector 的第一個匹配——action_index != 0 時會盯錯元素
+            # (實測 tw-stocks__class-tab-select 就是踩到這個坑,見對應 commit)。
+            wait_target = step.wait_for.target or step.selector
+            wait_index = 0 if step.wait_for.target else step.action_index
+            _wait_class_present(page, wait_target, step.wait_for.class_name, index=wait_index)
     end_idx = len(requests_seen)
     fired_urls = requests_seen[start_idx:end_idx]
 

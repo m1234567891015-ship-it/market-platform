@@ -116,9 +116,16 @@ app.js 綁定程式碼,確認元素真的被插入 DOM、確認 addEventListener
 `isDerivativePage` 為 true,走 `renderDerivativesFuturesSinglePage()` = `renderFuturesAnalysisCenter`
 + `renderDerivativesFuturesPanel`,渲染後呼叫 `bindDerivativesFuturesPanel` + `bindDerivativeWatchlistControls`。
 
+**盤點修正(工單00-B第二部分建置測試框架時發現)**:原表格曾列
+`[data-global-refresh="futures"]` 為 P0,經 `document.querySelectorAll` 實際執行期檢查
+(0 個匹配元素)證實此控制項在本頁不會被渲染——`[data-global-refresh]` 唯一的渲染來源是
+`renderGlobalSummaryCard()`(app.js:20670-20692),但該函式只在 app.js:20623
+`isDerivativePage ? ... : renderGlobalSummaryCard(...)` 的 **else** 分支被呼叫,futures/options
+屬於 `isDerivativePage=true`,完全繞過此函式。已移除此列;本頁 P0 數由 3 降為 2
+(`[data-futures-detail-symbol]` 與自動觸發的 TAIFEX K 線 hydrate),仍高於逐頁下限。
+
 | selector | trigger_event | handler_summary | expected_dom_impact | fires_api_request | tier |
 |---|---|---|---|---|---|
-| `[data-global-refresh="futures"]`(委派於 document) | click | app.js:34132-34137 → `initGlobalMarketPage(true)` | 全頁重新抓取+重渲染 | 是 — `GET /api/futures?limit=all&refresh=1` | **P0** |
 | `[data-futures-framework-scope]`(台灣/美國/國際) | click | `bindDerivativesFuturesPanel` 19013-19020 | 切換投資框架分頁 | 否 | P1 |
 | `[data-futures-detail-scope]` | click | 19021-19036 | 切換詳細面板市場範圍與預設商品 | 否 | P1 |
 | `[data-futures-detail-symbol]`(合約晶片,如 TX/MTX/ES=F) | click | 19037-19043 | 切換單一合約詳情/圖表面板 | 否 | **P0**(主要合約選擇器) |
@@ -376,8 +383,14 @@ app.js 綁定程式碼,確認元素真的被插入 DOM、確認 addEventListener
 | `#us-sector-stock-browser [data-us-sector-stock]` | click | `bindUsSectorStocksBrowser` 12710-12758 | 切換基準或類股;若role=benchmark則替換整個瀏覽器區塊並重新綁定 | 是 — `loadUsSectorStocks()` | **P0** |
 | `#us-sector-stock-browser form[data-us-sector-nyse-search-form]` | submit | 12759-12765 | 設定查詢字串,重設頁碼 | 是 | **P0** |
 | `#us-sector-stock-browser [data-us-sector-nyse-reset]` | click | 12766-12772 | 清空輸入/查詢 | 是 | P1 |
-| `#us-sector-stock-browser [data-us-sector-nyse-page]`(first/prev/next/last) | click | 12773-12783 | 分頁(前端切片) | 否 | **P0** |
 | 圖表 hover zones | mouseenter/mousemove/mouseleave | `bindChartHover`(20706) | 僅提示框 | 否 | P2 |
+
+**盤點修正(工單00-B第二部分建置測試框架時發現)**:原表格曾列
+`[data-us-sector-nyse-page]`(first/prev/next/last)為 P0,經實際執行期檢查證實結構性不可達——
+`fetchUsSectorScopePayload()` 固定 `limit=30`(app.js:12660),但分頁門檻
+`US_NYSE_DIRECTORY_PAGE_SIZE=50`(app.js:10831),30<50 代表此瀏覽器項目數永遠不會超過一頁,
+「下一頁」等分頁按鈕在任何可達狀態下都是 `disabled`(實測初始載入即 disabled,僅9筆資料)。
+已登錄為 TD-15 新增項目,不修復;本表格移除此列。
 
 ## us-watchlist.html
 
@@ -471,10 +484,12 @@ app.js 綁定程式碼,確認元素真的被插入 DOM、確認 addEventListener
    本工單(00-B)不修復。其中 options.html 的 `[data-asset-option-underlying]`
    (`renderOptionsUsChainCard()` 提早 `return ""`,100%不可達,使用者看得到、點得到但無反應)
    在 TD-15 中標為最高優先。
-4. **執行時間**:42+6=48 條 P0 若使全套超過 5 分鐘,將 P2 改為選用(`--interactions-full`
-   才跑),P0+P1 為預設套件。
+4. **執行時間**:42+6=48 條 P0(第二部分建置測試框架時修正 futures.html、us-stocks.html
+   各一條誤植/結構性不可達的 P0——見對應頁面段落「盤點修正」,現為 40+6=46 條)若使全套
+   超過 5 分鐘,將 P2 改為選用(`--interactions-full` 才跑),P0+P1 為預設套件。
 
 裁決來源:指令5.md(使用者確認紀錄)。derivatives-assets.html 的死碼(控制項因
 `renderAssetHubPage()` 提早 return 而全數不可達)已併入 TD-15,不另立工單。
 
-在您確認前,我不會建立 `regression/interaction_check.py` 或動到第二部分之後的任何工作。
+第二部分(`regression/interaction_check.py` 互動測試框架)已依裁決結果建置,見
+`docs/工單00B_前端行為護欄.md` 與逐批 commit 紀錄。

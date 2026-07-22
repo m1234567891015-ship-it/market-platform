@@ -159,6 +159,7 @@
 | 14 | `tw-stocks.html` | `data-page` 實際是 `"sectors"`,與檔名不符 | 資訊 |
 | 15 | `us-stocks.html` / `us-market-overview.html` | 共用 `data-page="global-market"` + `data-market-category="us-stocks"`,唯一區分靠 `data-market-view="overview"` 是否存在(app.js:20597 單一布林值分岔),render tree 完全不同 | 資訊 |
 | 16 | `tw-etf.html` | `renderTwEtfPage()` 自建一份 `#tw-etf-filter-form` 後立即刪除,真正生效的是 `.tw-etf-list-toolbar` 內第二份同id副本(功能正常,但屬易誤導的重複渲染,測試/未來維護須用範圍選擇器) | 低 |
+| 17 | `us-stocks.html` | `#us-sector-stock-browser` 的分頁按鈕(`[data-us-sector-nyse-page]`)結構性不可達:`fetchUsSectorScopePayload()` 固定 `limit=30`(app.js:12660),但分頁門檻 `US_NYSE_DIRECTORY_PAGE_SIZE=50`(app.js:10831),30<50 代表項目數永遠不會超過一頁,「下一頁」等按鈕在任何可達狀態下都是 disabled(實測初始載入即 disabled,僅9筆資料) | 低 |
 
 ## 既有優點(重構時必須保留的資產)
 
