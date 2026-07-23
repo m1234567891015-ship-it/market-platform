@@ -43,7 +43,7 @@ python regression/frontend_check.py --capture   # -> regression/baseline/screens
 python regression/interaction_check.py --capture   # -> regression/baseline/interactions/{manifest,results}.json
 
 # Repeated during refactor work, to check for behavior drift:
-python regression/verify_against_baseline.py --quick         # API + security checks (~1 min)
+python regression/verify_against_baseline.py --quick         # API + security checks (實測約 2-3 分鐘,視外部資料源延遲而定,見 TD-17)
 python regression/verify_against_baseline.py --quick --interactions  # + interaction checks (P0+P1, ~2 min)
 python regression/verify_against_baseline.py --full           # quick + Playwright frontend compare + interaction checks
 ```

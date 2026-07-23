@@ -22,6 +22,7 @@
 | TD-14 | 低 | 架構 | CSS 單檔巨石:styles.css 21,972 行,原稽核清單未列項(記帳補登) | styles.css 全檔 | 與 TD-02 同類問題(無法 tree-shake、難以定位規則歸屬) | 併入 TD-02 一體拆分處理,含未使用規則掃描 | 併入TD-02 | 14 |
 | TD-15 | 中 | 正確性/死碼 | 前端死碼與失效控制項:工單00-B互動路徑盤點發現16項死碼/不可達UI元素,其中1項為使用者看得到、點得到但無反應的按鈕(原稽核清單未列項,記帳補登) | 見下方「TD-15 佐證清單」,涵蓋 app.js 多處與 6 個 HTML 頁面 | `options.html` 的 `[data-asset-option-underlying]`(`renderOptionsUsChainCard()` 提早 `return ""`,100%不可達)是使用者可見、可點但無反應的按鈕,屬使用者可感知的正確性問題;其餘 15 項為維護負擔(死碼佔心智負擔,易誤導未來重構者誤判功能存在) | 逐項核實後刪除不可達程式碼路徑,或修復判斷邏輯使其重新可達(需個別評估是否為刻意停用之功能);`[data-asset-option-underlying]` 優先處理 | 待評估(16項,依複雜度分批) | 15 |
 | TD-16 | 高 | 正確性/當機 | 前端執行期錯誤:`loadInstitutionalTradeHistoryIfNeeded` 在法人買賣超歷史回應筆數 < 5 時無限遞迴,實測拋出 `RangeError: Maximum call stack size exceeded`,使個股詳情頁當機(原稽核清單未列項,工單00-B互動測試框架建置時發現,記帳補登) | app.js:678-733(`loadInstitutionalTradeHistoryIfNeeded`),守門判斷見 683 行 `history.rows.length >= 5` | 使用者可觸發的當機路徑,非清理項:任何法人買賣超資料筆數不足5筆的個股(如新上市股、資料稀疏交易日)在個股詳情頁(tw-stock-search.html 等)會因遞迴重渲染耗盡呼叫堆疊而當機,屬高嚴重度執行期錯誤 | 在 683 行的守門判斷失敗分支加入重試次數上限或直接停止重渲染,不應無條件遞迴呼叫 `renderStockDetail` → `loadInstitutionalTradeHistoryIfNeeded` | 待評估 | 16 |
+| TD-17 | 低 | 測試/穩定性 | `verify_against_baseline.py` 的 `check_api_baseline` 依賴即時外部資料源(TWSE/TAIFEX/Yahoo),外部延遲會讓 `--quick` 誤判為程式碼有問題(原稽核清單未列項,工單00-B驗收過程中實測發現:`--quick` 耗時由文件記載的約1分鐘暴增至2m30s,且曾遇到單一端點第一輪失敗、重試後才過的情形) | regression/verify_against_baseline.py::check_api_baseline、_check_one_endpoint | `--quick` 本應是快速、確定性的程式碼正確性檢查,卻混入外部服務可用性與延遲的不確定性,拖慢重構迭代循環,且失敗時無法第一時間判斷是程式碼壞了還是外部資料源當下不穩 | 將外部連線性檢查與程式碼正確性檢查分離:多數端點已是 structure_only 比對,可考慮改為完全離線的固定 fixture(mock 外部 HTTP 呼叫)取代即時打外部端點,或至少把即時性檢查移出 `--quick` 的關鍵路徑,列為獨立、可選的健康檢查 | 0.5-1天 | 17 |
 
 ## 總覽
 
@@ -38,7 +39,7 @@
 | 快取 TTL 常數 | 25 | 無統一快取層,見 TD-12 |
 | unit tests | 42 | 另有 e2e_smoke / fixtures / release integrity(正面) |
 
-債項數(依嚴重度):高 6 件、中 6 件、低 3 件。
+債項數(依嚴重度):高 6 件、中 6 件、低 5 件。
 
 ## 超長函式清單(重構優先標的)
 
