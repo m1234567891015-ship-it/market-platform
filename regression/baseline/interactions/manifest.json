@@ -1,5 +1,5 @@
 {
-  "page_count": 13,
+  "page_count": 14,
   "pages": {
     "bonds.html": {
       "known_issues": [],
@@ -1346,6 +1346,88 @@
         }
       ]
     },
+    "us-market-overview.html": {
+      "known_issues": [],
+      "render_only": false,
+      "step_count": 3,
+      "steps": [
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#global-market-root"
+            }
+          ],
+          "id": "us-market-overview__global-refresh",
+          "note": "重新整理→全頁重新抓取+重渲染(app.js:34132-34137;本頁非衍生品分類,與futures.html不同,此控制項確實存在)",
+          "pre_fill": null,
+          "selector": "[data-global-refresh]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "response",
+            "pattern": "**/api/global-market/us-stocks**",
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "us-market-overview__sector-ranking-group",
+          "note": "重渲染排行子清單(S&P500 vs 產業群組)(app.js:19964-19969)",
+          "pre_fill": null,
+          "selector": "[data-us-market-sector-ranking-group]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "select",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "value_changed",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "us-market-overview__sector-sort",
+          "note": "重新排序排行清單(app.js:19970-19973)",
+          "pre_fill": null,
+          "selector": "[data-us-market-sector-sort]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#us-market-overview"
+          }
+        }
+      ]
+    },
     "us-stock-search.html": {
       "known_issues": [],
       "render_only": false,
@@ -1931,5 +2013,5 @@
       ]
     }
   },
-  "step_count_total": 72
+  "step_count_total": 75
 }

@@ -1216,6 +1216,172 @@ DERIVATIVES_ASSETS = PageSpec(
 )
 
 
+# ---------------------------------------------------------------------------
+# Batch 5:儀表板/渲染型 + 剩餘互動頁
+# ---------------------------------------------------------------------------
+
+DERIVATIVES_ANALYTICS = PageSpec(
+    file="derivatives-analytics.html",
+    render_only=True,
+    steps=(
+        Step(
+            id="derivatives-analytics__render",
+            tier="P0",
+            selector="#derivatives-analytics-root",
+            action=None,
+            # 裁決紀錄第2點:本頁零互動控制項(8個平行API請求後即完成,無任何
+            # addEventListener),改用渲染型P0:斷言主要資料區塊載入後非空。
+            asserts=(a_min_count("#derivatives-analytics-root .panel-card", 1),),
+            note="頁面載入→8個平行API請求組出TXO選擇權鏈/PCR/法人籌碼/基差等卡片(app.js:33377-33420)",
+        ),
+    ),
+)
+
+
+DERIVATIVES_STATUS = PageSpec(
+    file="derivatives-status.html",
+    render_only=True,
+    steps=(
+        Step(
+            id="derivatives-status__render",
+            tier="P0",
+            selector="#derivatives-status-root",
+            action=None,
+            # 裁決紀錄第2點:本頁零互動控制項(derivatives-ui.js 純資料展示),
+            # 改用渲染型P0:斷言hero/統計格/目錄表/AI分數卡載入後非空。
+            asserts=(a_min_count("#derivatives-status-root .panel-card", 1),),
+            note="頁面載入→derivatives-ui.js 抓 /api/derivatives/v1-status 渲染狀態頁(derivatives-ui.js:73)",
+        ),
+    ),
+)
+
+
+DERIVATIVES_AI = PageSpec(
+    file="derivatives-ai.html",
+    render_only=True,
+    steps=(
+        Step(
+            id="derivatives-ai__redirect",
+            tier="P0",
+            selector="body",
+            action=None,
+            # 純轉址頁:initDerivativesAiPage() 執行 window.location.replace(...),
+            # 頁面載入後應已完整導航到目的地(HTML <meta refresh> 亦同時存在,
+            # 兩者競速執行同一目的地,見 TD-15 佐證清單#5)。
+            asserts=(a_url_matches("**/derivatives-analytics.html#derivatives-ai-section"),),
+            note="頁面載入(load)→window.location.replace 導向 derivatives-analytics.html#derivatives-ai-section(app.js:33518-33520)",
+        ),
+    ),
+)
+
+
+INDEX = PageSpec(
+    file="index.html",
+    steps=(
+        Step(
+            id="index__penny-trend-market",
+            tier="P0",
+            selector="#penny-trend-controls [data-home-penny-market]",
+            action="click",
+            # index=0 是預設市場(上市),無早退判斷但重複點選同一市場會產生
+            # 逐位元組相同的重渲染結果。
+            action_index=1,
+            wait_for=wait_class("is-active"),
+            asserts=(a_class_present("is-active"),),
+            note="裁決升級為P0(互動型):切換銅板股市場分頁→重渲染卡片網格與摘要文字(app.js:4117-4122)",
+        ),
+    ),
+)
+
+
+MARKET_OVERVIEW = PageSpec(
+    file="market-overview.html",
+    steps=(
+        Step(
+            id="market-overview__sector-flow-mode",
+            tier="P0",
+            selector="#sector-fund-flow [data-sector-flow-mode]",
+            action="click",
+            action_index=1,
+            wait_for=wait_class("is-active"),
+            asserts=(a_class_present("is-active"),),
+            note="裁決升級為P0(互動型):切換類股資金流向模式(app.js:306,365-370)",
+        ),
+        Step(
+            id="market-overview__sector-ranking-group",
+            tier="P1",
+            selector="#market-sector-ranking [data-market-sector-ranking-group]",
+            action="click",
+            action_index=1,
+            wait_for=wait_class("is-active"),
+            asserts=(a_class_present("is-active"),),
+            note="切換排行市場群組(app.js:2311)",
+        ),
+        Step(
+            id="market-overview__sector-sort",
+            tier="P1",
+            # 注意:#sector-sort-slot 包裝是 renderSectorPageV2()(tw-stocks.html)
+            # 專屬的,renderMarketPage() 這裡的 select 沒有外層 .sector-sort-slot
+            # 容器(實測 closest('[id]') 回傳自己),直接用裸 id 選取。
+            selector="#sector-sort-select",
+            action="select",
+            wait_for=wait_stable("#market-sector-ranking"),
+            asserts=(a_value_changed(None),),
+            note="依所選指標重新排序表格列(app.js:2603-2606)",
+        ),
+    ),
+)
+
+
+# news.html 與 market-overview.html 分派完全相同(同一 data-page="market" →
+# renderMarketPage()),互動介面逐位元組相同(見 interaction_inventory.md
+# TD-15 佐證清單#12),故沿用同一組 Step 定義,只換 file。
+NEWS = PageSpec(
+    file="news.html",
+    steps=MARKET_OVERVIEW.steps,
+)
+
+
+US_MARKET_OVERVIEW = PageSpec(
+    file="us-market-overview.html",
+    steps=(
+        Step(
+            id="us-market-overview__global-refresh",
+            tier="P0",
+            # 注意:此頁走 renderUsMarketOverviewLikeTaiwan() 專屬渲染路徑(因
+            # data-market-view="overview"),global-refresh 按鈕位在
+            # .market-institution-card(#us-market-overview 的手足區塊,不在其
+            # 內部),實測 `#us-market-overview [data-global-refresh]` 選不到。
+            selector="[data-global-refresh]",
+            action="click",
+            wait_for=wait_response("**/api/global-market/us-stocks**"),
+            asserts=(a_content_changed("#global-market-root"),),
+            note="重新整理→全頁重新抓取+重渲染(app.js:34132-34137;本頁非衍生品分類,"
+            "與futures.html不同,此控制項確實存在)",
+        ),
+        Step(
+            id="us-market-overview__sector-ranking-group",
+            tier="P1",
+            selector="[data-us-market-sector-ranking-group]",
+            action="click",
+            action_index=1,
+            wait_for=wait_class("is-active"),
+            asserts=(a_class_present("is-active"),),
+            note="重渲染排行子清單(S&P500 vs 產業群組)(app.js:19964-19969)",
+        ),
+        Step(
+            id="us-market-overview__sector-sort",
+            tier="P1",
+            selector="[data-us-market-sector-sort]",
+            action="select",
+            wait_for=wait_stable("#us-market-overview"),
+            asserts=(a_value_changed(None),),
+            note="重新排序排行清單(app.js:19970-19973)",
+        ),
+    ),
+)
+
+
 PAGES: tuple[PageSpec, ...] = (
     TW_STOCK_SEARCH,
     US_STOCK_SEARCH,
@@ -1231,6 +1397,13 @@ PAGES: tuple[PageSpec, ...] = (
     INTERNATIONAL_FINANCE,
     PRECIOUS_METALS,
     DERIVATIVES_ASSETS,
+    DERIVATIVES_ANALYTICS,
+    DERIVATIVES_STATUS,
+    DERIVATIVES_AI,
+    INDEX,
+    MARKET_OVERVIEW,
+    NEWS,
+    US_MARKET_OVERVIEW,
 )
 
 
