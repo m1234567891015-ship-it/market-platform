@@ -538,7 +538,22 @@ def run(mode: str, page_files: list[str] | None) -> dict:
                     if last_error is not None:
                         raise SystemExit(f"[capture] {spec.file} 重試 {CAPTURE_RETRY_COUNT + 1} 次後仍失敗: {last_error}")
                 else:
-                    results.append(_visit_page(browser, server.base_url, spec, mode))
+                    try:
+                        results.append(_visit_page(browser, server.base_url, spec, mode))
+                    except Exception as exc:  # noqa: BLE001
+                        # 單一頁面的操作(如某個選擇器失效)可能讓 Playwright 拋出未預期
+                        # 例外(逾時、strict mode violation 等),不該讓整個 --compare
+                        # 執行中止、連帶跳過其餘頁面。記成一筆失敗結果,繼續跑下一頁。
+                        results.append({
+                            "file": spec.file,
+                            "console_errors": [],
+                            "steps": [{
+                                "ok": False,
+                                "id": "<page-crash>",
+                                "tier": "P0",
+                                "failures": [f"{type(exc).__name__}: {exc}"],
+                            }],
+                        })
         finally:
             browser.close()
 

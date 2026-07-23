@@ -9,6 +9,9 @@ Flask + vanilla JS 台股市場平台。目前進行技術債重構,
 - 冒煙測試:`python e2e_smoke.py`
 - 安全檢查:`python security_guardrail_check.py`
 - 本地啟動:`python app.py`(http://127.0.0.1:5000)
+- 前端互動行為比對(工單00-B,21頁93步驟P0+P1):
+  `python regression/verify_against_baseline.py --quick --interactions`
+  (`--full` 已自動包含,不需另外加旗標)
 
 ## 硬性規則
 - app.py(15,513 行)與 app.js(34,149 行)只允許局部編輯,

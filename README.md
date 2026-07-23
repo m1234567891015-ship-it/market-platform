@@ -40,10 +40,12 @@ pip install -r regression/requirements-regression.txt
 playwright install chromium
 python regression/capture_baseline.py     # -> regression/baseline/api/*.json, manifest.json
 python regression/frontend_check.py --capture   # -> regression/baseline/screenshots/*.png
+python regression/interaction_check.py --capture   # -> regression/baseline/interactions/{manifest,results}.json
 
 # Repeated during refactor work, to check for behavior drift:
-python regression/verify_against_baseline.py --quick   # API + security checks (~1 min)
-python regression/verify_against_baseline.py --full    # quick + Playwright frontend compare
+python regression/verify_against_baseline.py --quick         # API + security checks (~1 min)
+python regression/verify_against_baseline.py --quick --interactions  # + interaction checks (P0+P1, ~2 min)
+python regression/verify_against_baseline.py --full           # quick + Playwright frontend compare + interaction checks
 ```
 
 Each TD ticket's definition of done requires both `python -m unittest
@@ -64,6 +66,12 @@ Notes:
 - `verify_against_baseline.py` retries a failing endpoint once after a short
   delay before treating it as a real failure, to absorb transient external
   data source outages.
+- `interaction_check.py` (工單 00-B) covers 21 pages / 93 real click/select/
+  submit interaction steps (P0+P1 tier; P2 — zoom/pan/hover — not yet
+  implemented, see `regression/interaction_inventory.md`). It replays a
+  frozen HAR per page so the underlying data never varies between runs;
+  full suite runtime is ~1m50s, well under the 5-minute budget, so P0+P1
+  stays the default and there is no separate opt-in flag needed today.
 
 Build a clean portable package:
 

@@ -196,11 +196,32 @@ def run_frontend_compare() -> CheckReport:
     return report
 
 
+def run_interaction_compare() -> CheckReport:
+    """工單 00-B 第四部分:--interactions 或 --full 執行時,前端互動行為
+    (P0+P1,21 頁 93 步驟)必須全綠。P2 尚未實作,--interactions-full 目前
+    等同預設,由 interaction_check.py 自己處理。"""
+    report = CheckReport("interaction_check.py --compare")
+    proc = subprocess.run(
+        [sys.executable, str(REGRESSION_DIR / "interaction_check.py"), "--compare"],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        report.fail(proc.stdout.strip() or proc.stderr.strip())
+    return report
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--quick", action="store_true", help="API 比對 + 安全檢查")
-    group.add_argument("--full", action="store_true", help="quick + Playwright 前端比對")
+    group.add_argument("--full", action="store_true", help="quick + Playwright 前端比對 + 互動行為比對")
+    parser.add_argument(
+        "--interactions",
+        action="store_true",
+        help="額外執行前端互動行為比對(P0+P1);--full 已自動包含,--quick 不含",
+    )
     args = parser.parse_args()
 
     reports = [
@@ -211,6 +232,9 @@ def main() -> int:
     ]
     if args.full:
         reports.append(run_frontend_compare())
+        reports.append(run_interaction_compare())
+    elif args.interactions:
+        reports.append(run_interaction_compare())
 
     for report in reports:
         report.print_result()
