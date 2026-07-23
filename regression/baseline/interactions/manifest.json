@@ -1,5 +1,5 @@
 {
-  "page_count": 8,
+  "page_count": 9,
   "pages": {
     "futures.html": {
       "known_issues": [],
@@ -1519,7 +1519,139 @@
           }
         }
       ]
+    },
+    "us-watchlist.html": {
+      "known_issues": [],
+      "render_only": false,
+      "step_count": 5,
+      "steps": [
+        {
+          "action": "fill",
+          "action_index": 0,
+          "action_value": "999",
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "value_changed",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "us-watchlist__portfolio-entry-price",
+          "note": "修改進場價→寫入storage,重渲染模擬器(重算損益/風險指標)(app.js:22893-22902)",
+          "pre_fill": null,
+          "selector": "#us-portfolio-simulator-table input[type=number][data-us-portfolio-field=\"entryPrice\"]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#us-portfolio-simulator-table"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "value_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#us-portfolio-simulator-table input[data-us-portfolio-field=\"entryPrice\"]"
+            }
+          ],
+          "id": "us-watchlist__portfolio-reset",
+          "note": "清除模擬器 storage,重渲染為預設值(app.js:22994-22997)",
+          "pre_fill": null,
+          "selector": "#us-portfolio-simulator-reset",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#us-portfolio-simulator-table"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "request_fired",
+              "n": null,
+              "pattern": "**/api/us-market/symbol/**",
+              "target": null
+            }
+          ],
+          "id": "us-watchlist__analysis-refresh",
+          "note": "AI分析重新整理→清除快取,逐檔重新抓取(app.js:22551,22991-22993)",
+          "pre_fill": null,
+          "selector": "#us-watchlist-analysis-refresh",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "networkidle",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#us-watchlist-grid"
+            }
+          ],
+          "id": "us-watchlist__watch-remove",
+          "note": "從localStorage移除,重渲染網格,更新狀態文字(app.js:22679-22688)",
+          "pre_fill": null,
+          "selector": "#us-watchlist-grid [data-us-watch-remove]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#us-watchlist-grid"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "url_matches",
+              "n": null,
+              "pattern": "**/us-stock-search.html?*AAPL*",
+              "target": null
+            }
+          ],
+          "id": "us-watchlist__card-navigate",
+          "note": "點擊卡片→完整導航到 us-stock-search.html(app.js:22664-22678)",
+          "pre_fill": null,
+          "selector": "#us-watchlist-grid [data-us-watchlist-detail-url]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": null
+          }
+        }
+      ]
     }
   },
-  "step_count_total": 57
+  "step_count_total": 62
 }

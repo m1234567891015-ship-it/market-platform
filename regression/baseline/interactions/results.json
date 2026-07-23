@@ -914,6 +914,73 @@
           "tier": "P1"
         }
       ]
+    },
+    "us-watchlist.html": {
+      "console_error_count": 0,
+      "steps": [
+        {
+          "after_snapshot": {
+            "#us-portfolio-simulator-table input[type=number][data-us-portfolio-field=\"entryPrice\"][0]": {
+              "className": "",
+              "count": 2,
+              "disabled": false,
+              "html": "",
+              "text": "",
+              "value": "999"
+            }
+          },
+          "failures": [],
+          "id": "us-watchlist__portfolio-entry-price",
+          "ok": true,
+          "tier": "P1"
+        },
+        {
+          "after_snapshot": {
+            "#us-portfolio-simulator-table input[data-us-portfolio-field=\"entryPrice\"][0]": {
+              "className": "",
+              "count": 2,
+              "disabled": false,
+              "html": "",
+              "text": "",
+              "value": ""
+            }
+          },
+          "failures": [],
+          "id": "us-watchlist__portfolio-reset",
+          "ok": true,
+          "tier": "P1"
+        },
+        {
+          "after_snapshot": {},
+          "failures": [],
+          "id": "us-watchlist__analysis-refresh",
+          "ok": true,
+          "tier": "P0"
+        },
+        {
+          "after_snapshot": {
+            "#us-watchlist-grid[0]": {
+              "className": "watchlist-grid",
+              "count": 1,
+              "disabled": false,
+              "html": "\n      <article class=\"watchlist-card is-clickable\" role=\"link\" tabindex=\"0\" data-us-watchlist-detail-url=\"us-stock-search.html?symbol=AAPL\" aria-label=\"查看 AAPL Apple Inc. 美股詳情\">\n        <div class=\"watchlist-card-head\">\n          <div>\n            <span>美股 / ETF</span>\n            <h3>AAPL Apple Inc.</h3>\n          </div>\n          <button class=\"watchlist-remove\" type=\"button\" data-us-watch-remove=\"AAPL\">移除</button>\n        </div>\n        <div class=\"watchlist-quote\">\n          <strong>--</strong>\n          <span class=\"flat\">-- / --</span>\n        </div>\n        <div class=\"watchlist-ai-card is-neutral\">\n          \n            <div class=\"watchlist-ai-title\">\n              <span>AI 分析建議</span>\n              <strong>資料待更新</strong>\n            </div>\n            <p>公開歷史資料暫時無法取得，保留原部位並等待下一次資料同步。</p>\n            <div class=\"watchlist-theory-groups\">\n              <div>\n                <strong>型態技術</strong>\n                <span>型態訊號不足</span>\n              </div>\n              <div>\n                <strong>指標技術</strong>\n                <span>指標訊號不足</span>\n              </div>\n            </div>\n            <ul><li>Yahoo Finance 線上資料暫時不足，未形成技術結論。</li></ul>\n            <small>信心 低 · 資料日 --</small>\n          \n        </div>\n        <a class=\"watchlist-detail-link\" href=\"us-stock-search.html?symbol=AAPL\">查看美股分析</a>\n      </article>\n    ",
+              "text": "\n      \n        \n          \n            美股 / ETF\n            AAPL Apple Inc.\n          \n          移除\n        \n        \n          --\n          -- / --\n        \n        \n          \n            \n              AI 分析建議\n              資料待更新\n            \n            公開歷史資料暫時無法取得，保留原部位並等待下一次資料同步。\n            \n              \n                型態技術\n                型態訊號不足\n              \n              \n                指標技術\n                指標訊號不足\n              \n            \n            Yahoo Finance 線上資料暫時不足，未形成技術結論。\n            信心 低 · 資料日 --\n          \n        \n        查看美股分析\n      \n    ",
+              "value": null
+            }
+          },
+          "failures": [],
+          "id": "us-watchlist__watch-remove",
+          "ok": true,
+          "tier": "P0"
+        },
+        {
+          "after_snapshot": {},
+          "failures": [],
+          "id": "us-watchlist__card-navigate",
+          "ok": true,
+          "tier": "P0"
+        }
+      ]
     }
   }
 }

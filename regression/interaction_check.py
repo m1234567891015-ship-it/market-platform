@@ -79,6 +79,8 @@ _SYNTHETIC_INSTITUTIONAL_HISTORY = json.dumps({
 _EXPECTED_BACKGROUND_ERROR_PREFIXES = (
     "Failed to load full stock detail",
     "Failed to load shareholder distribution",
+    # 訊息含動態的股票代號後綴(如 "...AAPL:"),用不含代號的穩定前綴比對。
+    "Failed to analyze US watchlist",
     # Chromium 對任何非 2xx 的 fetch/XHR 都會自動印這則泛用訊息,不含 URL;
     # 系統內目前唯一的 503 來源就是上面 _background_route_handler 的刻意快速失敗。
     "Failed to load resource: the server responded with a status of 503",
@@ -106,6 +108,15 @@ def _background_route_handler(route, page_file: str) -> None:
         # 24 秒逾時常在慢請求上先於伺服器回應觸發,讓 HAR 錄成無效回應。同一個
         # URL pattern 在 us-stock-search.html 是核心受測路徑,不可全域短路,
         # 只在 us-etf.html 這裡快速失敗。
+        route.fulfill(status=503, content_type="application/json", body='{"error":"regression-fast-fail"}')
+        return
+    if page_file == "us-watchlist.html" and "/api/us-market/symbol/" in url:
+        # loadUsWatchlistAiAnalyses() 逐檔(AAPL/MSFT)依序抓取,無論等多久
+        # (試過 networkidle 20s/60s 都一樣)都會在本頁最後一步(卡片點擊→整頁
+        # 導航)時被瀏覽器原生行為中止尚在飛行中的請求,錄成無效 HAR 項目。
+        # 本頁對這個端點的斷言只看「是否確實觸發請求」(a_request_fired),不看
+        # 回應內容,短路成快速失敗一樣能滿足斷言,同時徹底避開這個跟頁面卸載
+        # 時序有關、無法單靠拉長等待時間解決的問題。
         route.fulfill(status=503, content_type="application/json", body='{"error":"regression-fast-fail"}')
         return
     route.fallback()
@@ -273,6 +284,13 @@ def _perform_action(page, step: Step) -> None:
     if step.action == "click":
         loc.click(timeout=10000)
     elif step.action == "fill":
+        # 觀測到的 Playwright/Chromium 怪癖:若這個 Step 前面有任何
+        # page.evaluate() 呼叫(例如上一個 Step 為了 assert 而讀 _snapshot),
+        # 緊接著對「另一個」元素呼叫 .fill() 常會靜默失敗(不拋錯,但值沒真的
+        # 寫入)。先明確 .click() 建立真實的使用者觸發焦點可穩定避開,不是
+        # app.js 的問題(tw-optional-stocks__portfolio-shares 之類的欄位序列
+        # 已實測重現、確認此修法有效)。
+        loc.click(timeout=10000)
         loc.fill(step.action_value or "", timeout=10000)
     elif step.action == "select":
         if step.action_value is None:
@@ -315,6 +333,11 @@ def run_step(page, step: Step, requests_seen: list[str]) -> dict:
             wait_target = step.wait_for.target or step.selector
             wait_index = 0 if step.wait_for.target else step.action_index
             _wait_class_present(page, wait_target, step.wait_for.class_name, index=wait_index)
+        elif step.wait_for.kind == "networkidle":
+            try:
+                page.wait_for_load_state("networkidle", timeout=60000)
+            except Exception:  # noqa: BLE001
+                pass
     end_idx = len(requests_seen)
     fired_urls = requests_seen[start_idx:end_idx]
 
@@ -377,6 +400,15 @@ def _visit_page(browser, base_url: str, page_spec: PageSpec, mode: str) -> dict:
     # capture。這些端點的內容不是任何 P0/P1 斷言的對象,用 _background_route_handler
     # 統一短路/快速失敗,讓測試穩定且快速,不依賴外部資料源在冷快取下的回應時間。
     context.route("**/api/**", lambda route: _background_route_handler(route, page_spec.file))
+
+    if page_spec.seed_local_storage:
+        # add_init_script 在每份新文件的任何頁面腳本執行前跑,確保 app.js 第一次
+        # 讀 localStorage 時資料已經在——比 goto 後才 evaluate 設定更早,避免頁面
+        # 已經用空清單渲染完一次(自選股類頁面預設 localStorage 是空的)。
+        for key, value in page_spec.seed_local_storage.items():
+            context.add_init_script(
+                f"window.localStorage.setItem({json.dumps(key)}, {json.dumps(value)});"
+            )
 
     page = context.new_page()
     page.on(

@@ -58,6 +58,14 @@ def wait_class(class_name: str, target: str | None = None) -> WaitFor:
     return WaitFor(kind="class_present", target=target, class_name=class_name)
 
 
+def wait_networkidle() -> WaitFor:
+    """給「觸發一整串背景 fetch 佇列(如逐檔重新分析)」用:wait_stable 常在佇列
+    處理到一半、畫面暫時沒變化時就誤判穩定提早返回,佇列剩下的請求若稍後被其他
+    Step(尤其是整頁導航)中斷,會在 capture 錄成無效 HAR 項目。改等網路真正閒置。
+    """
+    return WaitFor(kind="networkidle")
+
+
 def a_content_changed(target: str | None = None) -> Assert:
     return Assert(kind="content_changed", target=target)
 
@@ -125,6 +133,11 @@ class PageSpec:
     # 而是「這條路徑被刻意短路,不代表已驗證正常」)。寫入 manifest.json 供人工稽核,
     # 對應的 TD 編號與細節見 docs/TD稽核清單.md 與 interaction_inventory.md。
     known_issues: tuple[str, ...] = ()
+    # 自選股一類頁面預設 localStorage 是空的,沒有既有項目就沒有卡片可互動。
+    # {key: JSON 字串},在每次頁面導覽前用 context.add_init_script 寫入,
+    # 讓 app.js 首次讀取 localStorage 時就看得到(比 goto 後才 evaluate 設定更早,
+    # 避免頁面已經用空清單渲染完一次)。
+    seed_local_storage: dict[str, str] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -874,6 +887,194 @@ US_STOCKS = PageSpec(
 )
 
 
+# ---------------------------------------------------------------------------
+# Batch 3:自選股/組合模擬頁
+# ---------------------------------------------------------------------------
+
+TW_OPTIONAL_STOCKS = PageSpec(
+    file="tw-Optional-stocks.html",
+    # 自選股清單預設是空的(localStorage 沒資料就沒卡片可互動),播種2筆固定資料。
+    seed_local_storage={
+        "market-pulse-watchlist-v1": '[{"code":"2330","name":"台積電","market":"TWSE"},'
+        '{"code":"0050","name":"元大台灣50","market":"TWSE"}]',
+    },
+    steps=(
+        # analysis-refresh 刻意不排第一步:loadWatchlistAiAnalyses(true) 會啟動
+        # 非同步佇列逐檔抓取(2檔),每抓完一檔就整個重渲染 #watchlist-grid
+        # (連帶重渲染模擬器表格)一次;wait_stable 只盯 #watchlist-grid 穩定,
+        # 抓不到「模擬器表格也還在被非同步重渲染」的尾巴。實測若接下來立刻操作
+        # 模擬器輸入框,填入的值會被隨後才完成的背景重渲染用(尚未存檔的)舊值
+        # 蓋掉。排在所有模擬器欄位測試「之後」,避開這個競態視窗。
+        Step(
+            id="tw-optional-stocks__portfolio-entry-price",
+            tier="P0",
+            selector='input[type=number][data-portfolio-field="entryPrice"]',
+            action="fill",
+            action_value="999",
+            wait_for=wait_stable("#portfolio-simulator-table"),
+            asserts=(a_value_changed(None),),
+            note="修改進場價→重算並重渲染整個模擬器摘要與表格(app.js:5707-5718)",
+        ),
+        Step(
+            id="tw-optional-stocks__portfolio-shares",
+            tier="P0",
+            selector='input[type=number][data-portfolio-field="shares"]',
+            action="fill",
+            action_value="500",
+            wait_for=wait_stable("#portfolio-simulator-table"),
+            asserts=(a_value_changed(None),),
+            note="修改股數→重算並重渲染整個模擬器摘要與表格(app.js:5707-5718)",
+        ),
+        Step(
+            id="tw-optional-stocks__portfolio-stop-loss",
+            tier="P1",
+            selector='input[type=number][data-portfolio-field="stopLossPct"]',
+            action="fill",
+            action_value="15",
+            wait_for=wait_stable("#portfolio-simulator-table"),
+            asserts=(a_value_changed(None),),
+            note="修改停損%→重算停損風險金額/riskLabel(app.js:5707-5718)",
+        ),
+        Step(
+            id="tw-optional-stocks__portfolio-take-profit",
+            tier="P1",
+            selector='input[type=number][data-portfolio-field="takeProfitPct"]',
+            action="fill",
+            action_value="25",
+            wait_for=wait_stable("#portfolio-simulator-table"),
+            asserts=(a_value_changed(None),),
+            note="修改停利%→重算並重渲染(app.js:5707-5718)",
+        ),
+        Step(
+            id="tw-optional-stocks__portfolio-reset",
+            tier="P1",
+            selector="#portfolio-simulator-reset",
+            action="click",
+            wait_for=wait_stable("#portfolio-simulator-table"),
+            asserts=(a_content_changed("#portfolio-simulator-table"),),
+            note="重設為預設值(進場價=現價、股數=0、停損8%/停利15%)(app.js:8848-8851)",
+        ),
+        Step(
+            id="tw-optional-stocks__analysis-refresh",
+            tier="P0",
+            selector="#watchlist-analysis-refresh",
+            action="click",
+            # loadWatchlistAiAnalyses(true) 清快取後重新抓取,但 HAR 重播的資料是
+            # 凍結的——同一支股票重新抓「同一筆」資料、重算出來的 AI 建議文字會
+            # 逐位元組相同,content_changed 在這裡永遠會誤判失敗(不是等待時機
+            # 的問題,是這個動作在凍結資料下本來就不會改變最終文字)。改斷言
+            # 「這個動作確實觸發了重新抓取」這個不受資料是否變動影響的行為。
+            # 佇列逐檔處理(2檔),wait_stable 常在兩檔之間畫面暫時沒變化時就
+            # 誤判穩定提早返回,佇列還沒處理完的請求若被後面的整頁導航 Step
+            # 中斷,capture 會錄成無效 HAR 項目;改等網路真正閒置。
+            wait_for=wait_networkidle(),
+            asserts=(a_request_fired("**/api/twse/stock/**"),),
+            note="AI分析重新整理→清除快取,逐檔重新抓取即時資料(app.js:8726,8845-8847)",
+        ),
+        Step(
+            id="tw-optional-stocks__watchlist-remove",
+            tier="P1",
+            selector="button.watchlist-remove[data-watchlist-remove]",
+            action="click",
+            # 保留 index=0(2330)給最後一步的導航測試用,先移除 index=1(0050)。
+            action_index=1,
+            wait_for=wait_stable("#watchlist-grid"),
+            asserts=(a_content_changed("#watchlist-grid"),),
+            note="移除自選→從 localStorage 移除,重渲染清單,更新統計/狀態文字(app.js:8715-8723)",
+        ),
+        Step(
+            id="tw-optional-stocks__card-navigate",
+            tier="P0",
+            # 放最後一步:這是真正的整頁導航(window.location.href),導航後頁面已
+            # 不是 tw-Optional-stocks.html,後面不能再接其他 Step。
+            selector=".watchlist-card[data-watchlist-detail-url]",
+            action="click",
+            action_index=0,
+            wait_for=wait_stable(None),
+            asserts=(a_url_matches("**/tw-stock-search.html?q=2330*"),),
+            note="點擊卡片→完整導航到 tw-stock-search.html?q=...(app.js:8699-8713)",
+        ),
+    ),
+)
+
+
+US_WATCHLIST = PageSpec(
+    file="us-watchlist.html",
+    seed_local_storage={
+        "market-pulse-us-watchlist-v1": '[{"symbol":"AAPL","name":"Apple Inc."},'
+        '{"symbol":"MSFT","name":"Microsoft"}]',
+    },
+    steps=(
+        # analysis-refresh 排在模擬器欄位測試之後,理由同 tw-optional-stocks:
+        # 非同步逐檔重渲染的尾巴會蓋掉緊接著填入模擬器輸入框的值。
+        Step(
+            id="us-watchlist__portfolio-entry-price",
+            tier="P1",
+            selector='#us-portfolio-simulator-table input[type=number][data-us-portfolio-field="entryPrice"]',
+            action="fill",
+            action_value="999",
+            wait_for=wait_stable("#us-portfolio-simulator-table"),
+            asserts=(a_value_changed(None),),
+            note="修改進場價→寫入storage,重渲染模擬器(重算損益/風險指標)(app.js:22893-22902)",
+        ),
+        Step(
+            id="us-watchlist__portfolio-reset",
+            tier="P1",
+            selector="#us-portfolio-simulator-reset",
+            action="click",
+            wait_for=wait_stable("#us-portfolio-simulator-table"),
+            # 盯整個表格容器的 content_changed 在這裡不穩定(重設後的預設進場價
+            # 剛好與前一步填入的測試值格式化後可能重疊或表格其餘部分掩蓋了差異),
+            # 改直接盯進場價欄位本身的 value 是否確實變動,更精準也更可靠。
+            asserts=(a_value_changed('#us-portfolio-simulator-table input[data-us-portfolio-field="entryPrice"]'),),
+            note="清除模擬器 storage,重渲染為預設值(app.js:22994-22997)",
+        ),
+        Step(
+            id="us-watchlist__analysis-refresh",
+            tier="P0",
+            selector="#us-watchlist-analysis-refresh",
+            action="click",
+            # 同 tw-optional-stocks 的教訓:HAR 重播下重新抓「同一筆」資料重算出
+            # 的文字會逐位元組相同,content_changed 在這裡結構性地不適用,改斷言
+            # 「確實觸發了重新抓取」;wait_stable 也常在佇列處理到一半時誤判
+            # 穩定提早返回,改等網路真正閒置,避免尾巴請求被後面的導航中斷。
+            wait_for=wait_networkidle(),
+            asserts=(a_request_fired("**/api/us-market/symbol/**"),),
+            note="AI分析重新整理→清除快取,逐檔重新抓取(app.js:22551,22991-22993)",
+        ),
+        Step(
+            id="us-watchlist__watch-remove",
+            tier="P0",
+            selector="#us-watchlist-grid [data-us-watch-remove]",
+            action="click",
+            # 保留 index=0(AAPL)給最後一步的導航測試用,先移除 index=1(MSFT)。
+            action_index=1,
+            wait_for=wait_stable("#us-watchlist-grid"),
+            asserts=(a_content_changed("#us-watchlist-grid"),),
+            note="從localStorage移除,重渲染網格,更新狀態文字(app.js:22679-22688)",
+        ),
+        Step(
+            id="us-watchlist__card-navigate",
+            tier="P0",
+            # 放最後一步:真正的整頁導航(window.location.href)。
+            selector="#us-watchlist-grid [data-us-watchlist-detail-url]",
+            action="click",
+            action_index=0,
+            wait_for=wait_stable(None),
+            # 實測發現既有的競態小 bug(非本測試框架造成):導航到
+            # us-stock-search.html 後,initUsStockSearchPage() 內
+            # runUsStockSearch(initialSymbol,...) 的 replaceState(改用 ?q=)
+            # 和其內部 autoSelect 觸發的 loadUsStockSymbol() 的 replaceState
+            # (改用 ?symbol=)互相競爭,最終 URL 的參數名稱不確定是 q= 還是
+            # symbol=(兩種都實測出現過),但兩者最終都正確顯示 AAPL,不影響
+            # 使用者可見行為。斷言放寬為不依賴參數名稱,只認導航目的地與代號正確。
+            asserts=(a_url_matches("**/us-stock-search.html?*AAPL*"),),
+            note="點擊卡片→完整導航到 us-stock-search.html(app.js:22664-22678)",
+        ),
+    ),
+)
+
+
 PAGES: tuple[PageSpec, ...] = (
     TW_STOCK_SEARCH,
     US_STOCK_SEARCH,
@@ -883,6 +1084,8 @@ PAGES: tuple[PageSpec, ...] = (
     OPTIONS,
     TW_STOCKS,
     US_STOCKS,
+    TW_OPTIONAL_STOCKS,
+    US_WATCHLIST,
 )
 
 
