@@ -1,5 +1,70 @@
 {
   "pages": {
+    "bonds.html": {
+      "console_error_count": 0,
+      "steps": [
+        {
+          "after_snapshot": {
+            "[data-bond-etf-bucket][1]": {
+              "className": "asset-finance-bond-bucket-card is-down is-active",
+              "count": 8,
+              "disabled": false,
+              "html": "\n              <small>4 檔 · 平均 -0.29%</small>\n              <b>中天期 / 核心綜合債</b>\n              <p>代表 VGIT -0.26%。用途：追蹤核心債與中段久期；風險：5Y/10Y 殖利率反彈造成淨值受壓。</p>\n            ",
+              "text": "\n              4 檔 · 平均 -0.29%\n              中天期 / 核心綜合債\n              代表 VGIT -0.26%。用途：追蹤核心債與中段久期；風險：5Y/10Y 殖利率反彈造成淨值受壓。\n            ",
+              "value": ""
+            }
+          },
+          "failures": [],
+          "id": "bonds__etf-bucket",
+          "ok": true,
+          "tier": "P0"
+        },
+        {
+          "after_snapshot": {
+            "[data-bond-yield-focus][1]": {
+              "className": "asset-finance-sync-stat is-down is-clickable is-active",
+              "count": 7,
+              "disabled": false,
+              "html": "\n      <small>5 Yr</small>\n      <strong>4.41%</strong>\n      <em>U.S. Treasury Daily Treasury Par Yield Curve</em>\n    ",
+              "text": "\n      5 Yr\n      4.41%\n      U.S. Treasury Daily Treasury Par Yield Curve\n    ",
+              "value": ""
+            }
+          },
+          "failures": [],
+          "id": "bonds__yield-focus",
+          "ok": true,
+          "tier": "P1"
+        },
+        {
+          "after_snapshot": {
+            "[data-asset-finance-volume-symbol][0]": {
+              "className": "asset-finance-etf-select is-active",
+              "count": 4,
+              "disabled": false,
+              "html": "7-10 Year Treasury ETF",
+              "text": "7-10 Year Treasury ETF",
+              "value": ""
+            }
+          },
+          "failures": [],
+          "id": "bonds__volume-symbol",
+          "ok": true,
+          "tier": "P1"
+        }
+      ]
+    },
+    "derivatives-assets.html": {
+      "console_error_count": 0,
+      "steps": [
+        {
+          "after_snapshot": {},
+          "failures": [],
+          "id": "derivatives-assets__render",
+          "ok": true,
+          "tier": "P0"
+        }
+      ]
+    },
     "futures.html": {
       "console_error_count": 0,
       "steps": [
@@ -154,6 +219,59 @@
         }
       ]
     },
+    "international-finance.html": {
+      "console_error_count": 0,
+      "steps": [
+        {
+          "after_snapshot": {
+            "[data-asset-finance-trend-range][1]": {
+              "className": "asset-finance-trend-toggle is-active",
+              "count": 5,
+              "disabled": false,
+              "html": "1M",
+              "text": "1M",
+              "value": ""
+            }
+          },
+          "failures": [],
+          "id": "international-finance__trend-range",
+          "ok": true,
+          "tier": "P0"
+        },
+        {
+          "after_snapshot": {
+            "[data-asset-finance-trend-metal][1]": {
+              "className": "asset-finance-trend-toggle is-active ",
+              "count": 6,
+              "disabled": false,
+              "html": "全部",
+              "text": "全部",
+              "value": ""
+            }
+          },
+          "failures": [],
+          "id": "international-finance__trend-metal",
+          "ok": true,
+          "tier": "P1"
+        },
+        {
+          "after_snapshot": {
+            "button.asset-finance-etf-select[data-asset-finance-volume-symbol][0]": {
+              "className": "asset-finance-etf-select is-active",
+              "count": 33,
+              "disabled": false,
+              "html": "Amplify Junior Silver Miners ETF",
+              "text": "Amplify Junior Silver Miners ETF",
+              "value": ""
+            }
+          },
+          "failures": [],
+          "id": "international-finance__volume-symbol",
+          "ok": true,
+          "tier": "P1"
+        }
+      ]
+    },
     "options.html": {
       "console_error_count": 0,
       "steps": [
@@ -234,6 +352,59 @@
           },
           "failures": [],
           "id": "options__strategy-button",
+          "ok": true,
+          "tier": "P1"
+        }
+      ]
+    },
+    "precious-metals.html": {
+      "console_error_count": 0,
+      "steps": [
+        {
+          "after_snapshot": {
+            "button[data-asset-finance-trend-range][1]": {
+              "className": "asset-finance-trend-toggle is-active",
+              "count": 4,
+              "disabled": false,
+              "html": "3M",
+              "text": "3M",
+              "value": ""
+            }
+          },
+          "failures": [],
+          "id": "precious-metals__trend-range",
+          "ok": true,
+          "tier": "P0"
+        },
+        {
+          "after_snapshot": {
+            "button[data-asset-finance-trend-metal][1]": {
+              "className": "asset-finance-trend-toggle is-active",
+              "count": 5,
+              "disabled": false,
+              "html": "黃金",
+              "text": "黃金",
+              "value": ""
+            }
+          },
+          "failures": [],
+          "id": "precious-metals__trend-metal",
+          "ok": true,
+          "tier": "P1"
+        },
+        {
+          "after_snapshot": {
+            "button.asset-finance-etf-select[data-asset-finance-volume-symbol][0]": {
+              "className": "asset-finance-etf-select is-active",
+              "count": 33,
+              "disabled": false,
+              "html": "Amplify Junior Silver Miners ETF",
+              "text": "Amplify Junior Silver Miners ETF",
+              "value": ""
+            }
+          },
+          "failures": [],
+          "id": "precious-metals__volume-symbol",
           "ok": true,
           "tier": "P1"
         }

@@ -1,6 +1,120 @@
 {
-  "page_count": 9,
+  "page_count": 13,
   "pages": {
+    "bonds.html": {
+      "known_issues": [],
+      "render_only": false,
+      "step_count": 3,
+      "steps": [
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "bonds__etf-bucket",
+          "note": "切換ETF分類→重渲染債券ETF表格與訊號卡(app.js:27890-27898)",
+          "pre_fill": null,
+          "selector": "[data-bond-etf-bucket]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "bonds__yield-focus",
+          "note": "切換殖利率焦點→更新AI評論文字,按鈕active狀態切換(app.js:27881-27889)",
+          "pre_fill": null,
+          "selector": "[data-bond-yield-focus]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "bonds__volume-symbol",
+          "note": "選取ETF→切換24日趨勢圖+個股AI分析面板(app.js:26211-26213)",
+          "pre_fill": null,
+          "selector": "[data-asset-finance-volume-symbol]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        }
+      ]
+    },
+    "derivatives-assets.html": {
+      "known_issues": [],
+      "render_only": true,
+      "step_count": 1,
+      "steps": [
+        {
+          "action": null,
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "min_count",
+              "n": 1,
+              "pattern": null,
+              "target": "#asset-hub-root .asset-hub-nav-card"
+            }
+          ],
+          "id": "derivatives-assets__render",
+          "note": "頁面載入→renderDerivativesMarketOverview() 渲染文字卡片與導航卡(app.js:28488-28726)",
+          "pre_fill": null,
+          "selector": "#asset-hub-root",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": null
+          }
+        }
+      ]
+    },
     "futures.html": {
       "known_issues": [],
       "render_only": false,
@@ -283,6 +397,88 @@
         }
       ]
     },
+    "international-finance.html": {
+      "known_issues": [],
+      "render_only": false,
+      "step_count": 3,
+      "steps": [
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "international-finance__trend-range",
+          "note": "切換國際貴金屬走勢圖時間範圍→重繪趨勢圖、更新狀態文字與預測面板(app.js:24397,24447-24450)",
+          "pre_fill": null,
+          "selector": "[data-asset-finance-trend-range]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "international-finance__trend-metal",
+          "note": "篩選單一金屬序列(app.js:24452-24458)",
+          "pre_fill": null,
+          "selector": "[data-asset-finance-trend-metal]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "international-finance__volume-symbol",
+          "note": "切換ETF圖表+個股分析文字(app.js:26179)",
+          "pre_fill": null,
+          "selector": "button.asset-finance-etf-select[data-asset-finance-volume-symbol]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        }
+      ]
+    },
     "options.html": {
       "known_issues": [],
       "render_only": false,
@@ -405,6 +601,88 @@
           "note": "切換策略卡→顯示對應策略的證據/風險文字(app.js:19456-19463)",
           "pre_fill": null,
           "selector": "button.options-strategy-button[data-options-strategy-key]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        }
+      ]
+    },
+    "precious-metals.html": {
+      "known_issues": [],
+      "render_only": false,
+      "step_count": 3,
+      "steps": [
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "precious-metals__trend-range",
+          "note": "切換貴金屬走勢圖時間範圍(app.js:24397,24447-24450,與international-finance.html同機制)",
+          "pre_fill": null,
+          "selector": "button[data-asset-finance-trend-range]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "precious-metals__trend-metal",
+          "note": "篩選單一金屬序列(app.js:24452-24458)",
+          "pre_fill": null,
+          "selector": "button[data-asset-finance-trend-metal]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "precious-metals__volume-symbol",
+          "note": "切換ETF圖表+個股分析文字(app.js:26179)",
+          "pre_fill": null,
+          "selector": "button.asset-finance-etf-select[data-asset-finance-volume-symbol]",
           "tier": "P1",
           "wait_for": {
             "class_name": "is-active",
@@ -1653,5 +1931,5 @@
       ]
     }
   },
-  "step_count_total": 62
+  "step_count_total": 72
 }

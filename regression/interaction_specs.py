@@ -1075,6 +1075,147 @@ US_WATCHLIST = PageSpec(
 )
 
 
+# ---------------------------------------------------------------------------
+# Batch 4:Asset-hub 頁(bonds/international-finance/precious-metals 共用元件:
+# initAssetFinanceTrendSwitchers/initAssetFinanceVolumeSelectors/
+# initAssetFinanceBondFocusControls,皆為純前端用內嵌 JSON 重渲染,class_present
+# 斷言 + wait_class 足夠,不需要 wait_stable/wait_response)
+# ---------------------------------------------------------------------------
+
+BONDS = PageSpec(
+    file="bonds.html",
+    steps=(
+        Step(
+            id="bonds__etf-bucket",
+            tier="P0",
+            selector="[data-bond-etf-bucket]",
+            action="click",
+            # index=0 是預設 bucket(有「已是目前bucket」早退判斷,app.js:27893)。
+            action_index=1,
+            wait_for=wait_class("is-active"),
+            asserts=(a_class_present("is-active"),),
+            note="切換ETF分類→重渲染債券ETF表格與訊號卡(app.js:27890-27898)",
+        ),
+        Step(
+            id="bonds__yield-focus",
+            tier="P1",
+            selector="[data-bond-yield-focus]",
+            action="click",
+            action_index=1,
+            wait_for=wait_class("is-active"),
+            asserts=(a_class_present("is-active"),),
+            note="切換殖利率焦點→更新AI評論文字,按鈕active狀態切換(app.js:27881-27889)",
+        ),
+        Step(
+            id="bonds__volume-symbol",
+            tier="P1",
+            selector="[data-asset-finance-volume-symbol]",
+            action="click",
+            action_index=0,
+            wait_for=wait_class("is-active"),
+            asserts=(a_class_present("is-active"),),
+            note="選取ETF→切換24日趨勢圖+個股AI分析面板(app.js:26211-26213)",
+        ),
+    ),
+)
+
+
+INTERNATIONAL_FINANCE = PageSpec(
+    file="international-finance.html",
+    steps=(
+        Step(
+            id="international-finance__trend-range",
+            tier="P0",
+            selector="[data-asset-finance-trend-range]",
+            action="click",
+            # index=0 是預設range(1m),無早退判斷但重複點選同一range會產生
+            # 逐位元組相同的重渲染結果。
+            action_index=1,
+            wait_for=wait_class("is-active"),
+            asserts=(a_class_present("is-active"),),
+            note="切換國際貴金屬走勢圖時間範圍→重繪趨勢圖、更新狀態文字與預測面板(app.js:24397,24447-24450)",
+        ),
+        Step(
+            id="international-finance__trend-metal",
+            tier="P1",
+            selector="[data-asset-finance-trend-metal]",
+            action="click",
+            action_index=1,
+            wait_for=wait_class("is-active"),
+            asserts=(a_class_present("is-active"),),
+            note="篩選單一金屬序列(app.js:24452-24458)",
+        ),
+        Step(
+            id="international-finance__volume-symbol",
+            tier="P1",
+            selector="button.asset-finance-etf-select[data-asset-finance-volume-symbol]",
+            action="click",
+            action_index=0,
+            wait_for=wait_class("is-active"),
+            asserts=(a_class_present("is-active"),),
+            note="切換ETF圖表+個股分析文字(app.js:26179)",
+        ),
+    ),
+)
+
+
+PRECIOUS_METALS = PageSpec(
+    file="precious-metals.html",
+    steps=(
+        Step(
+            id="precious-metals__trend-range",
+            tier="P0",
+            selector="button[data-asset-finance-trend-range]",
+            action="click",
+            action_index=1,
+            wait_for=wait_class("is-active"),
+            asserts=(a_class_present("is-active"),),
+            note="切換貴金屬走勢圖時間範圍(app.js:24397,24447-24450,與international-finance.html同機制)",
+        ),
+        Step(
+            id="precious-metals__trend-metal",
+            tier="P1",
+            selector="button[data-asset-finance-trend-metal]",
+            action="click",
+            action_index=1,
+            wait_for=wait_class("is-active"),
+            asserts=(a_class_present("is-active"),),
+            note="篩選單一金屬序列(app.js:24452-24458)",
+        ),
+        Step(
+            id="precious-metals__volume-symbol",
+            tier="P1",
+            selector="button.asset-finance-etf-select[data-asset-finance-volume-symbol]",
+            action="click",
+            action_index=0,
+            wait_for=wait_class("is-active"),
+            asserts=(a_class_present("is-active"),),
+            note="切換ETF圖表+個股分析文字(app.js:26179)",
+        ),
+    ),
+)
+
+
+DERIVATIVES_ASSETS = PageSpec(
+    file="derivatives-assets.html",
+    render_only=True,
+    steps=(
+        Step(
+            id="derivatives-assets__render",
+            tier="P0",
+            selector="#asset-hub-root",
+            action=None,
+            # 裁決紀錄第2點:本頁因 renderAssetHubPage() 在 !isFinanceMode 時提早
+            # return 到 renderDerivativesMarketOverview(),沒有真正的狀態變更
+            # 控制項(其餘皆為純導航連結,P2),改用渲染型 P0:斷言主要內容區塊
+            # (文字卡片與導航卡)載入後非空。
+            asserts=(a_min_count("#asset-hub-root .asset-hub-nav-card", 1),),
+            note="頁面載入→renderDerivativesMarketOverview() 渲染文字卡片與導航卡(app.js:28488-28726)",
+        ),
+    ),
+)
+
+
 PAGES: tuple[PageSpec, ...] = (
     TW_STOCK_SEARCH,
     US_STOCK_SEARCH,
@@ -1086,6 +1227,10 @@ PAGES: tuple[PageSpec, ...] = (
     US_STOCKS,
     TW_OPTIONAL_STOCKS,
     US_WATCHLIST,
+    BONDS,
+    INTERNATIONAL_FINANCE,
+    PRECIOUS_METALS,
+    DERIVATIVES_ASSETS,
 )
 
 
