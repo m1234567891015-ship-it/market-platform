@@ -53,7 +53,7 @@ from typing import Any
 from flask import Blueprint, Response, abort, jsonify, redirect, request, send_from_directory
 
 from cache import cache_data, cache_lock
-from market_config import ASSET_STATIC_FILES, PAGE_ROUTES, ROOT_STATIC_FILES
+from market_config import ASSET_STATIC_FILES, JS_MODULE_STATIC_FILES, PAGE_ROUTES, ROOT_STATIC_FILES
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -134,6 +134,17 @@ def whitelisted_assets(filename: str):
     if "/" in normalized or normalized not in ASSET_STATIC_FILES:
         abort(404)
     return send_from_directory(BASE_DIR / "assets", normalized)
+
+
+@bp.route("/js/<path:filename>")
+def whitelisted_js_modules(filename: str):
+    # 跟 app.js 一樣是拆分後的前端程式碼片段,套用相同的 no-store 快取政策
+    # (見 send_no_store_root_file),避免開發期間快取到舊版模組檔案。
+    normalized = filename.replace("\\", "/").lstrip("/")
+    if "/" in normalized or normalized not in JS_MODULE_STATIC_FILES:
+        abort(404)
+    response = send_from_directory(BASE_DIR / "js", normalized)
+    return no_store_static_response(response)
 
 
 @bp.route("/<path:filename>")

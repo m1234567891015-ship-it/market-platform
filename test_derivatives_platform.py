@@ -84,6 +84,17 @@ OPTIONS_CHAIN = {
 }
 
 
+def frontend_source():
+    """TD-02 把 app.js 拆成 app.js + js/*.js 之後,前端安全防護的具體位置會
+    隨批次搬移改變檔案,但檢查的對象邏輯上一直是「整個前端」,不是某一個
+    特定檔案,所以合併讀取。"""
+    parts = [Path("app.js").read_text(encoding="utf-8")]
+    js_dir = Path("js")
+    if js_dir.exists():
+        parts.extend(p.read_text(encoding="utf-8") for p in sorted(js_dir.glob("*.js")))
+    return "\n".join(parts)
+
+
 def market_payload(category):
     return {
         "category": category,
@@ -990,7 +1001,7 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertEqual(body["error_code"], "NOT_FOUND")
 
     def test_reported_frontend_xss_slots_escape_html(self):
-        script = Path("app.js").read_text(encoding="utf-8")
+        script = frontend_source()
         self.assertNotIn("<h3>${stock.code} ${stock.name}</h3>", script)
         self.assertNotIn("<strong>${stock.code} ${stock.name}</strong>", script)
         self.assertNotIn("<span class=\"news-tag\">${item.tag}</span>", script)
@@ -1002,7 +1013,7 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertIn("${escapeHtml(zone.dataset.sectorOpen || \"--\")}", script)
 
     def test_frontend_url_and_inner_html_safety_rules(self):
-        script = Path("app.js").read_text(encoding="utf-8")
+        script = frontend_source()
         self.assertIn("function safeUrl(", script)
         self.assertIn("function sanitizeHtml(", script)
         self.assertIn("let nativeInnerHtmlDescriptor", script)
@@ -1028,7 +1039,7 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertEqual([], unsafe_src_lines)
 
     def test_frontend_safe_url_blocks_script_protocols(self):
-        script = Path("app.js").read_text(encoding="utf-8")
+        script = frontend_source()
         self.assertIn('compact.startsWith("javascript:")', script)
         self.assertIn('compact.startsWith("data:")', script)
         self.assertIn('compact.startsWith("vbscript:")', script)

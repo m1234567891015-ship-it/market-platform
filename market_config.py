@@ -99,6 +99,11 @@ ASSET_STATIC_FILES = {
     "app-icon-512.png",
     "background.jpg",
 }
+# TD-02:app.js 拆分後的模組檔案,從 js/ 目錄以白名單方式提供(比照
+# ASSET_STATIC_FILES 的模式),每完成一個批次就補上對應檔名。
+JS_MODULE_STATIC_FILES = {
+    "state.js",
+}
 TWSE_BASE = "https://www.twse.com.tw"
 TWSE_OPENAPI_BASE = "https://openapi.twse.com.tw/v1"
 TPEX_OPENAPI_BASE = "https://www.tpex.org.tw/openapi/v1"
