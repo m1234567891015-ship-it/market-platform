@@ -3284,3 +3284,734 @@ function renderUsMarketInsightPanel(model) {
     </section>
   `;
 }
+function renderUsMarketRiskAdviceCard(model) {
+  const analysis = model.analysis || {};
+  const riskScore = Number.isFinite(Number(analysis.riskScore)) ? Number(analysis.riskScore) : 50;
+  const riskTone = riskScore >= 70 ? "high" : riskScore >= 55 ? "medium" : "low";
+  const riskLabel = riskTone === "high" ? "高風險" : riskTone === "medium" ? "中度風險" : "低風險";
+  const vixValue = parseMarketNumber(model.vix?.close);
+  const vixPct = parseMarketNumber(model.vix?.pct);
+  const breadthTotal = model.advancers + model.decliners;
+  const breadthRatio = breadthTotal ? model.advancers / breadthTotal : null;
+  const majorMoves = (model.majorItems || [])
+    .map((item) => ({ item, pct: parseMarketNumber(item.pct) }))
+    .filter((entry) => Number.isFinite(entry.pct));
+  const positiveIndexes = majorMoves.filter((entry) => entry.pct > 0).length;
+  const negativeIndexes = majorMoves.filter((entry) => entry.pct < 0).length;
+  const indexLeader = majorMoves.slice().sort((left, right) => right.pct - left.pct)[0];
+  const indexLaggard = majorMoves.slice().sort((left, right) => left.pct - right.pct)[0];
+  const sectorLeader = model.rankedSectors?.[0] || null;
+  const sectorLaggard = model.rankedSectors?.at(-1) || null;
+  const sectorLeaderPct = parseMarketNumber(sectorLeader?.pct);
+  const sectorLaggardPct = parseMarketNumber(sectorLaggard?.pct);
+  const sectorSpread = Number.isFinite(sectorLeaderPct) && Number.isFinite(sectorLaggardPct)
+    ? sectorLeaderPct - sectorLaggardPct
+    : null;
+  const exposure = riskScore >= 70
+    ? { label: "防守曝險", range: "30-45%", text: "以現金、分批與保護型部位為主，避免追高和槓桿。" }
+    : riskScore >= 55
+      ? { label: "控管曝險", range: "45-60%", text: "保留核心部位，但新增倉位需等待回測或 VIX 降溫。" }
+      : riskScore <= 35
+        ? { label: "進攻曝險", range: "65-80%", text: "風險可控時可追蹤強勢類股，但仍以停損控管單筆風險。" }
+        : { label: "中性曝險", range: "55-70%", text: "市場尚未明確失控，採強弱分流並避免過度集中。" };
+  const hedge = riskScore >= 70
+    ? "提高避險權重，槓桿與逆勢攤平暫停。"
+    : riskScore >= 55
+      ? "保留部分避險，等 VIX 與市場廣度改善再放大部位。"
+      : "避險以停損與倉位紀律為主，不需過度壓低有效曝險。";
+  const riskDrivers = [
+    {
+      label: "波動率",
+      tone: Number.isFinite(vixValue) && (vixValue >= 25 || (Number.isFinite(vixPct) && vixPct > 4)) ? "negative" : "watch",
+      text: `VIX ${formatGlobalValue(model.vix?.close)} / ${model.vix?.pct || "--"}，${model.vixBand?.text || analysis.vixBand?.text || "波動資料同步中。"}`,
+    },
+    {
+      label: "市場廣度",
+      tone: Number.isFinite(breadthRatio) ? (breadthRatio >= 0.6 ? "positive" : breadthRatio <= 0.4 ? "negative" : "watch") : "watch",
+      text: Number.isFinite(breadthRatio)
+        ? `${model.advancers} 檔上漲、${model.decliners} 檔下跌，上漲占比 ${(breadthRatio * 100).toFixed(0)}%。`
+        : "上漲下跌樣本不足，暫不提高廣度權重。",
+    },
+    {
+      label: "指數分歧",
+      tone: positiveIndexes > negativeIndexes ? "positive" : negativeIndexes > positiveIndexes ? "negative" : "watch",
+      text: indexLeader
+        ? `${getUsBenchmarkDisplayName(indexLeader.item)} 領先 ${indexLeader.pct >= 0 ? "+" : ""}${indexLeader.pct.toFixed(2)}%，${indexLaggard ? `${getUsBenchmarkDisplayName(indexLaggard.item)} ${indexLaggard.pct >= 0 ? "+" : ""}${indexLaggard.pct.toFixed(2)}%` : "落後指數待確認"}。`
+        : "主要指數資料仍在同步。",
+    },
+    {
+      label: "類股落差",
+      tone: Number.isFinite(sectorSpread) && sectorSpread >= 3 ? "watch" : "neutral",
+      text: sectorLeader && sectorLaggard
+        ? `${getUsSectorDisplayName(sectorLeader)} ${sectorLeader.pct || "--"}，${getUsSectorDisplayName(sectorLaggard)} ${sectorLaggard.pct || "--"}，差距 ${Number.isFinite(sectorSpread) ? sectorSpread.toFixed(2) : "--"}pt。`
+        : "類股排行仍在同步。",
+    },
+  ];
+  const playbook = [
+    {
+      label: "部位節奏",
+      text: exposure.text,
+    },
+    {
+      label: "避險設定",
+      text: hedge,
+    },
+    {
+      label: "觀察主線",
+      text: model.strongest
+        ? `強勢樣本 ${model.strongest.symbol || model.strongest.name} ${model.strongest.pct || "--"} 續強時，需同步檢查成交量與類股擴散。`
+        : "強勢樣本不足，先觀察主要指數與類股是否同向。",
+    },
+    {
+      label: "弱勢警戒",
+      text: model.weakest
+        ? `弱勢樣本 ${model.weakest.symbol || model.weakest.name} ${model.weakest.pct || "--"} 若擴散到同族群，降低追價權重。`
+        : "弱勢樣本不足，暫以 VIX 與廣度做風險警戒。",
+    },
+  ];
+  const triggerCards = [
+    {
+      label: "提高曝險條件",
+      tone: "positive",
+      text: "至少 3 個主要指數轉強、VIX 低於 20 或回落、市場廣度站上 60%，再提高新倉權重。",
+    },
+    {
+      label: "降低曝險條件",
+      tone: "negative",
+      text: "VIX 高於 25 或單日大升、廣度低於 40%、主要指數同步轉弱時，先降槓桿與追價。",
+    },
+    {
+      label: "觀望條件",
+      tone: "watch",
+      text: "指數分歧但類股有主線時，採小部位測試；若類股也分散，等待下一次資料更新。",
+    },
+  ];
+  return `
+    <article class="market-risk-card market-risk-${riskTone}" aria-live="polite">
+      <div class="market-risk-heading">
+        <div>
+          <p class="panel-kicker">AI Risk Advisor</p>
+          <h3>AI 風險建議</h3>
+        </div>
+        <span class="market-risk-level">${escapeHtml(riskLabel)}</span>
+      </div>
+      <p class="market-risk-summary">
+        <b>${escapeHtml(analysis.regime?.label || "市場風險評估")}</b>
+        <span>${escapeHtml(analysis.forecast?.label || "情境推估")} · 信心 ${escapeHtml(analysis.confidence || "--")} · ${escapeHtml(analysis.forecast?.horizon || "未來 3-5 個交易日")}</span>
+      </p>
+      <div class="market-risk-dashboard">
+        <div class="market-risk-meter">
+          <span>風險分數</span>
+          <strong>${Math.round(riskScore)}<small>/100</small></strong>
+          <div class="market-risk-meter-bar" style="--risk-score: ${Math.max(0, Math.min(100, riskScore))}%"><i></i></div>
+          <p>${escapeHtml(analysis.riskLevel || riskLabel)} · ${escapeHtml(exposure.label)} ${escapeHtml(exposure.range)}</p>
+        </div>
+        <div class="market-risk-stat-grid">
+          <span><b>${escapeHtml(exposure.range)}</b><small>建議研究曝險</small></span>
+          <span><b>${formatGlobalValue(model.vix?.close)}</b><small>VIX 最新</small></span>
+          <span><b>${Number.isFinite(breadthRatio) ? `${(breadthRatio * 100).toFixed(0)}%` : "--"}</b><small>上漲占比</small></span>
+          <span><b>${analysis.forecast?.bearish ?? "--"}%</b><small>空方情境</small></span>
+        </div>
+      </div>
+      <div class="market-risk-content market-risk-content-enhanced">
+        <div>
+          <h4>主要風險來源</h4>
+          <div class="market-risk-driver-list">
+            ${riskDrivers.map((item) => `
+              <article class="market-risk-driver is-${escapeHtml(item.tone)}">
+                <span>${escapeHtml(item.label)}</span>
+                <p>${escapeHtml(item.text)}</p>
+              </article>
+            `).join("")}
+          </div>
+        </div>
+        <div>
+          <h4>執行策略</h4>
+          <div class="market-risk-playbook">
+            ${playbook.map((item) => `
+              <article>
+                <b>${escapeHtml(item.label)}</b>
+                <p>${escapeHtml(item.text)}</p>
+              </article>
+            `).join("")}
+          </div>
+        </div>
+      </div>
+      <div class="market-risk-trigger-grid">
+        ${triggerCards.map((item) => `
+          <article class="market-risk-trigger is-${escapeHtml(item.tone)}">
+            <strong>${escapeHtml(item.label)}</strong>
+            <p>${escapeHtml(item.text)}</p>
+          </article>
+        `).join("")}
+      </div>
+      <p class="market-risk-disclaimer">AI 分析依 Yahoo Finance 行情、主要指數、VIX 與類股樣本自動推估，僅供風險管理與研究參考，不構成投資建議。</p>
+    </article>
+  `;
+}
+function renderUsMarketDecisionInsights(model, upSectors = [], downSectors = [], upStocks = [], downStocks = []) {
+  const analysis = model.analysis || {};
+  const formatSigned = (value) => Number.isFinite(value) ? `${value >= 0 ? "+" : ""}${value.toFixed(2)}%` : "--";
+  const majorMoves = (model.majorItems || [])
+    .map((item) => ({ item, pct: parseMarketNumber(item.pct) }))
+    .filter((entry) => Number.isFinite(entry.pct));
+  const positiveIndexes = majorMoves.filter((entry) => entry.pct > 0);
+  const negativeIndexes = majorMoves.filter((entry) => entry.pct < 0);
+  const indexLeader = majorMoves.slice().sort((left, right) => right.pct - left.pct)[0];
+  const indexLaggard = majorMoves.slice().sort((left, right) => left.pct - right.pct)[0];
+  const vixValue = parseMarketNumber(model.vix?.close);
+  const vixPct = parseMarketNumber(model.vix?.pct);
+  const breadthTotal = model.advancers + model.decliners;
+  const breadthRatio = breadthTotal ? model.advancers / breadthTotal : null;
+  const sectorLeader = upSectors[0];
+  const sectorLaggard = downSectors[0];
+  const sectorLeaderPct = parseMarketNumber(sectorLeader?.pct);
+  const sectorLaggardPct = parseMarketNumber(sectorLaggard?.pct);
+  const sectorSpread = Number.isFinite(sectorLeaderPct) && Number.isFinite(sectorLaggardPct)
+    ? sectorLeaderPct - sectorLaggardPct
+    : null;
+  const strongestStock = upStocks[0];
+  const weakestStock = downStocks[0];
+  const indexTone = positiveIndexes.length > negativeIndexes.length
+    ? "positive"
+    : negativeIndexes.length > positiveIndexes.length
+      ? "negative"
+      : "watch";
+  const vixTone = Number.isFinite(vixValue) && (vixValue >= 25 || (Number.isFinite(vixPct) && vixPct > 4))
+    ? "negative"
+    : Number.isFinite(vixValue) && vixValue < 20 && (!Number.isFinite(vixPct) || vixPct <= 2)
+      ? "positive"
+      : "watch";
+  const breadthTone = Number.isFinite(breadthRatio)
+    ? breadthRatio >= 0.6 ? "positive" : breadthRatio <= 0.4 ? "negative" : "watch"
+    : "watch";
+  const sectorTone = Number.isFinite(sectorSpread)
+    ? sectorSpread >= 3 ? "positive" : sectorSpread <= 1 ? "watch" : "neutral"
+    : "watch";
+  const strategyTone = analysis.riskScore >= 65
+    ? "negative"
+    : analysis.trendPower >= 58 && analysis.riskScore <= 55
+      ? "positive"
+      : "watch";
+  const insights = [
+    {
+      label: "指數共振",
+      tone: indexTone,
+      value: `${positiveIndexes.length}/${majorMoves.length || "--"} 偏多`,
+      body: indexLeader
+        ? `${getUsBenchmarkDisplayName(indexLeader.item)} 領先 ${formatSigned(indexLeader.pct)}，${indexLaggard && indexLaggard !== indexLeader ? `${getUsBenchmarkDisplayName(indexLaggard.item)} 落後 ${formatSigned(indexLaggard.pct)}` : "主要指數尚未拉開差距"}。`
+        : "主要指數資料仍在同步，暫以類股與 VIX 作輔助判斷。",
+      action: positiveIndexes.length >= 3
+        ? "多數指數同向時，強勢類股訊號可信度提高。"
+        : negativeIndexes.length >= 3
+          ? "多數指數轉弱時，先降低追價與槓桿。"
+          : "指數不同步時，偏向區間輪動，不宜只看單一指數。",
+    },
+    {
+      label: "VIX 風險",
+      tone: vixTone,
+      value: `${formatGlobalValue(model.vix?.close)} / ${model.vix?.pct || "--"}`,
+      body: `${analysis.vixBand?.label || model.vixBand?.label || "VIX 待確認"}，風險分數 ${analysis.riskScore ?? "--"}/100。`,
+      action: vixTone === "negative"
+        ? "VIX 升溫時，強勢股也要用較小部位與明確停損。"
+        : vixTone === "positive"
+          ? "波動低檔時，可觀察突破是否伴隨成交量擴大。"
+          : "VIX 中性時，類股擴散比單日漲跌更重要。",
+    },
+    {
+      label: "類股輪動",
+      tone: sectorTone,
+      value: Number.isFinite(sectorSpread) ? `差距 ${sectorSpread.toFixed(2)}pt` : "--",
+      body: sectorLeader && sectorLaggard
+        ? `${sectorLeader.name} 領先 ${sectorLeader.pct}，${sectorLaggard.name} 落後 ${sectorLaggard.pct}。`
+        : "類股強弱資料仍在同步。",
+      action: Number.isFinite(sectorSpread) && sectorSpread >= 3
+        ? "強弱差距擴大代表資金有主線，優先追蹤領先類股。"
+        : "類股差距不大時，避免過早判定主線，等待連續性。",
+    },
+    {
+      label: "市場廣度",
+      tone: breadthTone,
+      value: Number.isFinite(breadthRatio) ? `${(breadthRatio * 100).toFixed(0)}% 上漲` : "--",
+      body: `${model.advancers} 檔上漲、${model.decliners} 檔下跌，樣本平均 ${analysis.averageText || "--"}。`,
+      action: breadthTone === "positive"
+        ? "廣度配合上升時，反彈較不容易只靠少數權值股。"
+        : breadthTone === "negative"
+          ? "廣度不足代表反彈品質偏弱，需觀察是否擴散。"
+          : "廣度分歧時，採取強弱分流，比追大盤更有效。",
+    },
+    {
+      label: "隔日策略",
+      tone: strategyTone,
+      value: analysis.forecast?.label || "情境推估",
+      body: strongestStock && weakestStock
+        ? `強勢樣本 ${strongestStock.symbol || strongestStock.name} ${strongestStock.pct || "--"}；弱勢樣本 ${weakestStock.symbol || weakestStock.name} ${weakestStock.pct || "--"}。`
+        : analysis.action || "等待強弱樣本補齊後再提高訊號權重。",
+      action: analysis.action || "先看主要指數、VIX 與類股是否同向確認。",
+    },
+  ];
+  return `
+    <div class="market-extreme-decision-head">
+      <strong>AI 判讀重點</strong>
+      <span>信心 ${escapeHtml(analysis.confidence || "--")} · ${escapeHtml(analysis.forecast?.horizon || "未來 3-5 個交易日")}</span>
+    </div>
+    <div class="market-decision-grid">
+      ${insights.map((item, index) => `
+        <article class="market-decision-item is-${escapeHtml(item.tone)}">
+          <span>${String(index + 1).padStart(2, "0")}</span>
+          <div>
+            <b>${escapeHtml(item.label)}</b>
+            <em>${escapeHtml(item.value)}</em>
+            <p>${escapeHtml(item.body)}</p>
+            <small>${escapeHtml(item.action)}</small>
+          </div>
+        </article>
+      `).join("")}
+    </div>
+    <div class="market-decision-scenario">
+      <span>多方 ${analysis.forecast?.bullish ?? "--"}%</span>
+      <span>震盪 ${analysis.forecast?.neutral ?? "--"}%</span>
+      <span>空方 ${analysis.forecast?.bearish ?? "--"}%</span>
+    </div>
+  `;
+}
+function renderUsMarketExtremeObservation(model) {
+  const upSectors = buildUsMarketRankItems(model.rankedSectors, 5);
+  const downSectors = buildUsMarketRankItems(model.rankedSectors.slice().reverse(), 5);
+  const upStocks = model.usablePulseItems
+    .slice()
+    .sort((left, right) => (parseMarketNumber(right.pct) || 0) - (parseMarketNumber(left.pct) || 0))
+    .slice(0, 5);
+  const downStocks = model.usablePulseItems
+    .slice()
+    .sort((left, right) => (parseMarketNumber(left.pct) || 0) - (parseMarketNumber(right.pct) || 0))
+    .slice(0, 5);
+  const sectorRows = (items, tone) => items.map((item) => `
+    <article class="market-extreme-sector ${tone}">
+      <div>
+        <strong>${escapeHtml(item.name)}</strong>
+        <span>${escapeHtml(item.pct)}</span>
+      </div>
+      <p>${escapeHtml(item.reason)}</p>
+      <small>以類股漲跌幅、成交量與主要指數方向作為觀察基準。</small>
+    </article>
+  `).join("");
+  const stockLinks = (items, tone) => items.map((item) => `
+    <a class="limit-move-stock-link" href="${safeUrl(buildUsStockSearchUrl(item.symbol))}">
+      <strong>${escapeHtml(item.symbol || "--")} ${escapeHtml(item.name || "")}</strong>
+      <span class="${toneClass(getUsMarketTone(item.pct))}">${escapeHtml(item.pct || "--")}</span>
+      <small>${escapeHtml(item.group || item.exchange || "US")}</small>
+    </a>
+  `).join("") || '<span class="stock-detail-empty">個股樣本同步中。</span>';
+  return `
+    <article class="market-extreme-card market-extreme-wide">
+      <div class="market-extreme-head">
+        <div>
+          <p class="panel-kicker">Market movers × AI watchlist</p>
+          <h3>美股強弱觀察與 AI 觀察名單</h3>
+        </div>
+        <span>${escapeHtml(model.analysis.breadthText)}</span>
+      </div>
+      <p class="market-extreme-summary">以美股類股輪動、主要指數、VIX 與個股 / ETF 樣本同步觀察。${escapeHtml(model.analysis.indexText)}</p>
+      <div class="market-extreme-metrics">
+        <div><span>上漲樣本</span><strong>${model.advancers}</strong><small>市場廣度</small></div>
+        <div><span>下跌樣本</span><strong>${model.decliners}</strong><small>風險擴散</small></div>
+        <div><span>樣本平均</span><strong>${escapeHtml(model.analysis.averageText)}</strong><small>漲跌幅</small></div>
+        <div><span>觀察模式</span><strong>類股優先</strong><small>VIX 輔助</small></div>
+      </div>
+      <div class="market-extreme-layout">
+        <section>
+          <h4>強勢樣本：類股主軸</h4>
+          <div class="market-extreme-sector-list">${sectorRows(upSectors, "is-positive")}</div>
+          <h4 class="market-extreme-subtitle">個股 / ETF 連結樣本</h4>
+          <div class="limit-move-sample-list is-positive">${stockLinks(upStocks, "is-positive")}</div>
+        </section>
+        <section>
+          <h4>弱勢樣本：風險類股</h4>
+          <div class="market-extreme-sector-list">${sectorRows(downSectors, "is-negative")}</div>
+          <h4 class="market-extreme-subtitle">個股 / ETF 連結樣本</h4>
+          <div class="limit-move-sample-list is-negative">${stockLinks(downStocks, "is-negative")}</div>
+        </section>
+      </div>
+      <div class="market-extreme-decision">
+        ${renderUsMarketDecisionInsights(model, upSectors, downSectors, upStocks, downStocks)}
+      </div>
+      <p class="market-extreme-note">此卡用於美股盤勢與隔日觀察排序，不構成投資建議。</p>
+    </article>
+  `;
+}
+function normalizeUsNewsText(value) {
+  return String(value || "")
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201c\u201d]/g, '"')
+    .replace(/\s+/g, " ")
+    .trim();
+}
+function buildUsMarketNewsFallbackTitle(title) {
+  const text = normalizeUsNewsText(title).toLowerCase();
+  const topics = [];
+  if (/\bai\b|artificial intelligence/.test(text)) topics.push("AI");
+  if (/\betf|exchange-traded/.test(text)) topics.push("ETF");
+  if (/s&p 500|spx|spy/.test(text)) topics.push("S&P 500");
+  if (/nasdaq|qqq/.test(text)) topics.push("那斯達克");
+  if (/dow jones|\bdia\b/.test(text)) topics.push("道瓊");
+  if (/russell|iwm/.test(text)) topics.push("羅素2000");
+  if (/vix|volatility/.test(text)) topics.push("VIX");
+  if (/option/.test(text)) topics.push("選擇權");
+  if (/stock|equities|shares/.test(text)) topics.push("美股個股");
+  if (/space/i.test(title)) topics.push("SpaceX");
+  const uniqueTopics = [...new Set(topics)].slice(0, 3);
+  return `${uniqueTopics.length ? uniqueTopics.join("／") : "美股市場"}最新快訊`;
+}
+function localizeUsMarketNewsTitle(value) {
+  const title = normalizeUsNewsText(value);
+  if (!title) return "--";
+  if (/[\u4e00-\u9fff]/.test(title)) return title;
+
+  const crashMatch = title.match(/^The Next ([\d.]+)% Crash Will Happen\. These (\d+) ETFs Mean You Won't Panic-Sell at the Bottom$/i);
+  if (crashMatch) {
+    return `下一波 ${crashMatch[1]}% 崩跌將會發生：這 ${crashMatch[2]} 檔 ETF 讓你不會在底部恐慌賣出`;
+  }
+
+  const analystMatch = title.match(/^An Analyst Called (.+?)'s Valuation ["']?(.+?)["']?\. Options Traders Are Betting the Other Way$/i);
+  if (analystMatch) {
+    return `分析師稱 ${analystMatch[1]} 估值「${analystMatch[2]}」；選擇權交易員卻押注相反方向`;
+  }
+
+  const predictionMatch = title.match(/^Prediction:\s*This Unstoppable (.+?) ETF Will Beat the S&P 500 in the Second Half of (\d{4})$/i);
+  if (predictionMatch) {
+    return `預測：這檔強勢 ${predictionMatch[1]} ETF 將在 ${predictionMatch[2]} 下半年擊敗 S&P 500`;
+  }
+
+  const bestPerformingMatch = title.match(/^(.+?) Is the Best-Performing S&P 500 Stock During the First Half of (\d{4})\.\s*Here's What Stock I Think Will Dominate the Second Half \(Hint: It's Not (.+?)\)$/i);
+  if (bestPerformingMatch) {
+    return `${bestPerformingMatch[1]} 是 ${bestPerformingMatch[2]} 上半年 S&P 500 表現最佳股票；我認為下半年將由另一檔股票主導（提示：不是 ${bestPerformingMatch[3]}）`;
+  }
+
+  const burryMatch = title.match(/^Michael Burry's newest short reveals what really worries him about AI$/i);
+  if (burryMatch) return "Michael Burry 最新放空部位透露他真正擔心的 AI 問題";
+
+  if (/^Exchange-Traded Funds Fall, US Equities Mixed After Midday$/i.test(title)) {
+    return "交易所交易基金走跌，美股午盤後漲跌互見";
+  }
+
+  const replacements = [
+    [/exchange-traded funds/gi, "交易所交易基金"],
+    [/\bETFs\b/g, "ETF"],
+    [/\bETF\b/g, "ETF"],
+    [/\bUS equities\b/gi, "美股"],
+    [/\bUS stocks\b/gi, "美股"],
+    [/\bWall Street\b/gi, "華爾街"],
+    [/\boptions traders\b/gi, "選擇權交易員"],
+    [/\banalyst\b/gi, "分析師"],
+    [/\banalysts\b/gi, "分析師"],
+    [/\bvaluation\b/gi, "估值"],
+    [/\bcatastrophic\b/gi, "災難性"],
+    [/\bcrash\b/gi, "崩跌"],
+    [/\bfall\b/gi, "下跌"],
+    [/\bfalls\b/gi, "下跌"],
+    [/\bmixed\b/gi, "漲跌互見"],
+    [/\bafter midday\b/gi, "午盤後"],
+    [/\bprediction\b/gi, "預測"],
+    [/\bwill beat\b/gi, "將擊敗"],
+    [/\bsecond half\b/gi, "下半年"],
+    [/\bfirst half\b/gi, "上半年"],
+    [/\bbest-performing\b/gi, "表現最佳"],
+    [/\bstock\b/gi, "股票"],
+    [/\bstocks\b/gi, "股票"],
+    [/\bAI\b/g, "AI"],
+  ];
+  let translated = title;
+  replacements.forEach(([pattern, replacement]) => {
+    translated = translated.replace(pattern, replacement);
+  });
+  const residue = translated
+    .replace(/\b(S&P|ETF|ETFs|AI|VIX|NASDAQ|Nasdaq|Dow|Jones|Russell|SpaceX|Vanguard|SanDisk|Sandisk|Michael|Burry|Yahoo|Finance|US)\b/g, "")
+    .match(/[A-Za-z]{3,}/g) || [];
+  return translated === title || residue.length >= 3 ? buildUsMarketNewsFallbackTitle(title) : translated;
+}
+function localizeUsMarketNewsTag(value) {
+  const tag = normalizeUsNewsText(value);
+  if (!tag) return "美股快訊";
+  if (/yahoo finance/i.test(tag)) return "美股快訊";
+  if (/market news/i.test(tag)) return "市場新聞";
+  if (/market breadth/i.test(tag)) return "市場廣度";
+  if (/vix watch/i.test(tag)) return "VIX 觀察";
+  if (/strong \/ weak/i.test(tag)) return "強弱觀察";
+  if (/next session/i.test(tag)) return "下個交易日";
+  return /[\u4e00-\u9fff]/.test(tag) ? tag : "美股快訊";
+}
+function renderUsMarketNewsGrid(model) {
+  const onlineNews = Array.isArray(model.payload?.news) ? model.payload.news : [];
+  const newsItems = onlineNews.length ? onlineNews.slice(0, 6) : [
+    {
+      tag: "Market breadth",
+      title: model.analysis.breadthText,
+      body: `${model.analysis.breadthDetail} 樣本平均 ${model.analysis.averageText}。`,
+    },
+    {
+      tag: "VIX watch",
+      title: model.vixBand.label,
+      body: model.vixBand.text,
+    },
+    {
+      tag: "Strong / Weak",
+      title: `${model.strongest?.symbol || "--"} vs ${model.weakest?.symbol || "--"}`,
+      body: `最強樣本 ${model.strongest?.name || "--"} ${model.strongest?.pct || "--"}；最弱樣本 ${model.weakest?.name || "--"} ${model.weakest?.pct || "--"}。`,
+    },
+    {
+      tag: "Next session",
+      title: model.analysis.forecast.label,
+      body: model.analysis.action,
+    },
+  ];
+  return `
+    <div class="news-grid">
+      ${newsItems.map((item) => {
+        const translatedTitle = localizeUsMarketNewsTitle(item.title);
+        const originalTitle = normalizeUsNewsText(item.title);
+        const linkTitle = originalTitle && translatedTitle !== originalTitle ? ` title="${escapeHtml(originalTitle)}"` : "";
+        return `
+          <article class="news-card">
+            <span class="news-tag">${escapeHtml(localizeUsMarketNewsTag(item.tag || item.source || "Market news"))}</span>
+            <h3>${item.link ? `<a class="global-market-link" href="${safeUrl(item.link)}" target="_blank" rel="noopener noreferrer"${linkTitle}>${escapeHtml(translatedTitle)}</a>` : escapeHtml(translatedTitle)}</h3>
+            <p>${escapeHtml(item.body || [item.source, item.publishedAt].filter(Boolean).join(" · ") || "Yahoo Finance 線上新聞")}</p>
+          </article>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+function renderUsMarketOverviewLikeTaiwan(payload = {}) {
+  const model = getUsMarketOverviewModel(payload);
+  const counts = getUsMarketPayloadCounts(payload);
+  return `
+    <section class="subpage-hero global-market-hero">
+      <p class="eyebrow">美股盤勢</p>
+      <h1>主要指數與風險情緒總覽</h1>
+      <p class="hero-text">集中查看 S&P 500、Nasdaq、Dow Jones、Russell 2000 與 VIX，並搭配類股輪動、強弱樣本與 AI 風險建議判斷市場氛圍。</p>
+      <p class="source-note">資料來源：${escapeHtml(payload.source || "Yahoo Finance")} · 更新時間 ${escapeHtml(payload.updatedAt || "--")} ${payload.cached ? "· 快取" : ""}</p>
+      <p class="source-note">盤勢精選行情 ${Number(counts.quoteCount).toLocaleString("zh-TW")} 筆是指數、VIX、類股與代表性個股樣本，不等同於美股上市個股明細總數。</p>
+    </section>
+
+    <section class="section" id="us-market-overview">
+      <div class="overview-grid">${renderUsMarketOverviewCards(model)}</div>
+    </section>
+
+    <section class="section split-layout market-institution-layout">
+      <article class="panel-card market-institution-card">
+        <div class="card-title-row">
+          <div>
+            <p class="panel-kicker">市場資金</p>
+            <h3>主要指數與類股動向</h3>
+          </div>
+          <div class="us-summary-actions">
+            <span class="chip chip-blue">${escapeHtml(payload.updatedAt || "--")}</span>
+            <button class="global-refresh" type="button" data-global-refresh="${escapeHtml(payload.category || "us-stocks")}">重新整理</button>
+          </div>
+        </div>
+        <div class="institution-summary">${renderUsMarketInstitutionSummary(model)}</div>
+        <div class="institution-detail-head">
+          <span>指標</span>
+          <span>最新</span>
+          <span>漲跌幅</span>
+          <span>觀察</span>
+        </div>
+        <div class="institution-list">${renderUsMarketInstitutionRows(model)}</div>
+        <div class="institution-sector-ranking" data-us-market-sector-ranking>${renderUsMarketSectorRanking(model)}</div>
+      </article>
+
+      <article class="panel-card market-notes-card">
+        <div class="card-title-row">
+          <h3>市場提示</h3>
+          <span class="chip chip-gold">自動整理</span>
+        </div>
+        <div class="market-ai-insight">${renderUsMarketInsightPanel(model)}</div>
+      </article>
+    </section>
+
+    <section class="section">
+      <div class="card-title-row">
+        <div>
+          <p class="panel-kicker">After market</p>
+          <h2>美股盤後快訊</h2>
+        </div>
+        <span class="chip chip-gold">每日盤後整理</span>
+      </div>
+      ${renderUsMarketRiskAdviceCard(model)}
+      ${renderUsMarketExtremeObservation(model)}
+      ${renderUsMarketNewsGrid(model)}
+    </section>
+  `;
+}
+function renderGlobalMarketPage(payload) {
+  const root = document.getElementById("global-market-root");
+  if (!root || !payload) return;
+  window.currentGlobalMarketPayload = payload;
+  const isUsMarketOverviewPage = payload.category === "us-stocks" && document.body.dataset.marketView === "overview";
+  if (isUsMarketOverviewPage) {
+    root.innerHTML = renderUsMarketOverviewLikeTaiwan(payload);
+    bindUsMarketOverviewControls(payload);
+    return;
+  }
+  const isDerivativePage = ["futures", "options"].includes(payload.category);
+  const marketSectionItems = payload.category === "us-stocks"
+    ? (payload.items || []).filter((item) => item.group !== "主要指數" && item.group !== "美股個股" && item.symbol !== "^VIX")
+    : (payload.items || []);
+  const architectureHtml = ["us-stocks", "futures"].includes(payload.category) ? "" : renderAssetPlatformDashboard(payload);
+  const derivativesHtml = payload.category === "futures"
+    ? renderDerivativesFuturesPanel(payload)
+    : payload.category === "options"
+      ? renderDerivativesOptionsPanel(payload)
+      : "";
+  root.innerHTML = `
+    <section class="subpage-hero global-market-hero">
+      <p class="eyebrow">${escapeHtml(getAssetPlatformConfig(payload.category, payload.title).kicker || payload.kicker || "Global Market")}</p>
+      <h1>${escapeHtml(getAssetPlatformConfig(payload.category, payload.title).title || payload.title || "全球市場")}</h1>
+      <p class="hero-text">${escapeHtml(payload.subtitle || "")}</p>
+      <p class="source-note">資料來源：${escapeHtml(payload.source || "Yahoo Finance")} · 更新時間 ${escapeHtml(payload.updatedAt || "--")} ${payload.cached ? "· 快取" : ""}</p>
+    </section>
+
+    ${architectureHtml}
+
+    ${isDerivativePage ? renderDerivativesSinglePageContent(payload) : `
+    ${renderUsMajorIndexVixCard(payload)}
+
+    ${renderUsSectorIndexComparisonCard(payload)}
+
+    <section class="section" id="us-market-overview">
+      ${renderGlobalSummaryCard(payload)}
+    </section>
+
+    ${derivativesHtml}
+
+    ${payload.category === "us-stocks" ? renderUsSectorStocksBrowser(payload) : `
+    <section class="section">
+      ${renderGlobalMarketSections(marketSectionItems)}
+    </section>`}
+
+    ${payload.category === "us-stocks" ? "" : `
+    <section class="section">
+      <article class="panel-card global-table-card">
+        <div class="card-title-row">
+          <div>
+            <p class="panel-kicker">Online data</p>
+            <h3>線上資料明細</h3>
+          </div>
+        </div>
+        <div class="global-table-wrap">
+          <table class="global-market-table">
+            <thead>
+              <tr>
+                <th>名稱</th>
+                <th>代號</th>
+                <th>地區</th>
+                <th>交易所 / 來源</th>
+                <th>分類</th>
+                <th>收盤</th>
+                <th>漲跌幅</th>
+                <th>開盤</th>
+                <th>最高</th>
+                <th>最低</th>
+                <th>量能欄位</th>
+                <th>日期</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(payload.category === "us-stocks" ? marketSectionItems : (payload.items || [])).map((item) => {
+                const metric = getAssetHubMetric(item);
+                const internalLink = payload.category === "us-stocks" ? buildUsStockSearchUrl(item.symbol) : getAssetHubItemUrl(item);
+                const targetAttrs = payload.category === "us-stocks" ? "" : ' target="_blank" rel="noopener noreferrer"';
+                return `
+                <tr>
+                  <td><a class="global-market-link" href="${safeUrl(internalLink)}"${targetAttrs}>${escapeHtml(item.name || "--")}</a></td>
+                  <td>${escapeHtml(item.symbol || "--")}</td>
+                  <td>${escapeHtml(getAssetHubRegion(item))}</td>
+                  <td>${escapeHtml(item.exchange || item.dataSource || item.source || "--")}</td>
+                  <td>${escapeHtml(item.group || item.type || "--")}</td>
+                  <td>${formatGlobalValue(item.close)}</td>
+                  <td class="${toneClass((parseMarketNumber(item.pct) || 0) > 0 ? "up" : (parseMarketNumber(item.pct) || 0) < 0 ? "down" : "flat")}">${escapeHtml(item.pct || "--")}</td>
+                  <td>${formatGlobalValue(item.open)}</td>
+                  <td>${formatGlobalValue(item.high)}</td>
+                  <td>${formatGlobalValue(item.low)}</td>
+                  <td><span class="asset-table-metric">${escapeHtml(metric.label)}</span>${formatGlobalVolume(metric.value)}</td>
+                  <td>${escapeHtml(item.date || "--")}</td>
+                </tr>
+              `; }).join("")}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>`}`}
+  `;
+  if (!isDerivativePage) {
+    bindUsMajorIndexVixCard(payload);
+    bindUsSectorIndexComparisonCard(payload);
+  }
+  if (payload.category === "us-stocks") {
+    bindUsSectorStocksBrowser();
+    loadUsSectorStocks();
+  }
+  if (payload.category === "futures") bindDerivativesFuturesPanel(payload);
+  if (payload.category === "options") bindDerivativesOptionsPanel(payload);
+  if (["futures", "options"].includes(payload.category)) bindDerivativeWatchlistControls(payload);
+  if (isDerivativePage) bindDerivativeAssetLoadMore(payload);
+  if (payload.category === "options") hydrateOptionsAiExtras(payload);
+  root.querySelectorAll(".global-technical-chart").forEach((chartView) => bindChartHover(chartView));
+}
+async function initGlobalMarketPage(refresh = false) {
+  const root = document.getElementById("global-market-root");
+  const category = document.body.dataset.marketCategory || "";
+  if (!root || !category) return;
+  root.innerHTML = `
+    <section class="subpage-hero">
+      <p class="eyebrow">Global Market</p>
+      <h1>線上資料載入中</h1>
+      <p class="hero-text">正在取得 Yahoo Finance 最新市場資料...</p>
+    </section>
+  `;
+  try {
+    const initialLimit = ["precious-metals", "bonds", "futures", "options"].includes(category)
+      ? "all"
+      : ["futures", "options"].includes(category)
+        ? 12
+        : 18;
+    const queryParams = new URLSearchParams();
+    queryParams.set("limit", refresh ? "all" : String(initialLimit));
+    if (refresh) queryParams.set("refresh", "1");
+    if (category === "options") {
+      queryParams.set("source", derivativesOptionsChainSource);
+      queryParams.set("underlying", derivativesOptionsSelectedUnderlying);
+    }
+    const query = `?${queryParams.toString()}`;
+    const derivativesApi = ["futures", "options"].includes(category);
+    const endpoint = derivativesApi
+      ? `/api/${encodeURIComponent(category)}${query}`
+      : `/api/global-market/${encodeURIComponent(category)}${query}`;
+    const response = await fetchWithTimeout(endpoint, { cache: "no-store" }, 120000);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const responsePayload = await response.json();
+    if (derivativesApi && responsePayload.success === false) {
+      throw new Error(responsePayload?.error?.message || "資料暫不可用");
+    }
+    const payload = derivativesApi ? responsePayload.data : responsePayload;
+    renderGlobalMarketPage(payload);
+    if (category === "options" && !payload.optionChain) {
+      fetchWithTimeout("/api/us-market/options-chain/SPY", { cache: "no-store" }, 16000)
+        .then((optionChainResponse) => optionChainResponse.ok ? optionChainResponse.json() : null)
+        .then((chain) => {
+          if (chain) renderGlobalMarketPage({ ...payload, optionChain: chain });
+        })
+        .catch((error) => console.warn("Failed to load SPY options chain:", error));
+    }
+  } catch (error) {
+    root.innerHTML = `
+      <section class="subpage-hero">
+        <p class="eyebrow">Global Market</p>
+        <h1>線上資料暫時無法載入</h1>
+        <p class="hero-text">請稍後再試，或確認部署環境可連線 Yahoo Finance。錯誤：${escapeHtml(error.message || error)}</p>
+      </section>
+    `;
+    console.error("Failed to load global market page:", error);
+  }
+}
