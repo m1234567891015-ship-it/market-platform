@@ -98,7 +98,7 @@ const US_MAJOR_INDEX_SECTOR_SYMBOLS = {
 
 let nativeInnerHtmlDescriptor = null;
 
-const EXCLUDED_SECTOR_SOURCE_NAMES = new Set(["發行量加權股價指數", "玻璃陶瓷類指數"]);
+const EXCLUDED_SECTOR_SOURCE_NAMES = new Set(["\u767c\u884c\u91cf\u52a0\u6b0a\u80a1\u50f9\u6307\u6578", "\u73bb\u7483\u9676\u74f7\u985e\u6307\u6578"]);
 
 const WEIGHTED_SECTOR_THEME_RULES = [
   {

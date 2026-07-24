@@ -65,18 +65,32 @@ def check_security_guardrail() -> CheckReport:
     return report
 
 
+def frontend_combined_source() -> str:
+    """TD-02 把 app.js 拆成 app.js + js/*.js,escapeHtml() 呼叫點會隨批次分散
+    到不同檔案,計數必須合併讀取,只看 app.js 會低估(跟
+    security_guardrail_check.py 的同名輔助函式是同一個道理,各自獨立實作
+    避免 regression/ 對外層模組產生非必要的匯入依賴)。"""
+    parts = [APP_JS_PATH.read_text(encoding="utf-8")]
+    js_dir = REPO_ROOT / "js"
+    if js_dir.exists():
+        parts.extend(p.read_text(encoding="utf-8") for p in sorted(js_dir.glob("*.js")))
+    return "\n".join(parts)
+
+
 def check_escapehtml_threshold() -> CheckReport:
-    """工單 00 第三部分第 3 點:escapeHtml 呼叫次數不得低於基準值的 95%。"""
-    report = CheckReport("app.js escapeHtml() 呼叫次數 >= 基準 95%")
+    """工單 00 第三部分第 3 點,TD-02 期間收緊:escapeHtml 呼叫次數(合併
+    app.js + js/*.js)必須精確等於基準值——純搬移工單不容許任何呼叫點
+    在搬移過程中遺失,95% 門檻只適用於工單 00 當時允許的一般性重構,不適用
+    於本工單這種「應該一次不少」的逐位元組搬移。"""
+    report = CheckReport("escapeHtml() 呼叫次數(app.js + js/*.js)精確等於基準")
     if not ESCAPEHTML_BASELINE_PATH.exists():
         report.fail(f"找不到基準檔 {ESCAPEHTML_BASELINE_PATH}")
         return report
     baseline = json.loads(ESCAPEHTML_BASELINE_PATH.read_text(encoding="utf-8"))
     baseline_count = baseline["escapeHtml_call_count"]
-    threshold = baseline_count * baseline.get("threshold_pct", 95) / 100.0
-    current_count = len(re.findall(r"escapeHtml\(", APP_JS_PATH.read_text(encoding="utf-8")))
-    if current_count < threshold:
-        report.fail(f"現況 {current_count} 次 < 門檻 {threshold:.0f} 次(基準 {baseline_count} 次的 95%)")
+    current_count = len(re.findall(r"escapeHtml\(", frontend_combined_source()))
+    if current_count != baseline_count:
+        report.fail(f"現況 {current_count} 次 != 基準 {baseline_count} 次(精確相等,無 95% 容忍)")
     else:
         report.details.append(f"現況 {current_count} 次(基準 {baseline_count} 次)")
     return report
