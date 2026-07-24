@@ -2286,3 +2286,1888 @@ function renderWeightedSectorThemeContext(themes) {
     </div>
   `;
 }
+function renderWeightedSectorTrendRecommendationCard(weightedIndex) {
+  const models = buildWeightedSectorTrendModels(weightedIndex);
+  if (!models.length) {
+    return `
+      <article class="analysis-card weighted-index-note-card-inline weighted-sector-trend-card">
+        <div class="card-title-row"><h4>加權成分類股趨勢推薦</h4><span class="chip chip-blue">研究分析</span></div>
+        <p class="card-copy">目前證交所類股歷史資料不足，暫時無法建立相對大盤的趨勢推薦。</p>
+      </article>
+    `;
+  }
+
+  const leader = models.find((item) => item.action === "主攻");
+  const leaderFocus = leader || models[0];
+  const rotation = models.find((item) => item.action === "補漲" && item.name !== leaderFocus?.name);
+  const rotationFocus = rotation
+    || models.find((item) => item.name !== leaderFocus?.name && item.score >= 52);
+  const weakest = [...models].reverse().find((item) => item.name !== leaderFocus?.name && item.name !== rotationFocus?.name) || models.at(-1);
+  const themes = buildWeightedSectorThemeContext(models);
+  const topRows = models.slice(0, 6);
+  const context = buildWeightedSectorMarketContext(models, weightedIndex);
+  const benchmarkPct = parseMarketNumber(weightedIndex?.pct);
+  const marketText = Number.isFinite(benchmarkPct)
+    ? `大盤今日 ${formatSignedPercentValue(benchmarkPct)}。${context.summary} 本卡以相對強弱、趨勢品質、量能確認、輪動位置與風險扣分建立研究排序。`
+    : `${context.summary} 本卡以相對強弱、趨勢品質、量能確認、輪動位置與風險扣分建立研究排序。`;
+
+  return `
+    <article class="analysis-card weighted-index-note-card-inline weighted-sector-trend-card">
+      <div class="card-title-row">
+        <h4>加權成分類股趨勢推薦</h4>
+        <span class="chip chip-gold">${escapeHtml(context.regime)}</span>
+      </div>
+      <p class="weighted-sector-trend-summary">${escapeHtml(marketText)}</p>
+      ${renderWeightedSectorThemeContext(themes)}
+      <div class="weighted-sector-market-context">
+        <div><span>大盤20日</span><strong class="${Number.isFinite(context.benchmarkReturn20) ? context.benchmarkReturn20 >= 0 ? "up" : "down" : "flat"}">${formatSignedPercentValue(context.benchmarkReturn20)}</strong></div>
+        <div><span>20日領先比</span><strong>${Math.round(context.leaderRatio * 100)}%</strong><small>${models.filter((item) => Number.isFinite(item.relative20) && item.relative20 > 0).length}/${context.total} 類股</small></div>
+        <div><span>5日轉強比</span><strong>${Math.round(context.shortRatio * 100)}%</strong><small>${models.filter((item) => Number.isFinite(item.relative5) && item.relative5 > 0).length}/${context.total} 類股</small></div>
+        <div><span>模型基準</span><strong>多因子</strong><small>強弱38 / 趨勢24 / 量能18 / 輪動12 / 風險扣分</small></div>
+      </div>
+      <div class="weighted-sector-trend-focus">
+        ${renderWeightedSectorTrendFocus(leader ? "主攻強勢" : "相對強勢候選", leader ? "相對大盤領先且趨勢確認" : "分數最高，但尚未完全達到主攻門檻", leaderFocus, "leader")}
+        ${renderWeightedSectorTrendFocus(rotation ? "補漲觀察" : "輪動候選", rotation ? "短線轉強但位置未過熱" : "尚未達補漲門檻，列為次順位追蹤", rotationFocus, "rotation")}
+        ${renderWeightedSectorTrendFocus(weakest?.action === "避開" ? "弱勢避開" : "相對弱勢", weakest?.action === "避開" ? "落後大盤或量價背離" : "排序較後，等待轉強證據", weakest, "risk")}
+      </div>
+      <div class="weighted-sector-trend-table">
+        <div class="weighted-sector-trend-row is-head">
+          <span>排序 / 結論</span><span>總分</span><span>相對強弱</span><span>趨勢</span><span>量能</span><span>風險</span>
+        </div>
+        ${topRows.map((item, index) => `
+          <div class="weighted-sector-trend-row">
+            <span><b>${index + 1}. ${escapeHtml(item.name)}</b><small>${escapeHtml(item.action)} · ${escapeHtml(item.themeLabel)} · 信心 ${escapeHtml(item.confidence)} · ${escapeHtml(item.latestDate)}</small></span>
+            <strong>${item.score}/100</strong>
+            <strong class="${Number.isFinite(item.relative20) ? item.relative20 >= 0 ? "up" : "down" : "flat"}">${Math.round(item.subScores.relativeStrength)}</strong>
+            <strong>${Math.round(item.subScores.trend)}</strong>
+            <strong>${Number.isFinite(item.volumeRatio) ? `${item.volumeRatio.toFixed(0)}%` : "--"}</strong>
+            <strong>${item.riskPenalty ? `-${item.riskPenalty}` : "低"}</strong>
+          </div>
+        `).join("")}
+      </div>
+    </article>
+  `;
+}
+function getVixRiskTemperature(value) {
+  if (!Number.isFinite(value)) return null;
+  return Math.max(0, Math.min(100, Math.round(((value - 10) / 35) * 100)));
+}
+function getVixRiskToneClass(change) {
+  if (!Number.isFinite(change)) return "flat";
+  return change > 0 ? "down" : change < 0 ? "up" : "flat";
+}
+function renderVixTemperatureMeter(score, band, volatility) {
+  const safeScore = Number.isFinite(score) ? score : null;
+  const width = safeScore === null ? 0 : Math.max(0, Math.min(100, safeScore));
+  const value = escapeHtml(volatility?.value || "--");
+  const pct = escapeHtml(volatility?.pct || "--");
+  return `
+    <div class="vix-temperature-meter is-${escapeHtml(band.tone || "neutral")}">
+      <div class="vix-temperature-head">
+        <span>風險溫度</span>
+        <strong>${safeScore === null ? "--" : safeScore}/100</strong>
+      </div>
+      <div class="vix-temperature-track" aria-hidden="true"><i style="width:${width}%"></i></div>
+      <small>VIX ${value} / ${pct}</small>
+    </div>
+  `;
+}
+function renderSectorVixSparkline(volatility) {
+  const series = (volatility?.series || [])
+    .map((item) => ({
+      date: item.date,
+      value: parseMarketNumber(item.value),
+    }))
+    .filter((item) => item.date && Number.isFinite(item.value));
+  if (series.length < 2) {
+    return '<div class="vix-sparkline-empty">VIX 歷史資料不足。</div>';
+  }
+  const width = 300;
+  const height = 150;
+  const pad = { top: 16, right: 16, bottom: 22, left: 34 };
+  const values = series.map((item) => item.value);
+  const minValue = Math.max(0, Math.min(...values, 15) - 1.5);
+  const maxValue = Math.max(...values, 20) + 1.5;
+  const range = maxValue - minValue || 1;
+  const plotWidth = width - pad.left - pad.right;
+  const plotHeight = height - pad.top - pad.bottom;
+  const xAt = (index) => pad.left + (index / Math.max(series.length - 1, 1)) * plotWidth;
+  const yAt = (value) => pad.top + ((maxValue - value) / range) * plotHeight;
+  const points = series.map((item, index) => ({
+    x: xAt(index),
+    y: yAt(item.value),
+    value: item.value,
+  }));
+  const latest = series.at(-1);
+  const previous = series.at(-2);
+  const change = latest.value - previous.value;
+  const trendClass = change > 0 ? "is-up" : change < 0 ? "is-down" : "";
+  const thresholdLines = [15, 20, 30, 40]
+    .filter((value) => value >= minValue && value <= maxValue)
+    .map((value) => {
+      const y = yAt(value);
+      return `<line x1="${pad.left}" y1="${y.toFixed(1)}" x2="${width - pad.right}" y2="${y.toFixed(1)}"></line><text x="2" y="${(y + 4).toFixed(1)}">${value}</text>`;
+    })
+    .join("");
+  const firstLabel = escapeHtml(series[0].date.slice(5));
+  const latestLabel = escapeHtml(latest.date.slice(5));
+  return `
+    <div class="vix-sparkline ${trendClass}">
+      <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="VIX 近期走勢">
+        ${thresholdLines}
+        <path d="${buildPath(points)}"></path>
+        <circle cx="${points.at(-1).x.toFixed(1)}" cy="${points.at(-1).y.toFixed(1)}" r="4"></circle>
+        <text x="${pad.left}" y="${height - 4}">${firstLabel}</text>
+        <text x="${width - pad.right - 32}" y="${height - 4}">${latestLabel}</text>
+      </svg>
+      <div><span>近期走勢</span><strong>${escapeHtml(latest.date)} · ${latest.value.toFixed(2)}</strong></div>
+    </div>
+  `;
+}
+function renderVixRuleList(currentValue) {
+  const rules = [
+    { max: 15, tone: "green", range: "< 15", label: "樂觀偏熱", note: "風險溫度低，但需留意過度樂觀後的波動回補。" },
+    { min: 15, max: 20, tone: "green", range: "15 ~ 20", label: "常態穩定", note: "波動預期溫和，市場風險相對健康。" },
+    { min: 20, max: 30, tone: "yellow", range: "20 ~ 30", label: "警戒焦慮", note: "波動升溫，需降低追價與槓桿。" },
+    { min: 30, max: 40, tone: "red", range: "30 ~ 40", label: "高恐慌", note: "短線震盪劇烈，優先控管部位風險。" },
+    { min: 40, tone: "purple", range: "> 40", label: "極端恐慌", note: "可能出現非理性賣壓，也要觀察反彈條件。" },
+  ];
+  return `
+    <div class="vix-rule-list">
+      ${rules.map((rule) => {
+        const active = Number.isFinite(currentValue)
+          && (rule.min === undefined || currentValue >= rule.min)
+          && (rule.max === undefined || currentValue < rule.max);
+        return `
+          <div class="vix-rule-row vix-signal-row is-${rule.tone} ${active ? "is-active" : ""}">
+            <strong>${escapeHtml(rule.range)}</strong>
+            <span><i class="vix-signal-light"></i>${escapeHtml(rule.label)}</span>
+            <small>${escapeHtml(rule.note)}</small>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+function renderVolatilitySwitchCard(weightedIndex = null) {
+  const volatility = data?.marketVolatility;
+  if (!volatility) {
+    return `
+      <article class="weighted-vix-card">
+        <div class="card-title-row"><h4>風險溫度</h4><span class="chip chip-gold">VIX</span></div>
+        <p>等待 VIX live 資料。</p>
+      </article>
+    `;
+  }
+  const value = parseMarketNumber(volatility.value);
+  const change = parseMarketNumber(volatility.change);
+  const band = getVixSentimentBand(value);
+  const score = getVixRiskTemperature(value);
+  const moveTone = getVixRiskToneClass(change);
+  const summary = volatility.summary || band.text || "以 VIX 觀察外部風險情緒。";
+  const source = volatility.sourceNote || "Yahoo Finance ^VIX";
+  const vixIndexCard = `
+    <div class="vix-index-mini-card">
+      <div class="vix-index-mini-head">
+        <span>${escapeHtml(volatility.label || "VIX 指數")}</span>
+        <b class="${moveTone}">${escapeHtml(volatility.change || "--")} / ${escapeHtml(volatility.pct || "--")}</b>
+      </div>
+      <strong>${escapeHtml(volatility.value || "--")}</strong>
+      <p>${escapeHtml(summary)} 台股目前 ${escapeHtml(weightedIndex?.pct || "--")}。</p>
+    </div>
+  `;
+  const meaning = `
+    <div class="vix-current-meaning">
+      <span>目前區間</span>
+      <strong>${escapeHtml(volatility.level || band.label || "風險觀察")} · ${escapeHtml(band.label || "--")}</strong>
+      <p>${escapeHtml(summary)}</p>
+    </div>
+  `;
+  const rules = renderVixRuleList(value);
+  const sparkline = renderSectorVixSparkline(volatility);
+  return `
+    <article class="weighted-vix-card">
+      <div class="card-title-row"><h4>風險溫度</h4><span class="chip chip-gold">${score === null ? "VIX" : `${score}/100`}</span></div>
+      ${vixIndexCard}
+      ${renderVixTemperatureMeter(score, band, volatility)}
+      <div class="weighted-vix-body">
+        ${sparkline}
+        ${meaning}
+        ${rules}
+      </div>
+      <small>${escapeHtml(volatility.date || "--")} · ${escapeHtml(source)}</small>
+    </article>
+  `;
+}
+function renderWeightedChartZoomControls(visible, total, minimum, panOffset) {
+  return `
+    <div class="sector-chart-zoom weighted-chart-zoom" aria-label="加權指數圖表縮放控制">
+      <button type="button" data-weighted-chart-zoom="in" ${visible <= minimum ? "disabled" : ""}>＋ 放大</button>
+      <button type="button" data-weighted-chart-zoom="out" ${visible >= total ? "disabled" : ""}>－ 縮小</button>
+      <button type="button" data-weighted-chart-zoom="reset" ${visible >= total ? "disabled" : ""}>重設</button>
+      <button type="button" data-weighted-chart-pan="older" ${panOffset >= total - visible ? "disabled" : ""}>← 往前</button>
+      <button type="button" data-weighted-chart-pan="newer" ${panOffset <= 0 ? "disabled" : ""}>往後 →</button>
+      <span>顯示 ${visible || 0} / ${total || 0} 根</span>
+    </div>
+  `;
+}
+function renderWeightedIndexPanel() {
+  const container = document.getElementById("weighted-index-panel");
+  if (!container) return;
+  const weightedIndex = getWeightedIndexSector();
+  if (!weightedIndex) {
+    container.innerHTML = '<div class="stock-detail-empty">無可用加權指數資料。</div>';
+    return;
+  }
+  const bundle = getVolatilityBundle();
+  const orderedInternational = getInternationalIndexItems(bundle);
+  loadInternationalIndexesIfNeeded(container);
+  const weightedHistory = weightedIndex.comparisonSeries?.day || [];
+  const modes = [
+    { id: "day", label: "日線", enabled: weightedHistory.length >= 20 },
+    { id: "week", label: "週線", enabled: weightedHistory.length >= 20 },
+    { id: "month", label: "月線", enabled: weightedHistory.length >= 40 },
+    { id: "comparison", label: "指數比對", enabled: orderedInternational.length >= 1 },
+  ];
+  const requestedMode = container.dataset.weightedMode || "day";
+  const normalizedMode = ["vix", "international"].includes(requestedMode) ? "comparison" : requestedMode;
+  const activeMode = (modes.find((mode) => mode.id === normalizedMode && mode.enabled) || modes.find((mode) => mode.enabled) || modes[0]).id;
+  if (container.dataset.comparisonInitialized !== "1") {
+    container.dataset.internationalSelection = "taiex";
+    container.dataset.comparisonInitialized = "1";
+  }
+  const selectedSet = new Set((container.dataset.internationalSelection || "").split(",").filter(Boolean));
+  const activeInternational = orderedInternational.filter((item) => selectedSet.has(item.key));
+  const taiexItem = {
+    key: "taiex",
+    name: "台灣加權指數",
+    value: weightedIndex.value,
+    open: weightedIndex.open,
+    previousClose: weightedIndex.previousClose,
+    high: weightedIndex.high,
+    low: weightedIndex.low,
+    pct: weightedIndex.pct,
+    volume: weightedIndex.volume,
+    series: weightedHistory.map((item) => ({
+      date: item.date,
+      value: item.close,
+      open: item.open,
+      high: item.high,
+      low: item.low,
+      volume: item.volume,
+    })),
+  };
+  const activeInternationalItems = activeInternational
+    .map((item) => item.key === "vix" ? { ...item, name: "VIX 指數" } : item);
+  const comparisonItems = activeMode === "comparison"
+    ? [...(selectedSet.has("taiex") ? [taiexItem] : []), ...activeInternationalItems]
+    : [];
+  const weightedTrendModel = ["day", "week", "month"].includes(activeMode)
+    ? buildSectorTrendModel(weightedIndex, activeMode)
+    : [];
+  const totalPoints = ["day", "week", "month"].includes(activeMode)
+    ? weightedTrendModel.length
+    : alignIndexSeries(comparisonItems).length;
+  const minimumVisible = Math.min(activeMode === "comparison" ? 20 : 40, Math.max(totalPoints, 2));
+  const comparisonStateKey = comparisonItems.map((item) => item.key).join("_").replace(/[^A-Za-z0-9_]/g, "_");
+  const zoomStateKey = `weightedZoom_${activeMode}_${comparisonStateKey}`;
+  const panStateKey = `weightedPan_${activeMode}_${comparisonStateKey}`;
+  const savedVisible = Number(container.dataset[zoomStateKey]);
+  const visibleCount = totalPoints > 0
+    ? Math.max(minimumVisible, Math.min(Number.isFinite(savedVisible) && savedVisible > 1 ? savedVisible : totalPoints, totalPoints))
+    : 0;
+  const panOffset = Math.max(0, Math.min(Number(container.dataset[panStateKey]) || 0, Math.max(totalPoints - visibleCount, 0)));
+  const chart = activeMode === "comparison"
+    ? renderFreeIndexComparisonChart(comparisonItems, comparisonItems.length === 1 && isVixComparisonItem(comparisonItems[0]) ? "VIX 市場恐慌情緒走勢" : "全球指數自由比對", { visibleCount, panOffset })
+      : renderSectorTrendChart(weightedIndex, activeMode, { size: "large", visibleCount, panOffset });
+  const technical = weightedIndex.technicalAnalysis || {};
+  const singleComparisonMode = activeMode === "comparison" && comparisonItems.length === 1;
+  const singleVixComparisonMode = singleComparisonMode && isVixComparisonItem(comparisonItems[0]);
+  const quoteMetricsMode = activeMode !== "comparison" || singleComparisonMode;
+  const metrics = activeMode === "comparison"
+    ? buildInternationalSelectionMetrics(chart, comparisonItems)
+      : buildSingleIndexQuoteMetrics(weightedIndex);
+  const bottomAnalysisHtml = activeMode === "comparison"
+    ? comparisonItems.length > 1
+      ? renderIndexComparisonInsight(chart, activeMode, comparisonItems)
+      : comparisonItems.length === 1
+        ? renderSingleIndexComparisonInsight(comparisonItems[0], chart)
+        : '<article class="analysis-card weighted-index-note-card-inline"><div class="card-title-row"><h4>尚未選擇指數</h4><span class="chip chip-gold">等待選擇</span></div><p class="card-copy">請從上方選擇台灣加權指數、VIX 或任一國際指數以顯示走勢資料。</p></article>'
+      : `${renderWeightedTechnicalInsightCard(weightedIndex, activeMode, weightedTrendModel)}${renderWeightedSectorTrendRecommendationCard(weightedIndex)}`;
+  const weightedPanelTitle = activeMode === "comparison"
+    ? singleVixComparisonMode
+      ? "VIX 市場恐慌情緒"
+      : "全球指數自由比對"
+    : "台股加權指數技術走勢";
+  container.dataset.weightedMode = activeMode;
+  container.innerHTML = `
+    <div class="class-board-head weighted-index-head">
+      <div><p class="eyebrow">台股加權指數技術趨勢</p><h3>${weightedPanelTitle}</h3></div>
+      <span class="chip ${weightedIndex.tone === "up" ? "chip-green" : weightedIndex.tone === "down" ? "chip-red" : "chip-blue"}">${technical.signal || "趨勢觀察"}</span>
+    </div>
+    <div class="sector-sync-layout sector-sync-layout-yahoo weighted-index-layout">
+      <div class="sector-sync-main">
+        <div class="weighted-index-chart-card">
+          <div class="sector-sync-toolbar weighted-index-toolbar">
+            <div class="sector-sync-picker"><button class="sector-sync-chip is-active" type="button">${weightedIndex.name} / 台股加權指數</button></div>
+            <div class="sector-sync-mode-switcher">${modes.map((mode) => `<button class="sector-sync-mode ${mode.id === activeMode ? "is-active" : ""} ${mode.enabled ? "" : "is-disabled"}" type="button" data-weighted-mode="${mode.id}" ${mode.enabled ? "" : "disabled"}>${mode.label}</button>`).join("")}</div>
+          </div>
+          ${activeMode === "comparison" ? `<div class="international-index-picker"><span>台股 / VIX / 國際指數複選</span><div class="sector-sync-picker"><button class="sector-sync-chip ${selectedSet.has("taiex") ? "is-active" : ""}" type="button" data-international-key="taiex">台灣加權指數</button>${orderedInternational.map((item) => `<button class="sector-sync-chip ${selectedSet.has(item.key) ? "is-active" : ""}" type="button" data-international-key="${item.key}">${item.key === "vix" ? "VIX 指數" : item.name}</button>`).join("")}</div></div>` : ""}
+          ${renderWeightedChartZoomControls(chart.visiblePoints || visibleCount, chart.totalPoints || totalPoints, minimumVisible, panOffset)}
+          ${chart.html}
+          <div class="sector-yahoo-metrics weighted-index-inline-metrics ${quoteMetricsMode ? "is-single-index" : ""} ${singleVixComparisonMode ? "is-vix-sentiment" : ""}">${metrics.map((metric) => `<div class="mini-item ${metric.key ? `metric-${metric.key}` : ""}"><span>${metric.label}</span><strong class="${metric.toneClass || ""}">${metric.value}</strong></div>`).join("")}</div>
+        </div>
+      </div>
+      <aside class="sector-sync-side">${renderVolatilitySwitchCard(weightedIndex)}</aside>
+      <div class="weighted-index-analysis-stack is-wide">${bottomAnalysisHtml}</div>
+    </div>
+  `;
+  container.querySelectorAll("[data-weighted-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      container.dataset.weightedMode = button.dataset.weightedMode || "day";
+      renderWeightedIndexPanel();
+    });
+  });
+  container.querySelectorAll("[data-international-key]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const current = new Set((container.dataset.internationalSelection || "").split(",").filter(Boolean));
+      const key = button.dataset.internationalKey;
+      if (current.has(key)) current.delete(key);
+      else current.add(key);
+      container.dataset.internationalSelection = Array.from(current).join(",");
+      renderWeightedIndexPanel();
+    });
+  });
+  const updateWeightedZoom = (direction) => {
+    if (!totalPoints) return;
+    const current = chart.visiblePoints || visibleCount;
+    let next = current;
+    if (direction === "in") next = Math.max(minimumVisible, Math.floor(current * 0.65));
+    if (direction === "out") next = Math.min(totalPoints, Math.ceil(current / 0.65));
+    if (direction === "reset") next = totalPoints;
+    if (next === current) return;
+    container.dataset[zoomStateKey] = String(next);
+    container.dataset[panStateKey] = "0";
+    renderWeightedIndexPanel();
+  };
+  const updateWeightedPan = (direction) => {
+    if (!totalPoints) return;
+    const maxOffset = Math.max(totalPoints - visibleCount, 0);
+    const step = Math.max(1, Math.round(visibleCount * 0.35));
+    const next = direction === "older"
+      ? Math.min(maxOffset, panOffset + step)
+      : Math.max(0, panOffset - step);
+    if (next === panOffset) return;
+    container.dataset[panStateKey] = String(next);
+    renderWeightedIndexPanel();
+  };
+  container.querySelectorAll("[data-weighted-chart-zoom]").forEach((button) => {
+    button.addEventListener("click", () => updateWeightedZoom(button.dataset.weightedChartZoom));
+  });
+  container.querySelectorAll("[data-weighted-chart-pan]").forEach((button) => {
+    button.addEventListener("click", () => updateWeightedPan(button.dataset.weightedChartPan));
+  });
+  bindWeightedPanelHover(container, chart);
+  const frame = container.querySelector(".sector-chart-frame");
+  if (frame) {
+    frame.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      updateWeightedZoom(event.deltaY < 0 ? "in" : "out");
+    }, { passive: false });
+    bindHorizontalChartPan(frame, updateWeightedPan);
+  }
+}
+function bindWeightedPanelHover(container, chart) {
+  const tooltip = container.querySelector(".sector-sync-tooltip");
+  const frame = container.querySelector(".sector-chart-frame");
+  const guide = container.querySelector(".sector-hover-guide");
+  const dot = container.querySelector(".sector-hover-dot-sector");
+  if (!tooltip || !frame || !guide || !dot || !chart.points?.length) return;
+  const hide = () => {
+    tooltip.hidden = true;
+    guide.classList.remove("is-visible");
+    dot.classList.remove("is-visible");
+  };
+  container.querySelectorAll("[data-sync-index]").forEach((zone) => {
+    const show = (event) => {
+      const point = chart.points[Number(zone.dataset.syncIndex)];
+      if (!point) return;
+      tooltip.hidden = false;
+      if (zone.dataset.tooltipMode === "free-index") {
+        tooltip.innerHTML = `<strong style="display:block;margin-bottom:5px">${escapeHtml(zone.dataset.label || point.label)}</strong>${String(zone.dataset.payload || "").split("|").filter(Boolean).map((entry) => { const [name, value, norm] = entry.split(":"); return `<span>${escapeHtml(name)}：<strong>${escapeHtml(value || "--")}</strong>（Base ${escapeHtml(norm || "--")}）</span>`; }).join("")}`;
+      } else {
+        const rawClose = parseMarketNumber(zone.dataset.sectorClose);
+        const rawOpen = parseMarketNumber(zone.dataset.sectorOpen);
+        const chgPct = Number.isFinite(rawClose) && Number.isFinite(rawOpen) && rawOpen > 0
+          ? ((rawClose - rawOpen) / rawOpen * 100)
+          : null;
+        tooltip.innerHTML = `
+          <strong style="display:block;margin-bottom:5px">${escapeHtml(point.label)}</strong>
+          <span>開　盤：<strong>${escapeHtml(zone.dataset.sectorOpen || "--")}</strong></span>
+          <span>最　高：<strong class="up">${escapeHtml(zone.dataset.sectorHigh || "--")}</strong></span>
+          <span>最　低：<strong class="down">${escapeHtml(zone.dataset.sectorLow || "--")}</strong></span>
+          <span>收　盤：<strong>${escapeHtml(zone.dataset.sectorClose || "--")}</strong></span>
+          <span>漲　跌：<strong class="${chgPct !== null && chgPct >= 0 ? "up" : "down"}">${chgPct !== null ? `${chgPct >= 0 ? "+" : ""}${chgPct.toFixed(2)}%` : "--"}</strong></span>
+          <span>成交量：<strong>${escapeHtml(zone.dataset.volume || "--")}</strong></span>
+          <span>成交筆數：<strong>${escapeHtml(zone.dataset.trades || "--")}</strong></span>
+          <span>成交金額：<strong>${escapeHtml(zone.dataset.turnover || "--")}</strong></span>
+        `;
+      }
+      const frameRect = frame.getBoundingClientRect();
+      const tooltipWidth = tooltip.offsetWidth || 220;
+      const cursorLeft = event ? event.clientX - frameRect.left : (point.x / (chart.width || 980)) * frameRect.width;
+      const left = Math.max(4, Math.min(cursorLeft + 14, frameRect.width - tooltipWidth - 4));
+      const cursorTop = event ? event.clientY - frameRect.top : 8;
+      const top = Math.max(8, Math.min(cursorTop + 12, frameRect.height - 160));
+      tooltip.style.transform = "none";
+      tooltip.style.top = `${top}px`;
+      tooltip.style.left = `${left}px`;
+      guide.setAttribute("x1", point.x.toFixed(1));
+      guide.setAttribute("x2", point.x.toFixed(1));
+      dot.setAttribute("cx", point.x.toFixed(1));
+      dot.setAttribute("cy", (point.sectorY || 60).toFixed(1));
+      guide.classList.add("is-visible");
+      dot.classList.add("is-visible");
+    };
+    zone.addEventListener("mouseenter", show);
+    zone.addEventListener("mousemove", show);
+    zone.addEventListener("mouseleave", hide);
+  });
+  frame.addEventListener("mouseleave", hide);
+}
+function renderSectorsPage() {
+  renderSectorPageV2();
+}
+function getPortfolioSimulation() {
+  try {
+    const value = JSON.parse(localStorage.getItem(PORTFOLIO_SIM_STORAGE_KEY) || "{}");
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  } catch {
+    return {};
+  }
+}
+function savePortfolioSimulation(value) {
+  localStorage.setItem(PORTFOLIO_SIM_STORAGE_KEY, JSON.stringify(value));
+}
+function formatSimulationMoney(value) {
+  if (!Number.isFinite(value)) return "--";
+  const prefix = value > 0 ? "+" : "";
+  return `${prefix}${Math.round(value).toLocaleString("zh-TW")} 元`;
+}
+function classifyPortfolioAsset(stock) {
+  const code = String(stock?.code || "");
+  const name = String(stock?.name || "");
+  if (/^00/.test(code) || /ETF/i.test(name)) return "ETF";
+  return "股票";
+}
+function estimatePortfolioTransactionCost(position) {
+  if (!(position?.shares > 0) || !(position?.entryPrice > 0) || !(position?.currentPrice > 0)) return 0;
+  const isEtf = classifyPortfolioAsset(position.stock) === "ETF";
+  const buyValue = position.entryPrice * position.shares;
+  const sellValue = position.currentPrice * position.shares;
+  const buyCost = buyValue * ((PORTFOLIO_COST_MODEL.feePct + PORTFOLIO_COST_MODEL.slippagePct) / 100);
+  const sellCost = sellValue * ((PORTFOLIO_COST_MODEL.feePct + (isEtf ? PORTFOLIO_COST_MODEL.etfTaxPct : PORTFOLIO_COST_MODEL.stockTaxPct) + PORTFOLIO_COST_MODEL.slippagePct) / 100);
+  return buyCost + sellCost;
+}
+function buildPortfolioFactorAssessment(positions, totals) {
+  const active = positions.filter((item) => item.shares > 0);
+  const analyzed = active.map((item) => item.analysis).filter(Boolean);
+  const factors = [];
+  const actions = [];
+  const assetCounts = active.reduce((acc, item) => {
+    const kind = classifyPortfolioAsset(item.stock);
+    acc[kind] = (acc[kind] || 0) + 1;
+    return acc;
+  }, {});
+  const maxWeight = totals.totalValue > 0
+    ? Math.max(...active.map((item) => item.marketValue / totals.totalValue * 100), 0)
+    : 0;
+  const stopRiskRatio = totals.totalCost > 0 ? (totals.totalRisk / totals.totalCost) * 100 : 0;
+  const netReturn = totals.totalCost > 0 ? (totals.netPnl / totals.totalCost) * 100 : 0;
+  const pctMoves = active
+    .map((item) => Math.abs(parseAnalysisNumber(item.stock.pct) ?? parseAnalysisNumber(item.detail?.pct) ?? 0))
+    .filter(Number.isFinite);
+  const avgMove = pctMoves.length
+    ? pctMoves.reduce((sum, value) => sum + value, 0) / pctMoves.length
+    : 0;
+  const var95 = totals.totalValue * (avgMove / 100) * 1.65;
+  const sharpeLike = avgMove ? netReturn / avgMove : null;
+  const vixValue = parseAnalysisNumber(data?.marketVolatility?.value);
+  const vixRisk = vixValue !== null && vixValue >= 20;
+  const positiveAi = analyzed.filter((item) => item.tone === "positive").length;
+  const negativeAi = analyzed.filter((item) => item.tone === "negative").length;
+  const neutralAi = Math.max(analyzed.length - positiveAi - negativeAi, 0);
+  const averageAiScore = analyzed.length
+    ? analyzed.reduce((sum, item) => sum + (Number(item.score) || 0), 0) / analyzed.length
+    : 0;
+  const backtestItems = analyzed.map((item) => item.backtestLearning).filter(Boolean);
+  const backtestHealthy = backtestItems.filter((item) => item.validation?.status === "healthy").length;
+  const backtestWatch = backtestItems.filter((item) => ["watch", "recalibrate"].includes(item.validation?.status)).length;
+  const backtestRebuild = backtestItems.filter((item) => item.validation?.status === "rebuild").length;
+  const backtestAdjustmentSum = backtestItems.reduce((sum, item) => sum + (Number(item.scoreAdjustment) || 0), 0);
+  const highConfidence = analyzed.filter((item) => item.confidence === "高" || item.confidence === "中高").length;
+  const portfolioTheory = buildPortfolioTheoryAssessment(active, totals);
+
+  if (!active.length) {
+    return {
+      tone: "neutral",
+      label: "等待建立部位",
+      summary: "尚未輸入股數，系統先保留資產配置、成本、風控、總體風險與投資組合理論檢查框架。",
+      factors: ["請輸入進場價與股數後，系統會估算淨損益、交易成本、集中度、VaR、相關性、分散化與風險貢獻。"],
+      actions: ["建立部位前先設定單筆停損與停利條件，並預先規劃單一權重上限。"],
+      theoryDetails: portfolioTheory.details,
+      theoryActions: portfolioTheory.actions,
+      metrics: { maxWeight, stopRiskRatio, var95, sharpeLike, avgMove, ...portfolioTheory.metrics },
+      assetMix: assetCounts,
+      source: PORTFOLIO_FACTOR_SOURCE,
+    };
+  }
+
+  factors.push(`資產配置：${Object.entries(assetCounts).map(([key, count]) => `${key} ${count} 檔`).join("、") || "未分類"}`);
+  factors.push(`交易成本已估入手續費、證交稅與滑價，淨損益 ${formatSimulationMoney(totals.netPnl)}。`);
+  factors.push(`單一商品最高權重 ${maxWeight.toFixed(1)}%，組合停損風險約 ${stopRiskRatio.toFixed(1)}%。`);
+  factors.push(`以目前自選股日波動估算 95% 單日 VaR 約 ${Math.round(var95).toLocaleString("zh-TW")} 元。`);
+  factors.push(`資產投資組合理論：${portfolioTheory.label}，已納入均值-變異、相關性、分散化比率與風險貢獻。`);
+  if (analyzed.length) {
+    factors.push(`AI 技術覆蓋：已納入 ${analyzed.length}/${active.length} 檔個股的型態理論、價量指標、市場廣度、心理線、籌碼與回溯校準。`);
+    factors.push(`技術方向：偏正向 ${positiveAi} 檔、中性 ${neutralAi} 檔、偏弱 ${negativeAi} 檔，平均 AI 分數 ${averageAiScore.toFixed(1)}。`);
+  } else {
+    factors.push("AI 技術覆蓋：個股完整資料尚未載入，暫以損益、權重、成本與總體風險先行評估。");
+  }
+  if (backtestItems.length) {
+    factors.push(`回溯測試：通過校準 ${backtestHealthy} 檔、觀察/調參 ${backtestWatch} 檔、需重建 ${backtestRebuild} 檔，組合權重校準合計 ${backtestAdjustmentSum > 0 ? "+" : ""}${backtestAdjustmentSum}。`);
+  }
+  if (Number.isFinite(sharpeLike)) factors.push(`類 Sharpe 風險效率 ${sharpeLike.toFixed(2)}，用於比較損益是否足以補償波動。`);
+  if (vixValue !== null) factors.push(`VIX ${vixValue.toFixed(2)}，${vixRisk ? "總體風險偏高，應降低槓桿與集中度" : "總體波動尚在可控區間"}。`);
+
+  if (maxWeight > 50) actions.push("單一商品超過 50%，建議分散或設定更嚴格停損。");
+  else if (maxWeight > 20) actions.push("單一商品超過 20%，需確認是否符合自訂持股上限。");
+  else actions.push("單一商品權重未明顯過度集中。");
+
+  if (stopRiskRatio >= 15) actions.push("組合停損風險高於 15%，應檢查是否需要降低股數或收窄停損。");
+  else actions.push("組合停損風險低於 15%，風控結構相對可控。");
+
+  if (totals.netPnl < 0 && stopRiskRatio >= 10) actions.push("淨損益為負且停損風險偏高，優先檢查弱勢持股。");
+  if (negativeAi > positiveAi) actions.push("組合內偏弱 AI 訊號較多，優先檢查技術結構轉弱或回測失真的持股。");
+  else if (positiveAi > negativeAi && backtestRebuild === 0) actions.push("多數持股 AI 訊號偏正向且未見重建警示，可依原停損停利紀律續觀察。");
+  if (backtestRebuild > 0) actions.push("存在回測模型需重建的持股，該部位不應提高權重，需等待重新校準。");
+  if (highConfidence < Math.ceil(analyzed.length / 2) && analyzed.length) actions.push("高信心個股不足半數，組合不宜因單一強勢股而放大整體曝險。");
+  if (vixRisk) actions.push("VIX 進入警戒區時，避免一次建立完整部位，採分批與再平衡。");
+  actions.push(...portfolioTheory.actions.slice(0, 3));
+  actions.push("目前未納入槓桿、融資、配息稅務與除權息，實際投資需另行校正。");
+
+  const riskScore = (maxWeight > 50 ? 2 : maxWeight > 20 ? 1 : 0)
+    + (stopRiskRatio >= 15 ? 2 : stopRiskRatio >= 10 ? 1 : 0)
+    + (vixRisk ? 1 : 0)
+    + (totals.netPnl < 0 ? 1 : 0)
+    + (negativeAi > positiveAi ? 1 : 0)
+    + (backtestRebuild ? 2 : backtestWatch ? 1 : 0)
+    + (portfolioTheory.tone === "negative" ? 2 : portfolioTheory.tone === "neutral" ? 1 : 0);
+  const tone = riskScore >= 4 ? "negative" : riskScore >= 2 ? "neutral" : "positive";
+  const label = tone === "positive" ? "配置風險可控" : tone === "negative" ? "組合風險偏高" : "需再平衡觀察";
+  const summary = `${label}：已依資產配置、均值-變異、相關性、風險貢獻、交易成本、資金管理、停損停利、VaR、波動、VIX、個股 AI 技術理論與回溯測試校準整合評估。`;
+  return {
+    tone,
+    label,
+    summary,
+    factors,
+    actions,
+    theoryDetails: portfolioTheory.details,
+    theoryActions: portfolioTheory.actions,
+    metrics: { maxWeight, stopRiskRatio, var95, sharpeLike, avgMove, averageAiScore, backtestHealthy, backtestWatch, backtestRebuild, ...portfolioTheory.metrics },
+    assetMix: assetCounts,
+    source: PORTFOLIO_FACTOR_SOURCE,
+  };
+}
+function renderPortfolioSimulator(items = getWatchlist()) {
+  const summary = document.getElementById("portfolio-simulator-summary");
+  const table = document.getElementById("portfolio-simulator-table");
+  if (!summary || !table) return;
+  if (!items.length) {
+    summary.innerHTML = "";
+    table.innerHTML = '<div class="watchlist-empty">加入自選股後即可建立組合損益模擬。</div>';
+    return;
+  }
+
+  const saved = getPortfolioSimulation();
+  const positions = items.map((stock) => {
+    const key = watchlistKey(stock);
+    const detail = watchlistDetailCache.get(key);
+    const currentPrice = parseAnalysisNumber(detail?.close ?? stock.close) || 0;
+    const setting = saved[key] || {};
+    const entryPrice = parseAnalysisNumber(setting.entryPrice) || currentPrice;
+    const shares = Math.max(0, parseAnalysisNumber(setting.shares) || 0);
+    const stopLossPct = Math.max(0, parseAnalysisNumber(setting.stopLossPct) ?? 8);
+    const takeProfitPct = Math.max(0, parseAnalysisNumber(setting.takeProfitPct) ?? 15);
+    const cost = entryPrice * shares;
+    const marketValue = currentPrice * shares;
+    const pnl = marketValue - cost;
+    const transactionCost = estimatePortfolioTransactionCost({ stock, currentPrice, entryPrice, shares });
+    const netPnl = pnl - transactionCost;
+    const returnPct = cost > 0 ? (pnl / cost) * 100 : 0;
+    const netReturnPct = cost > 0 ? (netPnl / cost) * 100 : 0;
+    const riskAmount = entryPrice * shares * (stopLossPct / 100);
+    const analysis = watchlistAnalysisCache.get(key);
+    return {
+      stock, detail, key, currentPrice, entryPrice, shares, stopLossPct, takeProfitPct,
+      cost, marketValue, pnl, transactionCost, netPnl, returnPct, netReturnPct, riskAmount,
+      analysis,
+      signal: getSimulationSignal(analysis, currentPrice, entryPrice, shares, stopLossPct, takeProfitPct),
+    };
+  });
+
+  const active = positions.filter((item) => item.shares > 0);
+  const totalCost = active.reduce((sum, item) => sum + item.cost, 0);
+  const totalValue = active.reduce((sum, item) => sum + item.marketValue, 0);
+  const totalPnl = totalValue - totalCost;
+  const totalTransactionCost = active.reduce((sum, item) => sum + item.transactionCost, 0);
+  const netPnl = totalPnl - totalTransactionCost;
+  const totalReturn = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
+  const netReturn = totalCost > 0 ? (netPnl / totalCost) * 100 : 0;
+  const totalRisk = active.reduce((sum, item) => sum + item.riskAmount, 0);
+  const maxPosition = totalValue > 0
+    ? Math.max(...active.map((item) => item.marketValue / totalValue * 100), 0)
+    : 0;
+  const riskLabel = !active.length
+    ? "尚未建立模擬部位"
+    : maxPosition > 50
+      ? "單一持股集中度偏高"
+      : totalRisk / Math.max(totalCost, 1) > 0.1
+        ? "組合停損風險偏高"
+        : "風險設定在可控區間";
+  const portfolioAssessment = buildPortfolioFactorAssessment(positions, {
+    totalCost,
+    totalValue,
+    totalPnl,
+    totalTransactionCost,
+    netPnl,
+    totalReturn,
+    netReturn,
+    totalRisk,
+  });
+
+  summary.innerHTML = `
+    <div><span>模擬投入成本</span><strong>${Math.round(totalCost).toLocaleString("zh-TW")} 元</strong></div>
+    <div><span>目前市值</span><strong>${Math.round(totalValue).toLocaleString("zh-TW")} 元</strong></div>
+    <div><span>未實現損益</span><strong class="${totalPnl > 0 ? "up" : totalPnl < 0 ? "down" : "flat"}">${formatSimulationMoney(totalPnl)}</strong></div>
+    <div><span>估計交易成本</span><strong>${Math.round(totalTransactionCost).toLocaleString("zh-TW")} 元</strong></div>
+    <div><span>成本後淨損益</span><strong class="${netPnl > 0 ? "up" : netPnl < 0 ? "down" : "flat"}">${formatSimulationMoney(netPnl)}</strong></div>
+    <div><span>組合報酬率</span><strong class="${totalReturn > 0 ? "up" : totalReturn < 0 ? "down" : "flat"}">${totalReturn >= 0 ? "+" : ""}${totalReturn.toFixed(2)}%</strong></div>
+    <div><span>淨報酬率</span><strong class="${netReturn > 0 ? "up" : netReturn < 0 ? "down" : "flat"}">${netReturn >= 0 ? "+" : ""}${netReturn.toFixed(2)}%</strong></div>
+    <div><span>停損風險金額</span><strong>${Math.round(totalRisk).toLocaleString("zh-TW")} 元</strong></div>
+    <div><span>95% VaR 估計</span><strong>${Math.round(portfolioAssessment.metrics.var95 || 0).toLocaleString("zh-TW")} 元</strong></div>
+    <div><span>單一最高權重</span><strong>${(portfolioAssessment.metrics.maxWeight || 0).toFixed(1)}%</strong></div>
+    <div><span>組合年化波動</span><strong>${Number.isFinite(portfolioAssessment.metrics.portfolioVolatility) ? `${portfolioAssessment.metrics.portfolioVolatility.toFixed(1)}%` : "--"}</strong></div>
+    <div><span>有效持股數</span><strong>${Number.isFinite(portfolioAssessment.metrics.effectivePositions) ? `${portfolioAssessment.metrics.effectivePositions.toFixed(1)} 檔` : "--"}</strong></div>
+    <div><span>平均相關性</span><strong>${Number.isFinite(portfolioAssessment.metrics.averageCorrelation) ? portfolioAssessment.metrics.averageCorrelation.toFixed(2) : "--"}</strong></div>
+    <div><span>分散化比率</span><strong>${Number.isFinite(portfolioAssessment.metrics.diversificationRatio) ? portfolioAssessment.metrics.diversificationRatio.toFixed(2) : "--"}</strong></div>
+    <div><span>效率分數</span><strong class="${portfolioAssessment.metrics.efficiencyScore > 0 ? "up" : portfolioAssessment.metrics.efficiencyScore < 0 ? "down" : "flat"}">${Number.isFinite(portfolioAssessment.metrics.efficiencyScore) ? portfolioAssessment.metrics.efficiencyScore.toFixed(2) : "--"}</strong></div>
+    <div><span>AI 平均分數</span><strong class="${portfolioAssessment.metrics.averageAiScore > 0 ? "up" : portfolioAssessment.metrics.averageAiScore < 0 ? "down" : "flat"}">${portfolioAssessment.metrics.averageAiScore > 0 ? "+" : ""}${(portfolioAssessment.metrics.averageAiScore || 0).toFixed(1)}</strong></div>
+    <div><span>回測警示檔數</span><strong class="${portfolioAssessment.metrics.backtestRebuild ? "down" : portfolioAssessment.metrics.backtestWatch ? "flat" : "up"}">${portfolioAssessment.metrics.backtestWatch || 0} 觀察 / ${portfolioAssessment.metrics.backtestRebuild || 0} 重建</strong></div>
+    <div><span>風險摘要</span><strong>${riskLabel}</strong></div>
+  `;
+
+  table.innerHTML = `
+    <article class="portfolio-factor-card is-${portfolioAssessment.tone}">
+      <div class="portfolio-factor-head">
+        <div>
+          <p class="panel-kicker">Portfolio factors</p>
+          <h4>${portfolioAssessment.label}</h4>
+        </div>
+        <a href="${safeUrl(portfolioAssessment.source.url)}" target="_blank" rel="noreferrer noopener">自選組合因素基準</a>
+      </div>
+      <p>${portfolioAssessment.summary}</p>
+      <div class="portfolio-factor-grid">
+        <section>
+          <h5>納入考量</h5>
+          <ul>${portfolioAssessment.factors.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+        </section>
+        <section>
+          <h5>風險與再平衡</h5>
+          <ul>${portfolioAssessment.actions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+        </section>
+        <section>
+          <h5>資產組合理論</h5>
+          <ul>${(portfolioAssessment.theoryDetails || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+        </section>
+      </div>
+    </article>
+    <div class="portfolio-table-head">
+      <span>個股</span><span>目前價</span><span>模擬進場價</span><span>股數</span>
+      <span>停損 / 停利</span><span>淨損益</span><span>判別訊號</span>
+    </div>
+    ${positions.map((item) => `
+      <div class="portfolio-position-row">
+        <div class="portfolio-stock-name"><strong>${item.stock.code}</strong><span>${item.stock.name}</span></div>
+        <strong>${item.currentPrice ? item.currentPrice.toLocaleString("zh-TW") : "--"}</strong>
+        <label><span>進場價</span><input type="number" min="0" step="0.01" value="${item.entryPrice || ""}" data-portfolio-key="${item.key}" data-portfolio-field="entryPrice"></label>
+        <label><span>股數</span><input type="number" min="0" step="1" value="${item.shares || 0}" data-portfolio-key="${item.key}" data-portfolio-field="shares"></label>
+        <div class="portfolio-risk-inputs">
+          <label><span>停損 %</span><input type="number" min="0" step="0.5" value="${item.stopLossPct}" data-portfolio-key="${item.key}" data-portfolio-field="stopLossPct"></label>
+          <label><span>停利 %</span><input type="number" min="0" step="0.5" value="${item.takeProfitPct}" data-portfolio-key="${item.key}" data-portfolio-field="takeProfitPct"></label>
+        </div>
+        <div class="portfolio-pnl ${item.netPnl > 0 ? "up" : item.netPnl < 0 ? "down" : "flat"}">
+          <strong>${formatSimulationMoney(item.netPnl)}</strong>
+          <span>淨 ${item.netReturnPct >= 0 ? "+" : ""}${item.netReturnPct.toFixed(2)}%｜成本 ${Math.round(item.transactionCost).toLocaleString("zh-TW")}</span>
+        </div>
+        <div class="portfolio-signal is-${item.signal.tone}">
+          <strong>${item.signal.label}</strong>
+          <span>${item.signal.note}</span>
+        </div>
+      </div>
+    `).join("")}
+  `;
+
+  table.querySelectorAll("[data-portfolio-key]").forEach((input) => {
+    input.addEventListener("change", () => {
+      const value = Math.max(0, Number(input.value) || 0);
+      const simulation = getPortfolioSimulation();
+      simulation[input.dataset.portfolioKey] = {
+        ...(simulation[input.dataset.portfolioKey] || {}),
+        [input.dataset.portfolioField]: value,
+      };
+      savePortfolioSimulation(simulation);
+      renderPortfolioSimulator();
+    });
+  });
+}
+function buildWatchlistAiAnalysis(stock, detail) {
+  let score = 0;
+  let evidenceCount = 0;
+  const positives = [];
+  const cautions = [];
+  const close = parseAnalysisNumber(detail.close ?? stock.close);
+  const ma5 = parseAnalysisNumber(detail.ma5);
+  const ma20 = parseAnalysisNumber(detail.ma20);
+  const ma60 = parseAnalysisNumber(detail.ma60);
+  const pct = parseAnalysisNumber(detail.pct ?? stock.pct);
+  const pe = parseAnalysisNumber(detail.valuation?.peRatio);
+  const dividendYield = parseAnalysisNumber(detail.valuation?.dividendYield);
+  const institutional = parseAnalysisNumber(detail.institutionalTrades?.totalValue);
+  const largeHolderRatio = parseAnalysisNumber(detail.shareholderDistribution?.largeHolderRatio);
+  const technicalTheory = analyzeTechnicalTheories(detail);
+  score += technicalTheory.score;
+  evidenceCount += technicalTheory.evidenceCount;
+
+  if (close !== null && ma5 !== null) {
+    evidenceCount += 1;
+    if (close >= ma5) {
+      score += 1;
+      positives.push("股價站上 5 日均線，短線動能較穩定");
+    } else {
+      score -= 1;
+      cautions.push("股價位於 5 日均線下方，短線仍需確認支撐");
+    }
+  }
+  if (close !== null && ma20 !== null) {
+    evidenceCount += 1;
+    if (close >= ma20) {
+      score += 1;
+      positives.push("股價維持在 20 日均線之上");
+    } else {
+      score -= 1;
+      cautions.push("股價跌破 20 日均線，中期趨勢偏弱");
+    }
+  }
+  if (close !== null && ma60 !== null) {
+    evidenceCount += 1;
+    if (close >= ma60) score += 1;
+    else {
+      score -= 1;
+      cautions.push("股價低於 60 日均線，波段風險較高");
+    }
+  }
+  if (institutional !== null) {
+    evidenceCount += 1;
+    if (institutional > 0) {
+      score += 1;
+      positives.push("三大法人當日呈現買超");
+    } else if (institutional < 0) {
+      score -= 1;
+      cautions.push("三大法人當日賣超，籌碼面偏保守");
+    }
+  }
+  if (largeHolderRatio !== null) {
+    evidenceCount += 1;
+    if (largeHolderRatio >= 60) {
+      score += 1;
+      positives.push(`大戶持股約 ${largeHolderRatio.toFixed(1)}%，籌碼集中度較高`);
+    } else if (largeHolderRatio < 35) {
+      score -= 1;
+      cautions.push("大戶持股比例偏低，籌碼較為分散");
+    }
+  }
+  if (pe !== null) {
+    evidenceCount += 1;
+    if (pe > 40) {
+      score -= 1;
+      cautions.push(`本益比 ${pe.toFixed(1)}，估值處於較高區間`);
+    } else if (pe > 0 && pe <= 20) {
+      score += 1;
+      positives.push(`本益比 ${pe.toFixed(1)}，估值相對收斂`);
+    }
+  }
+  if (dividendYield !== null) {
+    evidenceCount += 1;
+    if (dividendYield >= 4) {
+      score += 1;
+      positives.push(`殖利率約 ${dividendYield.toFixed(2)}%，具收益支撐`);
+    } else if (dividendYield < 1) {
+      cautions.push("殖利率低於 1%，收益型保護較有限");
+    }
+  }
+  if (pct !== null && Math.abs(pct) >= 5) {
+    evidenceCount += 1;
+    score += pct > 0 ? 1 : -1;
+    cautions.push(`單日波動 ${pct.toFixed(2)}%，短線追價風險較高`);
+  }
+
+  let label = "中性觀察";
+  let tone = "neutral";
+  let suggestion = "等待趨勢與籌碼出現一致方向，再規劃分批操作。";
+  if (score >= 5) {
+    label = "偏多觀察";
+    tone = "positive";
+    suggestion = "多項因子偏正向，可續抱觀察；避免急漲時一次追高。";
+  } else if (score <= -5) {
+    label = "風險控管";
+    tone = "negative";
+    suggestion = "弱勢因子較多，宜控制部位並設定可承受的停損或減碼條件。";
+  } else if (score > 0) {
+    label = "中性偏多";
+    tone = "positive";
+    suggestion = "正向訊號略多，適合等待回檔支撐或量價確認。";
+  } else if (score < 0) {
+    label = "中性偏弱";
+    tone = "negative";
+    suggestion = "負向訊號略多，先觀察均線與法人籌碼是否止穩。";
+  }
+
+  const reasons = [
+    ...technicalTheory.patterns.slice(0, 1),
+    ...technicalTheory.indicators.slice(0, 1),
+    ...(technicalTheory.breadthIndicators || []).slice(0, 1).map((item) => `${item.name} ${item.value}：${item.text}`),
+    ...positives.slice(0, 1),
+    ...cautions.slice(0, 1),
+  ].slice(0, 4);
+  if (!reasons.length) reasons.push("目前可用資料不足，暫不形成明確方向判斷");
+  return {
+    label,
+    tone,
+    score,
+    suggestion,
+    reasons,
+    patterns: technicalTheory.patterns,
+    indicators: technicalTheory.indicators,
+    theorySignals: technicalTheory.theorySignals,
+    adaptiveSummary: technicalTheory.adaptiveSummary,
+    priceIndicators: technicalTheory.priceIndicators,
+    volumeIndicators: technicalTheory.volumeIndicators,
+    breadthIndicators: technicalTheory.breadthIndicators,
+    indicatorSummary: technicalTheory.indicatorSummary,
+    breadthSummary: technicalTheory.breadthSummary,
+    backtestLearning: technicalTheory.backtestLearning,
+    confidence: technicalTheory.adaptiveConfidence
+      || (evidenceCount >= 10 ? "高" : evidenceCount >= 5 ? "中" : "低"),
+    date: detail.snapshotDate || data?.snapshotDate || "--",
+  };
+}
+function renderWatchlistAiSummary(items) {
+  const container = document.getElementById("watchlist-ai-summary");
+  if (!container) return;
+  if (!items.length) {
+    container.innerHTML = "";
+    return;
+  }
+  const analyses = items.map((item) => watchlistAnalysisCache.get(watchlistKey(item))).filter(Boolean);
+  if (!analyses.length) {
+    container.innerHTML = '<div class="watchlist-ai-loading">正在整理自選股的技術、籌碼與估值訊號...</div>';
+    return;
+  }
+  const failed = analyses.filter((item) => item.isError).length;
+  const usableAnalyses = analyses.filter((item) => !item.isError);
+  const positive = usableAnalyses.filter((item) => item.tone === "positive").length;
+  const negative = usableAnalyses.filter((item) => item.tone === "negative").length;
+  const pending = items.length - analyses.length;
+  const overview = failed && !usableAnalyses.length
+    ? "自選股資料暫時無法同步，請稍後重新整理。"
+    : positive > negative
+    ? "整體訊號偏正向，但仍應分散部位並避免追高。"
+    : negative > positive
+      ? "目前風險訊號較多，建議優先檢視弱勢持股。"
+      : "多空訊號接近，適合等待個股趨勢進一步確認。";
+  container.innerHTML = `
+    <div>
+      <span class="news-tag">AI 多因子摘要</span>
+      <h4>${overview}</h4>
+      <p>偏正向 ${positive} 檔、偏弱 ${negative} 檔${failed ? `，同步失敗 ${failed} 檔` : ""}${pending ? `，另有 ${pending} 檔分析中` : ""}。</p>
+    </div>
+    <small>依本站行情、均線、法人、集保與估值資料計算，僅供研究參考。</small>
+  `;
+}
+function renderWatchlist() {
+  const grid = document.getElementById("watchlist-grid");
+  if (!grid) return;
+  const items = getWatchlist();
+  setText("watchlist-count", `${items.length} 檔`);
+  if (!items.length) {
+    grid.innerHTML = '<div class="watchlist-empty">尚未加入自選股，請至個股搜尋頁開啟股票詳情後加入。</div>';
+    renderPortfolioSimulator(items);
+    return;
+  }
+
+  renderWatchlistAiSummary(items);
+  renderPortfolioSimulator(items);
+  grid.innerHTML = items.map((stock) => {
+    const analysis = watchlistAnalysisCache.get(watchlistKey(stock));
+    const detailUrl = `tw-stock-search.html?q=${encodeURIComponent(stock.code)}&market=${encodeURIComponent(stock.market || "")}`;
+    const stockKey = watchlistKey(stock);
+    return `
+    <article class="watchlist-card is-clickable" role="link" tabindex="0" data-watchlist-detail-url="${escapeHtml(detailUrl)}" aria-label="查看 ${escapeHtml(stock.code)} ${escapeHtml(stock.name)} 個股詳情">
+      <div class="watchlist-card-head">
+        <div>
+          <span>${escapeHtml(stock.marketLabel || stock.market || "--")}</span>
+          <h3>${escapeHtml(stock.code)} ${escapeHtml(stock.name)}</h3>
+        </div>
+        <button class="watchlist-remove" type="button" data-watchlist-remove="${escapeHtml(stockKey)}">移除</button>
+      </div>
+      <div class="watchlist-quote">
+        <strong>${escapeHtml(stock.close || "--")}</strong>
+        <span class="${toneClass(stock.tone)}">${escapeHtml(stock.change || "--")} / ${escapeHtml(stock.pct || "--")}</span>
+      </div>
+      <div class="watchlist-ai-card ${analysis ? `is-${analysis.tone}` : "is-loading"}">
+        ${analysis ? `
+          <div class="watchlist-ai-title">
+            <span>AI 分析建議</span>
+            <strong>${escapeHtml(analysis.label)}</strong>
+          </div>
+          <p>${escapeHtml(analysis.suggestion)}</p>
+          <div class="watchlist-theory-groups">
+            <div>
+              <strong>型態技術</strong>
+              <span>${escapeHtml(analysis.adaptiveSummary || analysis.patterns?.[0] || "型態訊號不足")}</span>
+            </div>
+            <div>
+              <strong>指標技術</strong>
+              <span>${escapeHtml(analysis.indicatorSummary || analysis.indicators?.[0] || "指標訊號不足")}</span>
+            </div>
+          </div>
+          <ul>${analysis.reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}</ul>
+          <small>信心 ${escapeHtml(analysis.confidence)} · 資料日 ${escapeHtml(analysis.date)}</small>
+        ` : `
+          <span>AI 分析建議</span>
+          <p>正在讀取完整個股資料...</p>
+        `}
+      </div>
+      <a class="watchlist-detail-link" href="${safeUrl(detailUrl)}">查看個股分析</a>
+    </article>
+  `;
+  }).join("");
+
+  grid.querySelectorAll("[data-watchlist-detail-url]").forEach((card) => {
+    const openDetail = () => {
+      const url = card.dataset.watchlistDetailUrl;
+      if (url) window.location.href = url;
+    };
+    card.addEventListener("click", (event) => {
+      if (event.target.closest("button, a, input, label, select, textarea")) return;
+      openDetail();
+    });
+    card.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      openDetail();
+    });
+  });
+
+  grid.querySelectorAll("[data-watchlist-remove]").forEach((button) => {
+    button.addEventListener("click", () => {
+      saveWatchlist(getWatchlist().filter((item) => watchlistKey(item) !== button.dataset.watchlistRemove));
+      watchlistAnalysisCache.delete(button.dataset.watchlistRemove);
+      watchlistDetailCache.delete(button.dataset.watchlistRemove);
+      renderWatchlist();
+      setText("watchlist-status", "已從自選股移除。");
+    });
+  });
+}
+async function loadWatchlistAiAnalyses(force = false) {
+  const items = getWatchlist();
+  if (!items.length) return;
+  const requestId = ++watchlistAnalysisRequestId;
+  if (force) watchlistAnalysisCache.clear();
+  renderWatchlist();
+  setText("watchlist-status", "正在同步 live 個股資料並更新 AI 多因子分析...");
+
+  const queue = items.filter((item) => !watchlistAnalysisCache.has(watchlistKey(item)));
+  let cursor = 0;
+  let completed = items.length - queue.length;
+  let failed = 0;
+  async function runWatchlistAnalysisWorker() {
+    while (cursor < queue.length) {
+      const stock = queue[cursor++];
+      const key = watchlistKey(stock);
+      try {
+        const params = new URLSearchParams({ quick: "1", refresh: "1" });
+        if (stock.market) params.set("market", stock.market);
+        const response = await fetchWithTimeout(
+          `/api/twse/stock/${encodeURIComponent(stock.code)}?${params.toString()}`,
+          { cache: "no-store" },
+          45000,
+        );
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const detail = await response.json();
+        if (requestId !== watchlistAnalysisRequestId) return;
+        watchlistDetailCache.set(key, detail);
+        watchlistAnalysisCache.set(key, buildWatchlistAiAnalysis(stock, detail));
+        completed += 1;
+        renderWatchlist();
+      } catch (error) {
+        failed += 1;
+        watchlistAnalysisCache.set(key, {
+          label: "資料同步失敗",
+          tone: "negative",
+          score: 0,
+          suggestion: "live 個股資料暫時無法載入，請稍後重新整理或回到個股搜尋頁重試。",
+          reasons: ["個股明細 live API 未完成，AI 分析暫停輸出。"],
+          patterns: [],
+          indicators: [],
+          confidence: "低",
+          date: data?.snapshotDate || "--",
+          isError: true,
+        });
+        renderWatchlist();
+        console.error(`Failed to analyze ${stock.code}:`, error);
+      }
+    }
+  }
+  await Promise.all([runWatchlistAnalysisWorker(), runWatchlistAnalysisWorker()]);
+  if (requestId === watchlistAnalysisRequestId) {
+    const statusText = failed
+      ? `AI 分析完成 ${completed}/${items.length} 檔，${failed} 檔資料同步失敗；資料時間 ${data?.snapshotDate || "--"}。`
+      : `AI 分析已更新，完成 ${completed}/${items.length} 檔，資料時間 ${data?.snapshotDate || "--"}。`;
+    setText("watchlist-status", statusText);
+    renderWatchlist();
+  }
+}
+function renderWatchlistSearchResults(results) {
+  const container = document.getElementById("watchlist-search-results");
+  if (!container) return;
+  const selected = new Set(getWatchlist().map(watchlistKey));
+  if (!results.length) {
+    container.innerHTML = '<div class="stock-detail-empty">查無搜尋結果。</div>';
+    return;
+  }
+  container.innerHTML = results.map((stock) => {
+    const key = watchlistKey(stock);
+    const added = selected.has(key);
+    return `
+      <article class="watchlist-search-item">
+        <div>
+          <strong>${escapeHtml(stock.code)} ${escapeHtml(stock.name)}</strong>
+          <span>${escapeHtml(stock.marketLabel || stock.market || "--")} · ${escapeHtml(stock.close || "--")} · <b class="${toneClass(stock.tone)}">${escapeHtml(stock.pct || "--")}</b></span>
+        </div>
+        <button class="btn ${added ? "" : "btn-primary"}" type="button" data-watchlist-add="${escapeHtml(key)}" ${added ? "disabled" : ""}>
+          ${added ? "已加入" : "加入自選"}
+        </button>
+      </article>
+    `;
+  }).join("");
+
+  container.querySelectorAll("[data-watchlist-add]:not(:disabled)").forEach((button) => {
+    button.addEventListener("click", () => {
+      const stock = results.find((item) => watchlistKey(item) === button.dataset.watchlistAdd);
+      if (!stock) return;
+      const items = getWatchlist();
+      if (!items.some((item) => watchlistKey(item) === watchlistKey(stock))) {
+        items.push(stock);
+        saveWatchlist(items);
+      }
+      renderWatchlist();
+      renderWatchlistSearchResults(results);
+      setText("watchlist-status", `已加入 ${stock.code} ${stock.name}。`);
+    });
+  });
+}
+function initWatchlistPage() {
+  renderWatchlist();
+  document.getElementById("watchlist-analysis-refresh")?.addEventListener("click", () => {
+    loadWatchlistAiAnalyses(true);
+  });
+  document.getElementById("portfolio-simulator-reset")?.addEventListener("click", () => {
+    localStorage.removeItem(PORTFOLIO_SIM_STORAGE_KEY);
+    renderPortfolioSimulator();
+  });
+  if (getWatchlist().length) {
+    setText("watchlist-status", "正在同步最新大盤資料...");
+    loadLiveData().then((ok) => {
+      if (ok === false) {
+        setText("watchlist-status", "最新大盤資料同步失敗，AI 分析暫停。");
+        return;
+      }
+      loadWatchlistAiAnalyses();
+    });
+  }
+}
+function renderSearchResults(results) {
+  const container = document.getElementById("search-results");
+  if (!container) return;
+
+  if (!results.length) {
+    container.innerHTML = '<div class="stock-detail-empty">查無搜尋結果。</div>';
+    return;
+  }
+
+  container.innerHTML = results.map((stock) => `
+    <button class="search-result-item" type="button" data-code="${escapeHtml(stock.code)}" data-market="${escapeHtml(stock.market || "")}">
+      <span class="search-result-main">${escapeHtml(stock.code)} ${escapeHtml(stock.name)}${stock.marketLabel ? ` <small class="search-result-market">${escapeHtml(stock.marketLabel)}</small>` : ""}</span>
+      <span class="search-result-sub">${escapeHtml(stock.close)} / <strong class="${toneClass(stock.tone)}">${escapeHtml(stock.pct)}</strong></span>
+    </button>
+  `).join("");
+
+  container.querySelectorAll("[data-code]").forEach((button) => {
+    button.addEventListener("click", () => {
+      container.querySelectorAll("[data-code]").forEach((item) => item.classList.remove("is-active"));
+      button.classList.add("is-active");
+      const fallbackStock = results.find((stock) => (
+        String(stock.code) === button.dataset.code
+        && (!button.dataset.market || !stock.market || String(stock.market).toUpperCase() === button.dataset.market.toUpperCase())
+      ));
+      const url = new URL(window.location.href);
+      url.searchParams.set("q", button.dataset.code || "");
+      if (button.dataset.market) {
+        url.searchParams.set("market", button.dataset.market);
+      } else {
+        url.searchParams.delete("market");
+      }
+      window.history.replaceState({}, "", url);
+      loadStockDetail(button.dataset.code, button.dataset.market, fallbackStock);
+    });
+  });
+}
+async function loadFullStockDetailFromLive(quickDetail, requestId) {
+  const status = document.getElementById("search-status");
+  const code = String(quickDetail?.code || "").trim();
+  const market = String(quickDetail?.market || activeStockMarket || "").trim().toUpperCase();
+  if (!code || quickDetail?.detailMode === "full") return;
+
+  const cacheKey = getStockDetailCacheKey(code, market);
+  const cached = stockFullDetailCache.get(cacheKey);
+  if (cached) {
+    if (requestId === stockDetailRequestId && code === activeStockCode && market === activeStockMarket) {
+      renderStockDetail(cached);
+      loadShareholderDistributionFromLive(cached, requestId);
+      if (status) status.textContent = `${cached.code} ${cached.name} 完整基本面、籌碼面、消息面、估值歷史與公司資料已載入，更新時間 ${cached.cachedAt || "--"}。`;
+    }
+    return;
+  }
+
+  if (status) status.textContent = `${code} 即時資料已載入，正在補齊基本面、籌碼面、消息面、估值歷史與公司資料...`;
+
+  let pending = stockFullDetailPending.get(cacheKey);
+  if (!pending) {
+    const params = new URLSearchParams({ refresh: "1" });
+    if (market) params.set("market", market);
+    pending = fetchWithTimeout(
+      `/api/twse/stock/${encodeURIComponent(code)}?${params.toString()}`,
+      { cache: "no-store" },
+      120000,
+    )
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+      })
+      .finally(() => {
+        stockFullDetailPending.delete(cacheKey);
+      });
+    stockFullDetailPending.set(cacheKey, pending);
+  }
+
+  try {
+    const fullDetail = await pending;
+    stockFullDetailCache.set(cacheKey, fullDetail);
+    if (requestId !== stockDetailRequestId || code !== activeStockCode || market !== activeStockMarket) return;
+    renderStockDetail(fullDetail);
+    loadShareholderDistributionFromLive(fullDetail, requestId);
+    if (status) status.textContent = `${fullDetail.code} ${fullDetail.name} 完整基本面、籌碼面、消息面、估值歷史與公司資料已載入，更新時間 ${fullDetail.cachedAt || "--"}。`;
+  } catch (error) {
+    if (requestId === stockDetailRequestId && code === activeStockCode && market === activeStockMarket && status) {
+      status.textContent = `${code} 即時資料已載入；完整基本面、籌碼面、消息面、估值歷史與公司資料同步失敗，請稍後重試。`;
+    }
+    console.error("Failed to load full stock detail:", error);
+  }
+}
+function renderLiveSearchStockPreview(stock) {
+  const container = document.getElementById("stock-detail");
+  if (!container || !stock) return;
+  const snapshotDate = data?.snapshotDate || new Date().toISOString().slice(0, 10);
+  const tone = stock.tone || (parseAnalysisNumber(stock.pct) > 0 ? "up" : parseAnalysisNumber(stock.pct) < 0 ? "down" : "flat");
+  container.innerHTML = `
+    <div class="card-title-row">
+      <h3>${escapeHtml(stock.code)} ${escapeHtml(stock.name)}</h3>
+      <div class="stock-detail-actions">
+        <span class="chip ${tone === "up" ? "chip-green" : tone === "down" ? "chip-red" : "chip-blue"}">${escapeHtml(snapshotDate)}</span>
+      </div>
+    </div>
+    <div class="stock-detail-empty">live 搜尋行情已載入；技術走勢、籌碼、基本面與消息資料正在同步線上完整資料。</div>
+    <div class="detail-metrics">
+      <div><span>收盤價</span><strong>${escapeHtml(stock.close || "--")}</strong></div>
+      <div><span>漲跌幅</span><strong class="${toneClass(tone)}">${escapeHtml(stock.pct || "--")}</strong></div>
+      <div><span>漲跌</span><strong class="${toneClass(tone)}">${escapeHtml(stock.change || "--")}</strong></div>
+      <div><span>成交量</span><strong>${escapeHtml(stock.volume || "--")}</strong></div>
+      <div><span>成交金額</span><strong>${escapeHtml(stock.turnover || "--")}</strong></div>
+      <div><span>開盤</span><strong>${escapeHtml(stock.open || "--")}</strong></div>
+      <div><span>最高 / 最低</span><strong>${escapeHtml(stock.high || "--")} / ${escapeHtml(stock.low || "--")}</strong></div>
+      <div><span>市場</span><strong>${escapeHtml(stock.marketLabel || stock.market || "--")}</strong></div>
+    </div>
+  `;
+}
+async function loadShareholderDistributionFromLive(detail, requestId) {
+  const code = String(detail?.code || "").trim();
+  const market = String(detail?.market || activeStockMarket || "").trim().toUpperCase();
+  if (!code || requestId !== stockDetailRequestId) return;
+  const key = getStockDetailCacheKey(code, market);
+  const existing = detail.shareholderDistribution;
+  if (existing && Object.keys(existing).length && existing.available !== false) return;
+  const cached = stockShareholderCache.get(key);
+  if (cached) {
+    if (requestId === stockDetailRequestId && code === activeStockCode && market === activeStockMarket) {
+      renderStockDetail({ ...(activeRenderedStockDetail || detail), shareholderDistribution: cached });
+    }
+    return;
+  }
+  let pending = stockShareholderPending.get(key);
+  if (!pending) {
+    pending = fetchWithTimeout(
+      `/api/twse/stock/${encodeURIComponent(code)}/shareholders`,
+      { cache: "no-store" },
+      30000,
+    )
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
+      })
+      .finally(() => {
+        stockShareholderPending.delete(key);
+      });
+    stockShareholderPending.set(key, pending);
+  }
+  try {
+    const payload = await pending;
+    const distribution = payload.shareholderDistribution || {};
+    stockShareholderCache.set(key, distribution);
+    if (requestId !== stockDetailRequestId || code !== activeStockCode || market !== activeStockMarket) return;
+    renderStockDetail({ ...(activeRenderedStockDetail || detail), shareholderDistribution: distribution });
+  } catch (error) {
+    console.error("Failed to load shareholder distribution:", error);
+  }
+}
+async function loadStockDetail(code, market = "", fallbackStock = null) {
+  const status = document.getElementById("search-status");
+  const requestedCode = String(code || "").trim();
+  const requestedMarket = String(market || "").trim().toUpperCase();
+  if (!requestedCode) return;
+
+  activeStockCode = requestedCode;
+  activeStockMarket = requestedMarket;
+  const requestId = ++stockDetailRequestId;
+
+  const detailContainer = document.getElementById("stock-detail");
+  if (fallbackStock) {
+    renderLiveSearchStockPreview(fallbackStock);
+  } else if (detailContainer) {
+    detailContainer.innerHTML = `<div class="stock-detail-empty">正在同步 ${escapeHtml(requestedCode)} 即時個股資料與近期走勢...</div>`;
+  }
+  if (status) {
+    status.textContent = fallbackStock
+      ? `${requestedCode} live 搜尋行情已顯示，正在同步近期技術資料...`
+      : `正在同步 ${requestedCode} 即時個股資料...`;
+  }
+
+  try {
+    const params = new URLSearchParams({ refresh: "1", quick: "1" });
+    if (requestedMarket) params.set("market", requestedMarket);
+    const detailUrl = `/api/twse/stock/${encodeURIComponent(requestedCode)}?${params.toString()}`;
+    const response = await fetchWithTimeout(detailUrl, { cache: "no-store" }, 90000);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const detail = await response.json();
+
+    if (requestId !== stockDetailRequestId || detail.code !== activeStockCode) return;
+    activeStockMarket = String(detail.market || requestedMarket || "").trim().toUpperCase();
+
+    renderStockDetail(detail);
+    loadShareholderDistributionFromLive(detail, requestId);
+    if (status) status.textContent = `${detail.code} ${detail.name} 即時行情與近期技術資料已載入，正在補齊完整資料...`;
+    loadFullStockDetailFromLive(detail, requestId);
+  } catch (error) {
+    if (requestId !== stockDetailRequestId) return;
+    if (status) {
+      status.textContent = `${requestedCode} 即時個股資料同步失敗，請稍後重新搜尋。`;
+    }
+    if (detailContainer) {
+      detailContainer.innerHTML = `<div class="stock-detail-empty">${escapeHtml(requestedCode)} 即時個股資料同步失敗。</div>`;
+    }
+    console.error("Failed to load stock detail:", error);
+  }
+}
+function pickPreferredStockResult(results, preferredMarket = "") {
+  const items = Array.isArray(results) ? results : [];
+  const market = String(preferredMarket || "").trim().toUpperCase();
+  if (!items.length) return null;
+  if (!market) return items[0];
+  return items.find((stock) => String(stock.market || "").trim().toUpperCase() === market) || items[0];
+}
+async function runStockSearch(query, autoSelect = true, preferredMarket = "") {
+  const requestId = ++stockSearchRequestId;
+  const status = document.getElementById("search-status");
+  const keyword = String(query || "").trim();
+  if (!keyword) return;
+  if (status) status.textContent = `正在同步 live 搜尋 ${keyword}...`;
+  try {
+    const params = new URLSearchParams({ q: keyword });
+    if (preferredMarket) params.set("market", preferredMarket);
+    const response = await fetchWithTimeout(
+      `/api/twse/live-search?${params.toString()}`,
+      { cache: "no-store" },
+      45000,
+    );
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json();
+    if (requestId !== stockSearchRequestId) return;
+    const results = Array.isArray(payload.results) ? payload.results : [];
+    renderSearchResults(results);
+    if (!results.length) {
+      if (status) status.textContent = `live 搜尋查無 ${keyword}。`;
+      return;
+    }
+    localAllStocks = results;
+    data = {
+      ...(data || {}),
+      snapshotDate: payload.snapshotDate,
+      cachedAt: payload.refreshedAt,
+      stockCount: payload.count,
+    };
+    if (status) status.textContent = `live 搜尋找到 ${results.length} 筆，資料時間 ${payload.refreshedAt || payload.snapshotDate || "--"}。`;
+    const selected = autoSelect ? pickPreferredStockResult(results, preferredMarket) : null;
+    if (selected) {
+      const selectedButton = Array.from(document.querySelectorAll("#search-results [data-code]"))
+        .find((button) => (
+          String(button.dataset.code) === String(selected.code)
+          && String(button.dataset.market || "").toUpperCase() === String(selected.market || "").toUpperCase()
+        ));
+      if (selectedButton) selectedButton.classList.add("is-active");
+      loadStockDetail(selected.code, selected.market, selected);
+    }
+  } catch (error) {
+    if (requestId === stockSearchRequestId) {
+      renderSearchResults([]);
+      if (status) status.textContent = "live 搜尋同步失敗，請稍後再試。";
+    }
+    console.error("Failed to run live stock search:", error);
+  }
+}
+function initSearchPage() {
+  const form = document.getElementById("stock-search-form");
+  const input = document.getElementById("stock-search-input");
+  if (!form || !input) return;
+  let searchTimer = null;
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const query = input.value.trim();
+    if (!query) {
+      setText("search-status", "請輸入搜尋關鍵字。");
+      return;
+    }
+    runStockSearch(query);
+  });
+
+  input.addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    const query = input.value.trim();
+    if (!query) {
+      stockSearchRequestId += 1;
+      renderSearchResults([]);
+      setText("search-status", "可輸入部分代號或名稱搜尋。");
+      return;
+    }
+    searchTimer = setTimeout(() => runStockSearch(query, false), 600);
+  });
+
+  const params = new URLSearchParams(window.location.search);
+  const initialQuery = params.get("q")?.trim();
+  const initialMarket = params.get("market")?.trim().toUpperCase() || "";
+  if (initialQuery) {
+    input.value = initialQuery;
+    runStockSearch(initialQuery, true, initialMarket);
+  }
+}
+function twEtfCompactNumber(value) {
+  const parsed = parseMarketNumber(value);
+  if (!Number.isFinite(parsed)) return "--";
+  if (Math.abs(parsed) >= 100000000) return `${(parsed / 100000000).toFixed(1)}億`;
+  if (Math.abs(parsed) >= 10000) return `${(parsed / 10000).toFixed(1)}萬`;
+  return parsed.toLocaleString("zh-TW");
+}
+function twEtfItemLink(item) {
+  const params = new URLSearchParams();
+  params.set("q", item.code || "");
+  if (item.market) params.set("market", item.market);
+  return `tw-stock-search.html?${params.toString()}`;
+}
+function renderTwEtfRankingList(title, items = [], metric = "pct") {
+  return `
+    <article class="panel-card">
+      <div class="card-title-row"><h3>${escapeHtml(title)}</h3><span class="chip chip-blue">${items.length} 檔</span></div>
+      <div class="mini-list">
+        ${items.map((item) => `
+          <a class="mini-row" href="${safeUrl(twEtfItemLink(item))}">
+            <span><b>${escapeHtml(item.code)}</b> ${escapeHtml(item.name)}</span>
+            <strong class="${toneClass(item.tone)}">${metric === "volume" ? twEtfCompactNumber(item.volumeValue) : metric === "risk" ? escapeHtml(item.riskLevel) : escapeHtml(item.pct || "--")}</strong>
+          </a>
+        `).join("") || '<p class="stock-detail-empty">暫無資料。</p>'}
+      </div>
+    </article>
+  `;
+}
+function renderTwEtfCompareTable(items = []) {
+  return `
+    <section class="section">
+      <article class="panel-card">
+        <div class="card-title-row">
+          <div><p class="panel-kicker">ETF comparison</p><h3>熱門ETF</h3></div>
+          <span class="chip chip-gold">0050 / 006208 / 0056 / 00878 / 00919 / 00929</span>
+        </div>
+        <div class="table-wrap">
+          <table class="global-market-table">
+            <thead><tr><th>代號</th><th>名稱</th><th>分類</th><th>收盤</th><th>漲跌幅</th><th>成交量</th><th>風險</th></tr></thead>
+            <tbody>
+              ${items.map((item) => `
+                <tr>
+                  <td><a class="global-market-link" href="${safeUrl(twEtfItemLink(item))}">${escapeHtml(item.code)}</a></td>
+                  <td>${escapeHtml(item.name)}</td>
+                  <td><span class="chip chip-blue">${escapeHtml(item.categoryLabel)}</span></td>
+                  <td>${escapeHtml(item.close)}</td>
+                  <td class="${toneClass(item.tone)}">${escapeHtml(item.pct || "--")}</td>
+                  <td>${twEtfCompactNumber(item.volumeValue)}</td>
+                  <td>${escapeHtml(item.riskLevel)}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+  `;
+}
+function renderTwEtfFilterForm(payload, categories = []) {
+  return `
+    <form id="tw-etf-filter-form" class="search-form tw-etf-filter-form">
+      <input id="tw-etf-query" class="tw-etf-filter-input" type="search" placeholder="搜尋 0050、00878、高股息、債券、半導體..." value="${escapeHtml(payload?.query || "")}">
+      <select id="tw-etf-category">
+        ${categories.map((item) => `<option value="${escapeHtml(item.key)}"${item.key === payload?.category ? " selected" : ""}>${escapeHtml(item.label)} (${item.count || 0})</option>`).join("")}
+      </select>
+      <select id="tw-etf-sort">
+        ${[
+          ["return_desc", "漲幅高到低"],
+          ["return_asc", "跌幅高到低"],
+          ["volume_desc", "成交量高到低"],
+          ["turnover_desc", "成交值高到低"],
+          ["volatility_desc", "波動高到低"],
+          ["risk_desc", "風險高到低"],
+          ["code", "代號排序"],
+        ].map(([value, label]) => `<option value="${value}"${value === payload?.sort ? " selected" : ""}>${label}</option>`).join("")}
+      </select>
+      <button class="btn" type="submit">篩選</button>
+    </form>
+  `;
+}
+function getTwEtfPage(items = []) {
+  const pageSize = Number(twEtfState.pageSize) || TW_ETF_DEFAULT_PAGE_SIZE;
+  const totalItems = items.length;
+  const totalPages = Math.max(Math.ceil(totalItems / pageSize), 1);
+  twEtfState.page = Math.max(1, Math.min(Number(twEtfState.page) || 1, totalPages));
+  const start = (twEtfState.page - 1) * pageSize;
+  return {
+    pageItems: items.slice(start, start + pageSize),
+    pageSize,
+    totalItems,
+    totalPages,
+    start,
+    end: Math.min(start + pageSize, totalItems),
+  };
+}
+function renderTwEtfPager(totalItems = 0) {
+  const pageSize = Number(twEtfState.pageSize) || TW_ETF_DEFAULT_PAGE_SIZE;
+  const totalPages = Math.max(Math.ceil(totalItems / pageSize), 1);
+  twEtfState.page = Math.max(1, Math.min(Number(twEtfState.page) || 1, totalPages));
+  const start = totalItems ? (twEtfState.page - 1) * pageSize + 1 : 0;
+  const end = Math.min(twEtfState.page * pageSize, totalItems);
+  return `
+    <section class="section tw-etf-pager-section">
+      <div class="us-directory-pager tw-etf-pager">
+        <span>顯示 <b>${Number(start).toLocaleString("zh-TW")}</b> - <b>${Number(end).toLocaleString("zh-TW")}</b> / ${Number(totalItems).toLocaleString("zh-TW")} 檔</span>
+        <label>
+          <span>每頁</span>
+          <select id="tw-etf-page-size">
+            ${TW_ETF_PAGE_SIZE_OPTIONS.map((size) => `<option value="${size}"${size === pageSize ? " selected" : ""}>${size}</option>`).join("")}
+          </select>
+        </label>
+        <button type="button" data-tw-etf-page="first" ${twEtfState.page <= 1 ? "disabled" : ""}>第一頁</button>
+        <button type="button" data-tw-etf-page="prev" ${twEtfState.page <= 1 ? "disabled" : ""}>上一頁</button>
+        <span>第 <b>${twEtfState.page}</b> / ${totalPages} 頁</span>
+        <button type="button" data-tw-etf-page="next" ${twEtfState.page >= totalPages ? "disabled" : ""}>下一頁</button>
+        <button type="button" data-tw-etf-page="last" ${twEtfState.page >= totalPages ? "disabled" : ""}>最後頁</button>
+      </div>
+    </section>
+  `;
+}
+function setTwEtfPage(action) {
+  const items = twEtfPayload?.items || [];
+  const pageSize = Number(twEtfState.pageSize) || TW_ETF_DEFAULT_PAGE_SIZE;
+  const totalPages = Math.max(Math.ceil(items.length / pageSize), 1);
+  const currentPage = Math.max(1, Math.min(Number(twEtfState.page) || 1, totalPages));
+  const nextPage = action === "first"
+    ? 1
+    : action === "prev"
+      ? currentPage - 1
+      : action === "next"
+        ? currentPage + 1
+        : action === "last"
+          ? totalPages
+          : Number(action) || currentPage;
+  twEtfState.page = Math.max(1, Math.min(nextPage, totalPages));
+  renderTwEtfPage(twEtfPayload);
+  setTimeout(() => {
+    document.getElementById("tw-etf-table-section")?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, 0);
+}
+function renderTwEtfTable(items = [], payload = {}) {
+  const { pageItems, totalItems, start, end } = getTwEtfPage(items);
+  const categories = payload?.categories || [];
+  return `
+    <section class="section" id="tw-etf-table-section">
+      <article class="panel-card tw-etf-list-card">
+        <div class="card-title-row"><h3>ETF 清單</h3><span class="chip chip-gold">${totalItems ? `${Number(start + 1).toLocaleString("zh-TW")}-${Number(end).toLocaleString("zh-TW")} / ${Number(totalItems).toLocaleString("zh-TW")}` : "0"} 檔</span></div>
+        <div class="tw-etf-list-toolbar">
+          ${renderTwEtfFilterForm(payload, categories)}
+        </div>
+        <div class="table-wrap">
+          <table class="global-market-table">
+            <thead><tr><th>代號</th><th>名稱</th><th>分類</th><th>收盤</th><th>漲跌幅</th><th>成交量</th><th>波動</th><th>詳情</th></tr></thead>
+            <tbody>
+              ${pageItems.map((item) => `
+                <tr>
+                  <td><a class="global-market-link" href="${safeUrl(twEtfItemLink(item))}">${escapeHtml(item.code)}</a></td>
+                  <td>${escapeHtml(item.name)}<br><small>${escapeHtml(item.marketLabel || item.market || "")}</small></td>
+                  <td><span class="chip chip-blue">${escapeHtml(item.categoryLabel)}</span></td>
+                  <td>${escapeHtml(item.close)}</td>
+                  <td class="${toneClass(item.tone)}">${escapeHtml(item.pct || "--")}</td>
+                  <td>${twEtfCompactNumber(item.volumeValue)}</td>
+                  <td>${item.volatilityPct === null || item.volatilityPct === undefined ? "--" : `${Number(item.volatilityPct).toFixed(2)}%`}</td>
+                  <td><button class="btn btn-secondary tw-etf-detail-button" type="button" data-tw-etf-detail="${escapeHtml(item.code)}" data-market="${escapeHtml(item.market || "")}" title="查看成分、配息與風險" aria-label="查看 ${escapeHtml(item.code)} ETF 詳情">查看</button></td>
+                </tr>
+              `).join("") || '<tr><td colspan="8">沒有符合條件的 ETF。</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+  `;
+}
+function twEtfHasValue(value) {
+  const text = String(value ?? "").trim();
+  return Boolean(text) && !["--", "-", "N/A", "NA", "--%"].includes(text);
+}
+function renderTwEtfAnalysisBullets(detail, fallbackItem, components, dividend) {
+  const holdings = Array.isArray(components.holdings) ? components.holdings : [];
+  const latest = dividend.latest || {};
+  const totals = dividend.totals || {};
+  const topHolding = holdings[0] || {};
+  const topWeight = Number(topHolding.weight);
+  const volatility = fallbackItem.volatilityPct ?? (detail.technicalAnalysis || {}).volatilityPct;
+  const bullets = [];
+  bullets.push(`${fallbackItem.categoryLabel || "ETF"}：${fallbackItem.dividendProfile || "以追蹤標的、流動性與費用結構作為主要觀察重點。"}`);
+  if (holdings.length) {
+    bullets.push(`成分配置：${topHolding.name || "最大配置"}${Number.isFinite(topWeight) ? ` 約 ${twEtfWeightText(topWeight)}` : ""}，用來判斷集中度與主要風格曝險。`);
+  } else {
+    bullets.push("成分配置：目前未取得完整持股明細，先以 ETF 名稱與追蹤主題做配置判讀，仍以投信公告為準。");
+  }
+  if (twEtfHasValue(latest.cashDividend)) {
+    bullets.push(`配息觀察：近次現金股利 ${latest.cashDividend} 元，除息日 ${latest.exDate || "--"}，平均殖利率 ${totals.averageYield || "--"}%。`);
+  } else {
+    bullets.push("配息觀察：尚未取得可用配息紀錄，收益型 ETF 需再搭配除息日與填息天數檢查。");
+  }
+  bullets.push(`交易風險：成交量 ${twEtfCompactNumber(fallbackItem.volumeValue)}，波動 ${twEtfHasValue(volatility) ? `${volatility}%` : "--"}，目前風險分級為 ${fallbackItem.riskLevel || "--"}。`);
+  return bullets;
+}
+function renderTwEtfComponentsCard(components = {}) {
+  const holdings = Array.isArray(components.holdings) ? components.holdings : [];
+  return `
+    <article class="panel-card etf-components-card tw-etf-components-card">
+      <div class="card-title-row">
+        <div>
+          <p class="panel-kicker">ETF Holdings</p>
+          <h3>${escapeHtml(components.title || "ETF 成分股比例")}</h3>
+          <p class="chart-subtitle">${escapeHtml(components.summary || "ETF 成分股比例沿用個股搜尋詳情資料；實際持股仍以投信公告為準。")}</p>
+        </div>
+        <span class="chip chip-blue">${holdings.length ? `${holdings.length} 項配置` : "資料待補"}</span>
+      </div>
+      <div class="etf-holding-list">
+        ${holdings.map((item) => {
+          const weight = Math.max(0, Math.min(100, Number(item.weight) || 0));
+          return `
+            <div class="etf-holding-row">
+              <div>
+                <strong>${escapeHtml(item.name || "--")}</strong>
+                <span>${escapeHtml(item.code || "--")}</span>
+              </div>
+              <div class="etf-holding-bar"><i style="width:${weight}%"></i></div>
+              <b>${twEtfWeightText(weight)}</b>
+            </div>
+          `;
+        }).join("") || '<p class="stock-detail-empty">此 ETF 尚未取得成分股比例資料。</p>'}
+      </div>
+      <p class="stock-theory-note">${escapeHtml(components.sourceNote || "成分股比例請以發行投信每日公告為準。")} ${components.sourceLink ? `<a href="${safeUrl(components.sourceLink)}" target="_blank" rel="noreferrer noopener">查看來源</a>` : ""}</p>
+    </article>
+  `;
+}
+function renderTwEtfDividendCard(dividend = {}) {
+  const latest = dividend.latest || {};
+  const totals = dividend.totals || {};
+  const recent = Array.isArray(dividend.recent) ? dividend.recent : [];
+  return `
+    <article class="panel-card etf-dividend-card tw-etf-dividend-card">
+      <div class="card-title-row">
+        <div>
+          <p class="panel-kicker">ETF Dividend</p>
+          <h3>${escapeHtml(dividend.title || "ETF 股利資訊")}</h3>
+          <p class="chart-subtitle">${escapeHtml(dividend.summary || "ETF 股利資訊沿用個股搜尋詳情資料，呈現最新配息與近次除息紀錄。")}</p>
+        </div>
+        <span class="chip chip-gold">${escapeHtml(latest.period || "最新配息")}</span>
+      </div>
+      <div class="etf-dividend-metrics">
+        <div><span>最新現金股利</span><strong>${escapeHtml(latest.cashDividend || "--")} 元</strong></div>
+        <div><span>除息日</span><strong>${escapeHtml(latest.exDate || "--")}</strong></div>
+        <div><span>發放日</span><strong>${escapeHtml(latest.cashPayDate || "--")}</strong></div>
+        <div><span>累計股利</span><strong>${escapeHtml(totals.totalDividends || "--")} 元</strong></div>
+        <div><span>平均殖利率</span><strong>${escapeHtml(totals.averageYield || "--")}%</strong></div>
+        <div><span>連續配息年數</span><strong>${escapeHtml(totals.continuousYears || "--")} 年</strong></div>
+      </div>
+      <div class="etf-dividend-list">
+        ${recent.slice(0, 6).map((item) => `
+          <div class="etf-dividend-row">
+            <div>
+              <strong>${escapeHtml(item.year || "--")} ${escapeHtml(item.period || "")}</strong>
+              <span>除息 ${escapeHtml(item.exDate || "--")} · 發放 ${escapeHtml(item.cashPayDate || "--")}</span>
+            </div>
+            <div>
+              <b>${escapeHtml(item.cashDividend || "--")} 元</b>
+              <small>殖利率 ${escapeHtml(item.yieldByExDate || "--")}% · 填息 ${escapeHtml(item.recoveryDays || "--")} 天</small>
+            </div>
+          </div>
+        `).join("") || '<p class="stock-detail-empty">尚未取得 ETF 配息紀錄。</p>'}
+      </div>
+      <p class="stock-theory-note">${escapeHtml(dividend.sourceNote || "ETF 股利資料請以發行投信公告為準。")} ${dividend.sourceLink ? `<a href="${safeUrl(dividend.sourceLink)}" target="_blank" rel="noreferrer noopener">查看來源</a>` : ""}</p>
+    </article>
+  `;
+}
+function renderTwEtfDetail(detail, fallbackItem = {}) {
+  const root = document.getElementById("tw-etf-detail");
+  if (!root) return;
+  if (!detail) {
+    root.innerHTML = '<article class="panel-card"><p class="stock-detail-empty">點選 ETF 後，這裡會顯示配息、成分股與風險摘要。</p></article>';
+    return;
+  }
+  const components = detail.etfComponents || {};
+  const dividend = detail.etfDividendInfo || {};
+  const latest = dividend.latest || {};
+  const bullets = renderTwEtfAnalysisBullets(detail, fallbackItem, components, dividend);
+  root.innerHTML = `
+    <div class="tw-etf-detail-layout">
+      <article class="panel-card tw-etf-analysis-card">
+        <div class="card-title-row">
+          <div>
+            <p class="panel-kicker">ETF Analysis</p>
+            <h3>${escapeHtml(detail.code || fallbackItem.code || "")} ${escapeHtml(detail.name || fallbackItem.name || "")}</h3>
+            <p class="chart-subtitle">整合行情、分類、風險、ETF 成分股比例與 ETF 股利資訊，作為篩選後的分析摘要。</p>
+          </div>
+          <span class="chip chip-gold">${escapeHtml(fallbackItem.categoryLabel || "ETF")}</span>
+        </div>
+        <div class="headline-metrics tw-etf-detail-metrics">
+          <div><span>收盤</span><strong>${escapeHtml(detail.close || fallbackItem.close || "--")}</strong><small class="${toneClass(detail.tone || fallbackItem.tone)}">${escapeHtml(detail.pct || fallbackItem.pct || "--")}</small></div>
+          <div><span>風險分級</span><strong>${escapeHtml(fallbackItem.riskLevel || "--")}</strong><small>分數 ${escapeHtml(fallbackItem.riskScore ?? "--")}</small></div>
+          <div><span>成交量</span><strong>${twEtfCompactNumber(fallbackItem.volumeValue)}</strong><small>流動性觀察</small></div>
+          <div><span>近次配息</span><strong>${escapeHtml(latest.cashDividend || "--")} 元</strong><small>除息 ${escapeHtml(latest.exDate || "--")}</small></div>
+        </div>
+        <div class="tw-etf-analysis-notes">
+          ${bullets.map((item) => `<p>${escapeHtml(item)}</p>`).join("")}
+        </div>
+      </article>
+      <div class="tw-etf-detail-grid">
+        ${renderTwEtfComponentsCard(components)}
+        ${renderTwEtfDividendCard(dividend)}
+      </div>
+    </div>
+  `;
+}
+function bindTwEtfEvents() {
+  const filterRoot = document.querySelector(".tw-etf-list-toolbar") || document;
+  const form = filterRoot.querySelector("#tw-etf-filter-form");
+  const query = filterRoot.querySelector("#tw-etf-query");
+  const category = filterRoot.querySelector("#tw-etf-category");
+  const sort = filterRoot.querySelector("#tw-etf-sort");
+  const pageSize = document.getElementById("tw-etf-page-size");
+  const run = () => {
+    twEtfState.page = 1;
+    loadTwEtfPage({
+      q: query?.value || "",
+      category: category?.value || "all",
+      sort: sort?.value || "return_desc",
+      keepListInView: true,
+    });
+  };
+  form?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    run();
+  });
+  category?.addEventListener("change", run);
+  sort?.addEventListener("change", run);
+  pageSize?.addEventListener("change", () => {
+    twEtfState.page = 1;
+    twEtfState.pageSize = Number(pageSize.value) || TW_ETF_DEFAULT_PAGE_SIZE;
+    renderTwEtfPage(twEtfPayload);
+  });
+  document.querySelectorAll("[data-tw-etf-page]").forEach((button) => {
+    button.addEventListener("click", () => setTwEtfPage(button.dataset.twEtfPage || "1"));
+  });
+  document.querySelectorAll("[data-tw-etf-detail]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const code = button.dataset.twEtfDetail || "";
+      const market = button.dataset.market || "";
+      const item = (twEtfPayload?.items || []).find((entry) => entry.code === code)
+        || (twEtfPayload?.compare || []).find((entry) => entry.code === code)
+        || {};
+      loadTwEtfDetail(code, market, item);
+      setTimeout(() => {
+        document.getElementById("tw-etf-detail")?.scrollIntoView({ block: "start", behavior: "smooth" });
+      }, 0);
+    });
+  });
+}
+function renderTwEtfPage(payload) {
+  const root = document.getElementById("tw-etf-root");
+  if (!root) return;
+  const categories = payload?.categories || [];
+  root.innerHTML = `
+    <section class="subpage-hero">
+      <p class="eyebrow">Taiwan ETF center</p>
+      <h1>台股 ETF 總覽</h1>
+      <p class="hero-text">整合台股 ETF 搜尋、分類、排行榜、比較、配息與風險摘要，適合高股息、市值型、科技、債券與槓桿反向 ETF 快速篩選。</p>
+    </section>
+    <section class="section"><div class="tri-grid">
+      ${renderTwEtfRankingList("漲幅排行", payload?.rankings?.topReturn || [])}
+      ${renderTwEtfRankingList("成交量排行", payload?.rankings?.topVolume || [], "volume")}
+      ${renderTwEtfRankingList("高股息觀察", payload?.rankings?.highDividend || [])}
+    </div></section>
+    <section class="section">
+      <article class="panel-card tw-etf-filter-card">
+        <form id="tw-etf-filter-form" class="search-form tw-etf-filter-form">
+          <input id="tw-etf-query" class="tw-etf-filter-input" type="search" placeholder="搜尋 0050、00878、高股息、債券、半導體..." value="${escapeHtml(payload?.query || "")}">
+          <select id="tw-etf-category">
+            ${categories.map((item) => `<option value="${escapeHtml(item.key)}"${item.key === payload?.category ? " selected" : ""}>${escapeHtml(item.label)} (${item.count || 0})</option>`).join("")}
+          </select>
+          <select id="tw-etf-sort">
+            ${[
+              ["return_desc", "漲幅高到低"],
+              ["return_asc", "跌幅高到低"],
+              ["volume_desc", "成交量"],
+              ["turnover_desc", "成交值"],
+              ["volatility_desc", "波動度"],
+              ["risk_desc", "風險分數"],
+              ["code", "代號"],
+            ].map(([value, label]) => `<option value="${value}"${value === payload?.sort ? " selected" : ""}>${label}</option>`).join("")}
+          </select>
+          <button class="btn" type="submit">篩選</button>
+        </form>
+      </article>
+    </section>
+    ${renderTwEtfCompareTable(payload?.compare || [])}
+    ${renderTwEtfTable(payload?.items || [], payload)}
+    ${renderTwEtfPager(payload?.items?.length || 0)}
+    <section class="section" id="tw-etf-detail"></section>
+  `;
+  root.querySelector(".tw-etf-filter-card")?.closest(".section")?.remove();
+  renderTwEtfDetail(null);
+  bindTwEtfEvents();
+}
+async function loadTwEtfDetail(code, market, fallbackItem = {}) {
+  const root = document.getElementById("tw-etf-detail");
+  if (root) root.innerHTML = '<article class="panel-card"><p class="stock-detail-empty">正在載入 ETF 配息與成分股資料...</p></article>';
+  twEtfSelectedCode = code;
+  try {
+    const params = new URLSearchParams();
+    if (market) params.set("market", market);
+    const response = await fetchWithTimeout(`/api/twse/stock/${encodeURIComponent(code)}?${params.toString()}`, { cache: "no-store" }, 60000);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const detail = await response.json();
+    if (twEtfSelectedCode === code) renderTwEtfDetail(detail, fallbackItem);
+  } catch (error) {
+    if (root) root.innerHTML = `<article class="panel-card"><p class="stock-detail-empty">ETF 詳情暫時無法載入：${escapeHtml(error.message || String(error))}</p></article>`;
+  }
+}
+async function loadTwEtfPage(options = {}) {
+  const root = document.getElementById("tw-etf-root");
+  if (!root) return;
+  const keepListInView = options.keepListInView === true;
+  const listSection = document.getElementById("tw-etf-table-section");
+  const listViewportTop = listSection?.getBoundingClientRect().top ?? null;
+  if (Object.prototype.hasOwnProperty.call(options, "q")) twEtfState.query = options.q || "";
+  if (Object.prototype.hasOwnProperty.call(options, "category")) twEtfState.category = options.category || "all";
+  if (Object.prototype.hasOwnProperty.call(options, "sort")) twEtfState.sort = options.sort || "return_desc";
+  const params = new URLSearchParams();
+  if (twEtfState.query) params.set("q", twEtfState.query);
+  params.set("category", twEtfState.category || "all");
+  params.set("sort", twEtfState.sort || "return_desc");
+  params.set("limit", "all");
+  if (keepListInView) {
+    document.querySelector(".tw-etf-list-card")?.classList.add("is-loading");
+    const submitButton = document.querySelector(".tw-etf-list-toolbar .btn");
+    if (submitButton) submitButton.disabled = true;
+  } else {
+  root.innerHTML = '<section class="section"><article class="panel-card"><p class="stock-detail-empty">正在載入台股 ETF 資料...</p></article></section>';
+  }
+  try {
+    const response = await fetchWithTimeout(`/api/twse/etfs?${params.toString()}`, { cache: "no-store" }, 30000);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    twEtfPayload = await response.json();
+    renderTwEtfPage(twEtfPayload);
+    if (keepListInView && listViewportTop !== null) {
+      requestAnimationFrame(() => {
+        const nextSection = document.getElementById("tw-etf-table-section");
+        if (!nextSection) return;
+        window.scrollBy({
+          top: nextSection.getBoundingClientRect().top - listViewportTop,
+          left: 0,
+          behavior: "auto",
+        });
+      });
+    }
+  } catch (error) {
+    if (keepListInView) {
+      document.querySelector(".tw-etf-list-card")?.classList.remove("is-loading");
+      const submitButton = document.querySelector(".tw-etf-list-toolbar .btn");
+      if (submitButton) submitButton.disabled = false;
+      document.querySelector(".tw-etf-filter-error")?.remove();
+      document.querySelector(".tw-etf-list-toolbar")?.insertAdjacentHTML(
+        "beforeend",
+        `<p class="stock-detail-empty tw-etf-filter-error">ETF 篩選暫時無法完成：${escapeHtml(error.message || String(error))}</p>`,
+      );
+    } else {
+    root.innerHTML = `<section class="section"><article class="panel-card"><p class="stock-detail-empty">台股 ETF 資料載入失敗：${escapeHtml(error.message || String(error))}</p></article></section>`;
+      root.innerHTML = `<section class="section"><article class="panel-card"><p class="stock-detail-empty">ETF 資料暫時無法載入：${escapeHtml(error.message || String(error))}</p></article></section>`;
+    }
+  }
+}
+function initTwEtfPage() {
+  loadTwEtfPage();
+}
