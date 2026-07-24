@@ -2919,3 +2919,430 @@ function calculateFuturesParabolicSar(rows = []) {
   }
   return sar;
 }
+function buildFuturesTechnicalSnapshot(rows = []) {
+  const cleanRows = rows.filter((row) => [row.open, row.high, row.low, row.close].every(Number.isFinite));
+  const closes = cleanRows.map((row) => row.close);
+  const highs = cleanRows.map((row) => row.high);
+  const lows = cleanRows.map((row) => row.low);
+  const volumes = cleanRows.map((row) => row.volume || 0);
+  const latest = cleanRows.at(-1) || {};
+  const maSeries = Object.fromEntries([5, 10, 20, 60, 120, 240].map((period) => [period, calculateFuturesRollingAverageSeries(closes, period)]));
+  const ma = Object.fromEntries([5, 10, 20, 60, 120, 240].map((period) => [period, lastFiniteFuturesValue(maSeries[period])]));
+  const ema12 = calculateFuturesEmaSeries(closes, 12);
+  const ema26 = calculateFuturesEmaSeries(closes, 26);
+  const macdRaw = closes.map((_, index) => (
+    Number.isFinite(ema12[index]) && Number.isFinite(ema26[index]) ? ema12[index] - ema26[index] : null
+  ));
+  const macdRows = macdRaw.filter(Number.isFinite);
+  const macdSignalRows = calculateFuturesEmaSeries(macdRows, 9);
+  const macdHistogramRows = macdRows.map((value, index) => (
+    Number.isFinite(value) && Number.isFinite(macdSignalRows[index]) ? value - macdSignalRows[index] : null
+  ));
+  const macd = lastFiniteFuturesValue(macdRows);
+  const macdSignal = lastFiniteFuturesValue(macdSignalRows);
+  const kdSeries = calculateFuturesKdSeries(cleanRows);
+  const kd = { k: lastFiniteFuturesValue(kdSeries.k), d: lastFiniteFuturesValue(kdSeries.d) };
+  const atrSeries = calculateFuturesRollingIndicatorSeries(cleanRows, 15, (windowRows) => calculateFuturesAtr(windowRows));
+  const atr = calculateFuturesAtr(cleanRows);
+  const cciSeries = calculateFuturesRollingIndicatorSeries(cleanRows, 20, (windowRows) => calculateFuturesCci(windowRows));
+  const cci = calculateFuturesCci(cleanRows);
+  const williamsRSeries = calculateFuturesRollingIndicatorSeries(cleanRows, 14, (windowRows) => calculateFuturesWilliamsR(windowRows));
+  const williamsR = calculateFuturesWilliamsR(cleanRows);
+  const dmi = calculateFuturesDmiAdx(cleanRows);
+  const rsiSeries = calculateFuturesRsiSeries(closes);
+  const rsi = lastFiniteFuturesValue(rsiSeries);
+  const momentumSeries = closes.map((close, index) => (index >= 10 && Number.isFinite(close) && Number.isFinite(closes[index - 10]) ? close - closes[index - 10] : null));
+  const momentum = lastFiniteFuturesValue(momentumSeries);
+  const bias20Series = closes.map((close, index) => {
+    const base = maSeries[20]?.[index];
+    return Number.isFinite(close) && Number.isFinite(base) && base !== 0 ? ((close - base) / base) * 100 : null;
+  });
+  const bias20 = lastFiniteFuturesValue(bias20Series);
+  const bollingerMid = ma[20];
+  const bollingerSd = closes.length >= 20 ? Math.sqrt(averageFuturesValues(closes.slice(-20).map((value) => (value - bollingerMid) ** 2))) : null;
+  const obvSeries = calculateFuturesObvSeries(cleanRows);
+  const obv = lastFiniteFuturesValue(obvSeries);
+  const mfiSeries = calculateFuturesRollingIndicatorSeries(cleanRows, 15, (windowRows) => calculateFuturesMfi(windowRows));
+  const mfi = lastFiniteFuturesValue(mfiSeries);
+  const vwapSeries = calculateFuturesVwapSeries(cleanRows);
+  const vwapNumerator = cleanRows.slice(-40).reduce((sum, row) => sum + ((row.high + row.low + row.close) / 3) * (row.volume || 0), 0);
+  const vwapDenominator = cleanRows.slice(-40).reduce((sum, row) => sum + (row.volume || 0), 0);
+  const support20 = lows.length ? Math.min(...lows.slice(-20)) : null;
+  const resistance20 = highs.length ? Math.max(...highs.slice(-20)) : null;
+  const high60 = highs.length ? Math.max(...highs.slice(-60)) : null;
+  const low60 = lows.length ? Math.min(...lows.slice(-60)) : null;
+  const fib38 = Number.isFinite(high60) && Number.isFinite(low60) ? high60 - (high60 - low60) * 0.382 : null;
+  const fib62 = Number.isFinite(high60) && Number.isFinite(low60) ? high60 - (high60 - low60) * 0.618 : null;
+  const tenkan = highs.length >= 9 && lows.length >= 9 ? (Math.max(...highs.slice(-9)) + Math.min(...lows.slice(-9))) / 2 : null;
+  const kijun = highs.length >= 26 && lows.length >= 26 ? (Math.max(...highs.slice(-26)) + Math.min(...lows.slice(-26))) / 2 : null;
+  const senkouB = highs.length >= 52 && lows.length >= 52 ? (Math.max(...highs.slice(-52)) + Math.min(...lows.slice(-52))) / 2 : null;
+  const openInterestSeries = cleanRows.map((row) => parseMarketNumber(row.openInterest));
+  const openInterest = openInterestSeries.filter(Number.isFinite);
+  const oiChange = openInterest.length >= 2 ? openInterest.at(-1) - openInterest.at(-2) : null;
+  const oiChangeSeries = openInterestSeries.map((value, index) => (
+    index > 0 && Number.isFinite(value) && Number.isFinite(openInterestSeries[index - 1]) ? value - openInterestSeries[index - 1] : null
+  ));
+  const buckets = [];
+  if (Number.isFinite(high60) && Number.isFinite(low60) && high60 !== low60) {
+    const bucketCount = 6;
+    for (let index = 0; index < bucketCount; index += 1) buckets.push({ volume: 0, low: low60 + ((high60 - low60) / bucketCount) * index, high: low60 + ((high60 - low60) / bucketCount) * (index + 1) });
+    cleanRows.slice(-60).forEach((row) => {
+      const bucketIndex = Math.min(bucketCount - 1, Math.max(0, Math.floor(((row.close - low60) / (high60 - low60)) * bucketCount)));
+      buckets[bucketIndex].volume += row.volume || 0;
+    });
+  }
+  const pointOfControl = buckets.length ? buckets.slice().sort((left, right) => right.volume - left.volume)[0] : null;
+  const deltaVolumeSeries = cleanRows.map((row) => (row.close >= row.open ? row.volume || 0 : -(row.volume || 0)));
+  const deltaVolume = deltaVolumeSeries.slice(-20).reduce((sum, value) => sum + value, 0);
+  return {
+    ma,
+    macd,
+    macdSignal,
+    rsi,
+    kd,
+    atr,
+    cci,
+    williamsR,
+    dmi,
+    bias20,
+    momentum,
+    bollinger: {
+      mid: bollingerMid,
+      upper: Number.isFinite(bollingerMid) && Number.isFinite(bollingerSd) ? bollingerMid + bollingerSd * 2 : null,
+      lower: Number.isFinite(bollingerMid) && Number.isFinite(bollingerSd) ? bollingerMid - bollingerSd * 2 : null,
+    },
+    obv,
+    mfi,
+    sar: calculateFuturesParabolicSar(cleanRows),
+    ichimoku: { tenkan, kijun, senkouB },
+    support20,
+    resistance20,
+    fib38,
+    fib62,
+    vwap: vwapDenominator ? vwapNumerator / vwapDenominator : null,
+    pointOfControl,
+    deltaVolume,
+    openInterest: openInterest.at(-1),
+    oiChange,
+    count: cleanRows.length,
+    series: {
+      close: closes,
+      volume: volumes,
+      ma: maSeries,
+      macd: {
+        dif: macdRows,
+        signal: macdSignalRows,
+        histogram: macdHistogramRows,
+      },
+      rsi: rsiSeries,
+      kd: kdSeries,
+      atr: atrSeries,
+      cci: cciSeries,
+      williamsR: williamsRSeries,
+      bias20: bias20Series,
+      momentum: momentumSeries,
+      obv: obvSeries,
+      mfi: mfiSeries,
+      vwap: vwapSeries,
+      deltaVolume: deltaVolumeSeries,
+      openInterest: openInterestSeries,
+      oiChange: oiChangeSeries,
+      support20: Array(closes.length).fill(support20),
+      resistance20: Array(closes.length).fill(resistance20),
+      fib38: Array(closes.length).fill(fib38),
+      fib62: Array(closes.length).fill(fib62),
+    },
+  };
+}
+function parseRocDate(value) {
+  const str = String(value || "").trim();
+  // ISO format: YYYY-MM-DD (e.g. "2026-05-27")
+  const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    const d = new Date(Number(isoMatch[1]), Number(isoMatch[2]) - 1, Number(isoMatch[3]));
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  // ISO week format from futures aggregation: YYYY-WNN.
+  const weekMatch = str.match(/^(\d{4})-W(\d{2})$/i);
+  if (weekMatch) {
+    const year = Number(weekMatch[1]);
+    const week = Number(weekMatch[2]);
+    if (!Number.isFinite(year) || !Number.isFinite(week) || week < 1 || week > 53) return null;
+    const jan4 = new Date(year, 0, 4);
+    const weekStart = new Date(jan4);
+    weekStart.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7) + (week - 1) * 7);
+    return Number.isNaN(weekStart.getTime()) ? null : weekStart;
+  }
+  // Month format from futures aggregation: YYYY-MM.
+  const monthMatch = str.match(/^(\d{4})-(\d{2})$/);
+  if (monthMatch) {
+    const d = new Date(Number(monthMatch[1]), Number(monthMatch[2]) - 1, 1);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  // ROC format: YYY/MM/DD (e.g. "115/06/09")
+  const parts = str.split("/").map((part) => Number(part));
+  if (parts.length !== 3 || parts.some((part) => !Number.isFinite(part))) return null;
+  // Guard: if first part looks like a 4-digit western year, treat as western
+  const year = parts[0] > 1900 ? parts[0] : parts[0] + 1911;
+  const d = new Date(year, parts[1] - 1, parts[2]);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+function isValidTechnicalOhlc(open, high, low, close) {
+  const values = [open, high, low, close];
+  if (!values.every((value) => Number.isFinite(value) && value > 0)) return false;
+  return high >= Math.max(open, close) && low <= Math.min(open, close);
+}
+function normalizeHistory(detail) {
+  return (detail.historyDays || [])
+    .map((day) => {
+      const close = parseMarketNumber(day.close);
+      const open = parseMarketNumber(day.open);
+      const rawHigh = parseMarketNumber(day.high);
+      const rawLow = parseMarketNumber(day.low);
+      if (!isValidTechnicalOhlc(open, rawHigh, rawLow, close)) return null;
+      return {
+        date: day.date,
+        parsedDate: parseRocDate(day.date),
+        open,
+        high: rawHigh,
+        low: rawLow,
+        close,
+        change: parseMarketNumber(day.change),
+        volume: Math.max(parseMarketNumber(day.volume) || 0, 0),
+      };
+    })
+    .filter((day) => day && day.parsedDate !== null);
+}
+function exponentialMovingAverage(values, windowSize) {
+  const multiplier = 2 / (windowSize + 1);
+  let previous = null;
+  return values.map((value, index) => {
+    if (value === null) return null;
+    if (previous === null) {
+      const slice = values.slice(Math.max(0, index - windowSize + 1), index + 1).filter((item) => item !== null);
+      previous = slice.reduce((sum, item) => sum + item, 0) / slice.length;
+      return previous;
+    }
+    previous = (value - previous) * multiplier + previous;
+    return previous;
+  });
+}
+function calculateKd(history, period = 9) {
+  let k = 50;
+  let d = 50;
+  return history.map((day, index) => {
+    const slice = history.slice(Math.max(0, index - period + 1), index + 1);
+    const high = Math.max(...slice.map((item) => item.high ?? item.close));
+    const low = Math.min(...slice.map((item) => item.low ?? item.close));
+    const rsv = high === low ? 50 : ((day.close - low) / (high - low)) * 100;
+    k = (k * 2 + rsv) / 3;
+    d = (d * 2 + k) / 3;
+    return { k, d };
+  });
+}
+function calculateMacd(history) {
+  const closes = history.map((day) => day.close);
+  const ema12 = exponentialMovingAverage(closes, 12);
+  const ema26 = exponentialMovingAverage(closes, 26);
+  const dif = closes.map((_, index) => (
+    ema12[index] === null || ema26[index] === null ? null : ema12[index] - ema26[index]
+  ));
+  const macd = exponentialMovingAverage(dif, 9);
+  return dif.map((value, index) => ({
+    dif: value,
+    macd: macd[index],
+    osc: value === null || macd[index] === null ? null : (value - macd[index]) * 2,
+  }));
+}
+function calculateRsi(history, period = 14) {
+  return history.map((day, index) => {
+    if (index === 0) return null;
+    const start = Math.max(1, index - period + 1);
+    const changes = history.slice(start, index + 1).map((item, itemIndex, items) => {
+      const previousIndex = start + itemIndex - 1;
+      const previous = history[previousIndex]?.close ?? items[itemIndex - 1]?.close ?? item.close;
+      return item.close - previous;
+    });
+    const gains = changes.map((change) => Math.max(change, 0));
+    const losses = changes.map((change) => Math.abs(Math.min(change, 0)));
+    const averageGain = gains.reduce((sum, value) => sum + value, 0) / changes.length;
+    const averageLoss = losses.reduce((sum, value) => sum + value, 0) / changes.length;
+    if (averageLoss === 0) return 100;
+    const rs = averageGain / averageLoss;
+    return 100 - (100 / (1 + rs));
+  });
+}
+function calculateBias(history, period = 6) {
+  const closes = history.map((day) => day.close);
+  const ma = movingAverage(closes, period);
+  return closes.map((close, index) => (
+    ma[index] === null || ma[index] === 0 ? null : ((close - ma[index]) / ma[index]) * 100
+  ));
+}
+function calculateDmi(history, period = 14) {
+  let smoothedTr = 0;
+  let smoothedPlusDm = 0;
+  let smoothedMinusDm = 0;
+  let adx = null;
+  const dxValues = [];
+
+  return history.map((day, index) => {
+    if (index === 0) return { plusDi: null, minusDi: null, adx: null };
+    const previous = history[index - 1];
+    const high = day.high ?? day.close;
+    const low = day.low ?? day.close;
+    const previousHigh = previous.high ?? previous.close;
+    const previousLow = previous.low ?? previous.close;
+    const trueRange = Math.max(
+      high - low,
+      Math.abs(high - previous.close),
+      Math.abs(low - previous.close),
+    );
+    const upMove = high - previousHigh;
+    const downMove = previousLow - low;
+    const plusDm = upMove > downMove && upMove > 0 ? upMove : 0;
+    const minusDm = downMove > upMove && downMove > 0 ? downMove : 0;
+
+    if (index <= period) {
+      smoothedTr += trueRange;
+      smoothedPlusDm += plusDm;
+      smoothedMinusDm += minusDm;
+    } else {
+      smoothedTr = smoothedTr - smoothedTr / period + trueRange;
+      smoothedPlusDm = smoothedPlusDm - smoothedPlusDm / period + plusDm;
+      smoothedMinusDm = smoothedMinusDm - smoothedMinusDm / period + minusDm;
+    }
+    if (index < period || smoothedTr === 0) {
+      return { plusDi: null, minusDi: null, adx: null };
+    }
+
+    const plusDi = (smoothedPlusDm / smoothedTr) * 100;
+    const minusDi = (smoothedMinusDm / smoothedTr) * 100;
+    const denominator = plusDi + minusDi;
+    const dx = denominator === 0 ? 0 : (Math.abs(plusDi - minusDi) / denominator) * 100;
+    dxValues.push(dx);
+    if (dxValues.length === period) {
+      adx = dxValues.reduce((sum, value) => sum + value, 0) / period;
+    } else if (dxValues.length > period && adx !== null) {
+      adx = ((adx * (period - 1)) + dx) / period;
+    }
+    return { plusDi, minusDi, adx };
+  });
+}
+function calculateObv(history) {
+  let obv = 0;
+  return history.map((day, index) => {
+    if (index > 0) {
+      if (day.close > history[index - 1].close) obv += day.volume || 0;
+      if (day.close < history[index - 1].close) obv -= day.volume || 0;
+    }
+    return obv;
+  });
+}
+function calculateAtr(history, period = 14) {
+  const ranges = history.map((day, index) => {
+    if (index === 0) return null;
+    const previous = history[index - 1];
+    const high = day.high ?? day.close;
+    const low = day.low ?? day.close;
+    return Math.max(high - low, Math.abs(high - previous.close), Math.abs(low - previous.close));
+  });
+  return ranges.map((_, index) => {
+    if (index < period) return null;
+    const window = ranges.slice(index - period + 1, index + 1).filter(Number.isFinite);
+    return window.length === period ? window.reduce((sum, value) => sum + value, 0) / period : null;
+  });
+}
+function calculateCci(history, period = 20) {
+  const typicalPrices = history.map((day) => ((day.high ?? day.close) + (day.low ?? day.close) + day.close) / 3);
+  return typicalPrices.map((typical, index) => {
+    if (index + 1 < period) return null;
+    const window = typicalPrices.slice(index - period + 1, index + 1).filter(Number.isFinite);
+    if (window.length < period) return null;
+    const average = window.reduce((sum, value) => sum + value, 0) / period;
+    const meanDeviation = window.reduce((sum, value) => sum + Math.abs(value - average), 0) / period;
+    return meanDeviation ? (typical - average) / (0.015 * meanDeviation) : null;
+  });
+}
+function calculateWilliamsR(history, period = 14) {
+  return history.map((day, index) => {
+    if (index + 1 < period) return null;
+    const window = history.slice(index - period + 1, index + 1);
+    const highest = Math.max(...window.map((item) => item.high ?? item.close).filter(Number.isFinite));
+    const lowest = Math.min(...window.map((item) => item.low ?? item.close).filter(Number.isFinite));
+    return highest !== lowest ? ((highest - day.close) / (highest - lowest)) * -100 : null;
+  });
+}
+function calculateMfi(history, period = 14) {
+  const typicalPrices = history.map((day) => ((day.high ?? day.close) + (day.low ?? day.close) + day.close) / 3);
+  const flows = history.map((day, index) => ({
+    typical: typicalPrices[index],
+    flow: typicalPrices[index] * (day.volume || 0),
+  }));
+  return flows.map((row, index) => {
+    if (index < period) return null;
+    let positiveFlow = 0;
+    let negativeFlow = 0;
+    for (let cursor = index - period + 1; cursor <= index; cursor += 1) {
+      const current = flows[cursor];
+      const previous = flows[cursor - 1];
+      if (!current || !previous) continue;
+      if (current.typical >= previous.typical) positiveFlow += current.flow;
+      else negativeFlow += current.flow;
+    }
+    if (!negativeFlow) return positiveFlow ? 100 : null;
+    return 100 - (100 / (1 + positiveFlow / negativeFlow));
+  });
+}
+function calculateMomentum(history, period = 10) {
+  return history.map((day, index) => (
+    index >= period && Number.isFinite(history[index - period]?.close) ? day.close - history[index - period].close : null
+  ));
+}
+function calculateParabolicSarSeries(history) {
+  const result = Array(history.length).fill(null);
+  if (history.length < 4) return result;
+  let bullish = history[1].close >= history[0].close;
+  let sar = bullish ? history[0].low : history[0].high;
+  let extreme = bullish ? history[1].high : history[1].low;
+  let acceleration = 0.02;
+  result[1] = sar;
+  for (let index = 2; index < history.length; index += 1) {
+    const row = history[index];
+    sar += acceleration * (extreme - sar);
+    if (bullish) {
+      if (row.low < sar) {
+        bullish = false;
+        sar = extreme;
+        extreme = row.low;
+        acceleration = 0.02;
+      } else if (row.high > extreme) {
+        extreme = row.high;
+        acceleration = Math.min(acceleration + 0.02, 0.2);
+      }
+    } else if (row.high > sar) {
+      bullish = true;
+      sar = extreme;
+      extreme = row.high;
+      acceleration = 0.02;
+    } else if (row.low < extreme) {
+      extreme = row.low;
+      acceleration = Math.min(acceleration + 0.02, 0.2);
+    }
+    result[index] = sar;
+  }
+  return result;
+}
+function calculateIchimoku(history) {
+  const midpoint = (window) => {
+    const highs = window.map((item) => item.high ?? item.close).filter(Number.isFinite);
+    const lows = window.map((item) => item.low ?? item.close).filter(Number.isFinite);
+    return highs.length && lows.length ? (Math.max(...highs) + Math.min(...lows)) / 2 : null;
+  };
+  return history.map((_, index) => {
+    const tenkan = index + 1 >= 9 ? midpoint(history.slice(index - 8, index + 1)) : null;
+    const kijun = index + 1 >= 26 ? midpoint(history.slice(index - 25, index + 1)) : null;
+    const senkouB = index + 1 >= 52 ? midpoint(history.slice(index - 51, index + 1)) : null;
+    return { tenkan, kijun, senkouB };
+  });
+}

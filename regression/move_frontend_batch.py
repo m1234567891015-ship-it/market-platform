@@ -74,10 +74,17 @@ def main() -> int:
     if len(sys.argv) < 3:
         print(__doc__)
         return 2
-    target_rel, *names = sys.argv[1:]
+    args = sys.argv[1:]
+    append_mode = False
+    if args[0] == "--append":
+        append_mode = True
+        args = args[1:]
+    target_rel, *names = args
     target_path = REPO_ROOT / target_rel
-    if target_path.exists():
-        raise SystemExit(f"{target_path} 已存在,本工具只處理新檔案")
+    if target_path.exists() and not append_mode:
+        raise SystemExit(f"{target_path} 已存在,如果是同一個目標檔案的後續批次,加 --append 旗標")
+    if not target_path.exists() and append_mode:
+        raise SystemExit(f"{target_path} 不存在,--append 只能用在已存在的檔案")
 
     source = APP_JS_PATH.read_text(encoding="utf-8")
     stripped = strip_js_noise(source)
@@ -98,8 +105,13 @@ def main() -> int:
     # 本身之後的換行,只在「從 app.js 刪除」時才用 text_end 一併吃掉多餘
     # 空行——這樣目標檔案彼此之間用單一換行銜接,不會累積額外空行)。
     target_parts = [source[start:end] for start, end, _, _ in spans]
-    target_content = "\n".join(target_parts) + "\n"
+    new_block = "\n".join(target_parts) + "\n"
     target_path.parent.mkdir(parents=True, exist_ok=True)
+    if append_mode:
+        existing = target_path.read_text(encoding="utf-8")
+        target_content = existing + new_block
+    else:
+        target_content = new_block
     target_path.write_text(target_content, encoding="utf-8", newline="\n")
 
     new_source = source
@@ -114,8 +126,7 @@ def main() -> int:
     # 的內容」是否一致（這一步主要是防呆,防止拼接/寫檔過程本身出錯,
     # 不是防轉寫錯誤——轉寫錯誤已經因為全程不手動輸入內容而不存在)。
     written = target_path.read_text(encoding="utf-8")
-    rebuilt = "\n".join(target_parts) + "\n"
-    if written != rebuilt:
+    if written != target_content:
         raise SystemExit("寫入後重讀內容與預期不符,寫檔本身可能有問題")
 
     print(f"moved {len(names)} symbols to {target_rel}")
