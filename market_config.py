@@ -108,6 +108,7 @@ JS_MODULE_STATIC_FILES = {
     "shared-calc.js",
     "render-shared.js",
     "charts.js",
+    "stock-detail.js",
 }
 TWSE_BASE = "https://www.twse.com.tw"
 TWSE_OPENAPI_BASE = "https://openapi.twse.com.tw/v1"
