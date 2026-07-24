@@ -2622,3 +2622,337 @@ async function runUsStockSearch(query, autoSelect = false) {
     console.error("Failed to search US stocks:", error);
   }
 }
+async function initUsStockSearchPage() {
+  const form = document.getElementById("us-stock-search-form");
+  const input = document.getElementById("us-stock-search-input");
+  if (!form || !input) return;
+  let searchTimer = null;
+
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const query = input.value.trim();
+    if (!query) {
+      setText("us-stock-search-status", "請輸入美股或 ETF 代號 / 名稱。");
+      return;
+    }
+    runUsStockSearch(query, true);
+  });
+
+  input.addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    const query = input.value.trim();
+    if (!query) {
+      usStockSearchRequestId += 1;
+      renderUsStockSearchResults([]);
+      setText("us-stock-search-status", "可輸入部分代號或名稱搜尋。");
+      return;
+    }
+    searchTimer = setTimeout(() => runUsStockSearch(query, false), 300);
+  });
+
+  const params = new URLSearchParams(window.location.search);
+  const initialSymbol = params.get("symbol")?.trim();
+  const initialQuery = params.get("q")?.trim();
+  if (initialSymbol) {
+    input.value = initialSymbol.toUpperCase();
+    runUsStockSearch(initialSymbol, false);
+    loadUsStockSymbol(initialSymbol);
+    return;
+  }
+  if (initialQuery) {
+    input.value = initialQuery;
+    runUsStockSearch(initialQuery, true);
+    return;
+  }
+  renderUsStockSearchResults([]);
+  setText("us-stock-search-status", "請輸入美股或 ETF 代號 / 名稱後開始搜尋。");
+}
+function buildUsWatchlistAiAnalysis(stock, detail) {
+  const technicalTheory = analyzeTechnicalTheories(detail);
+  const valuation = detail.valuation || {};
+  const margin = detail.marginTrading || {};
+  const close = parseAnalysisNumber(detail.close ?? stock.close);
+  const ma5 = parseAnalysisNumber(detail.ma5);
+  const ma20 = parseAnalysisNumber(detail.ma20);
+  const ma60 = parseAnalysisNumber(detail.ma60);
+  const pct = parseAnalysisNumber(detail.pct ?? stock.pct);
+  const avgVolume = parseAnalysisNumber(detail.avgVolume5);
+  const latestVolume = parseAnalysisNumber((detail.historyDays || []).at(-1)?.volume);
+  const pe = parseAnalysisNumber(valuation.peRatio);
+  const shortFloat = parseAnalysisNumber(margin.shortPercentOfFloat);
+  const positives = [];
+  const cautions = [];
+  let score = Number(technicalTheory.score) || 0;
+  let evidenceCount = Number(technicalTheory.evidenceCount) || 0;
+
+  if (Number.isFinite(close) && Number.isFinite(ma5)) {
+    evidenceCount += 1;
+    if (close >= ma5) {
+      score += 1;
+      positives.push("股價站上 MA5，短線動能相對穩定");
+    } else {
+      score -= 1;
+      cautions.push("股價位於 MA5 下方，短線仍需確認支撐");
+    }
+  }
+  if (Number.isFinite(close) && Number.isFinite(ma20)) {
+    evidenceCount += 1;
+    if (close >= ma20) {
+      score += 1;
+      positives.push("股價維持在 MA20 上方");
+    } else {
+      score -= 1;
+      cautions.push("股價跌破 MA20，中期趨勢偏保守");
+    }
+  }
+  if (Number.isFinite(ma20) && Number.isFinite(ma60)) {
+    evidenceCount += 1;
+    if (ma20 >= ma60) score += 1;
+    else cautions.push("MA20 低於 MA60，中期結構尚未轉強");
+  }
+  if (Number.isFinite(avgVolume) && avgVolume > 0 && Number.isFinite(latestVolume)) {
+    evidenceCount += 1;
+    if (latestVolume >= avgVolume) {
+      score += 1;
+      positives.push("成交量高於 5 日均量，量能有放大跡象");
+    } else {
+      cautions.push("成交量低於 5 日均量，追價動能需再確認");
+    }
+  }
+  if (Number.isFinite(shortFloat)) {
+    evidenceCount += 1;
+    if (shortFloat >= 15) {
+      score -= 1;
+      cautions.push(`Short float ${shortFloat.toFixed(1)}%，空方壓力偏高`);
+    } else if (shortFloat <= 5) {
+      positives.push(`Short float ${shortFloat.toFixed(1)}%，空方壓力相對低`);
+    }
+  }
+  if (Number.isFinite(pe) && pe > 0) {
+    evidenceCount += 1;
+    if (pe >= 60) cautions.push(`本益比 ${pe.toFixed(1)}，估值敏感度較高`);
+    else if (pe <= 25) positives.push(`本益比 ${pe.toFixed(1)}，估值相對收斂`);
+  }
+  if (Number.isFinite(pct) && Math.abs(pct) >= 5) {
+    evidenceCount += 1;
+    cautions.push(`單日波動 ${pct.toFixed(2)}%，短線波動風險提高`);
+  }
+
+  let label = "中性觀察";
+  let tone = "neutral";
+  let suggestion = "等待趨勢、量價與市場情緒出現一致方向，再規劃分批操作。";
+  if (score >= 5) {
+    label = "偏多觀察";
+    tone = "positive";
+    suggestion = "多項技術與量價因子偏正向，可續抱觀察；急漲時仍避免一次追價。";
+  } else if (score <= -5) {
+    label = "風險控管";
+    tone = "negative";
+    suggestion = "弱勢訊號較多，宜控制部位，並以停損或減碼條件管理回撤。";
+  } else if (score > 0) {
+    label = "中性偏多";
+    tone = "positive";
+    suggestion = "正向訊號略多，適合等待回檔支撐或量價確認。";
+  } else if (score < 0) {
+    label = "中性偏弱";
+    tone = "negative";
+    suggestion = "負向訊號略多，先觀察均線與量能是否止穩。";
+  }
+  const reasons = [
+    ...(technicalTheory.theorySignals || []).slice(0, 1).map((item) => `${item.name}：${item.text}`),
+    ...(technicalTheory.priceIndicators || []).slice(0, 1).map((item) => `${item.name} ${item.value}：${item.text}`),
+    ...positives.slice(0, 1),
+    ...cautions.slice(0, 1),
+  ].filter(Boolean).slice(0, 4);
+  if (!reasons.length) reasons.push("公開歷史資料不足，暫不形成明確方向判斷。");
+  return {
+    label,
+    tone,
+    score,
+    suggestion,
+    reasons,
+    patterns: technicalTheory.patterns || [],
+    indicators: technicalTheory.indicators || [],
+    adaptiveSummary: technicalTheory.adaptiveSummary,
+    indicatorSummary: technicalTheory.indicatorSummary,
+    backtestLearning: technicalTheory.backtestLearning,
+    confidence: technicalTheory.adaptiveConfidence || (evidenceCount >= 8 ? "高" : evidenceCount >= 4 ? "中" : "低"),
+    date: detail.snapshotDate || stock.snapshotDate || "--",
+  };
+}
+async function loadUsWatchlistAiAnalyses(force = false) {
+  const items = getUsWatchlist();
+  if (!items.length) return;
+  const requestId = ++usWatchlistAnalysisRequestId;
+  if (force) usWatchlistAnalysisCache.clear();
+  renderUsWatchlist();
+  setText("us-watchlist-status", "正在更新美股 AI 多因子分析...");
+  const queue = items.filter((item) => !usWatchlistAnalysisCache.has(usWatchlistKey(item)));
+  let cursor = 0;
+  async function runUsWatchlistAnalysisWorker() {
+    while (cursor < queue.length) {
+      const stock = queue[cursor++];
+      const key = usWatchlistKey(stock);
+      try {
+        const response = await fetchWithTimeout(
+          `/api/us-market/symbol/${encodeURIComponent(key)}`,
+          { cache: "no-store" },
+          18000,
+        );
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const item = await response.json();
+        if (item?.error) throw new Error(item.error);
+        if (requestId !== usWatchlistAnalysisRequestId) return;
+        const detail = buildUsSearchDetail(item);
+        usWatchlistDetailCache.set(key, detail);
+        usWatchlistAnalysisCache.set(key, buildUsWatchlistAiAnalysis(stock, detail));
+        upsertUsWatchlistSymbol({ ...stock, ...item, symbol: key }, { render: false });
+        renderUsWatchlist();
+      } catch (error) {
+        console.error(`Failed to analyze US watchlist ${key}:`, error);
+        usWatchlistAnalysisCache.set(key, {
+          label: "資料待更新",
+          tone: "neutral",
+          score: 0,
+          suggestion: "公開歷史資料暫時無法取得，保留原部位並等待下一次資料同步。",
+          reasons: ["Yahoo Finance 線上資料暫時不足，未形成技術結論。"],
+          patterns: [],
+          indicators: [],
+          confidence: "低",
+          date: "--",
+        });
+        renderUsWatchlist();
+      }
+    }
+  }
+  await Promise.all([runUsWatchlistAnalysisWorker(), runUsWatchlistAnalysisWorker()]);
+  if (requestId === usWatchlistAnalysisRequestId) {
+    setText("us-watchlist-status", `AI 分析已更新，完成 ${items.length} 檔美股自選標的。`);
+    renderUsWatchlist();
+  }
+}
+function renderUsWatchlistSearchResults(results = []) {
+  const container = document.getElementById("us-watchlist-results");
+  if (!container) return;
+  if (!results.length) {
+    container.innerHTML = '<div class="stock-detail-empty">輸入代號或名稱後，這裡會列出可加入自選的美股 / ETF。</div>';
+    return;
+  }
+  const watchSymbols = new Set(getUsWatchlist().map((item) => String(item.symbol).toUpperCase()));
+  container.innerHTML = results.map((item) => {
+    const symbol = String(item.symbol || "").toUpperCase();
+    const added = watchSymbols.has(symbol);
+    return `
+      <div class="search-result-item us-result-card" data-us-watch-result-card>
+        <button class="us-result-main-button" type="button" data-us-watch-symbol="${escapeHtml(symbol)}">
+          <span class="search-result-main">
+            ${escapeHtml(symbol || "--")} ${escapeHtml(item.name || "")}
+            <small class="search-result-market">${escapeHtml(item.group || "美股 / ETF")}</small>
+          </span>
+          <span class="search-result-sub">
+            ${escapeHtml(item.type || "--")}
+            ${item.exchange ? ` · ${escapeHtml(item.exchange)}` : ""}
+            ${item.source ? ` · ${escapeHtml(item.source)}` : ""}
+          </span>
+        </button>
+        <button class="btn btn-secondary" type="button" data-us-watch-add="${escapeHtml(symbol)}"${added ? " disabled" : ""}>
+          ${added ? "已加入" : "加入自選"}
+        </button>
+      </div>
+    `;
+  }).join("");
+  container.querySelectorAll("[data-us-watch-symbol]").forEach((button) => {
+    button.addEventListener("click", () => loadUsWatchlistSymbol(button.dataset.usWatchSymbol));
+  });
+  container.querySelectorAll("[data-us-watch-add]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const symbol = String(button.dataset.usWatchAdd || "").toUpperCase();
+      const item = results.find((entry) => String(entry.symbol || "").toUpperCase() === symbol);
+      if (upsertUsWatchlistSymbol(item || { symbol })) {
+        setText("us-watchlist-status", `${symbol} 已加入美股自選股。`);
+        renderUsWatchlistSearchResults(results);
+      }
+    });
+  });
+}
+function initUsWatchlistPage() {
+  renderUsWatchlist();
+  document.getElementById("us-watchlist-analysis-refresh")?.addEventListener("click", () => {
+    loadUsWatchlistAiAnalyses(true);
+  });
+  document.getElementById("us-portfolio-simulator-reset")?.addEventListener("click", () => {
+    localStorage.removeItem(US_PORTFOLIO_SIM_STORAGE_KEY);
+    renderUsPortfolioSimulator();
+  });
+  loadUsWatchlistAiAnalyses();
+}
+function initUsVolumeMomentumCursor(root = document) {
+  root.querySelectorAll(".us-volume-momentum-chart").forEach((chart) => {
+    const svg = chart.querySelector("svg");
+    const tooltip = chart.querySelector(".us-volume-chart-tooltip");
+    if (!svg || !tooltip) return;
+    const xLine = svg.querySelector("[data-us-volume-cursor-x]");
+    const yLine = svg.querySelector("[data-us-volume-cursor-y]");
+    const priceDot = svg.querySelector('[data-us-volume-cursor-dot="price"]');
+    const volumeDot = svg.querySelector('[data-us-volume-cursor-dot="volume"]');
+    const zones = svg.querySelectorAll(".us-volume-hover-zone");
+    const hide = () => {
+      tooltip.hidden = true;
+      xLine?.classList.remove("is-visible");
+      yLine?.classList.remove("is-visible");
+      priceDot?.classList.remove("is-visible");
+      volumeDot?.classList.remove("is-visible");
+    };
+    const rowHtml = (label, value, tone = "") => {
+      if (!value || value === "--") return "";
+      return `<span><em>${escapeHtml(label)}</em><strong class="${tone}">${escapeHtml(value)}</strong></span>`;
+    };
+    const show = (zone, event) => {
+      const x = Number(zone.dataset.x);
+      const yPrice = Number(zone.dataset.yPrice);
+      const yVolume = Number(zone.dataset.yVolume);
+      if (Number.isFinite(x) && xLine) {
+        xLine.setAttribute("x1", x.toFixed(2));
+        xLine.setAttribute("x2", x.toFixed(2));
+        xLine.classList.add("is-visible");
+      }
+      if (Number.isFinite(yPrice) && yLine) {
+        yLine.setAttribute("y1", yPrice.toFixed(2));
+        yLine.setAttribute("y2", yPrice.toFixed(2));
+        yLine.classList.add("is-visible");
+      }
+      if (Number.isFinite(x) && Number.isFinite(yPrice) && priceDot) {
+        priceDot.setAttribute("cx", x.toFixed(2));
+        priceDot.setAttribute("cy", yPrice.toFixed(2));
+        priceDot.classList.add("is-visible");
+      }
+      if (Number.isFinite(x) && Number.isFinite(yVolume) && volumeDot) {
+        volumeDot.setAttribute("cx", x.toFixed(2));
+        volumeDot.setAttribute("cy", yVolume.toFixed(2));
+        volumeDot.classList.add("is-visible");
+      }
+      const tone = zone.dataset.changeTone === "up" ? "is-up" : zone.dataset.changeTone === "down" ? "is-down" : "is-flat";
+      tooltip.innerHTML = `
+        <b>${escapeHtml(zone.dataset.date || "--")}</b>
+        ${rowHtml("收盤", zone.dataset.close)}
+        ${rowHtml("漲跌幅", zone.dataset.change, tone)}
+        ${rowHtml("成交量", zone.dataset.volume)}
+        ${rowHtml("量能相對高點", zone.dataset.volumeShare)}
+      `;
+      tooltip.hidden = false;
+      const chartRect = chart.getBoundingClientRect();
+      const leftBase = event.clientX - chartRect.left + 14;
+      const topBase = event.clientY - chartRect.top - 10;
+      const maxLeft = Math.max(12, chartRect.width - tooltip.offsetWidth - 12);
+      const maxTop = Math.max(12, chartRect.height - tooltip.offsetHeight - 12);
+      tooltip.style.left = `${Math.max(12, Math.min(leftBase, maxLeft))}px`;
+      tooltip.style.top = `${Math.max(12, Math.min(topBase, maxTop))}px`;
+    };
+    zones.forEach((zone) => {
+      zone.addEventListener("mouseenter", (event) => show(zone, event));
+      zone.addEventListener("mousemove", (event) => show(zone, event));
+      zone.addEventListener("mouseleave", hide);
+    });
+    chart.addEventListener("mouseleave", hide);
+  });
+}
