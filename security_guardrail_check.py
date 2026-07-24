@@ -29,6 +29,16 @@ def read_text(path: str) -> str:
     return (BASE_DIR / path).read_text(encoding="utf-8-sig")
 
 
+def frontend_combined_source() -> str:
+    """TD-02 把 app.js 拆成 app.js + js/*.js,前端安全防護的具體位置隨批次
+    搬移改變檔案,但檢查對象邏輯上一直是「整個前端」,合併讀取。"""
+    parts = [read_text("app.js")]
+    js_dir = BASE_DIR / "js"
+    if js_dir.exists():
+        parts.extend(p.read_text(encoding="utf-8-sig") for p in sorted(js_dir.glob("*.js")))
+    return "\n".join(parts)
+
+
 def assert_true(condition: bool, message: str) -> None:
     if not condition:
         raise GuardrailFailure(message)
@@ -46,7 +56,7 @@ def unsafe_dynamic_url_lines(script: str, attribute: str) -> list[str]:
 
 
 def check_frontend_xss_and_url_safety() -> None:
-    script = read_text("app.js")
+    script = frontend_combined_source()
     for required in (
         "function escapeHtml(",
         "function safeUrl(",

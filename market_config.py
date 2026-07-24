@@ -103,6 +103,7 @@ ASSET_STATIC_FILES = {
 # ASSET_STATIC_FILES 的模式),每完成一個批次就補上對應檔名。
 JS_MODULE_STATIC_FILES = {
     "state.js",
+    "core.js",
 }
 TWSE_BASE = "https://www.twse.com.tw"
 TWSE_OPENAPI_BASE = "https://openapi.twse.com.tw/v1"
