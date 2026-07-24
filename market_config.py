@@ -104,6 +104,7 @@ ASSET_STATIC_FILES = {
 JS_MODULE_STATIC_FILES = {
     "state.js",
     "core.js",
+    "api.js",
 }
 TWSE_BASE = "https://www.twse.com.tw"
 TWSE_OPENAPI_BASE = "https://openapi.twse.com.tw/v1"
