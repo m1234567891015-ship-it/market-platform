@@ -116,6 +116,7 @@ JS_MODULE_STATIC_FILES = {
     "page-global-market-assethub.js",
     "page-tw.js",
     "legacy-unclassified.js",
+    "main.js",
 }
 TWSE_BASE = "https://www.twse.com.tw"
 TWSE_OPENAPI_BASE = "https://openapi.twse.com.tw/v1"
