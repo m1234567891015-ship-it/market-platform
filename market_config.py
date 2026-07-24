@@ -118,11 +118,6 @@ JS_MODULE_STATIC_FILES = {
     "legacy-unclassified.js",
     "main.js",
 }
-# CSS 拆分(styles.css → css/ 目錄),同樣以白名單方式提供,每完成一個
-# 批次就補上對應檔名,比照 JS_MODULE_STATIC_FILES 的模式。
-CSS_MODULE_STATIC_FILES = {
-    "charts.css",
-}
 TWSE_BASE = "https://www.twse.com.tw"
 TWSE_OPENAPI_BASE = "https://openapi.twse.com.tw/v1"
 TPEX_OPENAPI_BASE = "https://www.tpex.org.tw/openapi/v1"
