@@ -112,6 +112,7 @@ JS_MODULE_STATIC_FILES = {
     "page-home.js",
     "page-us.js",
     "page-global-market-futures.js",
+    "page-global-market-options.js",
 }
 TWSE_BASE = "https://www.twse.com.tw"
 TWSE_OPENAPI_BASE = "https://openapi.twse.com.tw/v1"
