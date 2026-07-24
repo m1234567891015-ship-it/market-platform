@@ -1,0 +1,205 @@
+.chart-stack {
+  display: grid;
+  gap: 18px;
+}
+
+.chart-subtitle {
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.chart-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 14px 0 10px;
+  color: var(--muted);
+}
+
+.chart-summary strong {
+  color: var(--text);
+  font-size: 1.35rem;
+}
+
+.chart-data-notice {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid rgba(240, 179, 90, 0.24);
+  border-radius: 12px;
+  background: rgba(240, 179, 90, 0.08);
+  color: var(--gold);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.chart-labels text,
+.chart-ma-label {
+  fill: var(--muted);
+  font-size: 14px;
+}
+
+.chart-grid line {
+  stroke: rgba(147, 178, 220, 0.14);
+  stroke-width: 1;
+}
+
+.chart-area {
+  fill: rgba(77, 167, 255, 0.14);
+}
+
+.chart-line {
+  fill: none;
+  stroke: var(--blue);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chart-points circle {
+  fill: #ffffff;
+  stroke: var(--blue);
+  stroke-width: 2;
+}
+
+.chart-ma-line {
+  stroke-width: 1.8;
+  fill: none;
+}
+
+.chart-ma-line.ma-5,
+.ma-color.ma-5 { color: #f0b35a; stroke: #f0b35a; background: #f0b35a; }
+
+.chart-ma-line.ma-10,
+.ma-color.ma-10 { color: #4da7ff; stroke: #4da7ff; background: #4da7ff; }
+
+.chart-ma-line.ma-20,
+.ma-color.ma-20 { color: #b58cff; stroke: #b58cff; background: #b58cff; }
+
+.chart-ma-line.ma-60,
+.ma-color.ma-60 { color: #ff6f91; stroke: #ff6f91; background: #ff6f91; }
+
+.chart-ma-line.ma-120,
+.ma-color.ma-120 { color: #45d6c5; stroke: #45d6c5; background: #45d6c5; }
+
+.chart-ma-line.ma-240,
+.ma-color.ma-240 { color: #f4e06d; stroke: #f4e06d; background: #f4e06d; }
+
+.chart-overlay text {
+  fill: rgba(226, 232, 240, 0.86);
+  font-size: 12px;
+  font-weight: 800;
+  paint-order: stroke;
+  stroke: rgba(5, 13, 25, 0.72);
+  stroke-width: 3px;
+}
+
+.chart-volume-bars rect {
+  fill: rgba(77, 167, 255, 0.5);
+}
+
+.chart-volume-bars .technical-volume-bar.up {
+  fill: rgba(255, 82, 104, 0.78);
+}
+
+.chart-volume-bars .technical-volume-bar.down {
+  fill: rgba(43, 205, 139, 0.78);
+}
+
+.chart-volume-bars .technical-volume-bar.flat {
+  fill: rgba(147, 178, 220, 0.58);
+}
+
+.chart-volume-bar.up {
+  fill: rgba(61, 220, 151, 0.55);
+}
+
+.chart-volume-bar.down {
+  fill: rgba(255, 107, 122, 0.55);
+}
+
+.chart-volume-label {
+  fill: var(--muted);
+  font-size: 11px;
+}
+
+.chart-hover-zone {
+  fill: transparent;
+  cursor: crosshair;
+}
+
+.chart-indicator-point {
+  opacity: 0;
+  pointer-events: none;
+  stroke: rgba(6, 13, 25, 0.95);
+  stroke-width: 2;
+  transition: opacity 0.12s ease;
+}
+
+.chart-indicator-point.is-primary {
+  fill: var(--gold);
+}
+
+.chart-indicator-point.is-secondary {
+  fill: var(--blue);
+}
+
+.chart-indicator-point.is-tertiary {
+  fill: #b58cff;
+}
+
+.chart-indicator-point.is-active {
+  opacity: 1;
+}
+
+.chart-crosshair {
+  opacity: 1;
+  stroke: rgba(240, 179, 90, 0.55);
+  stroke-width: 1.2;
+  stroke-dasharray: 4 4;
+  pointer-events: none;
+}
+
+.chart-kline-tooltip {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  min-width: 220px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(147, 178, 220, 0.2);
+  background: rgba(6, 13, 25, 0.94);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.36);
+  color: var(--text);
+  display: grid;
+  gap: 5px;
+  pointer-events: none;
+  z-index: 10;
+  font-size: 0.86rem;
+  line-height: 1.4;
+  transition: left 0.06s linear, top 0.06s linear;
+  will-change: left, top;
+}
+
+.chart-kline-tooltip span {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+}
+
+.chart-kline-tooltip strong {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.chart-kline-tooltip .chart-tooltip-divider {
+  margin-top: 5px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(147, 178, 220, 0.16);
+}
+
+.derivatives-overview-card-head .chart-subtitle {
+  margin-bottom: 0;
+}
