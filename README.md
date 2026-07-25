@@ -43,9 +43,10 @@ python regression/frontend_check.py --capture   # -> regression/baseline/screens
 python regression/interaction_check.py --capture   # -> regression/baseline/interactions/{manifest,results}.json
 
 # Repeated during refactor work, to check for behavior drift:
-python regression/verify_against_baseline.py --quick         # API + security checks (實測約 2-3 分鐘,視外部資料源延遲而定,見 TD-17)
+python regression/verify_against_baseline.py --quick         # cache-backed API endpoints + security checks (~1-2 min, no live external fetch — see TD-17)
+python regression/verify_against_baseline.py --quick --api-live  # + the 4 always-live endpoints (live-sectors/live-overview/live-stocks/live-search)
 python regression/verify_against_baseline.py --quick --interactions  # + interaction checks (P0+P1, ~2 min)
-python regression/verify_against_baseline.py --full           # quick + Playwright frontend compare + interaction checks
+python regression/verify_against_baseline.py --full           # quick + --api-live + Playwright frontend compare + interaction checks
 ```
 
 Each TD ticket's definition of done requires both `python -m unittest
@@ -66,6 +67,15 @@ Notes:
 - `verify_against_baseline.py` retries a failing endpoint once after a short
   delay before treating it as a real failure, to absorb transient external
   data source outages.
+- TD-17: `--quick` warms the cache once (generous timeout) before comparing
+  the 40 cache-backed endpoints; a warm-up failure aborts immediately and is
+  labeled `[外部問題,非程式碼]` instead of surfacing as 44 unlabeled
+  per-endpoint timeouts. The 4 endpoints that always fetch live with no
+  caching layer by design (`live-sectors`/`live-overview`/`live-stocks`/
+  `live-search`) live under a separate `--api-live` flag — `--full` includes
+  it automatically, `--quick` does not. Every failure message is tagged
+  `[外部問題,非程式碼]` or `[程式碼可能改動回應格式]` so a red light is
+  legible at a glance.
 - `interaction_check.py` (工單 00-B) covers 21 pages / 93 real click/select/
   submit interaction steps (P0+P1 tier; P2 — zoom/pan/hover — not yet
   implemented, see `regression/interaction_inventory.md`). It replays a
