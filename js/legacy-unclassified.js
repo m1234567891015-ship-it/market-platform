@@ -1,3 +1,11 @@
+// @TD-15-OBSERVE (2026-07-25): AST-unreachable but dynamic-call not excluded
+// per TD-15's literal evidence standard (called from js/api.js:
+// fetchClientInstitutionalTradeHistory). Suspected dead-chain cluster: that
+// caller itself has zero callers anywhere in the repo, so this symbol may
+// in fact be transitively dead too - reassess together with the whole chain
+// (fetchClientInstitutionalTradeHistory -> buildClientInstitutionalTradeRecord
+// / buildClientInstitutionalTradeSummary) in the next TD-15 round. See
+// docs/td15_observe_list.md. Do not delete until observation window clears.
 function buildClientInstitutionalTradeRecord(row, dateStr) {
   const foreign = parseTwseNumber(row?.[4]);
   const trust = parseTwseNumber(row?.[10]);
@@ -17,6 +25,13 @@ function buildClientInstitutionalTradeRecord(row, dateStr) {
     totalLotsValue: total === null ? null : total / 1000,
   };
 }
+// @TD-15-OBSERVE (2026-07-25): AST-unreachable but dynamic-call not excluded
+// per TD-15's literal evidence standard (called from js/api.js:
+// fetchClientInstitutionalTradeHistory). Suspected dead-chain cluster: same
+// caller as buildClientInstitutionalTradeRecord above, which itself has zero
+// callers anywhere - reassess together with the whole chain in the next
+// TD-15 round. See docs/td15_observe_list.md. Do not delete until
+// observation window clears.
 function buildClientInstitutionalTradeSummary(rows, period) {
   const summary = { date: "", label: `${period}日` };
   ["foreign", "trust", "dealer", "total"].forEach((key) => {
@@ -32,6 +47,13 @@ function buildClientInstitutionalTradeSummary(rows, period) {
   });
   return summary;
 }
+// @TD-15-OBSERVE (2026-07-25): AST-unreachable but dynamic-call not excluded
+// per TD-15's literal evidence standard (called from js/charts.js:
+// renderWeightedVixComparisonChart). Suspected dead-chain cluster: that
+// caller itself has zero callers anywhere in the repo, so this symbol may
+// in fact be transitively dead too - reassess together with the whole chain
+// in the next TD-15 round. See docs/td15_observe_list.md. Do not delete
+// until observation window clears.
 function buildWeightedVixComparisonModel(weightedIndex, volatility, visibleCount = null, panOffset = 0) {
   const weightedSeries = (weightedIndex?.comparisonSeries?.day || [])
     .map((item) => ({
@@ -63,11 +85,27 @@ function buildWeightedVixComparisonModel(weightedIndex, volatility, visibleCount
     vixNorm: item.vix / vixBase * 100,
   }));
 }
+// @TD-15-OBSERVE (2026-07-25): AST-unreachable but dynamic-call not excluded
+// per TD-15's literal evidence standard (called from
+// js/page-global-market-futures.js: renderFuturesMiniSparkline). Suspected
+// dead-chain cluster: renderFuturesMiniSparkline is itself only ever called
+// from this same dead cluster (js/legacy-unclassified.js's
+// renderFuturesAnalysisMetric-family callers, already deleted in TD-15
+// Layer 1), not from any external live entry point - reassess together with
+// the whole chain in the next TD-15 round. See docs/td15_observe_list.md.
+// Do not delete until observation window clears.
 function getFuturesFiniteVisualSeries(values = []) {
   return (values || [])
     .map((value, index) => ({ value: parseMarketNumber(value), index }))
     .filter((point) => Number.isFinite(point.value));
 }
+// @TD-15-OBSERVE (2026-07-25): AST-unreachable but dynamic-call not excluded
+// per TD-15's literal evidence standard (called from
+// js/page-global-market-futures.js: renderFuturesIndicatorSwitchChart, 3
+// call sites). Suspected dead-chain cluster: renderFuturesIndicatorSwitchChart
+// itself has zero callers anywhere in the repo - reassess together with the
+// whole chain in the next TD-15 round. See docs/td15_observe_list.md. Do
+// not delete until observation window clears.
 function renderFuturesIndicatorPlot(series = [], options = {}) {
   const width = 720;
   const height = 250;
@@ -138,6 +176,16 @@ function renderFuturesIndicatorPlot(series = [], options = {}) {
     </div>
   `;
 }
+// @TD-15-OBSERVE (2026-07-25): AST-unreachable but dynamic-call not excluded
+// per TD-15's literal evidence standard (called from js/page-us.js:
+// renderUsWatchlistSearchResults, via an addEventListener click handler).
+// Suspected dead-chain cluster: renderUsWatchlistSearchResults is only
+// called by runUsWatchlistSearch (js/legacy-unclassified.js, already
+// deleted in TD-15 Layer 1 - it had zero callers anywhere) and recursively
+// by itself; initUsWatchlistPage, the real us-watchlist.html entry point,
+// does not call any of this chain - reassess together with the whole chain
+// in the next TD-15 round. See docs/td15_observe_list.md. Do not delete
+// until observation window clears.
 async function loadUsWatchlistSymbol(symbol) {
   const cleanSymbol = String(symbol || "").trim().toUpperCase();
   if (!cleanSymbol) return;
