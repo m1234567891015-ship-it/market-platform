@@ -23,8 +23,9 @@ docs/TD稽核清單.md(源自 MarketPulse_技術債稽核_2026-07-16.xlsx)。
 - app.py(TD-01 前 15,513 行,拆分後現為 650 行薄入口)與 app.js
   (TD-02 前 34,149 行,拆分後現為 818 行空殼)只允許局部編輯,
   禁止整檔重寫或整檔重新生成;本規則同樣適用於拆分後的
-  routes_*.py/fetchers.py/builders.py/cache.py/security.py 與
-  js/*.js/split-*.css 各模組檔。
+  routes_*.py/fetchers.py/builders.py/cache.py/security.py 各後端模組,
+  以及 js/*.js(classic script 切片,共享全域作用域,非 ES Modules)/
+  split-*.css(CSS 切片)各檔。
 - 一次只處理一個 TD 工單項目,完成即 commit,不跨項目連改。
 - 禁止讀取或修改 *.sqlite3、twse-cache.json(執行期資料,已由 hook 強制)。
 - 重構 = 行為不變。任何函式搬移後,對應測試必須通過才算完成。

@@ -42,8 +42,17 @@
 | 檔案 | 原始(稽核當時) | 現在 | 說明 |
 |---|---|---|---|
 | app.py | 15,514 行 | 650 行 | 拆成 13 個核心後端模組(app.py 為薄入口 + builders/cache/derivatives_store/fetch_registry/fetchers/market_config/parsers/routes_derivatives/routes_global_market/routes_system/routes_twse/security) |
-| app.js | 34,150 行 | 818 行(僅剩註解/空行,無可執行程式碼) | 拆成 js/*.js 共 15 檔,31,974 行 |
-| styles.css | 21,973 行 | 1 行(空殼) | 拆成 split-01~07.css 共 7 檔,20,777 行 |
+| app.js | 34,150 行 | 818 行(僅剩註解/空行,無可執行程式碼) | 拆成 15 個 classic-script JS 切片(js/*.js,31,974 行) |
+| styles.css | 21,973 行 | 1 行(空殼) | 拆成 7 個 CSS 切片(split-01~07.css,20,777 行) |
+
+**用詞澄清**:app.py 的拆分是真正的 Python 模組(`import` 引用、各自獨立
+命名空間)。app.js 的拆分**不是** ES Modules——21 頁仍以多個
+`<script src>` classic script 標籤載入這 15 個 js/*.js 檔,彼此共享
+全域作用域,沒有 `import`/`export`;也沒有 code splitting、tree
+shaking 或 bundling(這些留給 TD-18,見第 4 節)。「15 個 JS 模組」
+這種說法雖不算虛報(TD-18 已誠實列為未做項目),但用詞不夠精確,
+容易被誤讀為已完成 ES Module 化,故本文件一律稱其為「classic-script
+JS 切片」,不稱「模組」。
 
 ## 3. 護欄現況(四層)
 
