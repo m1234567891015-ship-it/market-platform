@@ -1072,33 +1072,9 @@ body[data-page="home"] .quick-links {
   margin-bottom: 18px;
 }
 
-.weighted-index-summary-row {
-  display: grid;
-  grid-template-columns: minmax(170px, 0.45fr) minmax(170px, 0.45fr) minmax(260px, 1.1fr);
-  gap: 12px;
-  margin-bottom: 18px;
-}
 
-.weighted-index-summary-row > div {
-  padding: 16px 18px;
-  border: var(--glass-tile-border);
-  border-radius: 18px;
-  background: var(--glass-tile-bg);
-}
 
-.weighted-index-summary-row span {
-  display: block;
-  margin-bottom: 8px;
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 700;
-}
 
-.weighted-index-summary-row strong {
-  display: block;
-  color: var(--text);
-  line-height: 1.55;
-}
 
 .weighted-index-chart-card {
   padding: 16px;
@@ -1642,9 +1618,6 @@ body[data-page="home"] .quick-links {
 }
 
 
-.weighted-vix-analysis-card {
-  margin-top: 0;
-}
 
 
 

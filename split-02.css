@@ -3292,12 +3292,6 @@
 
 /* ── VIX card ────────────────────────────────────────────────────────────── */
 
-.vix-value-row {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin: 10px 0 8px;
-}
 
 
 .vix-value.up   { color: var(--green); }

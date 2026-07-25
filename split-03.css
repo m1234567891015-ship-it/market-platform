@@ -1654,10 +1654,7 @@
     grid-template-columns: 1fr;
   }
 
-  #weighted-index-panel .weighted-index-summary-row {
-    grid-template-columns: 1fr;
-  }
-
+  
   #weighted-index-panel .sector-yahoo-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
