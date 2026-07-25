@@ -53,6 +53,30 @@
         }
       ]
     },
+    "derivatives-ai.html": {
+      "console_error_count": 0,
+      "steps": [
+        {
+          "after_snapshot": {},
+          "failures": [],
+          "id": "derivatives-ai__redirect",
+          "ok": true,
+          "tier": "P0"
+        }
+      ]
+    },
+    "derivatives-analytics.html": {
+      "console_error_count": 0,
+      "steps": [
+        {
+          "after_snapshot": {},
+          "failures": [],
+          "id": "derivatives-analytics__render",
+          "ok": true,
+          "tier": "P0"
+        }
+      ]
+    },
     "derivatives-assets.html": {
       "console_error_count": 0,
       "steps": [
@@ -60,6 +84,18 @@
           "after_snapshot": {},
           "failures": [],
           "id": "derivatives-assets__render",
+          "ok": true,
+          "tier": "P0"
+        }
+      ]
+    },
+    "derivatives-status.html": {
+      "console_error_count": 0,
+      "steps": [
+        {
+          "after_snapshot": {},
+          "failures": [],
+          "id": "derivatives-status__render",
           "ok": true,
           "tier": "P0"
         }
@@ -219,6 +255,27 @@
         }
       ]
     },
+    "index.html": {
+      "console_error_count": 0,
+      "steps": [
+        {
+          "after_snapshot": {
+            "#penny-trend-controls [data-home-penny-market][1]": {
+              "className": "class-tab is-active",
+              "count": 3,
+              "disabled": false,
+              "html": "\n        上櫃 <small>27 類</small>\n      ",
+              "text": "\n        上櫃 27 類\n      ",
+              "value": ""
+            }
+          },
+          "failures": [],
+          "id": "index__penny-trend-market",
+          "ok": true,
+          "tier": "P0"
+        }
+      ]
+    },
     "international-finance.html": {
       "console_error_count": 0,
       "steps": [
@@ -267,6 +324,112 @@
           },
           "failures": [],
           "id": "international-finance__volume-symbol",
+          "ok": true,
+          "tier": "P1"
+        }
+      ]
+    },
+    "market-overview.html": {
+      "console_error_count": 0,
+      "steps": [
+        {
+          "after_snapshot": {
+            "#sector-fund-flow [data-sector-flow-mode][1]": {
+              "className": "class-tab is-active",
+              "count": 3,
+              "disabled": false,
+              "html": "\n          流出\n        ",
+              "text": "\n          流出\n        ",
+              "value": ""
+            }
+          },
+          "failures": [],
+          "id": "market-overview__sector-flow-mode",
+          "ok": true,
+          "tier": "P0"
+        },
+        {
+          "after_snapshot": {
+            "#market-sector-ranking [data-market-sector-ranking-group][1]": {
+              "className": "class-tab is-active",
+              "count": 3,
+              "disabled": false,
+              "html": "\n          上櫃類股\n        ",
+              "text": "\n          上櫃類股\n        ",
+              "value": ""
+            }
+          },
+          "failures": [],
+          "id": "market-overview__sector-ranking-group",
+          "ok": true,
+          "tier": "P1"
+        },
+        {
+          "after_snapshot": {
+            "#sector-sort-select[0]": {
+              "className": "",
+              "count": 1,
+              "disabled": false,
+              "html": "\n        <option value=\"source_order\">預設順序</option><option value=\"pct_desc\" selected=\"\">漲跌幅高到低</option><option value=\"change_desc\">漲跌高到低</option><option value=\"volume_desc\">成交量高到低</option><option value=\"turnover_desc\">成交金額高到低</option><option value=\"name_asc\">名稱 A-Z</option>\n      ",
+              "text": "\n        預設順序漲跌幅高到低漲跌高到低成交量高到低成交金額高到低名稱 A-Z\n      ",
+              "value": "pct_desc"
+            }
+          },
+          "failures": [],
+          "id": "market-overview__sector-sort",
+          "ok": true,
+          "tier": "P1"
+        }
+      ]
+    },
+    "news.html": {
+      "console_error_count": 0,
+      "steps": [
+        {
+          "after_snapshot": {
+            "#sector-fund-flow [data-sector-flow-mode][1]": {
+              "className": "class-tab is-active",
+              "count": 3,
+              "disabled": false,
+              "html": "\n          流出\n        ",
+              "text": "\n          流出\n        ",
+              "value": ""
+            }
+          },
+          "failures": [],
+          "id": "market-overview__sector-flow-mode",
+          "ok": true,
+          "tier": "P0"
+        },
+        {
+          "after_snapshot": {
+            "#market-sector-ranking [data-market-sector-ranking-group][1]": {
+              "className": "class-tab is-active",
+              "count": 3,
+              "disabled": false,
+              "html": "\n          上櫃類股\n        ",
+              "text": "\n          上櫃類股\n        ",
+              "value": ""
+            }
+          },
+          "failures": [],
+          "id": "market-overview__sector-ranking-group",
+          "ok": true,
+          "tier": "P1"
+        },
+        {
+          "after_snapshot": {
+            "#sector-sort-select[0]": {
+              "className": "",
+              "count": 1,
+              "disabled": false,
+              "html": "\n        <option value=\"source_order\">預設順序</option><option value=\"pct_desc\" selected=\"\">漲跌幅高到低</option><option value=\"change_desc\">漲跌高到低</option><option value=\"volume_desc\">成交量高到低</option><option value=\"turnover_desc\">成交金額高到低</option><option value=\"name_asc\">名稱 A-Z</option>\n      ",
+              "text": "\n        預設順序漲跌幅高到低漲跌高到低成交量高到低成交金額高到低名稱 A-Z\n      ",
+              "value": "pct_desc"
+            }
+          },
+          "failures": [],
+          "id": "market-overview__sector-sort",
           "ok": true,
           "tier": "P1"
         }
@@ -407,6 +570,121 @@
           "id": "precious-metals__volume-symbol",
           "ok": true,
           "tier": "P1"
+        }
+      ]
+    },
+    "tw-Optional-stocks.html": {
+      "console_error_count": 0,
+      "steps": [
+        {
+          "after_snapshot": {
+            "input[type=number][data-portfolio-field=\"entryPrice\"][0]": {
+              "className": "",
+              "count": 2,
+              "disabled": false,
+              "html": "",
+              "text": "",
+              "value": "999"
+            }
+          },
+          "failures": [],
+          "id": "tw-optional-stocks__portfolio-entry-price",
+          "ok": true,
+          "tier": "P0"
+        },
+        {
+          "after_snapshot": {
+            "input[type=number][data-portfolio-field=\"shares\"][0]": {
+              "className": "",
+              "count": 2,
+              "disabled": false,
+              "html": "",
+              "text": "",
+              "value": "500"
+            }
+          },
+          "failures": [],
+          "id": "tw-optional-stocks__portfolio-shares",
+          "ok": true,
+          "tier": "P0"
+        },
+        {
+          "after_snapshot": {
+            "input[type=number][data-portfolio-field=\"stopLossPct\"][0]": {
+              "className": "",
+              "count": 2,
+              "disabled": false,
+              "html": "",
+              "text": "",
+              "value": "15"
+            }
+          },
+          "failures": [],
+          "id": "tw-optional-stocks__portfolio-stop-loss",
+          "ok": true,
+          "tier": "P1"
+        },
+        {
+          "after_snapshot": {
+            "input[type=number][data-portfolio-field=\"takeProfitPct\"][0]": {
+              "className": "",
+              "count": 2,
+              "disabled": false,
+              "html": "",
+              "text": "",
+              "value": "25"
+            }
+          },
+          "failures": [],
+          "id": "tw-optional-stocks__portfolio-take-profit",
+          "ok": true,
+          "tier": "P1"
+        },
+        {
+          "after_snapshot": {
+            "#portfolio-simulator-table[0]": {
+              "className": "portfolio-simulator-table",
+              "count": 1,
+              "disabled": false,
+              "html": "\n    <article class=\"portfolio-factor-card is-neutral\">\n      <div class=\"portfolio-factor-head\">\n        <div>\n          <p class=\"panel-kicker\">Portfolio factors</p>\n          <h4>等待建立部位</h4>\n        </div>\n        <a href=\"https://chatgpt.com/share/6a2bfa06-09ac-83e8-8d3f-6833ec6f0863\" target=\"_blank\" rel=\"noreferrer noopener\">自選組合因素基準</a>\n      </div>\n      <p>尚未輸入股數，系統先保留資產配置、成本、風控、總體風險與投資組合理論檢查框架。</p>\n      <div class=\"portfolio-factor-grid\">\n        <section>\n          <h5>納入考量</h5>\n          <ul><li>請輸入進場價與股數後，系統會估算淨損益、交易成本、集中度、VaR、相關性、分散化與風險貢獻。</li></ul>\n        </section>\n        <section>\n          <h5>風險與再平衡</h5>\n          <ul><li>建立部位前先設定單筆停損與停利條件，並預先規劃單一權重上限。</li></ul>\n        </section>\n        <section>\n          <h5>資產組合理論</h5>\n          <ul><li>尚未建立持股權重，暫無法計算均值-變異、相關性與風險貢獻。</li></ul>\n        </section>\n      </div>\n    </article>\n    <div class=\"portfolio-table-head\">\n      <span>個股</span><span>目前價</span><span>模擬進場價</span><span>股數</span>\n      <span>停損 / 停利</span><span>淨損益</span><span>判別訊號</span>\n    </div>\n    \n      <div class=\"portfolio-position-row\">\n        <div class=\"portfolio-stock-name\"><strong>2330</strong><span>台積電</span></div>\n        <strong>2,350</strong>\n        <label><span>進場價</span><input type=\"number\" min=\"0\" step=\"0.01\" value=\"2350\" data-portfolio-key=\"TWSE:2330\" data-portfolio-field=\"entryPrice\"></label>\n        <label><span>股數</span><input type=\"number\" min=\"0\" step=\"1\" value=\"0\" data-portfolio-key=\"TWSE:2330\" data-portfolio-field=\"shares\"></label>\n        <div class=\"portfolio-risk-inputs\">\n          <label><span>停損 %</span><input type=\"number\" min=\"0\" step=\"0.5\" value=\"8\" data-portfolio-key=\"TWSE:2330\" data-portfolio-field=\"stopLossPct\"></label>\n          <label><span>停利 %</span><input type=\"number\" min=\"0\" step=\"0.5\" value=\"15\" data-portfolio-key=\"TWSE:2330\" data-portfolio-field=\"takeProfitPct\"></label>\n        </div>\n        <div class=\"portfolio-pnl flat\">\n          <strong>0 元</strong>\n          <span>淨 +0.00%｜成本 0</span>\n        </div>\n        <div class=\"portfolio-signal is-negative\">\n          <strong>暫緩進場</strong>\n          <span>型態與指標偏弱；平均成交量 量價九式：價跌量縮：下跌量縮，賣壓未擴大但仍需止跌訊號；均量趨勢 +62.1%；量比 0.53，價變 -2.29%。</span>\n        </div>\n      </div>\n    \n      <div class=\"portfolio-position-row\">\n        <div class=\"portfolio-stock-name\"><strong>0050</strong><span>元大台灣50</span></div>\n        <strong>101.7</strong>\n        <label><span>進場價</span><input type=\"number\" min=\"0\" step=\"0.01\" value=\"101.7\" data-portfolio-key=\"TWSE:0050\" data-portfolio-field=\"entryPrice\"></label>\n        <label><span>股數</span><input type=\"number\" min=\"0\" step=\"1\" value=\"0\" data-portfolio-key=\"TWSE:0050\" data-portfolio-field=\"shares\"></label>\n        <div class=\"portfolio-risk-inputs\">\n          <label><span>停損 %</span><input type=\"number\" min=\"0\" step=\"0.5\" value=\"8\" data-portfolio-key=\"TWSE:0050\" data-portfolio-field=\"stopLossPct\"></label>\n          <label><span>停利 %</span><input type=\"number\" min=\"0\" step=\"0.5\" value=\"15\" data-portfolio-key=\"TWSE:0050\" data-portfolio-field=\"takeProfitPct\"></label>\n        </div>\n        <div class=\"portfolio-pnl flat\">\n          <strong>0 元</strong>\n          <span>淨 +0.00%｜成本 0</span>\n        </div>\n        <div class=\"portfolio-signal is-negative\">\n          <strong>暫緩進場</strong>\n          <span>型態與指標偏弱；平均成交量 量價九式：價平量縮：量縮整理，籌碼沉澱但方向尚未明朗；均量趨勢 +132.1%；量比 0.25，價變 +0.05%。</span>\n        </div>\n      </div>\n    \n  ",
+              "text": "\n    \n      \n        \n          Portfolio factors\n          等待建立部位\n        \n        自選組合因素基準\n      \n      尚未輸入股數，系統先保留資產配置、成本、風控、總體風險與投資組合理論檢查框架。\n      \n        \n          納入考量\n          請輸入進場價與股數後，系統會估算淨損益、交易成本、集中度、VaR、相關性、分散化與風險貢獻。\n        \n        \n          風險與再平衡\n          建立部位前先設定單筆停損與停利條件，並預先規劃單一權重上限。\n        \n        \n          資產組合理論\n          尚未建立持股權重，暫無法計算均值-變異、相關性與風險貢獻。\n        \n      \n    \n    \n      個股目前價模擬進場價股數\n      停損 / 停利淨損益判別訊號\n    \n    \n      \n        2330台積電\n        2,350\n        進場價\n        股數\n        \n          停損 %\n          停利 %\n        \n        \n          0 元\n          淨 +0.00%｜成本 0\n        \n        \n          暫緩進場\n          型態與指標偏弱；平均成交量 量價九式：價跌量縮：下跌量縮，賣壓未擴大但仍需止跌訊號；均量趨勢 +62.1%；量比 0.53，價變 -2.29%。\n        \n      \n    \n      \n        0050元大台灣50\n        101.7\n        進場價\n        股數\n        \n          停損 %\n          停利 %\n        \n        \n          0 元\n          淨 +0.00%｜成本 0\n        \n        \n          暫緩進場\n          型態與指標偏弱；平均成交量 量價九式：價平量縮：量縮整理，籌碼沉澱但方向尚未明朗；均量趨勢 +132.1%；量比 0.25，價變 +0.05%。\n        \n      \n    \n  ",
+              "value": null
+            }
+          },
+          "failures": [],
+          "id": "tw-optional-stocks__portfolio-reset",
+          "ok": true,
+          "tier": "P1"
+        },
+        {
+          "after_snapshot": {},
+          "failures": [],
+          "id": "tw-optional-stocks__analysis-refresh",
+          "ok": true,
+          "tier": "P0"
+        },
+        {
+          "after_snapshot": {
+            "#watchlist-grid[0]": {
+              "className": "watchlist-grid",
+              "count": 1,
+              "disabled": false,
+              "html": "\n    <article class=\"watchlist-card is-clickable\" role=\"link\" tabindex=\"0\" data-watchlist-detail-url=\"tw-stock-search.html?q=2330&amp;market=TWSE\" aria-label=\"查看 2330 台積電 個股詳情\">\n      <div class=\"watchlist-card-head\">\n        <div>\n          <span>TWSE</span>\n          <h3>2330 台積電</h3>\n        </div>\n        <button class=\"watchlist-remove\" type=\"button\" data-watchlist-remove=\"TWSE:2330\">移除</button>\n      </div>\n      <div class=\"watchlist-quote\">\n        <strong>--</strong>\n        <span class=\"flat\">-- / --</span>\n      </div>\n      <div class=\"watchlist-ai-card is-negative\">\n        \n          <div class=\"watchlist-ai-title\">\n            <span>AI 分析建議</span>\n            <strong>風險控管</strong>\n          </div>\n          <p>弱勢因子較多，宜控制部位並設定可承受的停損或減碼條件。</p>\n          <div class=\"watchlist-theory-groups\">\n            <div>\n              <strong>型態技術</strong>\n              <span>5 項偏空、3 項偏多；回測 240 日後淨報酬，均線多頭排列 勝率 100%，淨均報酬 +82.23%；價量方向尚未形成一致確認；市場廣度／籌碼與價量技術方向衝突，已降低權重</span>\n            </div>\n            <div>\n              <strong>指標技術</strong>\n              <span>價量方向尚未形成一致確認</span>\n            </div>\n          </div>\n          <ul><li>道氏理論：波段高點與低點同步下移，主要趨勢偏空</li><li>平均成交量 量價九式：價跌量縮：下跌量縮，賣壓未擴大但仍需止跌訊號；均量趨勢 +62.1%；量比 0.53，價變 -2.29%</li><li>心理線 PSY 50.0%：多方交易日略占優勢</li><li>股價位於 5 日均線下方，短線仍需確認支撐</li></ul>\n          <small>信心 低 · 資料日 2026-07-24</small>\n        \n      </div>\n      <a class=\"watchlist-detail-link\" href=\"tw-stock-search.html?q=2330&amp;market=TWSE\">查看個股分析</a>\n    </article>\n  ",
+              "text": "\n    \n      \n        \n          TWSE\n          2330 台積電\n        \n        移除\n      \n      \n        --\n        -- / --\n      \n      \n        \n          \n            AI 分析建議\n            風險控管\n          \n          弱勢因子較多，宜控制部位並設定可承受的停損或減碼條件。\n          \n            \n              型態技術\n              5 項偏空、3 項偏多；回測 240 日後淨報酬，均線多頭排列 勝率 100%，淨均報酬 +82.23%；價量方向尚未形成一致確認；市場廣度／籌碼與價量技術方向衝突，已降低權重\n            \n            \n              指標技術\n              價量方向尚未形成一致確認\n            \n          \n          道氏理論：波段高點與低點同步下移，主要趨勢偏空平均成交量 量價九式：價跌量縮：下跌量縮，賣壓未擴大但仍需止跌訊號；均量趨勢 +62.1%；量比 0.53，價變 -2.29%心理線 PSY 50.0%：多方交易日略占優勢股價位於 5 日均線下方，短線仍需確認支撐\n          信心 低 · 資料日 2026-07-24\n        \n      \n      查看個股分析\n    \n  ",
+              "value": null
+            }
+          },
+          "failures": [],
+          "id": "tw-optional-stocks__watchlist-remove",
+          "ok": true,
+          "tier": "P1"
+        },
+        {
+          "after_snapshot": {},
+          "failures": [],
+          "id": "tw-optional-stocks__card-navigate",
+          "ok": true,
+          "tier": "P0"
         }
       ]
     },
