@@ -1417,19 +1417,7 @@
   flex-wrap: wrap;
 }
 
-.ghost-link {
-  border: 0;
-  color: #9fb1c9;
-  background: transparent;
-  font: inherit;
-  font-weight: 800;
-  cursor: pointer;
-}
 
-.ghost-link:hover,
-.ghost-link:focus-visible {
-  color: #f5bd55;
-}
 
 .asset-hub-module-grid .us-module-card {
   min-height: 210px;

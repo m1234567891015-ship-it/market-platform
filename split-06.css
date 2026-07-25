@@ -269,35 +269,13 @@
   white-space: nowrap;
 }
 
-.options-market-chain-data-wrap {
-  border: 1px solid rgba(129, 180, 255, 0.14);
-  border-radius: 14px;
-}
 
-.options-market-chain-data-table {
-  min-width: 920px;
-}
 
 .options-market-chain-data-table tr.is-active td {
   background: rgba(245, 189, 85, 0.1);
 }
 
-.options-market-chain-row-button {
-  padding: 0;
-  border: 0;
-  color: var(--text);
-  background: transparent;
-  font: inherit;
-  font-weight: 900;
-  cursor: pointer;
-  text-align: left;
-}
 
-.options-market-chain-row-button:hover,
-.options-market-chain-row-button:focus-visible {
-  color: var(--gold);
-  outline: 0;
-}
 
 @media (max-width: 980px) {
   .options-market-chain-selected,

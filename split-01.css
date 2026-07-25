@@ -1715,40 +1715,14 @@ body[data-page="home"] .quick-links {
   background: linear-gradient(135deg, rgba(241, 183, 97, 0.16), rgba(86, 174, 255, 0.08));
 }
 
-.index-comparison-insight {
-  margin-top: 0;
-}
 
 .weighted-vix-analysis-card {
   margin-top: 0;
 }
 
-.index-comparison-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin: 10px 0;
-}
 
-.index-comparison-grid > div {
-  display: grid;
-  gap: 6px;
-  padding: 11px 12px;
-  border: 1px solid rgba(147, 178, 220, 0.12);
-  border-radius: 14px;
-  background: rgba(5, 13, 25, 0.24);
-}
 
-.index-comparison-grid span {
-  color: var(--muted);
-  font-size: 0.76rem;
-  font-weight: 800;
-}
 
-.index-comparison-grid strong {
-  font-size: 0.9rem;
-  line-height: 1.45;
-}
 
 .vix-current-meaning {
   display: grid;
@@ -2809,18 +2783,7 @@ body[data-page="home"] .quick-links {
   background: var(--red);
 }
 
-.legend-swatch-strength {
-  background: var(--gold);
-}
 
-.legend-swatch-ma {
-  height: 2px;
-  background: repeating-linear-gradient(
-    90deg,
-    var(--gold) 0 6px,
-    transparent 6px 10px
-  );
-}
 
 @media (max-width: 720px) {
   .sector-chart-stat-strip {
@@ -3099,14 +3062,7 @@ body[data-page="home"] .quick-links {
   margin: 18px 0;
 }
 
-.insight-list {
-  margin: 0;
-  padding-left: 18px;
-}
 
-.insight-list li + li {
-  margin-top: 10px;
-}
 
 .market-ai-insight {
   display: grid;

@@ -509,10 +509,6 @@
   background: #e07441;
 }
 
-.margin-balance-list {
-  display: grid;
-  gap: 12px;
-}
 
 .margin-balance-visual {
   border-color: rgba(77, 167, 255, 0.18);
@@ -871,19 +867,7 @@
   color: #42d88e;
 }
 
-.margin-balance-item {
-  display: grid;
-  gap: 7px;
-}
 
-.margin-balance-title {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 800;
-}
 
 .margin-balance-title strong.is-up {
   color: #ff6f68;
@@ -893,18 +877,7 @@
   color: #42d88e;
 }
 
-.margin-balance-track {
-  height: 10px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: rgba(147, 178, 220, 0.08);
-}
 
-.margin-balance-track span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-}
 
 .margin-balance-track .is-previous {
   background: rgba(147, 178, 220, 0.34);
@@ -918,10 +891,6 @@
   background: linear-gradient(90deg, rgba(224, 116, 65, 0.58), rgba(224, 116, 65, 0.9));
 }
 
-.margin-balance-item small {
-  color: rgba(147, 178, 220, 0.72);
-  font-size: 0.72rem;
-}
 
 .broker-balance-card {
   display: grid;

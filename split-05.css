@@ -2580,35 +2580,13 @@
   background: rgba(8, 19, 35, 0.38);
 }
 
-.options-heatmap-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.28fr);
-  gap: 14px;
-  align-items: start;
-}
 
-.options-heat-table {
-  min-width: 680px;
-}
 
-.options-heat-table td,
-.options-heat-table th {
-  text-align: center;
-}
 
 .options-heat-table tr.is-max-pain td {
   background: rgba(245, 189, 85, 0.08);
 }
 
-.options-heat-cell {
-  display: inline-flex;
-  justify-content: center;
-  min-width: 86px;
-  padding: 7px 10px;
-  border-radius: 10px;
-  color: var(--text);
-  font-weight: 950;
-}
 
 .options-heat-cell.is-call {
   background: rgba(255, 95, 122, var(--heat));
@@ -2618,10 +2596,6 @@
   background: rgba(50, 213, 155, var(--heat));
 }
 
-.options-heatmap-side {
-  display: grid;
-  gap: 10px;
-}
 
 .options-heatmap-side b.is-call {
   color: var(--red);
@@ -2631,12 +2605,6 @@
   color: var(--green);
 }
 
-.options-heatmap-side em {
-  color: var(--blue);
-  font-size: 0.78rem;
-  font-style: normal;
-  font-weight: 900;
-}
 
 .options-chain-oi-summary {
   display: grid;
@@ -3102,10 +3070,6 @@
   background: rgba(8, 19, 35, 0.34);
 }
 
-.options-decision-factor-block {
-  display: grid;
-  gap: 9px;
-}
 
 .options-decision-summary-strip {
   display: grid;
@@ -3176,13 +3140,6 @@
   white-space: normal;
 }
 
-.options-decision-factor-block > small {
-  color: var(--muted);
-  font-size: 0.72rem;
-  font-weight: 950;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
 
 .options-market-strip button,
 .options-output-grid span {
