@@ -739,44 +739,10 @@ body[data-page="home"] .quick-links {
   line-height: 1.55;
 }
 
-.penny-trend-metrics {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  align-items: center;
-  padding-top: 10px;
-  border-top: 1px solid var(--line-subtle);
-}
 
-.penny-trend-metrics b,
-.penny-trend-metrics em,
-.penny-trend-metrics small {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
-.penny-trend-metrics b {
-  font-family: "Space Grotesk", sans-serif;
-  font-size: 1.08rem;
-}
 
-.penny-trend-metrics em {
-  font-style: normal;
-  font-weight: 800;
-}
 
-.penny-trend-metrics small {
-  justify-self: end;
-  padding: 5px 9px;
-  border-radius: 999px;
-  background: rgba(77, 167, 255, 0.12);
-  color: var(--blue);
-  font-weight: 800;
-}
 
 .penny-trend-sector-card {
   align-content: start;
@@ -1663,52 +1629,12 @@ body[data-page="home"] .quick-links {
   line-height: 1.5;
 }
 
-.taiex-vix-trading-card {
-  display: grid;
-  gap: 12px;
-  margin-top: 14px;
-  padding: 16px;
-  border: 1px solid rgba(241, 183, 97, 0.18);
-  border-radius: 20px;
-  background: radial-gradient(circle at top right, rgba(241, 183, 97, 0.1), transparent 32%), rgba(255, 255, 255, 0.03);
-}
 
-.taiex-vix-trading-card h4 {
-  margin: 0;
-}
 
-.taiex-vix-trading-summary {
-  display: grid;
-  grid-template-columns: minmax(120px, 0.75fr) minmax(120px, 0.75fr) minmax(220px, 2fr);
-  gap: 10px;
-}
 
-.taiex-vix-trading-summary > div,
-.taiex-vix-trading-table > div {
-  padding: 10px 12px;
-  border: 1px solid rgba(147, 178, 220, 0.1);
-  border-radius: 14px;
-  background: rgba(5, 13, 25, 0.22);
-}
 
-.taiex-vix-trading-summary span,
-.taiex-vix-trading-table span,
-.taiex-vix-trading-table small {
-  color: var(--muted);
-  font-size: 0.76rem;
-}
 
-.taiex-vix-trading-table {
-  display: grid;
-  gap: 8px;
-}
 
-.taiex-vix-trading-table > div {
-  display: grid;
-  grid-template-columns: 0.5fr 0.6fr 1fr 2fr;
-  gap: 10px;
-  align-items: center;
-}
 
 .taiex-vix-trading-table .is-active {
   border-color: rgba(241, 183, 97, 0.55);
@@ -2816,22 +2742,7 @@ body[data-page="home"] .quick-links {
   margin-bottom: 18px;
 }
 
-.trend-tabs {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 18px;
-}
 
-.trend-tab {
-  display: inline-flex;
-  align-items: center;
-  padding: 8px 14px;
-  border-radius: 999px;
-  color: var(--muted);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(147, 178, 220, 0.12);
-  font-weight: 700;
-}
 
 .trend-tab.is-active {
   color: var(--text);
@@ -3023,27 +2934,9 @@ body[data-page="home"] .quick-links {
   font-size: 2rem;
 }
 
-.stock-table {
-  overflow: hidden;
-}
 
-.table-head,
-.table-row {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 12px;
-  align-items: center;
-  padding: 16px 18px;
-}
 
-.table-head {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--muted);
-}
 
-.table-row {
-  border-top: 1px solid rgba(147, 178, 220, 0.1);
-}
 
 
 #stock-detail.panel-card,

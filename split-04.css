@@ -998,14 +998,6 @@
   margin-top: 22px;
 }
 
-.us-architecture-card {
-  display: grid;
-  gap: 22px;
-  border-color: rgba(245, 189, 85, 0.2);
-  background:
-    linear-gradient(180deg, rgba(14, 28, 49, 0.94), rgba(8, 18, 34, 0.9)),
-    rgba(7, 20, 38, 0.9);
-}
 
 .us-architecture-title {
   text-align: center;
@@ -1023,32 +1015,8 @@
   color: #b9c9df;
 }
 
-.us-architecture-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  gap: 16px;
-}
 
-.us-architecture-node {
-  position: relative;
-  display: grid;
-  gap: 8px;
-  min-height: 260px;
-  padding: 18px 16px;
-  border: 1px solid rgba(129, 180, 255, 0.18);
-  border-radius: 20px;
-  color: #dbe7f6;
-  background: rgba(18, 32, 53, 0.78);
-  text-decoration: none;
-  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
-}
 
-.us-architecture-node:hover,
-.us-architecture-node:focus-visible {
-  transform: translateY(-3px);
-  border-color: rgba(245, 189, 85, 0.48);
-  background: rgba(22, 40, 66, 0.92);
-}
 
 .us-node-number {
   width: 34px;
@@ -1061,23 +1029,8 @@
   font-weight: 900;
 }
 
-.us-architecture-node strong {
-  color: #f7fbff;
-  font-size: 1.15rem;
-}
 
-.us-architecture-node small {
-  color: #9fb1c9;
-  font-weight: 800;
-}
 
-.us-architecture-node ul {
-  margin: 4px 0 0;
-  padding-left: 18px;
-  color: #c9d7ea;
-  font-size: 0.86rem;
-  line-height: 1.55;
-}
 
 .us-architecture-node.is-blue { border-color: rgba(69, 166, 255, 0.3); }
 .us-architecture-node.is-green { border-color: rgba(69, 214, 170, 0.3); }
@@ -1118,9 +1071,6 @@
   font-weight: 800;
 }
 
-.us-agent-row {
-  border-color: rgba(69, 214, 170, 0.28);
-}
 
 .us-platform-dashboard {
   display: grid;
@@ -2298,23 +2248,7 @@
   backdrop-filter: blur(16px);
 }
 
-.pwa-action {
-  min-height: 38px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 999px;
-  color: #071426;
-  background: linear-gradient(135deg, #f5bd55, #ffd77f);
-  font: inherit;
-  font-size: 0.82rem;
-  font-weight: 800;
-  cursor: pointer;
-}
 
-.pwa-update {
-  color: #f7fbff;
-  background: linear-gradient(135deg, #2373c9, #45a6ff);
-}
 
 .pwa-network {
   display: inline-flex;

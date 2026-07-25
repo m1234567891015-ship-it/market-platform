@@ -1032,9 +1032,6 @@
   cursor: wait;
 }
 
-.tw-etf-list-head {
-  align-items: flex-start;
-}
 
 .tw-etf-list-toolbar {
   margin: 16px 0 18px;

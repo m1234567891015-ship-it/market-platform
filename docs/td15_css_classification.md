@@ -28,6 +28,19 @@ class 之外的其他出現位置)因牽連其他存活 class 而不刪除,只�
 純淨」的出現位置——這代表部分可刪 class 的某些出現位置會保留、不會被完全清除,是
 「寧可漏刪」原則下刻意的保守選擇。
 
+**重要更正(掃描範圍遺漏根目錄 JS 檔,執行第四批次時經 pixel diff 抓到)**:批次 4
+刪除後,`verify --full` 的 21 頁 pixel diff 出現 5 頁超過 2% 差異門檻(derivatives-status.html/
+tw-Optional-stocks.html/tw-stock-search.html/us-stock-search.html/us-watchlist.html)。
+追查發現:本表(以及最早的 `docs/css_unused_report.md`)從頭到尾的字串掃描範圍都只有
+`js/*.js` + `app.js`,**遺漏了根目錄下另外 4 個獨立腳本檔案**:`pwa.js`(PWA 安裝/連線
+狀態元件)、`derivatives-ui.js`、`service-worker.js`、`twse-data.js`。用這 4 個檔案重新
+比對全部 135 個原始候選,發現 `pwa-controls`/`pwa-network` 確實在 `pwa.js`
+(第 29/32/41 行)有真實引用——這是本輪唯一受影響的 2 個 class(其餘 133 個候選逐一
+比對後在這 4 個檔案裡皆零命中,包含批次 1-3 已刪除的 60 個,已個別核實過,那 60 個
+乾淨無誤,不需回退)。`pwa-controls`/`pwa-network` 改列本輪不刪,批次 4 重新執行時
+排除這兩個(見下方表格判定欄)。**後續所有批次的掃描範圍已擴大為
+`js/*.js` + `app.js` + `pwa.js` + `derivatives-ui.js` + `service-worker.js` + `twse-data.js`**。
+
 ## 方法
 
 1. **靜態引用掃描**:沿用 `css_unused_report.md` 的文字邊界比對結果(已排除子字串誤配)。
@@ -180,8 +193,8 @@ class 之外的其他出現位置)因牽連其他存活 class 而不刪除,只�
 | `.options-region-factor-block` | split-05.css:3099 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.penny-trend-metrics` | split-01.css:703; split-01.css:742; split-01.css:752 等共8處 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.pwa-action` | split-04.css:2514 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
-| `.pwa-controls` | split-04.css:2498; split-04.css:2596 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
-| `.pwa-network` | split-04.css:2532; split-04.css:2543; split-04.css:2551 等共5處 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
+| `.pwa-controls` | split-04.css:2498; split-04.css:2596 | 是(pwa.js,原掃描範圍遺漏此檔) | 不刪(第一輪誤判,已更正) | 見下方「掃描範圍更正」說明 |
+| `.pwa-network` | split-04.css:2532; split-04.css:2543; split-04.css:2551 等共5處 | 是(pwa.js,原掃描範圍遺漏此檔) | 不刪(第一輪誤判,已更正) | 見下方「掃描範圍更正」說明 |
 | `.pwa-update` | split-04.css:2527 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.sector-card` | split-01.css:157; split-01.css:874; split-01.css:3051 等共5處 | 是(樣板字面值字首比對命中) | 不刪(動態組合類) | 見 css_unused_report.md 已知動態字首清單,本輪不再重複刪除評估 |
 | `.sector-card-main` | split-01.css:3058 | 是(樣板字面值字首比對命中) | 不刪(動態組合類) | 見 css_unused_report.md 已知動態字首清單,本輪不再重複刪除評估 |
@@ -274,11 +287,14 @@ class 之外的其他出現位置)因牽連其他存活 class 而不刪除,只�
 
 ## 統計
 
-- 第三層(可刪候選 class,grouped selector 安全性複查通過):**123 個**(原 135 個,
-  複查後 12 個因所有出現位置都牽連其他存活 class 而降級,見上方更正說明)
+- 第三層(可刪候選 class,grouped selector 安全性複查 + 掃描範圍擴大複查通過):
+  **121 個**(原 135 個,12 個因 grouped selector 全數牽連存活 class 降級,
+  2 個 `pwa-controls`/`pwa-network` 因掃描範圍遺漏 `pwa.js` 誤判,兩項更正
+  見上方說明)
 - 本輪不刪(grouped selector 牽連其他存活 class,查無純淨出現位置):12 個
+- 本輪不刪(掃描範圍遺漏根目錄 JS 檔案導致誤判,實際有真實引用):2 個(`pwa-controls`/`pwa-network`)
 - 不刪(動態組合類 class):81 個
 - ID 候選:0 個(原 7 個皆非真實存在的選擇器,已排除)
 - 合計掃描:216 個 class + 7 個(已排除)ID
-- 實際可執行刪除的規則區塊數:227(123 個 class 的所有「規則整體 100% 純淨」出現位置;
+- 實際可執行刪除的規則區塊數:220(121 個 class 的所有「規則整體 100% 純淨」出現位置;
   部分 class 有多個出現位置,其中混有 grouped selector 的位置不刪,只刪純淨位置)

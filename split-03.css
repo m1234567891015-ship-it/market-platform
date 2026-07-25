@@ -2167,10 +2167,7 @@
     min-width: 0;
   }
 
-  .trend-tabs {
-    flex-wrap: wrap;
-  }
-
+  
   .sector-sync-chart-summary {
     flex-direction: column;
     align-items: flex-start;
