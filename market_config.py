@@ -92,6 +92,11 @@ ROOT_STATIC_FILES = {
     "styles.css",
     "twse-cache.json",
     "twse-data.js",
+    # CSS 拆分(styles.css → 純位置切割,split-NN.css),放在根目錄(不是
+    # 子目錄)是必要的:CSS 內的相對路徑 url() 是依「樣式表本身的 URL」
+    # 解析,不是依頁面 URL——若放進子目錄會讓 url("assets/...") 這類參照
+    # 多解析出一層路徑而 404。見 docs/css_split_map.md。
+    "split-01.css",
 }
 ASSET_STATIC_FILES = {
     "app-icon.svg",
