@@ -10,6 +10,24 @@
 這 7 個 ID **不存在於當前 CSS,無從刪起**,予以排除,不列入本表刪除候選,已在
 `docs/css_unused_report.md` 的後續使用中應視為已知錯誤修正。
 
+**重要更正(grouped selector 安全性,執行刪除前發現並修正)**:準備第四部分實際刪除時,
+發現本表最初的「動態拼接判定」/「引用掃描」只逐一檢查每個候選 class 本身,沒有檢查
+「同一條規則的其他逗號分支選擇器是否也全部是死 class」。CSS 規則可以用逗號分組多個
+選擇器共用一個宣告區塊(例如 `.mini-list.wide, .detail-metrics, .table-head, .table-row,
+.history-row, .analysis-grid { ... }`),若只因為其中一個分支(`.table-head`)是死 class
+就整條規則刪除,會連帶刪掉其他活著的分支(`.detail-metrics`/`.analysis-grid` 等)的樣式,
+屬於「誤刪」。修正後的判定標準:**一條規則要安全可刪,規則內所有逗號分支引用的 class
+必須全部落在死碼候選清單內,缺一都整條規則降級為不刪**。修正後,以下 12 個 class 原本
+標記可刪,重新核實後**查無任何 100% 純淨(不牽連其他存活 class)的出現位置**,改為
+本輪不刪:`class-hero-main`、`derivatives-overview-hot-strikes`、
+`derivatives-overview-indicator-grid`、`derivatives-overview-position-card`、
+`derivatives-overview-technical-card`、`limit-move-card`、`us-etf-dashboard`、
+`us-etf-detail-watchlist`、`us-sector-alpha-bars`、`us-sector-volume-bars`、
+`weighted-index-note-card`、`wide`。另有 104 個規則區塊(對應到其餘 123 個仍可刪除的
+class 之外的其他出現位置)因牽連其他存活 class 而不刪除,只刪除那些「規則整體 100%
+純淨」的出現位置——這代表部分可刪 class 的某些出現位置會保留、不會被完全清除,是
+「寧可漏刪」原則下刻意的保守選擇。
+
 ## 方法
 
 1. **靜態引用掃描**:沿用 `css_unused_report.md` 的文字邊界比對結果(已排除子字串誤配)。
@@ -43,19 +61,19 @@
 | `.chip-price-area` | split-03.css:348 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.chip-summary-card` | split-03.css:85; split-03.css:97; split-03.css:101 等共8處 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.chip-summary-grid` | split-03.css:47; split-03.css:78; split-03.css:2299 等共5處 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
-| `.class-hero-main` | split-01.css:2839 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
+| `.class-hero-main` | split-01.css:2839 | 是(grouped selector) | 本輪不刪 | 所有安全候選出現位置皆屬 grouped selector,牽連其他非死碼 class,整條規則不能整段刪除;查無 100% 純淨出現位置 |
 | `.class-hero-metrics` | split-01.css:2862; split-03.css:1938 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.class-hero-value-row` | split-01.css:2844; split-01.css:2852; split-01.css:2857 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
-| `.derivatives-overview-hot-strikes` | split-04.css:2952; split-04.css:2965; split-04.css:2975 等共6處 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
-| `.derivatives-overview-indicator-grid` | split-04.css:2945; split-04.css:2952; split-04.css:2965 等共8處 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
+| `.derivatives-overview-hot-strikes` | split-04.css:2952; split-04.css:2965; split-04.css:2975 等共6處 | 是(grouped selector) | 本輪不刪 | 所有安全候選出現位置皆屬 grouped selector,牽連其他非死碼 class,整條規則不能整段刪除;查無 100% 純淨出現位置 |
+| `.derivatives-overview-indicator-grid` | split-04.css:2945; split-04.css:2952; split-04.css:2965 等共8處 | 是(grouped selector) | 本輪不刪 | 所有安全候選出現位置皆屬 grouped selector,牽連其他非死碼 class,整條規則不能整段刪除;查無 100% 純淨出現位置 |
 | `.derivatives-overview-intelligence-grid` | split-04.css:2931; split-04.css:3489; split-05.css:26 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.derivatives-overview-macro-grid` | split-04.css:3077; split-05.css:26 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
-| `.derivatives-overview-position-card` | split-04.css:2938 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
+| `.derivatives-overview-position-card` | split-04.css:2938 | 是(grouped selector) | 本輪不刪 | 所有安全候選出現位置皆屬 grouped selector,牽連其他非死碼 class,整條規則不能整段刪除;查無 100% 純淨出現位置 |
 | `.derivatives-overview-section-head` | split-04.css:2918; split-04.css:2926; split-05.css:55 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.derivatives-overview-signal` | split-04.css:2623; split-04.css:2633; split-04.css:2634 等共4處 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.derivatives-overview-signal-copy` | split-04.css:2757; split-04.css:2763; split-04.css:2769 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.derivatives-overview-signal-section` | split-04.css:2619 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
-| `.derivatives-overview-technical-card` | split-04.css:2938 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
+| `.derivatives-overview-technical-card` | split-04.css:2938 | 是(grouped selector) | 本輪不刪 | 所有安全候選出現位置皆屬 grouped selector,牽連其他非死碼 class,整條規則不能整段刪除;查無 100% 純淨出現位置 |
 | `.detail-grid` | split-01.css:233; split-01.css:3105; split-03.css:1772 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.detail-link` | split-03.css:2190 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.futures-analysis-visual` | split-04.css:555 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
@@ -122,7 +140,7 @@
 | `.is-yellow` | split-01.css:1826; split-01.css:1877; split-01.css:1913 等共14處 | 是(樣板字面值字首比對命中) | 不刪(動態組合類) | 見 css_unused_report.md 已知動態字首清單,本輪不再重複刪除評估 |
 | `.legend-swatch-ma` | split-01.css:2816 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.legend-swatch-strength` | split-01.css:2812 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
-| `.limit-move-card` | split-02.css:103 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
+| `.limit-move-card` | split-02.css:103 | 是(grouped selector) | 本輪不刪 | 所有安全候選出現位置皆屬 grouped selector,牽連其他非死碼 class,整條規則不能整段刪除;查無 100% 純淨出現位置 |
 | `.ma-10` | split-02.css:3300; split-02.css:3300 | 是(樣板字面值字首比對命中) | 不刪(動態組合類) | 見 css_unused_report.md 已知動態字首清單,本輪不再重複刪除評估 |
 | `.ma-120` | split-02.css:3306; split-02.css:3306 | 是(樣板字面值字首比對命中) | 不刪(動態組合類) | 見 css_unused_report.md 已知動態字首清單,本輪不再重複刪除評估 |
 | `.ma-20` | split-02.css:3302; split-02.css:3302 | 是(樣板字面值字首比對命中) | 不刪(動態組合類) | 見 css_unused_report.md 已知動態字首清單,本輪不再重複刪除評估 |
@@ -195,7 +213,7 @@
 | `.us-architecture-title` | split-04.css:1211; split-04.css:1215; split-04.css:1221 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.us-engine-row` | split-04.css:1291; split-04.css:1300; split-04.css:1306 等共4處 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.us-etf-category-filters` | split-04.css:1748; split-04.css:1755; split-04.css:1760 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
-| `.us-etf-dashboard` | split-04.css:2112 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
+| `.us-etf-dashboard` | split-04.css:2112 | 是(grouped selector) | 本輪不刪 | 所有安全候選出現位置皆屬 grouped selector,牽連其他非死碼 class,整條規則不能整段刪除;查無 100% 純淨出現位置 |
 | `.us-etf-detail-badges` | split-04.css:1957; split-04.css:1964; split-04.css:2476 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.us-etf-detail-body` | split-04.css:2013; split-04.css:2411 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.us-etf-detail-brief` | split-04.css:2064; split-04.css:2411 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
@@ -203,7 +221,7 @@
 | `.us-etf-detail-facts` | split-04.css:2037; split-04.css:2043; split-04.css:2053 等共6處 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.us-etf-detail-hero` | split-04.css:1936; split-04.css:1944; split-04.css:1950 等共4處 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.us-etf-detail-signal-grid` | split-04.css:1968; split-04.css:2416; split-04.css:2470 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
-| `.us-etf-detail-watchlist` | split-04.css:2020; split-04.css:2087; split-04.css:2092 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
+| `.us-etf-detail-watchlist` | split-04.css:2020; split-04.css:2087; split-04.css:2092 | 是(grouped selector) | 本輪不刪 | 所有安全候選出現位置皆屬 grouped selector,牽連其他非死碼 class,整條規則不能整段刪除;查無 100% 純淨出現位置 |
 | `.us-etf-entry-card` | split-04.css:2130; split-04.css:2330 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.us-etf-entry-tags` | split-04.css:2139; split-04.css:2213; split-04.css:2213 等共8處 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.us-node-number` | split-04.css:1254 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
@@ -213,7 +231,7 @@
 | `.us-search-suggestion` | split-04.css:1504; split-04.css:1517; split-04.css:1517 等共7處 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.us-search-suggestions` | split-04.css:1498 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.us-sector-alpha-area` | split-03.css:3086; split-03.css:3090; split-03.css:3094 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
-| `.us-sector-alpha-bars` | split-03.css:3107; split-03.css:3111 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
+| `.us-sector-alpha-bars` | split-03.css:3107; split-03.css:3111 | 是(grouped selector) | 本輪不刪 | 所有安全候選出現位置皆屬 grouped selector,牽連其他非死碼 class,整條規則不能整段刪除;查無 100% 純淨出現位置 |
 | `.us-sector-alpha-line` | split-03.css:3098 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.us-sector-base-line` | split-03.css:3080 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.us-sector-benchmark-line` | split-03.css:3028 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
@@ -223,7 +241,7 @@
 | `.us-sector-plain-result` | split-03.css:3125; split-03.css:3134; split-03.css:3139 等共5處 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.us-sector-relative-band` | split-03.css:3059; split-03.css:3063; split-03.css:3067 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.us-sector-stock-item` | split-03.css:3282; split-03.css:3287 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
-| `.us-sector-volume-bars` | split-03.css:3071; split-03.css:3071; split-03.css:3076 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
+| `.us-sector-volume-bars` | split-03.css:3071; split-03.css:3071; split-03.css:3076 | 是(grouped selector) | 本輪不刪 | 所有安全候選出現位置皆屬 grouped selector,牽連其他非死碼 class,整條規則不能整段刪除;查無 100% 純淨出現位置 |
 | `.us-watchlist-actions` | split-04.css:1614 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.us-watchlist-card` | split-04.css:1598; split-04.css:1609 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.vix-card` | split-02.css:3414 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
@@ -237,10 +255,10 @@
 | `.vix-updated` | split-02.css:3467 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.vix-value` | split-02.css:3425; split-02.css:3433; split-02.css:3434 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.vix-value-row` | split-02.css:3418 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
-| `.weighted-index-note-card` | split-01.css:1258 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
+| `.weighted-index-note-card` | split-01.css:1258 | 是(grouped selector) | 本輪不刪 | 所有安全候選出現位置皆屬 grouped selector,牽連其他非死碼 class,整條規則不能整段刪除;查無 100% 純淨出現位置 |
 | `.weighted-index-summary-row` | split-01.css:1109; split-01.css:1116; split-01.css:1123 等共5處 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.weighted-vix-analysis-card` | split-01.css:1722 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
-| `.wide` | split-01.css:312; split-03.css:2263; split-03.css:2365 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
+| `.wide` | split-01.css:312; split-03.css:2263; split-03.css:2365 | 是(grouped selector) | 本輪不刪 | 所有安全候選出現位置皆屬 grouped selector,牽連其他非死碼 class,整條規則不能整段刪除;查無 100% 純淨出現位置 |
 
 ## ID 候選:全數排除(不存在於當前 CSS,見上方更正說明)
 
@@ -256,7 +274,11 @@
 
 ## 統計
 
-- 第三層(可刪候選 class):135 個
+- 第三層(可刪候選 class,grouped selector 安全性複查通過):**123 個**(原 135 個,
+  複查後 12 個因所有出現位置都牽連其他存活 class 而降級,見上方更正說明)
+- 本輪不刪(grouped selector 牽連其他存活 class,查無純淨出現位置):12 個
 - 不刪(動態組合類 class):81 個
 - ID 候選:0 個(原 7 個皆非真實存在的選擇器,已排除)
 - 合計掃描:216 個 class + 7 個(已排除)ID
+- 實際可執行刪除的規則區塊數:227(123 個 class 的所有「規則整體 100% 純淨」出現位置;
+  部分 class 有多個出現位置,其中混有 grouped selector 的位置不刪,只刪純淨位置)

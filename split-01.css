@@ -2841,29 +2841,9 @@ body[data-page="home"] .quick-links {
   font-size: clamp(1.7rem, 2.8vw, 2.4rem);
 }
 
-.class-hero-value-row {
-  display: flex;
-  align-items: baseline;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-top: 12px;
-}
 
-.class-hero-value-row strong {
-  font-family: "Space Grotesk", sans-serif;
-  font-size: clamp(2.6rem, 4vw, 4rem);
-}
 
-.class-hero-value-row span {
-  font-size: 1.15rem;
-  font-weight: 700;
-}
 
-.class-hero-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-}
 
 .class-board-head {
   display: flex;
@@ -3102,9 +3082,6 @@ body[data-page="home"] .quick-links {
   border-top: 1px solid rgba(147, 178, 220, 0.1);
 }
 
-.detail-grid {
-  grid-template-columns: repeat(2, 1fr);
-}
 
 #stock-detail.panel-card,
 #stock-detail,

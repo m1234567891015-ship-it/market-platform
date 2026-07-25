@@ -2616,19 +2616,7 @@
     radial-gradient(circle at 86% 10%, rgba(169, 126, 255, 0.14), transparent 30%);
 }
 
-.derivatives-overview-signal-section {
-  margin-top: 10px;
-}
 
-.derivatives-overview-signal {
-  display: grid;
-  grid-template-columns: minmax(240px, 0.42fr) minmax(0, 1fr);
-  gap: 18px;
-  border-color: rgba(129, 180, 255, 0.24);
-  background:
-    linear-gradient(135deg, rgba(69, 166, 255, 0.08), rgba(169, 126, 255, 0.07)),
-    var(--glass-tile-bg);
-}
 
 .derivatives-overview-signal.is-up { border-color: rgba(50, 213, 155, 0.32); }
 .derivatives-overview-signal.is-down { border-color: rgba(255, 95, 122, 0.32); }
@@ -2754,11 +2742,6 @@
 .derivatives-overview-ai-conditions .is-up { border-color: rgba(50, 213, 155, 0.2); }
 .derivatives-overview-ai-conditions .is-down { border-color: rgba(255, 95, 122, 0.2); }
 
-.derivatives-overview-signal-copy {
-  display: grid;
-  align-content: center;
-  gap: 8px;
-}
 
 .derivatives-overview-signal-copy h2,
 .derivatives-overview-card-head h3 {
@@ -2766,11 +2749,6 @@
   color: var(--text);
 }
 
-.derivatives-overview-signal-copy p:last-child {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.7;
-}
 
 .derivatives-overview-scoreboard,
 .derivatives-overview-mini-stats {
@@ -2923,17 +2901,7 @@
   gap: 16px;
 }
 
-.derivatives-overview-section-head h2 {
-  margin: 0;
-  color: var(--text);
-}
 
-.derivatives-overview-intelligence-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  margin-top: 16px;
-}
 
 .derivatives-overview-technical-card,
 .derivatives-overview-position-card,
@@ -3074,9 +3042,6 @@
   grid-template-columns: 1fr;
 }
 
-.derivatives-overview-macro-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
 
 .derivatives-overview-institution-grid {
   display: grid;
@@ -3486,10 +3451,7 @@
     grid-template-columns: 1fr;
   }
 
-  .derivatives-overview-intelligence-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
+  
   .derivatives-overview-factor-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

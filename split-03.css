@@ -75,24 +75,7 @@
   line-height: 1.65;
 }
 
-.chip-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 16px;
-}
 
-.chip-summary-card {
-  display: grid;
-  gap: 12px;
-  min-width: 0;
-  padding: 14px;
-  border: 1px solid rgba(147, 178, 220, 0.14);
-  border-radius: 16px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent),
-    rgba(3, 12, 24, 0.66);
-}
 
 .chip-summary-card.is-up {
   border-color: rgba(61, 220, 151, 0.24);
@@ -174,27 +157,8 @@
   font-size: 0.9rem;
 }
 
-.chip-summary-card ul {
-  margin: 0;
-  padding-left: 18px;
-  color: var(--muted);
-  line-height: 1.55;
-  font-size: 0.82rem;
-}
 
-.chip-summary-card p {
-  margin: 0;
-  padding-top: 10px;
-  border-top: 1px solid rgba(147, 178, 220, 0.1);
-  color: rgba(160, 182, 215, 0.72);
-  font-size: 0.74rem;
-  line-height: 1.5;
-}
 
-.chip-summary-card p a {
-  color: #4da7ff;
-  font-weight: 800;
-}
 
 .chip-tab-shell {
   grid-column: 1 / -1;
@@ -345,9 +309,6 @@
   stroke-width: 2.4;
 }
 
-.chip-price-area {
-  fill: rgba(167, 181, 201, 0.18);
-}
 
 .major-holder-chart-stage {
   position: relative;
@@ -1935,10 +1896,7 @@
     grid-template-columns: 1fr;
   }
 
-  .class-hero-metrics {
-    grid-template-columns: 1fr;
-  }
-
+  
   .class-overview-grid {
     grid-template-columns: 1fr 1fr;
   }
@@ -2305,10 +2263,7 @@
     grid-row: auto;
   }
 
-  .chip-summary-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
+  
   .us-ownership-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2348,10 +2303,7 @@
     align-items: stretch;
   }
 
-  .chip-summary-grid {
-    grid-template-columns: 1fr;
-  }
-
+  
   .chip-tab-bar {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
