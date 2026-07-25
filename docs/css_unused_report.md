@@ -4,6 +4,25 @@
 規則**只掃描、產出報告,不刪除**。刪除屬行為變更,需另行確認、走另一張
 工單。本報告不修改任何檔案。
 
+## 更正記錄(TD-15 執行第一層/第三層刪除時發現,回頭補記於此)
+
+1. **候選 ID 全數為擷取邏輯誤判,實際不存在**:本報告原列出的 7 個候選
+   ID(`options-online`/`options-regional`/`sector-sync`/`us-search`/
+   `us-sector-stock`/`us-stock`/`weighted-index`)經 TD-15 重新以兩種
+   獨立方法核實,在目前的 `split-*.css` 全文中都找不到任何一個作為真正
+   ID 選擇器存在——例如 `sector-sync` 實際只以更長的 `#sector-sync-view`
+   存在。這 7 個從未真實存在,不是「未使用」而是「原本就不是獨立 ID」,
+   詳見 `docs/td15_css_classification.md`。
+2. **字串掃描範圍遺漏根目錄下 4 個獨立腳本檔案**:本報告第 2 節寫的
+   掃描範圍「全部 `js/*.js` + `app.js`」實際上遺漏了 `pwa.js`、
+   `derivatives-ui.js`、`service-worker.js`、`twse-data.js` 這 4 個
+   根目錄下的獨立腳本(它們不在 `js/*.js` 這個 glob pattern 內,也不是
+   `app.js`)。TD-15 執行刪除時,批次 4 的 21 頁 pixel diff 抓到
+   `pwa-controls`/`pwa-network` 這兩個 class 實際在 `pwa.js` 裡有真實
+   引用(PWA 安裝/連線狀態元件),是本報告的偽陽性。已用這 4 個檔案
+   重新核對本報告列出的全部 135 個高信心候選,確認只有這 2 個受影響,
+   詳見 `docs/td15_css_classification.md`。
+
 ## 方法
 
 1. 從 `split-01.css` ~ `split-07.css`(拆分後的 7 個檔案,`styles.css`
