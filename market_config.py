@@ -98,6 +98,7 @@ ROOT_STATIC_FILES = {
     # 多解析出一層路徑而 404。見 docs/css_split_map.md。
     "split-01.css",
     "split-02.css",
+    "split-03.css",
 }
 ASSET_STATIC_FILES = {
     "app-icon.svg",
