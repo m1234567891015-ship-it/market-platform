@@ -2995,9 +2995,6 @@
   stroke-dasharray: 5 6;
 }
 
-.us-sector-alpha-area {
-  opacity: 0.22;
-}
 
 .us-sector-alpha-area.is-leading {
   fill: #35e3a2;
@@ -3007,14 +3004,6 @@
   fill: #ff6680;
 }
 
-.us-sector-alpha-line {
-  fill: none;
-  stroke: #f7fbff;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  opacity: 0.78;
-}
 
 .us-sector-alpha-bars rect.is-positive {
   fill: rgba(53, 227, 162, 0.72);
