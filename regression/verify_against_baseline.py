@@ -1,8 +1,15 @@
 """工單 00 第三、四部分:與行為基準比對,判斷現版是否偏離原版行為。
 
 用法:
-    python regression/verify_against_baseline.py --quick   # API 比對 + 安全檢查(約 1 分鐘)
-    python regression/verify_against_baseline.py --full    # quick + Playwright 前端比對
+    python regression/verify_against_baseline.py --quick        # 快取型端點 API 比對 + 安全檢查(快、穩定)
+    python regression/verify_against_baseline.py --quick --api-live  # + 即時端點(見下)
+    python regression/verify_against_baseline.py --full         # quick + --api-live + Playwright 前端比對 + 互動比對
+
+TD-17:`--quick` 只比對「有快取層」的端點,比對前先明確暖身一次快取
+(失敗即中止並標示為外部問題,不讓 44 個端點各自逾時後回含糊紅燈)。
+`live-sectors`/`live-overview`/`live-stocks`/`live-search` 這類設計上
+無快取、每次都直接打外部資料源的端點,移到獨立的 `--api-live` 旗標,
+`--full` 自動包含,`--quick` 預設不含,兩者分工明確。
 
 任一檢查失敗則結束碼為 1(可被 Stop hook 或 CI 使用)。
 """
@@ -33,6 +40,19 @@ ESCAPEHTML_BASELINE_PATH = BASELINE_DIR / "escapehtml_baseline.json"
 APP_JS_PATH = REPO_ROOT / "app.js"
 
 RETRY_DELAY_SECONDS = 3
+WARMUP_TIMEOUT_SECONDS = 90
+
+# TD-17:這 4 個端點的 handler(routes_twse.py)設計上永遠直接呼叫外部即時
+# 抓取函式,沒有 cache_data/ensure_cache() 這層快取可暖身,天生比其餘端點
+# 更容易受外部資料源當下延遲影響。獨立移到 --api-live,不讓它們拖累
+# --quick 的穩定性,--full 仍然涵蓋(見 check_api_live_baseline)。
+ALWAYS_LIVE_ENDPOINT_NAMES = {
+    "api__twse__live-sectors",
+    "api__twse__live-overview",
+    "api__twse__live-stocks",
+    "api__twse__live-search",
+}
+WARMUP_ENDPOINT_PATH = "/api/twse/site-data"
 
 
 class CheckReport:
@@ -116,13 +136,38 @@ def check_security_headers() -> CheckReport:
     return report
 
 
+def _is_external_failure(status: int, body: object) -> bool:
+    """TD-17:辨識「程式碼已經正確攔截外部資料源失敗、回傳既有錯誤信封」的
+    情況,跟「程式碼本身把回應格式改壞了」區分開來。fetch() 逾時/連線失敗
+    回傳 status=0;app.py 的 api_exception_response() 對外部抓取失敗固定回
+    502 + {"success": False, "error_code": ..., ...} 這個信封,兩者都是
+    外部資料源問題,不是程式碼缺陷。"""
+    if status == 0:
+        return True
+    if status in (502, 503, 504) and isinstance(body, dict) and body.get("success") is False and "error_code" in body:
+        return True
+    return False
+
+
+def _format_external_failure(request_path: str, status: int, body: object) -> str:
+    if status == 0 and isinstance(body, dict) and "__fetch_error__" in body:
+        return f"[外部問題,非程式碼] {request_path}: 連線失敗 - {body['__fetch_error__']}"
+    error_code = body.get("error_code") if isinstance(body, dict) else None
+    suffix = f",error_code={error_code}" if error_code else ""
+    return f"[外部問題,非程式碼] {request_path}: 狀態碼={status}{suffix}"
+
+
 def _check_one_endpoint(server_base_url: str, endpoint: dict) -> str | None:
-    """回傳 None 表示通過,否則回傳失敗描述。"""
+    """回傳 None 表示通過,否則回傳帶分類標籤(外部問題 / 程式碼問題)的失敗描述。"""
     from capture_baseline import Case
 
     # endpoint["request_path"] 已含 query string,整段當 url_path 即可,query 留空。
     case = Case(name=endpoint["name"], rule=endpoint["rule"], url_path=endpoint["request_path"], query={})
     status, _content_type, body = fetch(server_base_url, case)
+
+    if _is_external_failure(status, body):
+        return _format_external_failure(endpoint["request_path"], status, body)
+
     baseline_file = BASELINE_DIR / endpoint["baseline_file"]
     stored_value = json.loads(baseline_file.read_text(encoding="utf-8"))
 
@@ -130,16 +175,16 @@ def _check_one_endpoint(server_base_url: str, endpoint: dict) -> str | None:
         current_schema = extract_schema(body)
         schema_diffs = schema_diff(stored_value, current_schema)
         if schema_diffs:
-            return f"{endpoint['request_path']}: 回應結構(schema)與基準不同 - {'; '.join(schema_diffs[:5])}"
+            return f"[程式碼可能改動回應格式] {endpoint['request_path']}: 回應結構(schema)與基準不同 - {'; '.join(schema_diffs[:5])}"
         return None
 
     if status != endpoint["status_code"]:
-        return f"{endpoint['request_path']}: 狀態碼基準={endpoint['status_code']} 現況={status}"
+        return f"[程式碼可能改動回應格式] {endpoint['request_path']}: 狀態碼基準={endpoint['status_code']} 現況={status}"
 
     masked_current = apply_mask(body, _parse_mask_paths(endpoint["mask_paths"]))
     diffs = deep_diff(stored_value, masked_current)
     if diffs:
-        return f"{endpoint['request_path']}: {'; '.join(diffs[:5])}"
+        return f"[程式碼可能改動回應格式] {endpoint['request_path']}: {'; '.join(diffs[:5])}"
     return None
 
 
@@ -161,37 +206,96 @@ def _parse_mask_paths(mask_path_strs: list[str]) -> list[tuple]:
     return parsed
 
 
+def _warm_up_cache(server_base_url: str) -> str | None:
+    """TD-17:server_harness.wait_for_health() 只確認 /api/health 回 200,
+    不保證 cache_data(cache.py)已經填好。--quick 比對的 40 個端點多數會
+    經 ensure_cache() 讀快取,若第一個打到的端點恰好觸發冷啟動同步刷新且
+    剛好較慢,就會在 44 個端點的迴圈裡分散成好幾個各自逾時的失敗,難以判讀。
+    這裡在比對迴圈開始前,先用寬鬆 timeout 明確打一次會觸發 ensure_cache()
+    的端點(/api/twse/site-data,無 refresh 參數),失敗就視為外部資料源
+    當下不可用,不進入 44 個端點比對迴圈。回傳 None 表示暖身成功。"""
+    import urllib.error
+    import urllib.request
+
+    url = server_base_url + WARMUP_ENDPOINT_PATH
+    req = urllib.request.Request(url, headers={"User-Agent": "regression-verify-warmup"})
+    try:
+        with urllib.request.urlopen(req, timeout=WARMUP_TIMEOUT_SECONDS) as resp:
+            if resp.status != 200:
+                return f"暖身請求 {WARMUP_ENDPOINT_PATH} 回應狀態碼 {resp.status}(非 200)"
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        return f"暖身請求 {WARMUP_ENDPOINT_PATH} 逾時或連線失敗:{exc}"
+    return None
+
+
+def _run_endpoint_checks(server_base_url: str, endpoints: list[dict]) -> dict[str, str]:
+    """對一組端點逐一比對,回傳 {端點名稱: 失敗描述}(全過則為空字典)。
+    第一輪失敗的端點,等待 RETRY_DELAY_SECONDS 秒後重試一次,吸收外部資料源
+    偶發抖動;連續兩輪都失敗才視為真失敗。"""
+    pending = {ep["name"]: ep for ep in endpoints}
+    first_pass_failures: dict[str, str] = {}
+    for name, endpoint in pending.items():
+        failure = _check_one_endpoint(server_base_url, endpoint)
+        if failure:
+            first_pass_failures[name] = failure
+
+    if first_pass_failures:
+        print(f"  [verify] {len(first_pass_failures)} 個端點第一次比對失敗,{RETRY_DELAY_SECONDS} 秒後重試...")
+        time.sleep(RETRY_DELAY_SECONDS)
+        for name in list(first_pass_failures.keys()):
+            endpoint = pending[name]
+            failure = _check_one_endpoint(server_base_url, endpoint)
+            if failure is None:
+                del first_pass_failures[name]
+            else:
+                first_pass_failures[name] = failure
+
+    return first_pass_failures
+
+
 def check_api_baseline() -> CheckReport:
-    """工單 00 第一部分:API 回應行為必須與基準一致(含遮罩時變欄位、structure-only 端點)。"""
-    report = CheckReport("API 行為基準比對")
+    """工單 00 第一部分:API 回應行為必須與基準一致(含遮罩時變欄位、structure-only
+    端點)。TD-17:只比對有快取層的端點(見 ALWAYS_LIVE_ENDPOINT_NAMES 排除清單),
+    比對前先明確暖身快取一次。"""
+    report = CheckReport("API 行為基準比對(快取型端點)")
     if not MANIFEST_PATH.exists():
         report.fail(f"找不到基準 manifest {MANIFEST_PATH},請先執行 capture_baseline.py")
         return report
 
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-    endpoints = manifest["endpoints"]
+    endpoints = [ep for ep in manifest["endpoints"] if ep["name"] not in ALWAYS_LIVE_ENDPOINT_NAMES]
 
     with start_server() as server:
-        pending = {ep["name"]: ep for ep in endpoints}
-        first_pass_failures: dict[str, str] = {}
-        for name, endpoint in pending.items():
-            failure = _check_one_endpoint(server.base_url, endpoint)
-            if failure:
-                first_pass_failures[name] = failure
+        warmup_failure = _warm_up_cache(server.base_url)
+        if warmup_failure:
+            report.fail(f"[外部問題,非程式碼] 快取暖身失敗,中止本輪端點比對:{warmup_failure}")
+            return report
+        failures = _run_endpoint_checks(server.base_url, endpoints)
 
-        if first_pass_failures:
-            # 外部資料源當機造成的 fail,重跑一次確認;連續 fail 才視為真錯誤。
-            print(f"  [verify] {len(first_pass_failures)} 個端點第一次比對失敗,{RETRY_DELAY_SECONDS} 秒後重試...")
-            time.sleep(RETRY_DELAY_SECONDS)
-            for name in list(first_pass_failures.keys()):
-                endpoint = pending[name]
-                failure = _check_one_endpoint(server.base_url, endpoint)
-                if failure is None:
-                    del first_pass_failures[name]
-                else:
-                    first_pass_failures[name] = failure
+    for failure in failures.values():
+        report.fail(failure)
+    return report
 
-    for failure in first_pass_failures.values():
+
+def check_api_live_baseline() -> CheckReport:
+    """TD-17:比對 ALWAYS_LIVE_ENDPOINT_NAMES 這幾個設計上無快取、永遠直接
+    打外部資料源的端點。獨立於 check_api_baseline(),由 --api-live/--full 呼叫,
+    --quick 預設不含,避免這類端點天生的外部延遲拖累 --quick 的穩定性。"""
+    report = CheckReport("API 行為基準比對(即時端點)")
+    if not MANIFEST_PATH.exists():
+        report.fail(f"找不到基準 manifest {MANIFEST_PATH},請先執行 capture_baseline.py")
+        return report
+
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    endpoints = [ep for ep in manifest["endpoints"] if ep["name"] in ALWAYS_LIVE_ENDPOINT_NAMES]
+    if not endpoints:
+        report.fail("manifest 中找不到任何 ALWAYS_LIVE_ENDPOINT_NAMES 對應端點,清單可能已跟 manifest 對不上")
+        return report
+
+    with start_server() as server:
+        failures = _run_endpoint_checks(server.base_url, endpoints)
+
+    for failure in failures.values():
         report.fail(failure)
     return report
 
@@ -229,12 +333,18 @@ def run_interaction_compare() -> CheckReport:
 def main() -> int:
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--quick", action="store_true", help="API 比對 + 安全檢查")
-    group.add_argument("--full", action="store_true", help="quick + Playwright 前端比對 + 互動行為比對")
+    group.add_argument("--quick", action="store_true", help="快取型端點 API 比對 + 安全檢查(快、穩定,不含即時端點)")
+    group.add_argument("--full", action="store_true", help="quick + --api-live + Playwright 前端比對 + 互動行為比對")
     parser.add_argument(
         "--interactions",
         action="store_true",
         help="額外執行前端互動行為比對(P0+P1);--full 已自動包含,--quick 不含",
+    )
+    parser.add_argument(
+        "--api-live",
+        action="store_true",
+        help="額外比對設計上無快取、每次都直接打外部的端點(live-sectors/live-overview/"
+        "live-stocks/live-search);--full 已自動包含,--quick 不含",
     )
     args = parser.parse_args()
 
@@ -244,6 +354,8 @@ def main() -> int:
         check_security_headers(),
         check_api_baseline(),
     ]
+    if args.full or args.api_live:
+        reports.append(check_api_live_baseline())
     if args.full:
         reports.append(run_frontend_compare())
         reports.append(run_interaction_compare())
