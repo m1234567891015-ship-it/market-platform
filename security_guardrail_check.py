@@ -575,6 +575,53 @@ def check_frontend_load_order_initialization() -> None:
         declared_so_far |= own_declared
 
 
+def check_interaction_baseline_completeness() -> None:
+    """新增檢查(工單00-B 護欄完整性補強):防止「規格說有登錄、基準檔案卻
+    沒真的涵蓋」這種靜默流失重演——這正是先前發生過的真實事故(interaction_specs.py
+    的 PAGES 一直登錄全部 21 頁,但 manifest.json 有 7 頁的紀錄消失,commit
+    message 卻宣稱已完成,直到 TD-16 核對步驟數字時才發現;對應的 .har
+    基準檔案其實都有正確錄製,只有 manifest.json/results.json 的記帳跟實際
+    脫鉤,見復原此問題的 commit)。
+
+    三個獨立來源(規格登錄數、manifest 記錄數、實際 .har 檔案數)必須完全
+    一致,任何一個對不上就代表某個環節出過這種記帳跟實況脫鉤的狀況。另外
+    每個登錄頁面的步驟數都必須 >= 1,防止「頁面有登錄但步驟是空的」這種
+    更隱蔽的部分流失。"""
+    import json
+
+    regression_dir = BASE_DIR / "regression"
+    sys.path.insert(0, str(regression_dir))
+    import interaction_specs  # noqa: E402
+
+    manifest_path = regression_dir / "baseline" / "interactions" / "manifest.json"
+    assert_true(manifest_path.exists(), f"Missing interaction baseline manifest: {manifest_path}")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest_pages = manifest.get("pages", {})
+
+    har_dir = regression_dir / "baseline" / "interactions" / "har"
+    assert_true(har_dir.exists(), f"Missing interaction HAR directory: {har_dir}")
+    har_files = {f.stem for f in har_dir.glob("*.har")}
+
+    spec_files = {spec.file for spec in interaction_specs.PAGES}
+    manifest_files = set(manifest_pages.keys())
+
+    assert_true(
+        spec_files == manifest_files,
+        "interaction_specs.py 的 PAGES 登錄頁面與 manifest.json 實際涵蓋頁面不一致 - "
+        f"只在 specs: {sorted(spec_files - manifest_files)}, 只在 manifest: {sorted(manifest_files - spec_files)}",
+    )
+    assert_true(
+        spec_files == har_files,
+        "interaction_specs.py 的 PAGES 登錄頁面與 baseline/interactions/har/ 實際存在的 .har 檔案不一致 - "
+        f"只在 specs: {sorted(spec_files - har_files)}, 只在 har: {sorted(har_files - spec_files)}",
+    )
+
+    zero_step_pages = [
+        file for file, entry in manifest_pages.items() if len(entry.get("steps", [])) < 1
+    ]
+    assert_true(not zero_step_pages, f"manifest.json 中有頁面登錄了卻是零步驟(記帳跟實況脫鉤): {sorted(zero_step_pages)}")
+
+
 def check_environment_and_persistence_static() -> None:
     app_source = read_text("app.py")
     security_source = read_text("security.py")
@@ -768,6 +815,7 @@ CHECKS = (
     ("TD-02 escapeHtml single source", check_frontend_escapehtml_single_source),
     ("TD-02 no inline script", check_frontend_no_inline_script),
     ("TD-02 load-order initialization", check_frontend_load_order_initialization),
+    ("TD-00B interaction baseline completeness", check_interaction_baseline_completeness),
 )
 
 
