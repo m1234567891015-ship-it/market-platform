@@ -292,7 +292,7 @@ if (![...9 個排除頁面].includes(document.body.dataset.page)) {
 - `initGlobalMarketPage`+`renderAssetHubPage` 等 page-global-market 進入點
   閉包:370 個符號,是全部 14 個頁面群組中最大的一組,佔全檔案函式總數
   約 45%。
-- 全部 21 頁的 P0+P1 互動測試基準(工單 00-B,93 步驟)在本次分析
+- 全部 21 頁的 P0+P1 互動測試基準(工單 00-B,94 步驟)在本次分析
   期間沒有被觸碰,`regression/interaction_check.py --compare` 未執行
   於本次盤點(純靜態分析,無需啟動伺服器),Part 2 每批次搬移後仍依
   工單既有規範跑。

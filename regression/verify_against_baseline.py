@@ -316,7 +316,7 @@ def run_frontend_compare() -> CheckReport:
 
 def run_interaction_compare() -> CheckReport:
     """工單 00-B 第四部分:--interactions 或 --full 執行時,前端互動行為
-    (P0+P1,21 頁 93 步驟)必須全綠。P2 尚未實作,--interactions-full 目前
+    (P0+P1,21 頁 94 步驟)必須全綠。P2 尚未實作,--interactions-full 目前
     等同預設,由 interaction_check.py 自己處理。"""
     report = CheckReport("interaction_check.py --compare")
     proc = subprocess.run(

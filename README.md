@@ -76,7 +76,7 @@ Notes:
   it automatically, `--quick` does not. Every failure message is tagged
   `[外部問題,非程式碼]` or `[程式碼可能改動回應格式]` so a red light is
   legible at a glance.
-- `interaction_check.py` (工單 00-B) covers 21 pages / 93 real click/select/
+- `interaction_check.py` (工單 00-B) covers 21 pages / 94 real click/select/
   submit interaction steps (P0+P1 tier; P2 — zoom/pan/hover — not yet
   implemented, see `regression/interaction_inventory.md`). It replays a
   frozen HAR per page so the underlying data never varies between runs;
