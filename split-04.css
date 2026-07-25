@@ -1252,28 +1252,8 @@
   gap: 14px;
 }
 
-.us-watchlist-card {
-  display: grid;
-  gap: 16px;
-  padding: 18px;
-  border: 1px solid rgba(129, 180, 255, 0.16);
-  border-radius: 22px;
-  background:
-    radial-gradient(circle at top right, rgba(69, 166, 255, 0.1), transparent 34%),
-    rgba(16, 29, 48, 0.88);
-}
 
-.us-watchlist-card h3 {
-  margin: 0;
-  color: #f7fbff;
-}
 
-.us-watchlist-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
 
 
 

@@ -2937,22 +2937,7 @@
   min-height: 420px;
 }
 
-.us-sector-benchmark-line {
-  fill: none;
-  stroke: #90abd0;
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
 
-.us-sector-focus-line {
-  fill: none;
-  stroke: #f5bd55;
-  stroke-width: 3.4;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  filter: drop-shadow(0 0 8px rgba(245, 189, 85, 0.35));
-}
 
 .us-sector-focus-line.is-leading {
   stroke: #35e3a2;
@@ -2968,9 +2953,6 @@
   fill: url("#usSectorAreaGradient");
 }
 
-.us-sector-relative-band {
-  opacity: 0.36;
-}
 
 .us-sector-relative-band.is-positive {
   fill: #9bb8da;
@@ -2989,11 +2971,6 @@
   fill: rgba(255, 102, 128, 0.55);
 }
 
-.us-sector-base-line {
-  stroke: rgba(245, 189, 85, 0.42);
-  stroke-width: 1.5;
-  stroke-dasharray: 5 6;
-}
 
 
 .us-sector-alpha-area.is-leading {
@@ -3023,14 +3000,6 @@
   z-index: 5;
 }
 
-.us-sector-plain-result {
-  display: grid;
-  gap: 8px;
-  padding: 16px 18px;
-  border-radius: 16px;
-  border: 1px solid rgba(129, 180, 255, 0.16);
-  background: rgba(18, 32, 53, 0.78);
-}
 
 .us-sector-plain-result.is-ahead {
   border-color: rgba(53, 227, 162, 0.26);
@@ -3042,38 +3011,10 @@
   background: linear-gradient(135deg, rgba(255, 102, 128, 0.12), rgba(18, 32, 53, 0.84));
 }
 
-.us-sector-plain-result strong {
-  color: #f7fbff;
-  font-size: 1.05rem;
-}
 
-.us-sector-plain-result span {
-  color: #aebed4;
-  font-weight: 800;
-}
 
-.us-sector-chart-stat-strip {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
 
-.us-sector-chart-stat-strip span {
-  display: grid;
-  gap: 5px;
-  padding: 12px 14px;
-  border: 1px solid rgba(129, 180, 255, 0.14);
-  border-radius: 14px;
-  background: rgba(12, 26, 46, 0.8);
-  color: #9fb1c9;
-  font-size: 0.82rem;
-  font-weight: 800;
-}
 
-.us-sector-chart-stat-strip strong {
-  color: #edf4ff;
-  font-size: 1rem;
-}
 
 .us-sector-chart-stat-strip strong.up {
   color: #35e3a2;
@@ -3083,16 +3024,7 @@
   color: #ff6680;
 }
 
-.us-sector-end-label rect {
-  fill: rgba(7, 20, 38, 0.92);
-  stroke-width: 1.4;
-}
 
-.us-sector-end-label text {
-  fill: #edf4ff;
-  font-size: 11px;
-  font-weight: 900;
-}
 
 .us-sector-end-label.is-leading rect {
   stroke: rgba(53, 227, 162, 0.7);
@@ -3180,14 +3112,7 @@
   box-shadow: inset 0 0 0 1px rgba(240, 179, 90, 0.18), 0 10px 24px rgba(240, 179, 90, 0.1);
 }
 
-.us-sector-stock-item h3 a {
-  color: inherit;
-  text-decoration: none;
-}
 
-.us-sector-stock-item h3 a:hover {
-  color: #f5bd55;
-}
 
 .us-sector-stock-table-wrap {
   max-height: 520px;

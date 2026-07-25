@@ -1740,35 +1740,9 @@ body[data-page="home"] .quick-links {
   gap: 6px;
 }
 
-.vix-signal-panel {
-  display: grid;
-  gap: 10px;
-  padding: 12px;
-  border-radius: 16px;
-  border: 1px solid rgba(147, 178, 220, 0.14);
-  background: rgba(5, 13, 25, 0.28);
-}
 
-.vix-signal-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
 
-.vix-signal-head span {
-  color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 900;
-}
 
-.vix-signal-badge {
-  padding: 5px 10px;
-  border-radius: 999px;
-  color: #07101c;
-  font-size: 0.76rem;
-  font-weight: 900;
-}
 
 .vix-signal-badge.is-green {
   background: #35e6a6;
