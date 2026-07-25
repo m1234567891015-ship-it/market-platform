@@ -97,6 +97,7 @@ ROOT_STATIC_FILES = {
     # 解析,不是依頁面 URL——若放進子目錄會讓 url("assets/...") 這類參照
     # 多解析出一層路徑而 404。見 docs/css_split_map.md。
     "split-01.css",
+    "split-02.css",
 }
 ASSET_STATIC_FILES = {
     "app-icon.svg",
