@@ -1,7 +1,13 @@
 # Market Pulse V1.0 R6 — 重構專案
 
-Flask + vanilla JS 台股市場平台。目前進行技術債重構,
-工單:見 docs/TD稽核清單.md(源自 MarketPulse_技術債稽核_2026-07-16.xlsx)。
+Flask + vanilla JS 台股市場平台。
+
+**重構週期已於 2026-07-25 封存**(`git tag v1.0-refactor-complete`),
+定稿總結見 `docs/REFACTOR_SUMMARY.md`。原稽核工單:見
+docs/TD稽核清單.md(源自 MarketPulse_技術債稽核_2026-07-16.xlsx)。
+掛帳未做的 **TD-15 第二輪 / TD-18 / TD-19** 為獨立的未來工單,目前
+**非進行中工作**——重啟任一項前仍適用下方「行為不變 / 行為變更」
+分類與確認流程,不因本檔已封存而跳過。
 
 ## 指令
 - 語法檢查:`python -m py_compile app.py market_config.py derivatives_store.py`
@@ -9,13 +15,16 @@ Flask + vanilla JS 台股市場平台。目前進行技術債重構,
 - 冒煙測試:`python e2e_smoke.py`
 - 安全檢查:`python security_guardrail_check.py`
 - 本地啟動:`python app.py`(http://127.0.0.1:5000)
-- 前端互動行為比對(工單00-B,21頁93步驟P0+P1):
+- 前端互動行為比對(工單00-B,21頁94步驟P0+P1):
   `python regression/verify_against_baseline.py --quick --interactions`
   (`--full` 已自動包含,不需另外加旗標)
 
 ## 硬性規則
-- app.py(15,513 行)與 app.js(34,149 行)只允許局部編輯,
-  禁止整檔重寫或整檔重新生成。
+- app.py(TD-01 前 15,513 行,拆分後現為 650 行薄入口)與 app.js
+  (TD-02 前 34,149 行,拆分後現為 818 行空殼)只允許局部編輯,
+  禁止整檔重寫或整檔重新生成;本規則同樣適用於拆分後的
+  routes_*.py/fetchers.py/builders.py/cache.py/security.py 與
+  js/*.js/split-*.css 各模組檔。
 - 一次只處理一個 TD 工單項目,完成即 commit,不跨項目連改。
 - 禁止讀取或修改 *.sqlite3、twse-cache.json(執行期資料,已由 hook 強制)。
 - 重構 = 行為不變。任何函式搬移後,對應測試必須通過才算完成。
@@ -28,7 +37,9 @@ Flask + vanilla JS 台股市場平台。目前進行技術債重構,
 
 ## 必須保留的安全不變量(重構時不可退化)
 - SQL 一律參數化,禁止任何字串拼接進 execute()
-- 前端輸出一律經 escapeHtml()(目前 2,037 處呼叫,單一實作來源)
+- 前端輸出一律經 escapeHtml()(現況 1,905 處呼叫,單一實作來源;
+  TD-15 刪除 52 個死碼函式後從原始 2,037 處降至此數,已核實全數
+  減少來自死碼,非活呼叫遺失,見 docs/REFACTOR_SUMMARY.md 第 5 節)
 - CSP 維持 script-src 'self',禁止為方便加入 unsafe-inline
 - add_security_headers 與 enforce_api_rate_limit 的行為不可弱化
 - SSL 驗證預設開啟;_urlopen_with_ssl_fallback 的 production 阻擋不可移除
