@@ -100,6 +100,7 @@ ROOT_STATIC_FILES = {
     "split-02.css",
     "split-03.css",
     "split-04.css",
+    "split-05.css",
 }
 ASSET_STATIC_FILES = {
     "app-icon.svg",
