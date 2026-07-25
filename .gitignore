@@ -25,6 +25,13 @@ dist/
 build/
 *.zip
 
+# TD-POST 項目5:交付包自證檔(git bundle create ... --all 產生,
+# 供未來連同交付包一起分發用,不進版控——理由與上方 SQLite/快取
+# 一致:是生成產物,commit 進去只會讓 repo 隨每次重新產生而遞迴變大。
+# 需要時用 `git bundle create market-platform-full-history.bundle --all`
+# 在本機重新產生;release_proof/ 底下的文字檔仍照常入版控。
+*.bundle
+
 # ===== 日誌與暫存 =====
 *.log
 .tmp/

@@ -89,6 +89,23 @@ Build a clean portable package:
 python build_portable_package.py
 ```
 
+A clean delivery zip excludes `.git`, so claims like "115 commits" or a
+release tag can't be independently checked from the zip alone. To let an
+external reviewer verify repo history/tags without the working directory,
+regenerate a self-contained bundle and hand it out alongside the zip:
+
+```bash
+git bundle create market-platform-full-history.bundle --all
+git log --oneline > release_proof/git-log-oneline.txt
+git show-ref --tags > release_proof/git-tag-proof.txt
+git rev-parse v1.0-refactor-complete >> release_proof/git-tag-proof.txt
+```
+
+A reviewer restores full history from just the `.bundle` file with
+`git clone market-platform-full-history.bundle`. The `.bundle` itself is
+gitignored (it's a generated artifact, same rationale as the SQLite/cache
+exclusions above); `release_proof/*.txt` stays version-controlled.
+
 Current verified result:
 
 - Unit tests: 24 tests OK
