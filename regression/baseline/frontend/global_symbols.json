@@ -897,6 +897,7 @@
  "stockDetailRequestId",
  "stockFullDetailCache",
  "stockFullDetailPending",
+ "stockInstitutionHistoryAttempted",
  "stockInstitutionHistoryCache",
  "stockInstitutionHistoryPending",
  "stockInstitutionPeriodState",

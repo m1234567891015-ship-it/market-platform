@@ -82,9 +82,31 @@ function loadInstitutionalTradeHistoryIfNeeded(detail) {
   const code = String(detail?.code || "").trim();
   const market = String(detail?.market || activeStockMarket || "").trim().toUpperCase();
   if (!code || market !== "TWSE") return;
-  const history = detail.institutionalTradeHistory;
-  if (Array.isArray(history?.rows) && history.rows.length >= 5) return;
   const key = getStockDetailCacheKey(code, market);
+  // TD-16 structural guard: checked and set before any other logic, so it stays
+  // a real circuit breaker even if the logic-level check below is ever broken.
+  if (stockInstitutionHistoryAttempted.has(key)) return;
+  stockInstitutionHistoryAttempted.add(key);
+  const history = detail.institutionalTradeHistory;
+  // TD-16 logic-level fix: terminate once we have ANY definitive result,
+  // including a genuinely empty one - a stock with <5 days of institutional
+  // trade history (new listing, thinly traded) is normal, valid data, not a
+  // "not done yet" signal. Conflating "insufficient rows" with "haven't loaded
+  // yet" (the old `rows.length >= 5` check) is what caused the infinite
+  // renderStockDetail <-> loadInstitutionalTradeHistoryIfNeeded recursion.
+  //
+  // The check must be "does history have a `rows` array" (Array.isArray), not
+  // just "is history truthy": the full stock-detail payload (fetched before
+  // this function ever runs) already sets detail.institutionalTradeHistory to
+  // `{}` as a placeholder for every stock, with no `rows` key at all - only
+  // *this* function's own dedicated /institutional-history fetch ever
+  // populates a `rows` array (always present, possibly empty; confirmed in
+  // fetchers.py:fetch_stock_institutional_trade_history and
+  // builders.py:build_institutional_history_from_yahoo, both of which always
+  // include "rows"). Treating the placeholder `{}` as "already resolved"
+  // would skip the dedicated fetch entirely for every stock, not just sparse
+  // ones - a regression discovered and fixed during Part 2 testing.
+  if (Array.isArray(history?.rows)) return;
   const cached = stockInstitutionHistoryCache.get(key);
   if (cached) {
     const current = activeRenderedStockDetail || detail;

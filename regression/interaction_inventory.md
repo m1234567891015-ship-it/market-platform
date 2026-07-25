@@ -270,21 +270,23 @@ app.js 綁定程式碼,確認元素真的被插入 DOM、確認 addEventListener
 
 `initSearchPage()`。搜尋框/結果清單獨立於共用 `data`/`renderCurrentPage` 機制。
 
-**known-broken(排除於基準外,見 [TD-16](../docs/TD稽核清單.md))**:個股詳情載入後會自動觸發
-`loadInstitutionalTradeHistoryIfNeeded()`(app.js:678,非本頁任何 P0/P1 控制項,頁面渲染時
-背景自動觸發),當法人買賣超歷史回應筆數 < 5 時,683 行的守門判斷不通過會不斷
-`renderStockDetail` → 重新觸發同一個 fetch → 再次不足 5 筆 → 無限遞迴,實測拋出
-`RangeError: Maximum call stack size exceeded` 讓頁面當機。這是使用者可觸發的既有 bug,
-不是本工單(00-B)造成也不在本工單修復範圍。`regression/interaction_check.py` 用合成回應
-(固定 5 筆假資料)短路這個背景請求,只為避免它連累其他 P0/P1 路徑的基準穩定性——
-**這個短路本身不驗證、也不代表這條自動背景路徑本身正常運作**,待 TD-16 修復後應移除短路、
-另外為此路徑補上明確的迴歸測試。
+**TD-16 已修復(原 known-broken 標記已解除)**:個股詳情載入後自動背景觸發的
+`loadInstitutionalTradeHistoryIfNeeded()`(現於 `js/stock-detail.js`,非本頁任何 P0/P1
+控制項,頁面渲染時背景自動觸發),原本在法人買賣超歷史回應筆數 < 5 時,終止判斷
+(`rows.length >= 5`)不通過會不斷 `renderStockDetail` → 重新觸發同一個 fetch → 再次
+不足 5 筆 → 無限遞迴,實測拋出 `RangeError: Maximum call stack size exceeded` 讓頁面
+當機。修復方式:終止條件改為「已取得明確結果(含 0 筆)即不再重新觸發」,另加一道
+獨立的結構性保險(同一 stockCode 在頁面存續期間最多觸發一次)。`regression/interaction_check.py`
+原本用合成回應(固定 5 筆假資料)短路這個背景請求,現已移除短路,改為新增獨立
+Step `tw-stock-search__institution-history-background-load`(渲染型,等 DOM 穩定後
+斷言逐日表格已渲染真實資料),正式納入互動基準。
 
 | selector | trigger_event | handler_summary | expected_dom_impact | fires_api_request | tier |
 |---|---|---|---|---|---|
 | `#stock-search-form` | submit | app.js:33195 → `runStockSearch(query)` 33139 | `#search-results` 替換為結果按鈕,`#search-status` 更新 | 是 — `GET /api/twse/live-search?q=` | **P0** |
 | `#stock-search-input` | input(去抖 600ms) | 33205 | 同上;query 為空時清空結果 | 是(非空時) | **P0** |
 | `#search-results [data-code]`(每個結果按鈕) | click | 8880-8898 | 標記 `.is-active`,更新 URL,呼叫 `loadStockDetail()` 33047 | 是 — `GET /api/twse/stock/{code}?refresh=1&quick=1` | **P0** |
+| (無,渲染完成後自動觸發,非任何控制項) | 無(渲染型) | `js/stock-detail.js:loadInstitutionalTradeHistoryIfNeeded` | `.chip-institution-daily-table` 逐日列渲染真實資料(TD-16 修復後正式納入基準) | 是 — `GET /api/twse/stock/{code}/institutional-history` | **P0** |
 | `#stock-detail [data-stock-watchlist-toggle]` | click | 32188-32198 | 切換按鈕文字/`.is-added`,更新狀態文字 | 否(僅 localStorage) | P1 |
 | `#stock-detail [data-interval]`(日/週/月線) | click | 32477-32487 | 切換 active 樣式,重渲染技術圖表 | 條件式 — 週/月資料不足時補抓 history | **P0** |
 | `#stock-detail [data-ma-period]`(MA5/10/20/60/120/240) | click | 32497-32509 | 切換均線疊圖 | 條件式(同上) | P1 |

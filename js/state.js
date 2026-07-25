@@ -42,6 +42,12 @@ let homePennySectorPromise = null;
 let homePennySectorMarket = "listed";
 const stockInstitutionHistoryCache = new Map();
 const stockInstitutionHistoryPending = new Map();
+// TD-16: structural circuit breaker for loadInstitutionalTradeHistoryIfNeeded -
+// guarantees at most one trigger per stockCode for the page's lifetime,
+// independent of (and in addition to) the logic-level termination check inside
+// that function, so a future bug there can't regress into infinite recursion
+// with renderStockDetail. See js/stock-detail.js.
+const stockInstitutionHistoryAttempted = new Set();
 const stockInstitutionRangeHistoryCache = new Map();
 const stockShareholderCache = new Map();
 const stockShareholderPending = new Map();

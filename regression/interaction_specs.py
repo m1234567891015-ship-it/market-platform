@@ -146,12 +146,6 @@ class PageSpec:
 
 TW_STOCK_SEARCH = PageSpec(
     file="tw-stock-search.html",
-    known_issues=(
-        "TD-16: 個股詳情頁自動觸發的 loadInstitutionalTradeHistoryIfNeeded()"
-        "(app.js:678)在法人買賣超歷史筆數<5時無限遞迴,實測 stack overflow。"
-        "interaction_check.py 用合成回應短路此背景請求,僅為避免連累其他 P0/P1"
-        "路徑的基準穩定性,不代表此路徑本身已驗證正常;TD-16 修復前不納入基準。",
-    ),
     steps=(
         Step(
             id="tw-stock-search__search-form-submit",
@@ -188,6 +182,27 @@ TW_STOCK_SEARCH = PageSpec(
                 a_content_changed("#stock-detail"),
             ),
             note="點擊搜尋結果→標記 is-active→更新 URL→載入個股詳情(app.js:8880-8898)",
+        ),
+        Step(
+            id="tw-stock-search__institution-history-background-load",
+            tier="P0",
+            selector=".chip-institution-daily-table",
+            action=None,
+            wait_for=wait_networkidle(),
+            asserts=(a_min_count(".chip-institution-daily-table .chip-data-row", 1),),
+            note=(
+                "TD-16:個股詳情頁渲染完成後自動背景觸發的法人買賣超歷史載入"
+                "(js/stock-detail.js:loadInstitutionalTradeHistoryIfNeeded)。"
+                "非任何 P0/P1 控制項觸發,是 renderStockDetail 內部無條件呼叫"
+                "的背景 fetch;渲染型 step(無 action)。wait_for 標記為"
+                "networkidle,但實測頁面背景輪詢會讓 networkidle 永遠不觸發,"
+                "interaction_check.py 對渲染型 step 改直接輪詢本 step 的"
+                "min_count 斷言目標(逾時 90 秒,涵蓋法人籌碼這類多批次即時"
+                "外部資料抓取實測會用到的時間),等目標選擇器數量真的達標才"
+                "斷言。TD-16 修復前此路徑會在法人交易歷史"
+                "筆數 < 5 時無限遞迴,列為 known-broken 排除於基準外;修復後"
+                "正式納入。"
+            ),
         ),
         Step(
             id="tw-stock-search__watchlist-toggle",

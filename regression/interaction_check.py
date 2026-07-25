@@ -50,27 +50,6 @@ _API_REQUEST_MARK = "/api/"
 # 前端自身的逾時上限,見 _visit_page 與 _background_route_handler 的說明。
 # 目前沒有任何 P0/P1 斷言依賴這些端點的實際內容。
 
-# institutional-history 短路成合成回應(而非直接失敗),因為失敗會讓
-# app.js:loadInstitutionalTradeHistoryIfNeeded 的既有 bug 現形——683 行的守門判斷
-# history.rows.length >= 5 沒達到時會不斷重渲染→重新觸發同一個 fetch→再次不足
-# 5 筆→無限遞迴,實測會拋出 RangeError: Maximum call stack size exceeded。這是既有
-# 程式碼的真實缺陷,不是本測試框架造成的,但本工單(00-B)不修 app.js,先用
-# rows>=5 的合成回應避開,已記錄於報告。
-_SYNTHETIC_INSTITUTIONAL_HISTORY = json.dumps({
-    "institutionalTradeHistory": {
-        "rows": [
-            {
-                "date": f"2026-01-0{i}", "label": f"01/0{i}", "changePct": 0.0,
-                "dealerLotsValue": 0.0, "dealerValue": 0.0, "foreignChipRatio": 0.0,
-                "foreignLotsValue": 0.0, "foreignValue": 0.0, "totalLotsValue": 0.0,
-                "totalValue": 0.0, "trustLotsValue": 0.0, "trustValue": 0.0, "volume": 0.0,
-            }
-            for i in range(1, 6)
-        ],
-    },
-    "institutionalTrades": None,
-})
-
 # shareholders、完整基本面補齊(refresh=1,無 quick=1 也無 history=all)這兩類
 # 背景請求,app.js 對應的 .catch 只會記一個 console.error 再更新狀態文字,不像
 # institutional-history 有遞迴風險,所以直接快速失敗(503)即可,不必合成資料。
@@ -93,9 +72,6 @@ def _is_expected_background_error(message: str) -> bool:
 
 def _background_route_handler(route, page_file: str) -> None:
     url = route.request.url
-    if "institutional-history" in url:
-        route.fulfill(status=200, content_type="application/json", body=_SYNTHETIC_INSTITUTIONAL_HISTORY)
-        return
     if "/shareholders" in url:
         route.fulfill(status=503, content_type="application/json", body='{"error":"regression-fast-fail"}')
         return
@@ -364,6 +340,28 @@ def run_step(page, step: Step, requests_seen: list[str]) -> dict:
 
 
 def run_render_only_step(page, step: Step) -> dict:
+    # TD-16: 渲染型 step 過去完全不看 step.wait_for(沒有 action 可包
+    # page.expect_response,所以 "response" 等待種類天生不適用)。"stable"
+    # 不需要包 action,_wait_dom_stable 本來就是獨立輪詢函式。"networkidle"
+    # 實測對這裡不可靠(這份檔案自己在別處就記錄過同樣的教訓:頁面若有任何
+    # 輪詢式背景請求,networkidle 永遠不會觸發,60 秒等待整段浪費在等一個
+    # 不會發生的狀態);改直接輪詢 min_count 斷言實際要看的目標選擇器,
+    # 等到數量真的滿足或逾時(90 秒,涵蓋法人籌碼這類多批次即時外部資料
+    # 抓取實測會用到的時間),比等待「網路閒置」這個間接、不可靠的代理
+    # 訊號更直接可靠。
+    if step.wait_for.kind == "stable":
+        _wait_dom_stable(page, step.wait_for.target)
+    elif step.wait_for.kind == "networkidle":
+        min_count_asserts = [a for a in step.asserts if a.kind == "min_count"]
+        if min_count_asserts:
+            deadline = time.time() + 90
+            while time.time() < deadline:
+                if all(
+                    page.evaluate("(sel) => document.querySelectorAll(sel).length", a.target) >= (a.n or 1)
+                    for a in min_count_asserts
+                ):
+                    break
+                page.wait_for_timeout(500)
     failures = []
     for a in step.asserts:
         ok, msg = _check_assert(page, step, a, {}, {}, [])
