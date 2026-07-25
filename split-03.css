@@ -2145,12 +2145,6 @@
   color: var(--muted);
 }
 
-.detail-link {
-  display: inline-block;
-  margin-top: 16px;
-  color: var(--gold);
-  font-weight: 700;
-}
 
 .up { color: var(--green); }
 .down { color: var(--red); }
