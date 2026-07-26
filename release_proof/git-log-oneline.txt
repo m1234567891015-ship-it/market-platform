@@ -1,3 +1,6 @@
+dc0296f docs: add AGENTS.md and new-feature dev spec for Codex handoff
+d6c2adf docs: tighten "JS module" wording to classic-script (回應外部技術回饋 項目6)
+0ad70af feat(release): add delivery-package self-proof files (回應外部技術回饋 項目5)
 cfdd109 docs(TD-20): register verify_release_integrity.py clean-package gap (回應外部技術回饋 項目4, log only)
 64e6252 fix(portable_check): print backend log tail on startup failure (回應外部技術回饋 項目3)
 860dcd7 docs: sync stale interaction-baseline count 93->94 (回應外部技術回饋 項目2)
