@@ -14,10 +14,15 @@ from typing import Any
 BASE_DIR = Path(__file__).resolve().parent
 
 
+STATUS_PASS = "pass"
+STATUS_FAIL = "fail"
+STATUS_SKIP = "skip"
+
+
 @dataclass
 class CheckResult:
     name: str
-    passed: bool
+    status: str  # one of STATUS_PASS / STATUS_FAIL / STATUS_SKIP
     detail: str = ""
 
 
@@ -819,29 +824,48 @@ CHECKS = (
 )
 
 
+# TD-02/TD-00B 兩條檢查依賴 regression/ 目錄下的凍結基準(global_symbols.json、
+# interaction_specs.py、manifest.json、har/)。可攜交付包(build_portable_package.py
+# 的產出)刻意不含 regression/(見 F-02),在該情境下這兩條不該 FAIL——FAIL 意謂
+# 「基準與現況不符,可能是真的迴歸」,但可攜包裡從缺是設計上的必然,不是迴歸。
+# 只在 regression/ 目錄「整個不存在」時才 SKIP;目錄存在但內容不完整或跟基準不符
+# 一律維持現有 FAIL 邏輯,不因為這次改動而弱化。
+REQUIRES_REGRESSION_DIR = frozenset({
+    check_frontend_global_symbol_stability,
+    check_interaction_baseline_completeness,
+})
+
+
 def run_checks() -> list[CheckResult]:
+    regression_available = (BASE_DIR / "regression").exists()
     results: list[CheckResult] = []
     for name, check in CHECKS:
+        if check in REQUIRES_REGRESSION_DIR and not regression_available:
+            results.append(CheckResult(name, STATUS_SKIP, "context: portable_package (regression/ not present)"))
+            continue
         try:
             check()
         except Exception as exc:  # noqa: BLE001
-            results.append(CheckResult(name, False, str(exc)))
+            results.append(CheckResult(name, STATUS_FAIL, str(exc)))
         else:
-            results.append(CheckResult(name, True))
+            results.append(CheckResult(name, STATUS_PASS))
     return results
 
 
 def main() -> int:
     results = run_checks()
+    status_labels = {STATUS_PASS: "PASS", STATUS_FAIL: "FAIL", STATUS_SKIP: "SKIP"}
     for result in results:
-        status = "PASS" if result.passed else "FAIL"
         detail = f" - {result.detail}" if result.detail else ""
-        print(f"[{status}] {result.name}{detail}")
-    failed = [result for result in results if not result.passed]
+        print(f"[{status_labels[result.status]}] {result.name}{detail}")
+    passed = [result for result in results if result.status == STATUS_PASS]
+    failed = [result for result in results if result.status == STATUS_FAIL]
+    skipped = [result for result in results if result.status == STATUS_SKIP]
     if failed:
         print(f"SECURITY_GUARDRAIL_FAILED: {len(failed)} check(s) failed")
         return 1
-    print("SECURITY_GUARDRAIL_OK")
+    summary = f"{len(passed)} passed, {len(skipped)} skipped" if skipped else f"{len(passed)} passed"
+    print(f"SECURITY_GUARDRAIL_OK: {summary}")
     return 0
 
 
