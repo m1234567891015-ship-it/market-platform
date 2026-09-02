@@ -271,12 +271,6 @@
 
 
 
-.options-market-chain-data-table tr.is-active td {
-  background: rgba(245, 189, 85, 0.1);
-}
-
-
-
 @media (max-width: 980px) {
   .options-market-chain-selected,
   .options-market-chain-data-summary {

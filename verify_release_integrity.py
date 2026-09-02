@@ -1,16 +1,24 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import os
 import sqlite3
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
+# This verifier is deliberately safe to run from a clean delivery directory.
+# Disable bytecode writes before importing project modules so the verifier
+# itself does not create a __pycache__ in that directory.
+sys.dont_write_bytecode = True
+
 from derivatives_store import DerivativesStore
 
 
 DB_PATH = Path("derivatives-platform.sqlite3")
+CACHE_PATH = Path("twse-cache.json")
 
 MOCK_DATA_KEYS = ("mock_option_chain", "mock_ai_report", "test_institutional_position")
 
@@ -52,14 +60,25 @@ def db_snapshot(path: Path) -> dict[str, int]:
 
 
 def run_test_suite() -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [sys.executable, "-m", "unittest", "test_derivatives_platform.py"],
-        check=False,
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
+    with tempfile.TemporaryDirectory(prefix="verify-release-cache-") as cache_dir:
+        env = dict(os.environ)
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+        env["MARKET_PULSE_CACHE_FILE"] = str(Path(cache_dir) / "twse-cache.json")
+        return subprocess.run(
+            [sys.executable, "-m", "unittest", "test_derivatives_platform.py"],
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=env,
+        )
+
+
+def file_sha256(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def main() -> None:
@@ -68,6 +87,8 @@ def main() -> None:
     # so before/after comparison logic is identical in both modes below --
     # the only difference is *what* gets snapshotted.
     side_effect_db_removed: bool | None = None
+    side_effect_db_created: bool | None = None
+    cache_before = file_sha256(CACHE_PATH)
     if DB_PATH.exists():
         mode = "existing_database"
         db_source = "pre_existing"
@@ -75,6 +96,7 @@ def main() -> None:
         before = db_snapshot(DB_PATH)
         result = run_test_suite()
         after = db_snapshot(DB_PATH)
+        side_effect_db_created = False
     else:
         # DB_PATH is absent (clean delivery package, e.g. build_portable_package.py's
         # zip before first run, or an older package that shipped none at all).
@@ -97,24 +119,25 @@ def main() -> None:
             result = run_test_suite()
             after = db_snapshot(scratch_db)
 
-        # app.py:117 runs `DERIVATIVES_STORE.initialize()` unconditionally at
-        # module import time, using app.py's own directory as the default DB
-        # location (see TD-23) -- importing app.py inside the test-suite
-        # subprocess above therefore creates a schema-only DB_PATH as an
-        # unavoidable side effect, before test_derivatives_platform.py's
-        # setUpClass ever gets a chance to monkeypatch it away. Not something
-        # this script causes or can prevent; clean it up and say so plainly
-        # rather than pretend it can never happen.
-        side_effect_db_removed = False
+        side_effect_db_created = DB_PATH.exists()
         if DB_PATH.exists():
             DB_PATH.unlink()
             side_effect_db_removed = True
+        else:
+            side_effect_db_removed = False
+
+    cache_after = file_sha256(CACHE_PATH)
 
     report = {
         "mode": mode,
         "db_source": db_source,
         "unverified_in_this_mode": unverified_in_this_mode,
         "side_effect_db_removed": side_effect_db_removed,
+        "side_effect_db_created": side_effect_db_created,
+        "cache_path": str(CACHE_PATH),
+        "cache_unchanged": cache_before == cache_after,
+        "cache_before_sha256": cache_before,
+        "cache_after_sha256": cache_after,
         "test_returncode": result.returncode,
         "before": before,
         "after": after,
@@ -123,10 +146,15 @@ def main() -> None:
         "test_output": result.stdout + result.stderr,
     }
     print(json.dumps(report, ensure_ascii=False, indent=2))
-    if result.returncode != 0 or not report["db_unchanged"] or not report["mock_free"]:
+    if (
+        result.returncode != 0
+        or not report["db_unchanged"]
+        or not report["mock_free"]
+        or report["side_effect_db_created"]
+        or not report["cache_unchanged"]
+    ):
         raise SystemExit(1)
 
 
 if __name__ == "__main__":
     main()
-

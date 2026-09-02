@@ -24,14 +24,12 @@ inconclusive result.
 Usage:
     python regression/reproduce_td16_recursion.py
 
-This asserts the DESIRED end state for every case: the page must render the
-stock detail without crashing/hanging, regardless of how many institutional
-history rows come back (0, <5, exactly 5, missing, or a normal count). On
-current (unfixed) master this correctly FAILS (exits non-zero) for the <5/0/
-missing cases - that failure IS the successful reproduction the ticket asks
-for. After TD-16's fix, the same assertions should PASS for every case
-(exit 0), which is what turns this reproduce script into the acceptance test
-per ticket section 3.2.
+This asserts the end state for every case: the page must render the stock
+detail without crashing/hanging, regardless of how many institutional history
+rows come back (0, <5, exactly 5, missing, or a normal count). The fixture
+also mocks the initial live-search and stock-detail responses so the test
+reaches the institutional-history branch deterministically instead of being
+blocked by unrelated external data-source availability.
 """
 from __future__ import annotations
 
@@ -78,6 +76,32 @@ def make_history_body(rows):
     return json.dumps(payload)
 
 
+def make_live_search_body():
+    return json.dumps({
+        "results": [{
+            "code": "2330", "name": "台積電", "market": "TWSE", "marketLabel": "上市",
+            "close": "600", "change": "+10", "pct": "+1.69%", "volume": "1000",
+        }],
+        "count": 1, "snapshotDate": "2026-01-10", "refreshedAt": "2026-01-10 12:00:00",
+    }, ensure_ascii=False)
+
+
+def make_detail_body():
+    history = [
+        {"date": "2026-01-09", "open": 590, "high": 595, "low": 585, "close": 590, "change": 0, "volume": 100},
+        {"date": "2026-01-10", "open": 590, "high": 605, "low": 590, "close": 600, "change": 10, "volume": 1000},
+    ]
+    return json.dumps({
+        "code": "2330", "name": "台積電", "market": "TWSE", "close": "600", "value": "600",
+        "change": "+10", "pct": "+1.69%", "open": "590", "high": "605", "low": "590",
+        "volume": "1000", "snapshotDate": "2026-01-10", "cachedAt": "2026-01-10 12:00:00",
+        "historyDays": history, "recentDays": history, "historyCount": len(history),
+        "historyStartDate": "2026-01-09", "historyEndDate": "2026-01-10",
+        "institutionalTradeHistory": {}, "institutionalTrades": {},
+        "chartIntervals": {"supported": ["day", "week", "month"], "intradayAvailable": False},
+    }, ensure_ascii=False)
+
+
 def worker_main(rows_arg: str, port: int) -> None:
     sys.path.insert(0, str(REGRESSION_DIR))
     from server_harness import start_server  # noqa: E402
@@ -85,6 +109,8 @@ def worker_main(rows_arg: str, port: int) -> None:
 
     rows = None if rows_arg == "None" else int(rows_arg)
     body = make_history_body(rows)
+    live_search_body = make_live_search_body()
+    detail_body = make_detail_body()
 
     handle = start_server(port=port)
     try:
@@ -98,12 +124,19 @@ def worker_main(rows_arg: str, port: int) -> None:
             page.on("pageerror", lambda exc: console_errors.append(str(exc)))
 
             def handle_route(route):
-                if "institutional-history" in route.request.url:
+                url = route.request.url
+                if "institutional-history" in url:
                     route.fulfill(status=200, content_type="application/json", body=body)
+                elif "/api/twse/live-search" in url:
+                    route.fulfill(status=200, content_type="application/json", body=live_search_body)
+                elif "/api/twse/stock/2330" in url:
+                    route.fulfill(status=200, content_type="application/json", body=detail_body)
+                elif url.endswith("/twse-data.js"):
+                    route.fulfill(status=200, content_type="application/javascript", body="window.TWSE_DATA = {}; window.TWSE_ALL_STOCKS = [];")
                 else:
                     route.continue_()
 
-            page.route("**/institutional-history**", handle_route)
+            page.route("**/*", handle_route)
             page.goto(f"{handle.base_url}/tw-stock-search.html", wait_until="load", timeout=15000)
             page.fill("#stock-search-input", "2330")
             page.click("#stock-search-form button[type=submit]")

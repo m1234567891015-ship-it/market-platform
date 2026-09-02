@@ -3545,29 +3545,6 @@ function formatFuturesIndicatorValue(value, digits = 2, suffix = "") {
   if (!Number.isFinite(parsed)) return "--";
   return `${formatGlobalValue(parsed, digits)}${suffix}`;
 }
-function renderFuturesMiniSparkline(values = [], tone = "flat", options = {}) {
-  const points = getFuturesFiniteVisualSeries(values).slice(-(options.count || 36));
-  if (points.length < 2) return '<span class="futures-mini-indicator is-empty">資料不足</span>';
-  const width = 132;
-  const height = 40;
-  const pad = 5;
-  const rawMin = Math.min(...points.map((point) => point.value), Number.isFinite(options.min) ? options.min : Infinity, Number.isFinite(options.baseline) ? options.baseline : Infinity);
-  const rawMax = Math.max(...points.map((point) => point.value), Number.isFinite(options.max) ? options.max : -Infinity, Number.isFinite(options.baseline) ? options.baseline : -Infinity);
-  const min = Number.isFinite(options.min) ? options.min : rawMin;
-  const max = Number.isFinite(options.max) ? options.max : rawMax;
-  const range = max === min ? Math.max(Math.abs(max) * 0.01, 1) : max - min;
-  const yFor = (value) => height - pad - ((value - min) / range) * (height - pad * 2);
-  const xFor = (index) => pad + (index / Math.max(points.length - 1, 1)) * (width - pad * 2);
-  const linePoints = points.map((point, index) => `${xFor(index).toFixed(2)},${yFor(point.value).toFixed(2)}`).join(" ");
-  const baseline = Number.isFinite(options.baseline) ? `<line class="futures-mini-baseline" x1="${pad}" x2="${width - pad}" y1="${yFor(options.baseline).toFixed(2)}" y2="${yFor(options.baseline).toFixed(2)}"></line>` : "";
-  return `
-    <svg class="futures-mini-indicator is-${escapeHtml(tone)}" viewBox="0 0 ${width} ${height}" aria-hidden="true">
-      ${baseline}
-      <polyline points="${linePoints}"></polyline>
-      <circle cx="${xFor(points.length - 1).toFixed(2)}" cy="${yFor(points.at(-1).value).toFixed(2)}" r="2.6"></circle>
-    </svg>
-  `;
-}
 function renderFuturesTechnicalTimeframeControls(item, selectedInterval) {
   return `
     <div class="futures-technical-timeframe-panel">
@@ -3579,77 +3556,6 @@ function renderFuturesTechnicalTimeframeControls(item, selectedInterval) {
           </button>
         `).join("")}
       </div>
-    </div>
-  `;
-}
-function renderFuturesIndicatorSwitchChart(item, rows = [], snapshot = {}) {
-  const selectedView = getSelectedFuturesTechnicalIndicatorView(item);
-  const stateKey = getFuturesTechnicalIndicatorStateKey(item);
-  const sourceSeries = snapshot.series || {};
-  const closeSeries = sourceSeries.close || [];
-  const ma = sourceSeries.ma || {};
-  const viewButtons = FUTURES_TECHNICAL_INDICATOR_OPTIONS.map((option) => `
-    <button class="range-button ${option.key === selectedView ? "is-active" : ""}" type="button" data-futures-indicator-view="${escapeHtml(option.key)}" data-futures-indicator-view-key="${escapeHtml(stateKey)}">
-      ${escapeHtml(option.label)}
-    </button>
-  `).join("");
-  let chart = "";
-  if (selectedView === "macd") {
-    chart = renderFuturesIndicatorPlot([
-      { label: "Histogram", values: sourceSeries.macd?.histogram || [], type: "bar", className: "is-line-4" },
-      { label: "DIF", values: sourceSeries.macd?.dif || [], className: "is-line-1" },
-      { label: "Signal", values: sourceSeries.macd?.signal || [], className: "is-line-2" },
-    ], { title: "MACD 動能圖", caption: "柱狀體為 DIF - Signal，搭配 DIF 與 Signal 線。", baseline: 0 });
-  } else if (selectedView === "oscillator") {
-    chart = renderFuturesIndicatorPlot([
-      { label: "RSI", values: sourceSeries.rsi || [], className: "is-line-1" },
-      { label: "K", values: sourceSeries.kd?.k || [], className: "is-line-2" },
-      { label: "D", values: sourceSeries.kd?.d || [], className: "is-line-3" },
-    ], { title: "RSI / KD 強弱圖", caption: "0-100 區間，50 為多空分水嶺。", min: 0, max: 100, baseline: 50 });
-  } else if (selectedView === "trend") {
-    chart = renderFuturesIndicatorPlot([
-      { label: "Close", values: closeSeries, className: "is-line-close" },
-      { label: "VWAP", values: sourceSeries.vwap || [], className: "is-line-6" },
-      { label: "Support", values: sourceSeries.support20 || [], className: "is-line-2" },
-      { label: "Resistance", values: sourceSeries.resistance20 || [], className: "is-line-3" },
-      { label: "Fib 38.2", values: sourceSeries.fib38 || [], className: "is-line-4" },
-      { label: "Fib 61.8", values: sourceSeries.fib62 || [], className: "is-line-5" },
-    ], { title: "趨勢與支撐壓力", caption: "收盤價搭配 VWAP、近20K 支撐壓力與 Fibonacci。", count: 70 });
-  } else if (selectedView === "volume") {
-    chart = renderFuturesIndicatorPlot([
-      { label: "Volume", values: sourceSeries.volume || [], type: "bar", className: "is-line-1" },
-      { label: "Delta Volume", values: sourceSeries.deltaVolume || [], type: "bar", className: "is-line-4" },
-    ], { title: "成交量與 Delta Volume", caption: "綠紅柱觀察上下量差與成交量變化。", baseline: 0 });
-  } else if (selectedView === "chips") {
-    chart = `
-      ${renderFuturesIndicatorPlot([
-        { label: "Open Interest", values: sourceSeries.openInterest || [], className: "is-line-1" },
-      ], { title: "未平倉量 OI", caption: "觀察部位留存與資金是否持續進場。", count: 70 })}
-      ${renderFuturesIndicatorPlot([
-        { label: "OI Change", values: sourceSeries.oiChange || [], type: "bar", className: "is-line-4" },
-      ], { title: "OI 增減", caption: "正值代表未平倉增加，負值代表部位下降。", baseline: 0, count: 70 })}
-    `;
-  } else {
-    chart = renderFuturesIndicatorPlot([
-      { label: "Close", values: closeSeries, className: "is-line-close" },
-      { label: "MA5", values: ma[5] || [], className: "is-line-1" },
-      { label: "MA10", values: ma[10] || [], className: "is-line-2" },
-      { label: "MA20", values: ma[20] || [], className: "is-line-3" },
-      { label: "MA60", values: ma[60] || [], className: "is-line-4" },
-      { label: "MA120", values: ma[120] || [], className: "is-line-5" },
-      { label: "MA240", values: ma[240] || [], className: "is-line-6" },
-    ], { title: "均線疊圖", caption: "收盤價與 MA5 / MA10 / MA20 / MA60 / MA120 / MA240。", count: 80 });
-  }
-  return `
-    <div class="futures-indicator-switch-panel">
-      <div class="futures-indicator-switch-head">
-        <span>
-          <small>Indicator chart</small>
-          <b>技術指標圖形切換</b>
-        </span>
-        <div class="futures-technical-intervals is-chart" aria-label="技術指標圖形切換">${viewButtons}</div>
-      </div>
-      ${chart}
     </div>
   `;
 }

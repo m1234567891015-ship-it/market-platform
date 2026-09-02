@@ -427,18 +427,27 @@ function renderAssetHubPublicOptionChainCard(chain = {}) {
   const callOi = Number(chain.summary?.callOpenInterest) || 0;
   const putOi = Number(chain.summary?.putOpenInterest) || 0;
   const putCallRatio = callOi > 0 ? putOi / callOi : null;
+  const statusText = chain.error
+    ? "公開選擇權鏈暫時無法取得；可重新選取標的再試。"
+    : chain.summary
+      ? `${selectedSymbol} 公開鏈資料已載入，請選擇其他標的查看。`
+      : "選取標的以載入公開選擇權鏈。";
+  const statusTone = chain.error ? "error" : chain.summary ? "ready" : "idle";
+  const safeSelectedSymbol = escapeHtml(selectedSymbol);
+  const safeStatusText = statusText.replace(selectedSymbol, safeSelectedSymbol);
   return `
     <article class="panel-card asset-option-chain-card">
       <div class="asset-hub-group-heading">
         <div>
           <p class="panel-kicker">US option chain</p>
-          <h4>${escapeHtml(selectedSymbol)} 公開選擇權鏈摘要</h4>
+          <h4>${safeSelectedSymbol} 公開選擇權鏈摘要</h4>
         </div>
         <span>${escapeHtml(formatAssetHubExpiration(chain.selectedExpiration))}</span>
       </div>
       <div class="tw-option-expiry-tabs" aria-label="美股選擇權標的切換">
         ${ASSET_HUB_OPTION_CHAIN_UNDERLYINGS.map(([symbol, label]) => `<button class="${symbol === selectedSymbol ? "is-active" : ""}" type="button" data-asset-option-underlying="${symbol}"><b>${symbol}</b><small>${escapeHtml(label)}</small></button>`).join("")}
       </div>
+      <p class="stock-theory-note" data-asset-option-status data-state="${statusTone}">${safeStatusText}</p>
       <div class="asset-option-chain-stats">
         <span><b>${chain.summary?.callCount ?? "--"}</b><small>Call 契約</small></span>
         <span><b>${chain.summary?.putCount ?? "--"}</b><small>Put 契約</small></span>
@@ -5268,6 +5277,10 @@ function renderDerivativesMarketOverview(futures, options) {
       </article>
     </section>
 
+    <section class="section" id="asset-public-options">
+      ${renderAssetHubPublicOptionChainCard(options.optionChain || {})}
+    </section>
+
   `;
 }
 function renderAssetHubPage(payloads = []) {
@@ -5284,8 +5297,38 @@ function renderAssetHubPage(payloads = []) {
   const isMetalsMode = mode === "precious-metals";
   const isFinanceMode = ["finance", "bonds", "precious-metals"].includes(mode);
   const financeView = isBondsMode ? "bonds" : isMetalsMode ? "metals" : "combined";
+  const bindPublicOptionControls = () => {
+    root.querySelectorAll("[data-asset-option-underlying]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const underlying = String(button.dataset.assetOptionUnderlying || "").toUpperCase();
+        if (!underlying || button.classList.contains("is-active")) return;
+        const status = root.querySelector("[data-asset-option-status]");
+        button.disabled = true;
+        if (status) {
+          status.dataset.state = "loading";
+          status.textContent = `正在載入 ${underlying} 公開選擇權鏈...`;
+        }
+        try {
+          const response = await fetchWithTimeout(`/api/us-market/options-chain/${encodeURIComponent(underlying)}`, { cache: "no-store" }, 20000);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const chain = await response.json();
+          const optionsPayload = byCategory.get("options") || options;
+          const nextOptions = { ...optionsPayload, optionChain: chain };
+          renderAssetHubPage(availablePayloads.map((item) => item.category === "options" ? nextOptions : item));
+        } catch (error) {
+          button.disabled = false;
+          if (status) {
+            status.dataset.state = "error";
+            status.textContent = `${underlying} 公開選擇權鏈暫時無法取得，請稍後再試。`;
+          }
+          console.error(`Failed to load ${underlying} options chain:`, error);
+        }
+      });
+    });
+  };
   if (!isFinanceMode) {
     root.innerHTML = renderDerivativesMarketOverview(futures, options);
+    bindPublicOptionControls();
     return;
   }
   const navigation = isFinanceMode
@@ -5349,6 +5392,7 @@ function renderAssetHubPage(payloads = []) {
   initAssetFinanceTrendSwitchers(root);
   initAssetFinanceVolumeSelectors(root);
   initAssetFinanceBondFocusControls(root, availablePayloads);
+  const bindAssetHubPageControls = () => {
   root.querySelectorAll("[data-asset-load-more]").forEach((button) => {
     button.addEventListener("click", async () => {
       const category = button.dataset.assetLoadMore || "";
@@ -5410,24 +5454,9 @@ function renderAssetHubPage(payloads = []) {
       }
     });
   });
-  root.querySelectorAll("[data-asset-option-underlying]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      const underlying = String(button.dataset.assetOptionUnderlying || "").toUpperCase();
-      if (!underlying || button.classList.contains("is-active")) return;
-      button.disabled = true;
-      try {
-        const response = await fetchWithTimeout(`/api/us-market/options-chain/${encodeURIComponent(underlying)}`, { cache: "no-store" }, 20000);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const chain = await response.json();
-        const optionsPayload = byCategory.get("options") || options;
-        const nextOptions = { ...optionsPayload, optionChain: chain };
-        renderAssetHubPage(availablePayloads.map((item) => item.category === "options" ? nextOptions : item));
-      } catch (error) {
-        button.disabled = false;
-        console.error(`Failed to load ${underlying} options chain:`, error);
-      }
-    });
-  });
+  };
+  bindAssetHubPageControls();
+  bindPublicOptionControls();
 }
 async function initAssetHubPage() {
   const root = document.getElementById("asset-hub-root");
@@ -5811,5 +5840,6 @@ function renderDerivativeAiArchitectureCard(futuresPayload, optionsPayload) {
   `;
 }
 async function initDerivativesAiPage() {
-  window.location.replace("derivatives-analytics.html#derivatives-ai-section");
+  const rollback = new URLSearchParams(window.location.search).get("td02-esm") === "off";
+  window.location.replace(`derivatives-analytics.html${rollback ? "?td02-esm=off" : ""}#derivatives-ai-section`);
 }

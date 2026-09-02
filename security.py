@@ -14,7 +14,9 @@ from __future__ import annotations
 import hmac
 import logging
 import os
+import shlex
 import ssl
+import sys
 import threading
 import time
 from datetime import datetime, timedelta, timezone
@@ -25,6 +27,13 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import certifi
 from flask import Response, jsonify, request
+from shared_state import (
+    RedisSharedStateAdapter,
+    SharedStateAdapter,
+    SharedStateError,
+    SharedStateTimeout,
+    SharedStateUnavailable,
+)
 
 LOGGER = logging.getLogger("market_pulse")
 try:
@@ -34,10 +43,20 @@ except ZoneInfoNotFoundError:
 
 API_RATE_LIMIT_WINDOW_SECONDS = 60
 API_RATE_LIMIT_PER_WINDOW = max(0, int(os.environ.get("MARKET_PULSE_API_RATE_LIMIT_PER_MINUTE", "120")))
+# This state is intentionally process-local while deployment is pinned to one
+# worker. Keep hostile/one-off client identities from growing it without bound.
+API_RATE_LIMIT_MAX_CLIENTS = max(1, int(os.environ.get("MARKET_PULSE_API_RATE_LIMIT_MAX_CLIENTS", "10000")))
 API_RATE_LIMIT_STATE: dict[str, list[float]] = {}
 API_RATE_LIMIT_LAST_CLEANUP = 0.0
 API_RATE_LIMIT_LOCK = threading.Lock()
 API_RATE_LIMIT_EXEMPT_PATHS = {"/api/health"}
+API_RATE_LIMIT_SHARED_ADAPTER: SharedStateAdapter | None = None
+API_RATE_LIMIT_SHARED_ADAPTER_LOCK = threading.Lock()
+API_RATE_LIMIT_SHARED_NAMESPACE = os.environ.get("MARKET_PULSE_SHARED_STATE_NAMESPACE", "market-pulse:v1")
+API_RATE_LIMIT_SHARED_TIMEOUT_SECONDS = max(
+    0.1,
+    float(os.environ.get("MARKET_PULSE_SHARED_STATE_TIMEOUT_SECONDS", "1")),
+)
 
 
 def api_client_identity() -> str:
@@ -46,7 +65,10 @@ def api_client_identity() -> str:
 
 def cleanup_api_rate_limit_state(now: float) -> None:
     global API_RATE_LIMIT_LAST_CLEANUP
-    if now - API_RATE_LIMIT_LAST_CLEANUP < API_RATE_LIMIT_WINDOW_SECONDS:
+    if (
+        now - API_RATE_LIMIT_LAST_CLEANUP < API_RATE_LIMIT_WINDOW_SECONDS
+        and len(API_RATE_LIMIT_STATE) <= API_RATE_LIMIT_MAX_CLIENTS
+    ):
         return
     for key in list(API_RATE_LIMIT_STATE):
         recent = [
@@ -56,6 +78,14 @@ def cleanup_api_rate_limit_state(now: float) -> None:
         if recent:
             API_RATE_LIMIT_STATE[key] = recent
         else:
+            API_RATE_LIMIT_STATE.pop(key, None)
+    overflow = len(API_RATE_LIMIT_STATE) - API_RATE_LIMIT_MAX_CLIENTS
+    if overflow > 0:
+        oldest_clients = sorted(
+            API_RATE_LIMIT_STATE.items(),
+            key=lambda item: max(item[1]) if item[1] else float("-inf"),
+        )[:overflow]
+        for key, _timestamps in oldest_clients:
             API_RATE_LIMIT_STATE.pop(key, None)
     API_RATE_LIMIT_LAST_CLEANUP = now
 
@@ -109,7 +139,73 @@ def register_rate_limit_window_hit(client_key: str, now: float) -> int | None:
             return max(1, int(API_RATE_LIMIT_WINDOW_SECONDS - (now - recent[0])))
         recent.append(now)
         API_RATE_LIMIT_STATE[client_key] = recent
+        cleanup_api_rate_limit_state(now)
         return None
+
+
+def rate_limit_backend_mode(environ: dict[str, str] | None = None) -> str:
+    """Return the explicitly selected H-05-03 mode, defaulting to local."""
+    environ = environ if environ is not None else os.environ
+    mode = str(environ.get("MARKET_PULSE_RATE_LIMIT_MODE", "local")).strip().lower()
+    return mode if mode in {"local", "shadow", "redis"} else "local"
+
+
+def _build_rate_limit_shared_adapter() -> SharedStateAdapter:
+    redis_url = str(os.environ.get("MARKET_PULSE_REDIS_URL") or "").strip()
+    if not redis_url:
+        raise SharedStateUnavailable("MARKET_PULSE_REDIS_URL is required for shared rate limiting")
+    try:
+        import redis
+    except ImportError as exc:
+        raise SharedStateUnavailable("redis package is required for shared rate limiting") from exc
+    try:
+        client = redis.Redis.from_url(
+            redis_url,
+            protocol=2,
+            socket_connect_timeout=API_RATE_LIMIT_SHARED_TIMEOUT_SECONDS,
+            socket_timeout=API_RATE_LIMIT_SHARED_TIMEOUT_SECONDS,
+            decode_responses=True,
+        )
+        client.ping()
+    except TimeoutError as exc:
+        raise SharedStateTimeout("Redis rate-limit health check timed out") from exc
+    except Exception as exc:
+        raise SharedStateUnavailable("Redis rate-limit health check failed") from exc
+    return RedisSharedStateAdapter(client, namespace=API_RATE_LIMIT_SHARED_NAMESPACE)
+
+
+def _get_rate_limit_shared_adapter() -> SharedStateAdapter:
+    global API_RATE_LIMIT_SHARED_ADAPTER
+    if API_RATE_LIMIT_SHARED_ADAPTER is not None:
+        return API_RATE_LIMIT_SHARED_ADAPTER
+    with API_RATE_LIMIT_SHARED_ADAPTER_LOCK:
+        if API_RATE_LIMIT_SHARED_ADAPTER is None:
+            API_RATE_LIMIT_SHARED_ADAPTER = _build_rate_limit_shared_adapter()
+        return API_RATE_LIMIT_SHARED_ADAPTER
+
+
+def _register_shared_rate_limit_window_hit(client_key: str) -> int | None:
+    adapter = _get_rate_limit_shared_adapter()
+    return adapter.rate_limit_hit(
+        client_key,
+        time.time(),
+        API_RATE_LIMIT_WINDOW_SECONDS,
+        API_RATE_LIMIT_PER_WINDOW,
+        API_RATE_LIMIT_MAX_CLIENTS,
+    )
+
+
+def build_rate_limit_backend_unavailable_response() -> Response:
+    response = jsonify(
+        {
+            "success": False,
+            "error_code": "RATE_LIMIT_BACKEND_UNAVAILABLE",
+            "error": {"code": "RATE_LIMIT_BACKEND_UNAVAILABLE", "message": "服務暫時無法處理請求，請稍後再試"},
+        }
+    )
+    response.status_code = 503
+    response.headers["Retry-After"] = "5"
+    return response
 
 
 def build_rate_limit_exceeded_response(retry_after: int) -> Response:
@@ -129,12 +225,74 @@ def enforce_api_rate_limit():
     if is_rate_limit_exempt_request():
         return None
 
-    now = time.monotonic()
     client_key = api_client_identity()
-    retry_after = register_rate_limit_window_hit(client_key, now)
+    mode = rate_limit_backend_mode()
+    if mode == "local":
+        retry_after = register_rate_limit_window_hit(client_key, time.monotonic())
+    elif mode == "shadow":
+        local_retry_after = register_rate_limit_window_hit(client_key, time.monotonic())
+        try:
+            shared_retry_after = _register_shared_rate_limit_window_hit(client_key)
+            LOGGER.info(
+                "rate_limit_shadow_compare local_limited=%s shared_limited=%s match=%s",
+                local_retry_after is not None,
+                shared_retry_after is not None,
+                (local_retry_after is None) == (shared_retry_after is None),
+            )
+        except SharedStateError as exc:
+            LOGGER.warning("rate_limit_shadow_backend_error error_type=%s", type(exc).__name__)
+        retry_after = local_retry_after
+    else:
+        try:
+            retry_after = _register_shared_rate_limit_window_hit(client_key)
+        except SharedStateError as exc:
+            LOGGER.error("rate_limit_shared_backend_unavailable error_type=%s", type(exc).__name__)
+            return build_rate_limit_backend_unavailable_response()
     if retry_after is not None:
         return build_rate_limit_exceeded_response(retry_after)
     return None
+
+
+def configured_worker_count(argv: list[str] | None = None, environ: dict[str, str] | None = None) -> int | None:
+    """Return an explicitly configured Gunicorn worker count, if detectable."""
+    environ = environ if environ is not None else os.environ
+    args = list(argv if argv is not None else sys.argv)
+    command_name = os.path.basename(args[0]).lower() if args else ""
+    gunicorn_env = str(environ.get("GUNICORN_CMD_ARGS") or "").strip()
+    if "gunicorn" not in command_name and not gunicorn_env:
+        return None
+
+    candidates = args[1:] + shlex.split(gunicorn_env)
+    for index, argument in enumerate(candidates):
+        if argument in {"--workers", "-w"} and index + 1 < len(candidates):
+            try:
+                return int(candidates[index + 1])
+            except ValueError:
+                continue
+        if argument.startswith("--workers=") or argument.startswith("-w="):
+            try:
+                return int(argument.split("=", 1)[1])
+            except ValueError:
+                continue
+
+    for env_name in ("WEB_CONCURRENCY", "GUNICORN_WORKERS"):
+        value = str(environ.get(env_name) or "").strip()
+        if value:
+            try:
+                return int(value)
+            except ValueError:
+                return None
+    return None
+
+
+def warn_if_multi_worker() -> None:
+    worker_count = configured_worker_count()
+    if worker_count is not None and worker_count > 1:
+        LOGGER.warning(
+            "Local rate-limit/cache/in-flight state is process-local; configured workers=%d. "
+            "Use one worker or move shared state to an external store before scaling out.",
+            worker_count,
+        )
 
 
 def is_authorized_derivatives_admin() -> bool:

@@ -160,7 +160,10 @@ def fetch(base_url: str, case: Case) -> tuple[int, str, object | None]:
     except urllib.error.HTTPError as exc:
         status = exc.code
         content_type = exc.headers.get("Content-Type", "") if exc.headers else ""
-        raw = exc.read()
+        try:
+            raw = exc.read()
+        finally:
+            exc.close()
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
         return 0, "", {"__fetch_error__": str(exc)}
 

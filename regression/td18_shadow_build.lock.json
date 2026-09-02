@@ -1,0 +1,52 @@
+{
+  "lockfileVersion": 1,
+  "nodeVersion": "24.18.0",
+  "builder": {
+    "name": "td18-shadow-concat",
+    "version": "1.0.0",
+    "implementation": "node-built-in-fs-crypto",
+    "sourceMapVersion": 3,
+    "lineEndingPolicy": "preserve-source-bytes"
+  },
+  "bundles": [
+    {
+      "name": "common-runtime",
+      "output": "common-runtime.js",
+      "sourceMap": "common-runtime.js.map",
+      "inputs": [
+        "pwa.js",
+        "js/state.js",
+        "js/core.js",
+        "js/api.js",
+        "js/shared-calc.js",
+        "js/render-shared.js",
+        "js/charts.js",
+        "js/stock-detail.js"
+      ]
+    },
+    {
+      "name": "route-bundle",
+      "output": "route-bundle.js",
+      "sourceMap": "route-bundle.js.map",
+      "inputs": [
+        "js/page-home.js",
+        "js/page-us.js",
+        "js/page-global-market-futures.js",
+        "js/page-global-market-options.js",
+        "js/page-global-market-assethub.js",
+        "js/page-tw.js",
+        "js/legacy-unclassified.js",
+        "js/main.js",
+        "app.js"
+      ]
+    },
+    {
+      "name": "derivatives-status-addon",
+      "output": "derivatives-status-addon.js",
+      "sourceMap": "derivatives-status-addon.js.map",
+      "inputs": [
+        "derivatives-ui.js"
+      ]
+    }
+  ]
+}

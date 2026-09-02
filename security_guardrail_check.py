@@ -319,7 +319,7 @@ KNOWN_GLOBALS = {
     "Promise", "fetch", "setTimeout", "setInterval", "clearTimeout", "clearInterval",
     "RegExp", "Intl", "Event", "CustomEvent", "requestAnimationFrame", "Element",
     "Node", "NodeList", "HTMLElement", "Symbol", "Error", "TypeError", "RangeError",
-    "Proxy", "Reflect", "Blob", "FormData", "AbortController", "structuredClone",
+    "Proxy", "Reflect", "Blob", "FormData", "AbortController", "structuredClone", "caches",
     "crypto", "performance", "matchMedia", "getComputedStyle", "alert", "confirm",
     "prompt", "File", "FileReader", "Image", "IntersectionObserver",
     "MutationObserver", "ResizeObserver", "TextEncoder", "TextDecoder",
@@ -535,14 +535,32 @@ def check_frontend_no_inline_script() -> None:
 
 
 def html_script_order(content: str) -> list[str]:
-    """依 HTML 檔案中出現順序,取出屬於本工單拆分範圍的 <script src=...>
-    (js/*.js 與 app.js),忽略 pwa.js、derivatives-ui.js 等範圍外的腳本。"""
-    order = []
-    for match in re.finditer(r'<script\s+src="([^"]+)"', content):
-        src = match.group(1).split("?")[0]
-        if src.startswith("js/") or src == "app.js":
-            order.append(src)
-    return order
+    """取出前端執行入口順序,同時支援 classic、TD-18 bundles 與 TD-02 full ESM loader。
+
+    H-10-04 的 bundle 保留同一個 common-runtime → route-bundle 依賴邊界;
+    derivatives-status 頁面再於 route-bundle 後載入專用 addon。未 rollout 的
+    classic HTML 仍沿用原本的 js/*.js + app.js 檢查,因此這個護欄同時覆蓋
+    正式接線與立即回退路徑。
+    """
+    sources = [
+        match.group(1).split("?")[0]
+        for match in re.finditer(r'<script\s+src="([^"]+)"', content)
+    ]
+    bundle_order = [
+        src
+        for src in sources
+        if src in {
+            "common-runtime.js",
+            "route-bundle.js",
+            "common-runtime.min.js",
+            "route-bundle.min.js",
+        }
+    ]
+    if "market-pulse-esm-loader.js" in sources:
+        return ["market-pulse-esm-loader.js"]
+    if bundle_order:
+        return bundle_order
+    return [src for src in sources if src.startswith("js/") or src == "app.js"]
 
 
 def check_frontend_load_order_initialization() -> None:
@@ -555,16 +573,21 @@ def check_frontend_load_order_initialization() -> None:
 
     orders = {f.name: html_script_order(f.read_text(encoding="utf-8-sig")) for f in html_files}
     non_empty_orders = {name: order for name, order in orders.items() if order}
-    assert_true(non_empty_orders, "No HTML file references app.js or js/*.js via <script src=...>")
+    assert_true(non_empty_orders, "No HTML file references a recognized frontend entry")
     first_order = next(iter(non_empty_orders.values()))
     for name, order in non_empty_orders.items():
-        assert_true(order == first_order, f"{name} 的 js/*.js + app.js 載入順序與其他頁面不一致: {order} vs {first_order}")
+        assert_true(order == first_order, f"{name} 的 frontend script 載入順序與其他頁面不一致: {order} vs {first_order}")
 
     file_sources: dict[str, str] = {}
     for rel_path in first_order:
         full_path = BASE_DIR / rel_path
         assert_true(full_path.exists(), f"Script referenced in HTML does not exist: {rel_path}")
-        file_sources[rel_path] = full_path.read_text(encoding="utf-8-sig")
+        analysis_path = full_path
+        if rel_path.endswith(".min.js"):
+            classic_path = BASE_DIR / rel_path.replace(".min.js", ".js")
+            assert_true(classic_path.exists(), f"Minified script lacks classic analysis counterpart: {rel_path}")
+            analysis_path = classic_path
+        file_sources[rel_path] = analysis_path.read_text(encoding="utf-8-sig")
 
     declared_so_far: set[str] = set()
     for rel_path in first_order:

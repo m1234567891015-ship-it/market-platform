@@ -86,7 +86,6 @@ async function loadLiveData() {
     return false;
   }
 }
-renderSharedNavigation();
 if (document.body.dataset.page === "search") initSearchPage();
 if (document.body.dataset.page === "watchlist") initWatchlistPage();
 document.addEventListener("click", (event) => {

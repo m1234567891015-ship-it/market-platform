@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -210,6 +211,8 @@ class DerivativesStore:
 
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path)
+        self._initialized = False
+        self._initialize_lock = threading.Lock()
 
     def _connect(self) -> sqlite3.Connection:
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -229,8 +232,14 @@ class DerivativesStore:
             connection.close()
 
     def initialize(self) -> None:
-        with self._connection() as connection:
-            connection.executescript(SCHEMA_SQL)
+        if self._initialized:
+            return
+        with self._initialize_lock:
+            if self._initialized:
+                return
+            with self._connection() as connection:
+                connection.executescript(SCHEMA_SQL)
+            self._initialized = True
 
     @staticmethod
     def _same_json(left: str | None, right: dict[str, Any]) -> bool:

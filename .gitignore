@@ -35,9 +35,16 @@ build/
 # ===== 日誌與暫存 =====
 *.log
 .tmp/
+.td03_runtime/
 
 # ===== 編輯器 / OS =====
 .vscode/
 .idea/
 Thumbs.db
 .DS_Store
+
+# ===== Node.js =====
+node_modules/
+
+# ===== Windows =====
+desktop.ini

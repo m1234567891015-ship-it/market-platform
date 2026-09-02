@@ -39,6 +39,30 @@ managed external database.
 The current background updater is process-local. Keep the service at one Gunicorn worker
 unless a cross-worker scheduler lock or external cron-based refresh is introduced.
 
+The checked-in `Procfile` and `render.yaml` both use `gunicorn --workers 1 --threads 4`.
+At application startup, an explicitly detected Gunicorn worker count greater than one
+emits a warning because rate-limit state, cache entries, and in-flight locks are still
+process-local. `MARKET_PULSE_API_RATE_LIMIT_MAX_CLIENTS` bounds the in-process rate-limit
+identity map (default: 10,000 clients).
+
+## Cache Policy And Lifecycle
+
+TTL values are centrally declared in `market_config.py` under `CACHE_TTL_SECONDS`.
+Per-key memory-cache capacities are declared under `CACHE_BUCKET_MAX_ENTRIES` and
+enforced by `cache.enforce_bucket_cap()` on writes. The bounded buckets include stock
+details, option chains, external text, global-market responses, sector charts, future
+technical candles, TAIFEX OpenAPI lists, and live-search deduplication.
+
+The remaining process-local snapshots (`site_data`, international indexes, treasury
+yields, listed-universe data, shareholder distributions, and Taiwan futures quotes)
+replace one complete generation rather than accumulating one entry per request. Their
+TTL and replacement lifecycle remain explicit in the named aliases backed by the same
+central TTL registry. In-flight events are created per refresh key and removed in a
+`finally` path after completion or failure.
+
+Moving these states to Redis or another shared store remains a separate design task;
+this batch deliberately keeps the current single-worker deployment contract.
+
 ## SSL Fallback
 
 `ALLOW_UNVERIFIED_SSL_FALLBACK=1` is for local maintenance only. It is ignored in

@@ -44,8 +44,9 @@ tw-Optional-stocks.html/tw-stock-search.html/us-stock-search.html/us-watchlist.h
 ## 方法
 
 1. **靜態引用掃描**:沿用 `css_unused_report.md` 的文字邊界比對結果(已排除子字串誤配)。
-2. **動態拼接判定**:掃描全部 `js/*.js` + `app.js` 是否有 ``前綴-${...}`` 樣板字面值
-   組合模式(找到 15 個動態字首,見 `css_unused_report.md`),額外掃描 `'字串' + 變數`
+2. **動態拼接判定**:掃描全部 `js/*.js` + `app.js` + `pwa.js` + `derivatives-ui.js` +
+   `service-worker.js` + `twse-data.js` 是否有 ``前綴-${...}`` 樣板字面值組合模式
+   (找到 15 個動態字首,見 `css_unused_report.md`),額外掃描 `'字串' + 變數`
    字串串接與 `classList.add(變數)` 純變數呼叫兩種模式(**本輪掃描結果:皆無新增命中**)。
 3. **語義狀態詞排除**(工單第 3 部分第四節要求):候選 class 若語意上關聯資料狀態
    (如 `-up`/`-down`/`-alert`/`-warning` 等色調字尾),即使靜態掃描判定為死也一律
@@ -249,7 +250,7 @@ tw-Optional-stocks.html/tw-stock-search.html/us-stock-search.html/us-watchlist.h
 | `.us-sector-base-line` | split-03.css:3080 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.us-sector-benchmark-line` | split-03.css:3028 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.us-sector-chart-stat-strip` | split-03.css:3154; split-03.css:3160; split-03.css:3172 等共5處 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
-| `.us-sector-end-label` | split-03.css:3185; split-03.css:3190; split-03.css:3196 等共5處 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
+| `.us-sector-end-label` | 刪除前 `split-03.css:2998,3002,3006` | 否 | ✅ H-09-03 已刪除(3 rule blocks) | 刪除前完整 HTML／JS 零命中；實際產生的是 `sector-end-label`，非 `us-sector-end-label`；無 shared live branch、media 或 responsive 依賴 |
 | `.us-sector-focus-line` | split-03.css:3036; split-03.css:3045; split-03.css:3050 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.us-sector-plain-result` | split-03.css:3125; split-03.css:3134; split-03.css:3139 等共5處 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
 | `.us-sector-relative-band` | split-03.css:3059; split-03.css:3063; split-03.css:3067 | 否 | 第三層(可刪) | 純文字掃描全 repo 零命中,非已知動態字首,非語義狀態詞 |
@@ -298,3 +299,129 @@ tw-Optional-stocks.html/tw-stock-search.html/us-stock-search.html/us-watchlist.h
 - 合計掃描:216 個 class + 7 個(已排除)ID
 - 實際可執行刪除的規則區塊數:220(121 個 class 的所有「規則整體 100% 純淨」出現位置;
   部分 class 有多個出現位置,其中混有 grouped selector 的位置不刪,只刪純淨位置)
+
+## H-09-01 動態候選重新核實(2026-08-31)
+
+本批依授權只做分類與證據對帳,未修改任何 `split-*.css` 規則。掃描輸入固定為
+`split-*.css`、21 個頁面 HTML、`app.js`、`js/*.js` 與根目錄 4 個獨立 JS
+(`pwa.js`、`derivatives-ui.js`、`service-worker.js`、`twse-data.js`),並以候選 class
+逐項做靜態完整字串比對，再對動態樣板、`classList` 狀態切換與頁面 manifest 交叉核實。
+
+### 動態／組合證據矩陣
+
+| 候選群 | 候選數 | 產生路徑／靜態結果 | 本批分類 |
+|---|---:|---|---|
+| `is-*` | 37 | 多個 render template 使用 `is-${...}`，例如 `stock-detail.js:268,740,824,1351`、`render-shared.js:859`、`page-global-market-futures.js:205,1880,2113`；另有 `pwa.js:44` 的 `is-offline` 及 `classList.toggle("is-active"/"is-disabled")` 狀態路徑。候選值來自 item key、tone、risk 或頁面狀態，不能以 CSS 靜態零命中判死。 | **保留(已確認動態／狀態組合)** |
+| `ma-*` | 6 | `charts.js:388` 使用 `ma-${series.period}`，`stock-detail.js:2284` 使用 `ma-${period}`；可接受週期集合在 `stock-detail.js:205` 與 `page-global-market-futures.js:3712` 為 `5/10/20/60/120/240`，正好覆蓋本表 6 個候選。 | **保留(已確認動態組合)** |
+| `metric-*` | 11 | `page-tw.js:2618` 使用 `metric-${metric.key}`；`page-tw.js:1548-1551` 的 metrics key 包含 `sentiment`、`vix-level`、`band`、`risk-temp`，其餘 key 亦由同一 metrics render path 產生。 | **保留(已確認動態組合)** |
+| `market-ai-risk-*` | 3 | `page-global-market-options.js:3242-3252` 將 `riskTone` 限定為 `high/medium/low`，並產生 `market-ai-risk-${riskTone}`，覆蓋本表 3 個候選。 | **保留(已確認動態組合)** |
+| `market-risk-*` | 3 | `page-global-market-options.js:3290-3390` 使用相同的 `high/medium/low` tone 產生 `market-risk-${riskTone}`，覆蓋本表 3 個候選。 | **保留(已確認動態組合)** |
+| `sector-card` | 1 | `page-home.js:317` 有候選字串的直接 HTML template 引用。這不是 dead CSS 的純靜態零引用。 | **保留(已確認 HTML 產生路徑)** |
+| `asset-*` | 7 | 全 repo HTML／JS 以候選完整字串比對均無命中；目前只有 `asset-` 前綴樣板命中，尚未找到能產生這 7 個精確 selector 的路徑。 | **保留(證據不足，待後續批次)** |
+| 其餘 `sector-*` | 13 | 全 repo HTML／JS 以候選完整字串比對均無命中；目前只有 `sector-` 前綴或相鄰 static class 命中，尚未找到這 13 個精確 selector 的產生路徑。 | **保留(證據不足，待後續批次)** |
+
+矩陣合計 81 個 dynamic rows。前述 12 個 grouped-selector 候選與 `pwa-controls`／
+`pwa-network` 的根目錄 JS 真實引用，沿用本文件既有「本輪不刪」分類，不重新降級或
+刪除。對 `asset-*`／13 個 `sector-*`，前綴命中本身不構成刪除授權；在沒有候選
+字串產生器、完整 selector cascade 與 runtime 路徑三方一致前，一律保留。
+
+### 頁面與互動證據
+
+- `regression/baseline/frontend_manifest.json`：`page_count=21`，21 個 HTML 的載入／
+  render snapshot 清單完整存在。
+- `regression/baseline/interactions/manifest.json`：`page_count=21`、
+  `step_count_total=94`；包含可操作頁面的互動路徑與 render-only 頁面覆核。
+- H-09-01 不將基準檔當作修改目標；後續完整驗證只比對現況與既有基準，pixel／
+  interaction 差異不得以更新 baseline 掩蓋。
+
+### 本批結論
+
+81 個 dynamic rows 全數列為保留，未產生任何 CSS deletion candidate。H-09-02 已另行完成
+grouped selector 的 cascade／media／active／focus 細查；H-09-03 才能在三方證據一致
+且另獲授權時刪除單一候選組。這次沒有修改 baseline、CSP、部署設定、SQLite 或
+`twse-cache.json`。
+
+## H-09-02 Grouped selector 逐組核實(2026-08-31)
+
+本批重新以目前磁碟上的 `split-01.css`～`split-07.css` 解析 rule blocks；不採用舊行號
+直接推定現況，也不執行 CSS 刪除。以本表 216 個 class candidates 做完整 selector
+比對後，得到 247 個含候選 class 的 rule blocks：其中 188 個是 mixed grouped／
+compound blocks(至少有一個非候選 class branch 或同一 compound selector 仍依賴其他
+class)，59 個只有候選 class。188 個 mixed blocks 涉及 107 個候選 class，16 個位於
+8 種 responsive `@media` 條件，13 個含 `:hover`／`:focus-visible`／`.is-active` 等
+互動或 active 狀態。所有 mixed blocks 均保留；59 個 candidate-only blocks 也只記為
+待 H-09-03 三方證據核准，不在本批刪除。
+
+### 12 個全數降級候選逐組結果
+
+| 候選組 | 目前 rule block | shared／狀態／responsive 依賴 | 分類 |
+|---|---|---|---|
+| `wide` | `split-01.css:312`；`split-03.css:40008,42344` | 與 `.mini-list`、`.detail-metrics`、`.table-head`、`.table-row`、`.history-row`、`.analysis-grid` 共用；後兩處位於 `@media (max-width: 820px/560px)`。 | **保留**：不能移除 `.wide` 而破壞窄版 layout 或其他 live class。 |
+| `weighted-index-note-card` | `split-01.css:1200` | 與 `.weighted-index-note-card-inline` 共用同一宣告區塊。 | **保留**：shared branch 未被本候選涵蓋。 |
+| `class-hero-main` | `split-01.css:2675` | 與 `.class-board-head h3` 共用。 | **保留**：同一 rule 仍服務 live heading。 |
+| `limit-move-card` | `split-02.css:103` | 與 `.market-extreme-card` 共用。 | **保留**：共用卡片樣式不可整條移除。 |
+| `us-sector-volume-bars` | `split-03.css:2944,2949` | 與 `.is-positive`／`.is-negative` 狀態 branch 共用，分別控制正負成交量色彩。 | **保留**：active／tone 狀態不可視為 dead layout。 |
+| `us-sector-alpha-bars` | `split-03.css:2964,2968` | 與 `rect.is-positive`／`rect.is-negative` 狀態 branch 共用。 | **保留**：正負狀態 cascade 仍有依賴。 |
+| `us-etf-dashboard` | `split-04.css:1637` | 與 `.us-module-card` compound selector 共用。 | **保留**：移除會改變 live module card 的樣式。 |
+| `us-etf-detail-watchlist` | `split-04.css:1577,1612,1617` | `1577` 與 `.us-etf-detail-chart-panel`、`.us-etf-detail-brief-card` 共用；`1612/1617` 分別與 `.us-etf-detail-brief-card b/p` 共用。 | **保留**：shared detail／brief branches 仍存活。 |
+| `derivatives-overview-position-card` | `split-04.css:2377` | 與 `.derivatives-overview-technical-card`、`.derivatives-overview-decision-card`、`.derivatives-overview-context-card` 共用。 | **保留**：同一宣告區塊涵蓋多個 derivatives card。 |
+| `derivatives-overview-technical-card` | `split-04.css:2377` | 與 position／decision／context card 共用同一 rule。 | **保留**：不能只移除其中一個 branch。 |
+| `derivatives-overview-indicator-grid` | `split-04.css:2384,2391,2404,2414,2436,2439`；`split-05.css:1077` | 與 exposure／timeframe／hot-strikes／institution／levels／news grid 共用；`2436/2439` 還含 `.is-up`／`.is-down` tone；`split-05.css:1077` 在 `@media (max-width: 520px)`。 | **保留**：shared grid、tone 與 responsive cascade 均未拆分。 |
+| `derivatives-overview-hot-strikes` | `split-04.css:2391,2404,2414,2424,2443`；`split-05.css:1077` | 與 indicator／timeframe／institution／levels／news grid 共用；`split-05.css:1077` 為 responsive override。 | **保留**：刪除會連帶改變其他 derivatives overview 區塊。 |
+
+### Mixed grouped blocks 的共通判定
+
+- `split-01.css` 47、`split-02.css` 9、`split-03.css` 39、`split-04.css` 38、
+  `split-05.css` 44、`split-06.css` 4、`split-07.css` 7 個 mixed blocks 均保留；
+  其中 responsive blocks 分布為 `split-03.css` 7、`split-04.css` 1、
+  `split-05.css` 3、`split-07.css` 5。
+- 互動／狀態 selector 已逐一標記：`split-01.css:1615,1755,1760,1765,1770,2694`、
+  `split-04.css:902,908,918,931,935,1789`、`split-06.css:2124`。這些包含
+  `.is-active`、`:hover`、`:focus-visible` 或 active row 的宣告，保留 cascade，不納入
+  dead CSS 刪除。
+- `split-03.css:40008` 與 `42344` 的 `@media` grouped rule 特別保留，因為同一窄版
+  宣告同時作用於 `.mini-list.wide`、detail metrics、table 與 analysis grid；不能按
+  單一候選 class 拆除。
+- 分類標準維持「所有 comma branch 與 compound class 都須有獨立 dead-code 證據，且
+  不涉及狀態／responsive／cascade 依賴」；任一 shared branch、狀態或 media 依賴不確定，
+  即列保留。H-09-02 未產生刪除清單，H-09-03 才能另行挑選單一、證據完整的 candidate-only
+  group 並執行刪除。
+
+本批沒有修改 `split-*.css`、baseline、CSP、部署設定、SQLite 或 `twse-cache.json`。
+
+## H-09-03 單一候選組刪除(2026-08-31)
+
+### 刪除前三方證據
+
+本批只選一個候選組 `us-sector-end-label`，不擴大到其他 `us-sector-*` 或 grouped
+candidate。刪除前核對結果如下：
+
+- **CSS 靜態證據**：`split-03.css` 只剩 3 個以 `.us-sector-end-label` 為 base
+  selector 的 rule blocks：`2998` (`is-leading`)、`3002` (`is-lagging`)、`3006`
+  (`is-benchmark`)。三者都是同一候選 base class 的 compound state 規則，沒有 comma
+  shared live branch，亦不在 `@media`／responsive wrapper 中。
+- **HTML／JS 產生路徑證據**：完整掃描 root HTML、`app.js`、`js/*.js` 與 4 個根目錄
+  JS 後，沒有 `us-sector-end-label` 的直接或樣板產生命中；現行產生路徑為
+  `sector-end-label sector-end-label-primary/benchmark` (`js/page-tw.js:328,332`、
+  `js/page-global-market-futures.js:1127,1131`)，不會命中該 `us-` selector。
+- **頁面／互動證據**：刪除前既有 `21` 頁 frontend 與 `94` 條 interaction baseline
+  已通過 full verify；候選只存在於 CSS，未出現在現行 HTML／JS render path，因此沒有
+  可由本 selector 提供樣式的 live DOM 路徑。刪除後再跑同一套 full verify 作為回歸門檻。
+
+### 實際變更與回歸結果
+
+- 使用 `regression/delete_css_rules.py` 精確刪除 `split-03.css` 的 3 個 rule blocks，
+  未改動相鄰 `.us-sector-analysis-grid` 或其他 selector；刪除後完整 selector 搜尋
+  已找不到 `us-sector-end-label`。
+- 語法：`python -m py_compile app.py` PASS；全 root／`js/*.js` `node --check`
+  PASS。單元測試 176 tests PASS；security 16/16 PASS；`e2e_smoke.py` 為
+  `E2E_SMOKE_OK`。
+- 受限環境 full verify 的 TWSE live 502 與瀏覽器 `ERR_NETWORK_ACCESS_DENIED` 已分類為
+  `[外部問題]`；允許外連重跑後 `VERIFY_OK`，cached/live API、21 頁 frontend、94 條
+  interaction 與 security 全部通過。未更新任何 baseline 來掩蓋差異。
+- 本批只刪除上述 3 個 CSS rule blocks 並更新本分類紀錄；未修改 CSP、部署設定、SQLite
+  或 `twse-cache.json`。下一組候選須另行授權與驗證。
+
+## 2026-09-01 REMAIN closure update
+
+本分類表的歷史分類不再直接作為刪除清單。TD15-REMAIN-04～07 已以 current file／line／selector／SHA-256 重新完成 263 個 rule blocks 的 review；最終沒有 `delete_candidate`，因此未再刪除 CSS。後續若 CSS 或頁面行為變更，須改用最新 REMAIN manifest 重新核對。

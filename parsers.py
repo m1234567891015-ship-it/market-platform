@@ -1423,7 +1423,13 @@ def sync_yahoo_quotes(stocks: list[dict[str, Any]]) -> list[dict[str, Any]]:  # 
             index = futures[future]
             try:
                 synced[index] = future.result()
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
+                app.LOGGER.debug(
+                    "Yahoo quote sync failed for index=%s code=%s; using original stock",
+                    index,
+                    stocks[index].get("code"),
+                    exc_info=exc,
+                )
                 synced[index] = stocks[index]
     return synced
 
@@ -1439,7 +1445,9 @@ def find_stock_by_query(query: str, stocks: list[dict[str, Any]], limit: int = 2
     prefix_name: list[dict[str, Any]] = []
     name_matches: list[dict[str, Any]] = []
 
-    for stock in stocks:
+    for stock in stocks if isinstance(stocks, list) else []:
+        if not isinstance(stock, dict) or not stock.get("code") or not stock.get("name"):
+            continue
         code = str(stock["code"]).lower()
         name = str(stock["name"]).lower()
         if code == keyword:
@@ -1457,7 +1465,7 @@ def find_stock_by_query(query: str, stocks: list[dict[str, Any]], limit: int = 2
     unique: list[dict[str, Any]] = []
     seen: set[tuple[str, str]] = set()
     for item in combined:
-        item_key = (str(item.get("market", "")), str(item["code"]))
+        item_key = (str(item.get("market", "")), str(item.get("code", "")))
         if item_key in seen:
             continue
         seen.add(item_key)
@@ -1473,7 +1481,11 @@ def refresh_tpex_cache() -> None:
     quotes, quote_date = fetch_tpex_mainboard_quotes()
     try:
         yahoo_etfs = fetch_yahoo_tpex_etfs()
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        app.LOGGER.debug(
+            "Yahoo TPEx ETF fetch failed; using empty ETF mapping",
+            exc_info=exc,
+        )
         yahoo_etfs = {}
     tpex_stocks = parse_tpex_quotes(quotes, yahoo_etfs)
     if not tpex_stocks:
@@ -1494,12 +1506,20 @@ def refresh_tpex_cache() -> None:
 
     try:
         tpex_mainboard_highlight, yahoo_tpex_otc_date = app.build_yahoo_class_quote_cards(YAHOO_TPEX_OTC_CLASS_URL, "上櫃", limit=6)
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        app.LOGGER.debug(
+            "Yahoo OTC class cards unavailable; using empty highlight fallback",
+            exc_info=exc,
+        )
         tpex_mainboard_highlight = []
         yahoo_tpex_otc_date = None
     try:
         tpex_esb_highlight, yahoo_tpex_emerging_date = app.build_yahoo_class_quote_cards(YAHOO_TPEX_EMERGING_CLASS_URL, "興櫃", limit=6)
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        app.LOGGER.debug(
+            "Yahoo emerging class cards unavailable; using empty highlight fallback",
+            exc_info=exc,
+        )
         tpex_esb_highlight = []
         yahoo_tpex_emerging_date = None
     if not tpex_mainboard_highlight:

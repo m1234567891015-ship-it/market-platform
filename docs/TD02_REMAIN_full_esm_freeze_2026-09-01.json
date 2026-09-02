@@ -1,0 +1,355 @@
+{
+  "schema_version": 1,
+  "batch": "TD02-FULL-ESM-FREEZE",
+  "snapshot_date": "2026-09-01",
+  "status": "TD02_FULL_ESM_PHASE_1_FROZEN_ARCHIVED",
+  "scope": {
+    "frontend_pages": 21,
+    "global_symbols": 895,
+    "current_esm_pages": 1,
+    "current_classic_pages": 20,
+    "wave_count": 6
+  },
+  "policy": {
+    "production_wiring_changed": false,
+    "baseline_changed": false,
+    "classic_fallback_preserved": true,
+    "runtime_data_modified": false,
+    "browser_shadow_gate": "blocked-no-browser-backend"
+  },
+  "current_assets": {
+    "common-runtime.min.js": {
+      "bytes": 288477,
+      "sha256": "f62786856e5e6825a179d3d9d4da7ce5e57523ab885fa4b1b900c63f3315b2a2"
+    },
+    "route-bundle.min.js": {
+      "bytes": 892732,
+      "sha256": "c68e354b0cbb8e14965e0978b086d35d7af668d52ec92fa66678f05075cce21f"
+    },
+    "derivatives-status-esm-loader.js": {
+      "bytes": 2455,
+      "sha256": "f9660e84b67793aab4a70e29e40d73868cf5fb106badb319953dfa875aaab376"
+    },
+    "derivatives-status-esm.js": {
+      "bytes": 4331,
+      "sha256": "aedc4785774b37ac08cfa42df9b212d099d7b677a3571753d050846f90a35f6e"
+    },
+    "derivatives-status-addon.min.js": {
+      "bytes": 3683,
+      "sha256": "cc28f886e1bbddf29810a1d7e7c96e21b996b96857502fa2eda1441a3d5ed2dc"
+    }
+  },
+  "dependency_matrix": {
+    "source": "docs/TD02-01_dependency_matrix_2026-08-31.json",
+    "symbol_count": 895,
+    "page_count": 21,
+    "dependency_edge_count": 69,
+    "cycles_requiring_bridge": [
+      {
+        "candidate_modules": [
+          "runtime/bootstrap",
+          "route/page-tw"
+        ],
+        "reason": "mutual cross-slice references; do not perform direct ESM cutover until TD02-02 defines a deferred entrypoint or temporary bridge",
+        "sources": [
+          "js/main.js",
+          "js/page-tw.js"
+        ]
+      },
+      {
+        "candidate_modules": [
+          "route/global-market-assethub",
+          "route/global-market-futures",
+          "route/global-market-options"
+        ],
+        "reason": "mutual cross-slice references; do not perform direct ESM cutover until TD02-02 defines a deferred entrypoint or temporary bridge",
+        "sources": [
+          "js/page-global-market-assethub.js",
+          "js/page-global-market-futures.js",
+          "js/page-global-market-options.js"
+        ]
+      }
+    ]
+  },
+  "waves": [
+    {
+      "wave": "W01-completed-status-island",
+      "pages": [
+        "derivatives-status.html"
+      ],
+      "status": "completed"
+    },
+    {
+      "wave": "W02-asset-hub",
+      "pages": [
+        "bonds.html",
+        "derivatives-assets.html",
+        "international-finance.html",
+        "precious-metals.html"
+      ],
+      "status": "pending-browser-shadow-gate"
+    },
+    {
+      "wave": "W03-global-market-and-derivatives",
+      "pages": [
+        "derivatives-ai.html",
+        "derivatives-analytics.html",
+        "futures.html",
+        "options.html",
+        "us-market-overview.html",
+        "us-stocks.html"
+      ],
+      "status": "pending-browser-shadow-gate"
+    },
+    {
+      "wave": "W04-tw-market",
+      "pages": [
+        "market-overview.html",
+        "news.html",
+        "tw-etf.html"
+      ],
+      "status": "pending-browser-shadow-gate"
+    },
+    {
+      "wave": "W05-us-market",
+      "pages": [
+        "us-etf.html",
+        "us-stock-search.html",
+        "us-watchlist.html"
+      ],
+      "status": "pending-browser-shadow-gate"
+    },
+    {
+      "wave": "W06-unclassified-followup",
+      "pages": [
+        "index.html",
+        "tw-Optional-stocks.html",
+        "tw-stock-search.html",
+        "tw-stocks.html"
+      ],
+      "status": "pending-browser-shadow-gate"
+    }
+  ],
+  "pages": [
+    {
+      "file": "bonds.html",
+      "data_page": "asset-hub",
+      "script_order": [
+        "common-runtime.min.js",
+        "route-bundle.min.js"
+      ],
+      "html_sha256": "db144091bf5eea39c54e144f3bf78c1498a2d0817ffa61ff9b274dfb231293c2",
+      "wave": "W02-asset-hub"
+    },
+    {
+      "file": "derivatives-ai.html",
+      "data_page": "derivatives-ai",
+      "script_order": [
+        "common-runtime.min.js",
+        "route-bundle.min.js"
+      ],
+      "html_sha256": "2e723c43b46d47e203ad6fa8d116a5ba153096f6ede2f2f49861a0c2b3a6a338",
+      "wave": "W03-global-market-and-derivatives"
+    },
+    {
+      "file": "derivatives-analytics.html",
+      "data_page": "derivatives-analytics",
+      "script_order": [
+        "common-runtime.min.js",
+        "route-bundle.min.js"
+      ],
+      "html_sha256": "da0ae4e07fc8a7ed04a7c59b2a6b1dd30508d5b11b3c45f66b48746533b4e7d5",
+      "wave": "W03-global-market-and-derivatives"
+    },
+    {
+      "file": "derivatives-assets.html",
+      "data_page": "asset-hub",
+      "script_order": [
+        "common-runtime.min.js",
+        "route-bundle.min.js"
+      ],
+      "html_sha256": "1780f04d4383074ed47fbf78936a472eee5a718c79acb4f1c18f76b15eebfaab",
+      "wave": "W02-asset-hub"
+    },
+    {
+      "file": "derivatives-status.html",
+      "data_page": "derivatives-status",
+      "script_order": [
+        "common-runtime.min.js",
+        "route-bundle.min.js",
+        "derivatives-status-esm-loader.js"
+      ],
+      "html_sha256": "5015a815782c113f68401c8a543c6a86c27bdc7622c94e0f8fcca303e1b1e7bd",
+      "wave": "W01-completed-status-island"
+    },
+    {
+      "file": "futures.html",
+      "data_page": "global-market",
+      "script_order": [
+        "common-runtime.min.js",
+        "route-bundle.min.js"
+      ],
+      "html_sha256": "975645f80003add14ce2b096f07efd9234814eae4b807fbbdee87267b62a08f3",
+      "wave": "W03-global-market-and-derivatives"
+    },
+    {
+      "file": "index.html",
+      "data_page": "home",
+      "script_order": [
+        "common-runtime.min.js",
+        "route-bundle.min.js"
+      ],
+      "html_sha256": "7ec78b3070f1f0b04f058d9cb4d5552943a7a18018a684ee743b16999c2040c6",
+      "wave": "W06-unclassified-followup"
+    },
+    {
+      "file": "international-finance.html",
+      "data_page": "asset-hub",
+      "script_order": [
+        "common-runtime.min.js",
+        "route-bundle.min.js"
+      ],
+      "html_sha256": "69dc9de84f4ac8945cfb82d1690f0950e9577be0b60a465a4c4ae1148138bf4c",
+      "wave": "W02-asset-hub"
+    },
+    {
+      "file": "market-overview.html",
+      "data_page": "market",
+      "script_order": [
+        "common-runtime.min.js",
+        "route-bundle.min.js"
+      ],
+      "html_sha256": "417a189b8803d0f7514c3e93e8bbd2bf74bdee7040e532898f3539b0fe3ccc30",
+      "wave": "W04-tw-market"
+    },
+    {
+      "file": "news.html",
+      "data_page": "market",
+      "script_order": [
+        "common-runtime.min.js",
+        "route-bundle.min.js"
+      ],
+      "html_sha256": "b75d48f44790404406916dc396c999d93128c39a926cb51a4eeed060ae85511e",
+      "wave": "W04-tw-market"
+    },
+    {
+      "file": "options.html",
+      "data_page": "global-market",
+      "script_order": [
+        "common-runtime.min.js",
+        "route-bundle.min.js"
+      ],
+      "html_sha256": "89b3ad216dfe5baae89928a14643d139f44afe34c4e4ad82375d47476bb1757e",
+      "wave": "W03-global-market-and-derivatives"
+    },
+    {
+      "file": "precious-metals.html",
+      "data_page": "asset-hub",
+      "script_order": [
+        "common-runtime.min.js",
+        "route-bundle.min.js"
+      ],
+      "html_sha256": "661c06366f56ca739a0bc5084e1bc4cb4f202adbf1ef73264bac0536cc21cb7f",
+      "wave": "W02-asset-hub"
+    },
+    {
+      "file": "tw-etf.html",
+      "data_page": "tw-etf",
+      "script_order": [
+        "common-runtime.min.js",
+        "route-bundle.min.js"
+      ],
+      "html_sha256": "f3ef509043867ab96755342df66f1549f8ce4e7309b16fda5a4a042ed6e4f281",
+      "wave": "W04-tw-market"
+    },
+    {
+      "file": "tw-Optional-stocks.html",
+      "data_page": "watchlist",
+      "script_order": [
+        "common-runtime.min.js",
+        "route-bundle.min.js"
+      ],
+      "html_sha256": "f4e82bb34103cc7cf1d1d793d55363b31a7eff9db016854f297a42341cda6d5f",
+      "wave": "W06-unclassified-followup"
+    },
+    {
+      "file": "tw-stock-search.html",
+      "data_page": "search",
+      "script_order": [
+        "common-runtime.min.js",
+        "route-bundle.min.js"
+      ],
+      "html_sha256": "2a75cb967b58d3d889fa1719c406f05b3bc2c2a81d3456fa5fcc13be93fee1ef",
+      "wave": "W06-unclassified-followup"
+    },
+    {
+      "file": "tw-stocks.html",
+      "data_page": "sectors",
+      "script_order": [
+        "common-runtime.min.js",
+        "route-bundle.min.js"
+      ],
+      "html_sha256": "7fb5a0e5027a80583aa33f1b89304df41d2272747a07dc16470e0f884d8e8a57",
+      "wave": "W06-unclassified-followup"
+    },
+    {
+      "file": "us-etf.html",
+      "data_page": "us-etf",
+      "script_order": [
+        "common-runtime.min.js",
+        "route-bundle.min.js"
+      ],
+      "html_sha256": "b4fc18d29d7fb1dd35a321629f377505d2cf877e57fa739616a812e803ae7362",
+      "wave": "W05-us-market"
+    },
+    {
+      "file": "us-market-overview.html",
+      "data_page": "global-market",
+      "script_order": [
+        "common-runtime.min.js",
+        "route-bundle.min.js"
+      ],
+      "html_sha256": "3d24875c2bb23750cefdc7ff32e1f0e927d7fd155c86b5bb93e2159ddbeefd23",
+      "wave": "W03-global-market-and-derivatives"
+    },
+    {
+      "file": "us-stock-search.html",
+      "data_page": "us-stock-search",
+      "script_order": [
+        "common-runtime.min.js",
+        "route-bundle.min.js"
+      ],
+      "html_sha256": "4ed09c6c52de76b740b075da96db12d980328b4f187f3b441e6738c63169443e",
+      "wave": "W05-us-market"
+    },
+    {
+      "file": "us-stocks.html",
+      "data_page": "global-market",
+      "script_order": [
+        "common-runtime.min.js",
+        "route-bundle.min.js"
+      ],
+      "html_sha256": "468d6ae7209cca9a40ba58f5380c1988262921049c618769a608aa6ccb030c11",
+      "wave": "W03-global-market-and-derivatives"
+    },
+    {
+      "file": "us-watchlist.html",
+      "data_page": "us-watchlist",
+      "script_order": [
+        "common-runtime.min.js",
+        "route-bundle.min.js"
+      ],
+      "html_sha256": "d9608da140f5c5e6bb0de1ebb7c822640b53c5d89d7c231f7e4ec0c5dce3afac",
+      "wave": "W05-us-market"
+    }
+  ],
+  "next_gate": {
+    "required_before_production_switch": [
+      "browser-backed shadow test for every wave",
+      "explicit bridge contract and duplicate-run guard",
+      "normal ESM and classic rollback canary per wave",
+      "21/21 page wiring, 895/895 symbols, 94/94 interactions, security, E2E and full verify"
+    ],
+    "production_switch_authorized_by_this_manifest": false
+  }
+}

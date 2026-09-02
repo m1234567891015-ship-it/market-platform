@@ -555,7 +555,8 @@ function buildUsSearchDetail(item) {
     marginTrading: item.marginTrading || {},
     ownershipTrading: item.ownershipTrading || {},
     etfComponents: item.etfComponents || {},
-    isEtf: Boolean(item.isEtf ?? detail.isEtf),
+    isEtf: Boolean(item.isEtf ?? detail.isEtf)
+      || /ETF|FUND/.test(String(item.group || item.type || item.quoteType || "").toUpperCase()),
     detailMode: item.detailMode || "full",
     newsLinks: item.newsLinks || {
       yahoo: `${buildYahooFinanceUrl(item.symbol)}/news`,
@@ -1255,3 +1256,4 @@ function twEtfWeightText(value) {
   if (!Number.isFinite(weight)) return "--";
   return `${weight.toFixed(Math.abs(weight % 1) > 0 ? 1 : 0)}%`;
 }
+renderSharedNavigation();

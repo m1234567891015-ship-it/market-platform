@@ -1,0 +1,17 @@
+{
+  "version": 3,
+  "file": "common-runtime.js",
+  "sourceRoot": "",
+  "sources": [
+    "pwa.js",
+    "js/state.js",
+    "js/core.js",
+    "js/api.js",
+    "js/shared-calc.js",
+    "js/render-shared.js",
+    "js/charts.js",
+    "js/stock-detail.js"
+  ],
+  "names": [],
+  "mappings": ""
+}

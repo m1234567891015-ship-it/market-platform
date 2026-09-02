@@ -45,6 +45,14 @@ FIXED_SERVER_PORT = 18766
 
 _API_REQUEST_MARK = "/api/"
 
+
+def _is_external_resource_error(message: str) -> bool:
+    return any(marker in message for marker in (
+        "net::ERR_NETWORK_ACCESS_DENIED",
+        "net::ERR_INTERNET_DISCONNECTED",
+        "net::ERR_NAME_NOT_RESOLVED",
+    ))
+
 # 自動背景請求(非任何 Step 明確操作的對象,如個股詳情頁載入後自動補齊的法人
 # 籌碼/股東分佈/完整基本面)在冷快取時可能打到真正的外部即時資料源,耗時超過
 # 前端自身的逾時上限,見 _visit_page 與 _background_route_handler 的說明。
@@ -376,6 +384,7 @@ def run_render_only_step(page, step: Step) -> dict:
 
 def _visit_page(browser, base_url: str, page_spec: PageSpec, mode: str) -> dict:
     console_errors: list[str] = []
+    external_errors: list[str] = []
     har_path = HAR_DIR / f"{page_spec.file}.har"
     context_kwargs: dict = {}
     if mode == "capture":
@@ -411,7 +420,8 @@ def _visit_page(browser, base_url: str, page_spec: PageSpec, mode: str) -> dict:
     page = context.new_page()
     page.on(
         "console",
-        lambda msg: console_errors.append(msg.text) if msg.type == "error" and not _is_expected_background_error(msg.text) else None,
+        lambda msg: (external_errors if _is_external_resource_error(msg.text) else console_errors).append(msg.text)
+        if msg.type == "error" and not _is_expected_background_error(msg.text) else None,
     )
     page.on("pageerror", lambda exc: console_errors.append(str(exc)))
     requests_seen: list[str] = []
@@ -467,7 +477,12 @@ def _visit_page(browser, base_url: str, page_spec: PageSpec, mode: str) -> dict:
                 f"重播時會中斷:{broken[:3]}"
             )
 
-    return {"file": page_spec.file, "console_errors": console_errors, "steps": step_results}
+    return {
+        "file": page_spec.file,
+        "console_errors": console_errors,
+        "external_errors": external_errors,
+        "steps": step_results,
+    }
 
 
 def _warmup(base_url: str, page_spec: PageSpec) -> None:
@@ -545,6 +560,7 @@ def run(mode: str, page_files: list[str] | None) -> dict:
                         results.append({
                             "file": spec.file,
                             "console_errors": [],
+                            "external_errors": [],
                             "steps": [{
                                 "ok": False,
                                 "id": "<page-crash>",
@@ -625,6 +641,8 @@ def _compare(results: list[dict]) -> dict:
     for result in results:
         if result["console_errors"]:
             failures.append(f"{result['file']}: 出現 {len(result['console_errors'])} 個 console error: {result['console_errors'][:3]}")
+        if result.get("external_errors"):
+            print(f"  [EXTERNAL] {result['file']}: {len(result['external_errors'])} 個外部資源錯誤: {result['external_errors'][:3]}")
         for step in result["steps"]:
             step_count += 1
             if not step["ok"]:

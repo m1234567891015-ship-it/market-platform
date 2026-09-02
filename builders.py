@@ -215,6 +215,7 @@ from __future__ import annotations
 
 import copy
 import json
+import logging
 import math
 import re
 import time
@@ -346,6 +347,7 @@ from parsers import (
 from market_config import (
     ASSET_CATEGORY_SOURCE_INFO,
     ASSET_REGION_ORDER,
+    CACHE_TTL_SECONDS,
     CBOE_OPTIONS_BASE,
     GLOBAL_MACRO_ASSET_SCHEMA,
     GLOBAL_MARKET_CATEGORIES,
@@ -371,6 +373,8 @@ from market_config import (
     YAHOO_TPEX_ETF_URL,
     YAHOO_TPEX_OTC_CLASS_URL,
 )
+
+LOGGER = logging.getLogger("market_pulse")
 
 
 BOOTSTRAP_STOCK_KEYS = (
@@ -1126,7 +1130,7 @@ def taifex_underlying_is_etf(underlying_row: dict[str, Any]) -> bool:
 
 
 TAIFEX_OPTIONS_PRODUCT_DAILY_OPENAPI_URL = "https://openapi.taifex.com.tw/v1/Daily_OPT"
-TAIFEX_STOCK_DERIVATIVE_AGGREGATE_CACHE_SECONDS = 15 * 60
+TAIFEX_STOCK_DERIVATIVE_AGGREGATE_CACHE_SECONDS = CACHE_TTL_SECONDS["taifex_stock_derivative_aggregate"]
 
 
 def build_taifex_option_product_volume_summary_item(
@@ -1212,7 +1216,7 @@ def build_taifex_option_product_volume_summary_item(
 TAIFEX_OPTIONS_DAILY_OPENAPI_URL = "https://openapi.taifex.com.tw/v1/DailyMarketReportOpt"
 TAIFEX_SSF_LIST_OPENAPI_URL = "https://openapi.taifex.com.tw/v1/SSFLists"
 TAIFEX_SSO_LIST_OPENAPI_URL = "https://openapi.taifex.com.tw/v1/SSOLists"
-TAIFEX_UNDERLYING_LIST_CACHE_SECONDS = 6 * 60 * 60
+TAIFEX_UNDERLYING_LIST_CACHE_SECONDS = CACHE_TTL_SECONDS["taifex_underlying_list"]
 
 
 def build_taifex_stock_derivative_aggregate_item(spec: dict[str, Any]) -> dict[str, Any]:
@@ -1524,7 +1528,7 @@ BARCHART_FUTURES_OPTIONS_ROOTS = {
     "D6=F": "D6",
 }
 DERIBIT_OPTIONS_SUMMARY_URL = "https://www.deribit.com/api/v2/public/get_book_summary_by_currency"
-DERIBIT_OPTIONS_CHAIN_CACHE_SECONDS = 60
+DERIBIT_OPTIONS_CHAIN_CACHE_SECONDS = CACHE_TTL_SECONDS["deribit_options_chain"]
 DERIBIT_OPTIONS_CURRENCY_BY_SYMBOL = {
     "DERIBIT_BTC": "BTC",
     "DERIBIT_ETH": "ETH",
@@ -1532,7 +1536,7 @@ DERIBIT_OPTIONS_CURRENCY_BY_SYMBOL = {
     "ETH-USD": "ETH",
 }
 BYBIT_OPTIONS_TICKERS_URL = "https://api.bybit.com/v5/market/tickers"
-BYBIT_OPTIONS_CHAIN_CACHE_SECONDS = 60
+BYBIT_OPTIONS_CHAIN_CACHE_SECONDS = CACHE_TTL_SECONDS["bybit_options_chain"]
 BYBIT_OPTIONS_BASE_COIN_BY_SYMBOL = {
     "BYBIT_SOL": "SOL",
     "BYBIT_XRP": "XRP",
@@ -1690,7 +1694,7 @@ def build_cboe_options_chain(symbol: str, expiration: str | None = None) -> dict
         "calls": calls[:200],
         "puts": puts[:200],
     }
-    write_memory_cache("us_options_chains", cache_key, copy.deepcopy(result))
+    write_memory_cache("us_options_chains", cache_key, copy.deepcopy(result), OPTIONS_CHAIN_CACHE_SECONDS)
     return result
 
 
@@ -1700,7 +1704,8 @@ def normalize_yahoo_option_contract(contract: dict[str, Any]) -> dict[str, Any]:
     if expiration is not None:
         try:
             expiration_date = datetime.fromtimestamp(int(expiration), timezone.utc).strftime("%Y-%m-%d")
-        except Exception:
+        except Exception as exc:
+            LOGGER.debug("Unable to normalize Yahoo option expiration=%r", expiration, exc_info=exc)
             expiration_date = None
     symbol = str(contract.get("contractSymbol") or "")
     return {
@@ -1822,7 +1827,7 @@ def build_barchart_futures_options_chain(symbol: str, expiration: str | None = N
         "calls": sorted(calls, key=lambda item: item["strike"]),
         "puts": sorted(puts, key=lambda item: item["strike"]),
     }
-    write_memory_cache("us_options_chains", cache_key, copy.deepcopy(result_payload))
+    write_memory_cache("us_options_chains", cache_key, copy.deepcopy(result_payload), OPTIONS_CHAIN_CACHE_SECONDS)
     return result_payload
 
 
@@ -1930,7 +1935,7 @@ def build_deribit_options_chain(symbol: str, expiration: str | None = None) -> d
         "calls": calls,
         "puts": puts,
     }
-    write_memory_cache("us_options_chains", cache_key, copy.deepcopy(result_payload))
+    write_memory_cache("us_options_chains", cache_key, copy.deepcopy(result_payload), DERIBIT_OPTIONS_CHAIN_CACHE_SECONDS)
     return result_payload
 
 
@@ -2052,7 +2057,7 @@ def build_bybit_options_chain(symbol: str, expiration: str | None = None) -> dic
         "calls": calls,
         "puts": puts,
     }
-    write_memory_cache("us_options_chains", cache_key, copy.deepcopy(result_payload))
+    write_memory_cache("us_options_chains", cache_key, copy.deepcopy(result_payload), BYBIT_OPTIONS_CHAIN_CACHE_SECONDS)
     return result_payload
 
 
@@ -2089,7 +2094,7 @@ def build_public_options_chain(symbol: str, expiration: str | None = None) -> di
 
 STOCK_HISTORY_TIMEOUT_SECONDS = 8
 SECTOR_HISTORY_TRADING_DAYS = 30
-SECTOR_FUND_FLOW_CACHE_SECONDS = 10 * 60
+SECTOR_FUND_FLOW_CACHE_SECONDS = CACHE_TTL_SECONDS["sector_fund_flow"]
 
 
 def parse_twse_table_date(value: str | None) -> str | None:
@@ -2369,7 +2374,12 @@ def build_sector_history_snapshot(
 ) -> tuple[str, dict[str, float], dict[str, Any], dict[str, dict[str, Any]]] | None:
     try:
         payload = fetch_json(build_market_url(date_str), STOCK_HISTORY_TIMEOUT_SECONDS)
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.debug(
+            "Sector history market fetch failed for date=%s; skipping snapshot",
+            date_str,
+            exc_info=exc,
+        )
         return None
     if not dataset_has_rows(payload):
         return None
@@ -2379,7 +2389,12 @@ def build_sector_history_snapshot(
         try:
             activity_payload = fetch_json(build_index_activity_url(date_str), STOCK_HISTORY_TIMEOUT_SECONDS)
             activities = parse_index_activities(activity_payload) if dataset_has_rows(activity_payload) else {}
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.debug(
+                "Sector history activity fetch failed for date=%s; using empty activity mapping",
+                date_str,
+                exc_info=exc,
+            )
             activities = {}
 
     close_values = parse_index_close_values(payload, target_names)
@@ -2424,7 +2439,12 @@ def build_sector_history_series(
         for future in as_completed(futures):
             try:
                 snapshot = future.result()
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.debug(
+                    "Sector history snapshot failed for date=%s; skipping snapshot",
+                    futures[future],
+                    exc_info=exc,
+                )
                 snapshot = None
             if snapshot is None:
                 continue
@@ -2491,7 +2511,12 @@ def build_weighted_index_history_series(latest_market_date: str, trading_days: i
             fetch_yahoo_symbol_chart("^TWII", "2y", "1d"),
             volume_divisor=1,
         )
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.debug(
+            "Weighted index Yahoo history fetch failed for date=%s; using TWSE history fallback",
+            latest_market_date,
+            exc_info=exc,
+        )
         yahoo_series = []
     yahoo_series = [item for item in yahoo_series if item.get("date", "") <= latest_iso]
     if len(yahoo_series) >= min(trading_days, 360):
@@ -2506,7 +2531,12 @@ def build_weighted_index_history_series(latest_market_date: str, trading_days: i
                 twse_blocked = True
                 break
             continue
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.debug(
+                "Weighted index history fetch failed for month=%s; skipping month",
+                month_date,
+                exc_info=exc,
+            )
             continue
         if not dataset_has_rows(payload):
             continue
@@ -3109,7 +3139,13 @@ def build_yahoo_class_quote_cards(
 ) -> tuple[list[dict[str, Any]], str | None]:
     try:
         html = fetch_text(url, timeout=timeout)
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.debug(
+            "Yahoo class quote page fetch failed for prefix=%s url=%s; using empty cards",
+            prefix,
+            url,
+            exc_info=exc,
+        )
         return [], None
 
     rows, snapshot_date, _ = parse_yahoo_class_quote_rows(html)
@@ -3118,7 +3154,13 @@ def build_yahoo_class_quote_cards(
             paged_rows = fetch_yahoo_class_quote_pages(url, snapshot_date, limit)
             if paged_rows:
                 rows = paged_rows
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.debug(
+                "Yahoo class quote pagination failed for prefix=%s url=%s; using primary page rows",
+                prefix,
+                url,
+                exc_info=exc,
+            )
             pass
     cards: list[dict[str, Any]] = []
     for index, row in enumerate(rows[:limit]):
@@ -3203,7 +3245,13 @@ def build_yahoo_sector_groups(limit: int = 30, timeout: int = 8) -> tuple[dict[s
     def fetch_group(key: str, url: str, prefix: str) -> tuple[str, list[dict[str, Any]], str | None]:
         try:
             cards, snapshot_date = build_yahoo_class_quote_cards(url, prefix, limit=limit, timeout=timeout)
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.debug(
+                "Yahoo sector group fetch failed for key=%s prefix=%s; using empty group",
+                key,
+                prefix,
+                exc_info=exc,
+            )
             cards, snapshot_date = [], None
         return key, cards, snapshot_date
 
@@ -3727,7 +3775,12 @@ def build_institution_trend(
         date_str = (base_date - timedelta(days=offset)).strftime("%Y%m%d")
         try:
             payload = fetch_json(build_institutions_url(date_str), timeout=8)
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.debug(
+                "Institution trend fetch failed for date=%s; skipping date",
+                date_str,
+                exc_info=exc,
+            )
             continue
         append_payload(payload, date_str)
 
@@ -4355,7 +4408,12 @@ def build_stock_detail(
                 market=market,
                 diagnostics=yahoo_diagnostics,
             )
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.debug(
+                "Yahoo history fetch failed for stock=%s in quick mode; using fallback history",
+                stock.get("code"),
+                exc_info=exc,
+            )
             rows = []
         history_rows_removed += yahoo_diagnostics.get("invalid_rows", 0)
         raw_row_count = len(rows)
@@ -4373,7 +4431,12 @@ def build_stock_detail(
                 market=market,
                 diagnostics=yahoo_diagnostics,
             )
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.debug(
+                "Yahoo history fetch failed for stock=%s; trying fallback history",
+                stock.get("code"),
+                exc_info=exc,
+            )
             rows = []
         history_rows_removed += yahoo_diagnostics.get("invalid_rows", 0)
         raw_row_count = len(rows)
@@ -4382,7 +4445,12 @@ def build_stock_detail(
         if not rows and market != "TPEx":
             try:
                 rows = fetch_stock_history_rows(stock["code"], date_str, months_back=months_back)
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.debug(
+                    "TWSE history fallback failed for stock=%s; using generated fallback history",
+                    stock.get("code"),
+                    exc_info=exc,
+                )
                 rows = []
             raw_row_count = len(rows)
             rows = sanitize_history_rows(rows)
@@ -4422,9 +4490,19 @@ def build_stock_detail(
         if not quick and not is_etf:
             futures.update({
                 "valuation": executor.submit(fetch_stock_valuation, stock),
-                "valuationHistory": executor.submit(fetch_stock_valuation_history, stock, rows, 5),
                 "companyProfile": executor.submit(fetch_stock_company_profile, stock),
             })
+            # The two-row history generated by build_fallback_history_rows is
+            # only a display-safe placeholder for the technical section. It
+            # must not become a fake valuation history (e.g. two consecutive
+            # days presented as the promised six monthly observations).
+            if not used_fallback_history:
+                futures["valuationHistory"] = executor.submit(
+                    fetch_stock_valuation_history,
+                    stock,
+                    rows,
+                    5,
+                )
         fetched = collect_futures_until_deadline(
             executor,
             futures,
@@ -4470,7 +4548,7 @@ def build_stock_detail(
         }
 
     latest_valuation_date = str(valuation.get("date") or "")
-    if latest_valuation_date and not any(
+    if not used_fallback_history and latest_valuation_date and not any(
         item.get("date") == latest_valuation_date for item in valuation_history
     ):
         latest_yield = parse_float(str(valuation.get("dividendYield") or ""))
@@ -4932,7 +5010,7 @@ def summarize_futures_market_scopes(catalog_items: list[dict[str, Any]], loaded_
     return [counts["taiwan"], counts["us"], counts["international"]]
 
 
-GLOBAL_MARKET_ITEM_CACHE_SECONDS = 5 * 60
+GLOBAL_MARKET_ITEM_CACHE_SECONDS = CACHE_TTL_SECONDS["global_market_item"]
 
 
 def global_market_item_cache_key(spec: dict[str, Any]) -> str:
@@ -4952,7 +5030,7 @@ def global_market_item_cache_key(spec: dict[str, Any]) -> str:
 
 
 def cache_global_market_item(cache_key: str, item: dict[str, Any]) -> dict[str, Any]:
-    write_memory_cache("global_market_items", cache_key, copy.deepcopy(item))
+    write_memory_cache("global_market_items", cache_key, copy.deepcopy(item), GLOBAL_MARKET_ITEM_CACHE_SECONDS)
     return item
 
 
@@ -5317,7 +5395,14 @@ def build_global_market_item(spec: dict[str, Any]) -> dict[str, Any]:
                 try:
                     chart = fetch_yahoo_symbol_chart(selected_symbol, "1y", "1d")
                     series = build_yahoo_chart_series(chart, volume_divisor=1)
-                except Exception:  # noqa: BLE001
+                except Exception as exc:  # noqa: BLE001
+                    LOGGER.debug(
+                        "Global market Yahoo chart fetch failed for symbol=%s candidate=%s attempt=%s; retrying or using fallback",
+                        symbol,
+                        selected_symbol,
+                        attempt + 1,
+                        exc_info=exc,
+                    )
                     chart = None
                     series = []
                 if len(series) >= 2:
@@ -5565,6 +5650,10 @@ def build_us_fallback_valuation(item: dict[str, Any]) -> dict[str, Any]:
         "beta": "N/A",
         "profitMargins": "N/A",
         "revenueGrowth": "N/A",
+        "aum": "N/A",
+        "expenseRatio": "N/A",
+        "averageVolume": "N/A",
+        "fiftyTwoWeekRange": "N/A",
         "sourceNote": "Yahoo quote summary 進階估值暫時無法授權取得；目前以行情、歷史價格與外部連結提供基本分析骨架。",
     }
 
@@ -5923,7 +6012,12 @@ def estimate_us_beta(symbol: str, stock_series: list[dict[str, Any]]) -> float |
     try:
         benchmark_chart = fetch_yahoo_symbol_chart("SPY", "2y", "1d")
         benchmark_series = build_yahoo_chart_series(benchmark_chart, volume_divisor=1)
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.debug(
+            "U.S. beta benchmark fetch failed for symbol=%s; using unavailable beta",
+            clean_symbol,
+            exc_info=exc,
+        )
         return None
     return estimate_us_beta_from_series(stock_series[-520:], benchmark_series[-520:])
 
@@ -6189,14 +6283,50 @@ def merge_us_nasdaq_ownership_trading(
 def build_us_market_symbol_detail(spec: dict[str, Any]) -> dict[str, Any]:
     item = build_global_market_item(spec)
     if item.get("error"):
-        return item
+        item_type = str(item.get("type") or spec.get("type") or "").upper()
+        is_etf = item.get("group") == "美股 ETF" or "ETF" in item_type or "FUND" in item_type
+        if not is_etf:
+            return item
+        data_symbol = str(item.get("dataSymbol") or item.get("symbol") or spec.get("symbol") or "")
+        return {
+            **{key: value for key, value in item.items() if key != "error"},
+            "group": "美股 ETF",
+            "type": item.get("type") or "ETF",
+            "detailMode": "fallback",
+            "historyRange": "5y",
+            "dataStatus": "ETF 公開資料目前同步中，已保留分析區塊。",
+            "valuation": build_us_fallback_valuation(item),
+            "valuationHistory": [],
+            "companyProfile": build_us_fallback_company_profile(data_symbol, item),
+            "companyNews": [],
+            "marginTrading": build_us_fallback_margin_proxy(),
+            "ownershipTrading": build_us_fallback_ownership_trading(data_symbol),
+            "etfComponents": {
+                "title": "ETF 成分股比例",
+                "summary": "ETF 持股資料目前同步中；取得 Yahoo Finance Top Holdings 後會在此顯示配置比例。",
+                "holdings": [],
+                "sourceNote": "目前無法取得即時持股明細，請以發行商公告為準。",
+                "sourceLink": "https://finance.yahoo.com/",
+            },
+            "isEtf": True,
+            "newsLinks": {
+                "yahoo": f"https://finance.yahoo.com/quote/{quote(data_symbol, safe='')}/news",
+                "profile": f"https://finance.yahoo.com/quote/{quote(data_symbol, safe='')}/profile",
+                "sec": f"https://www.sec.gov/edgar/search/#/q={quote(data_symbol, safe='')}",
+            },
+        }
     data_symbol = str(item.get("dataSymbol") or item.get("symbol") or spec.get("symbol") or "")
     try:
         chart = fetch_yahoo_symbol_chart(data_symbol, "5y", "1d")
         long_series = build_yahoo_chart_series(chart, volume_divisor=1)
         if len(long_series) >= len(item.get("series") or []):
             item["series"] = long_series
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.debug(
+            "U.S. market detail long history fetch failed for symbol=%s; keeping existing series",
+            data_symbol,
+            exc_info=exc,
+        )
         pass
 
     summary: dict[str, Any] = {}
@@ -6217,7 +6347,21 @@ def build_us_market_symbol_detail(spec: dict[str, Any]) -> dict[str, Any]:
                     company_news = future.result(timeout=10)
                 else:
                     nasdaq_supplement = future.result(timeout=16)
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
+                fallback_name = (
+                    "empty summary"
+                    if key == "summary"
+                    else "empty news list"
+                    if key == "news"
+                    else "empty Nasdaq supplement"
+                )
+                LOGGER.debug(
+                    "U.S. market detail component fetch failed for symbol=%s key=%s; using %s fallback",
+                    data_symbol,
+                    key,
+                    fallback_name,
+                    exc_info=exc,
+                )
                 if key == "summary":
                     summary = {}
                 elif key == "news":
@@ -6249,7 +6393,13 @@ def build_us_market_symbol_detail(spec: dict[str, Any]) -> dict[str, Any]:
     etf_components = build_us_etf_components(summary) if summary else {}
     nasdaq_asset_class = str(((nasdaq_supplement.get("summary") or {}).get("data") or {}).get("assetClass") or "")
     quote_type = str(((summary.get("price") or {}).get("quoteType") or nasdaq_asset_class or item.get("group") or "")).upper()
-    is_etf = "ETF" in quote_type or "FUND" in quote_type or item.get("group") == "美股 ETF"
+    item_type = str(item.get("type") or spec.get("type") or "").upper()
+    is_etf = (
+        "ETF" in quote_type
+        or "FUND" in quote_type
+        or item.get("group") == "美股 ETF"
+        or "ETF" in item_type
+    )
     return {
         **item,
         "group": "美股 ETF" if is_etf else item.get("group") or "美股個股",
@@ -6728,16 +6878,31 @@ def build_site_data(
     yahoo_sector_catalog: dict[str, list[dict[str, str]]] = {}
     try:
         tpex_mainboard_quotes, tpex_mainboard_quote_date = fetch_tpex_mainboard_quotes()
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.debug(
+            "Site data TPEx mainboard quote fetch failed for market_date=%s; using empty quotes",
+            market_date,
+            exc_info=exc,
+        )
         tpex_mainboard_quotes = []
         tpex_mainboard_quote_date = None
     try:
         yahoo_tpex_etfs = fetch_yahoo_tpex_etfs()
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.debug(
+            "Site data Yahoo TPEx ETF fetch failed for market_date=%s; using empty ETF mapping",
+            market_date,
+            exc_info=exc,
+        )
         yahoo_tpex_etfs = {}
     try:
         yahoo_sector_catalog = fetch_yahoo_sector_catalog()
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.debug(
+            "Site data Yahoo sector catalog fetch failed for market_date=%s; using empty catalog",
+            market_date,
+            exc_info=exc,
+        )
         yahoo_sector_catalog = {}
     yahoo_sector_groups, yahoo_sector_dates = build_yahoo_sector_groups()
     tpex_mainboard_highlight = yahoo_sector_groups.get("otc", [])[:6]
@@ -6751,7 +6916,12 @@ def build_site_data(
                 "上櫃",
                 limit=6,
             )
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.debug(
+                "Site data TPEx mainboard highlight fetch failed for market_date=%s; using empty highlight",
+                market_date,
+                exc_info=exc,
+            )
             tpex_mainboard_highlight = []
     if not tpex_esb_highlight:
         try:
@@ -6760,7 +6930,12 @@ def build_site_data(
                 "興櫃",
                 limit=6,
             )
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.debug(
+                "Site data TPEx emerging highlight fetch failed for market_date=%s; using empty highlight",
+                market_date,
+                exc_info=exc,
+            )
             tpex_esb_highlight = []
     if not tpex_esb_latest_statistics:
         try:
@@ -6769,7 +6944,12 @@ def build_site_data(
                 "興櫃統計",
                 limit=6,
             )
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.debug(
+                "Site data TPEx emerging statistics fetch failed for market_date=%s; using empty statistics",
+                market_date,
+                exc_info=exc,
+            )
             tpex_esb_latest_statistics = []
     activity_payload = None
     activity_date = market_date
@@ -6779,7 +6959,12 @@ def build_site_data(
             activity_payload = same_day_activity
         else:
             activity_date = None
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.debug(
+            "Site data index activity fetch failed for market_date=%s; using no activity date",
+            market_date,
+            exc_info=exc,
+        )
         activity_date = None
     try:
         same_day_intraday = fetch_json(build_index_intraday_url(market_date))
@@ -6787,7 +6972,12 @@ def build_site_data(
             intraday_payload, intraday_date = same_day_intraday, market_date
         else:
             intraday_payload, intraday_date = None, market_date
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.debug(
+            "Site data index intraday fetch failed for market_date=%s; using no intraday payload",
+            market_date,
+            exc_info=exc,
+        )
         intraday_payload, intraday_date = None, market_date
     existing_history_has_trades = any(
         point.get("trades") not in (None, "", "--")
@@ -6841,15 +7031,30 @@ def build_site_data(
         market_volatility = fetch_market_volatility_indicator(
             history_series_by_index.get("發行量加權股價指數", []),
         )
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.debug(
+            "Site data market volatility fetch failed for market_date=%s; using unavailable volatility",
+            market_date,
+            exc_info=exc,
+        )
         market_volatility = None
     try:
         market_international_indexes = fetch_international_market_indexes()
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.debug(
+            "Site data international indexes fetch failed for market_date=%s; using empty indexes",
+            market_date,
+            exc_info=exc,
+        )
         market_international_indexes = []
     try:
         market_macro_factors = fetch_market_macro_factors(market_date)
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.debug(
+            "Site data macro factors fetch failed for market_date=%s; using empty factors",
+            market_date,
+            exc_info=exc,
+        )
         market_macro_factors = {}
     sector_fund_flow = build_sector_fund_flow(twse_stocks, market_date)
     cached_at = app.taipei_now().strftime("%Y-%m-%d %H:%M:%S")
@@ -7069,7 +7274,12 @@ def build_live_sector_site_data() -> dict[str, Any]:
     if institutions and sectors:
         try:
             site_data["news"] = build_news(site_data)
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.debug(
+                "Live sectors news build failed for market_date=%s; using empty news",
+                market_date,
+                exc_info=exc,
+            )
             site_data["news"] = []
     else:
         site_data["news"] = []

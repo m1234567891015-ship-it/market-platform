@@ -1,0 +1,10 @@
+{
+  "version": 3,
+  "file": "derivatives-status-addon.js",
+  "sourceRoot": "",
+  "sources": [
+    "derivatives-ui.js"
+  ],
+  "names": [],
+  "mappings": ""
+}

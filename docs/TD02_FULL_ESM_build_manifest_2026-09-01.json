@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "batch": "TD02-FULL-ESM-PHASE-3-4",
+  "version": "td02-full-esm-20260901-1",
+  "mode": "module-with-transitional-895-symbol-bridge",
+  "sourceInputs": [
+    "pwa.js",
+    "js/state.js",
+    "js/core.js",
+    "js/api.js",
+    "js/shared-calc.js",
+    "js/render-shared.js",
+    "js/charts.js",
+    "js/stock-detail.js",
+    "js/page-home.js",
+    "js/page-us.js",
+    "js/page-global-market-futures.js",
+    "js/page-global-market-options.js",
+    "js/page-global-market-assethub.js",
+    "js/page-tw.js",
+    "js/legacy-unclassified.js",
+    "js/main.js",
+    "app.js",
+    "derivatives-status-esm.js"
+  ],
+  "bridgeSymbols": 895,
+  "output": {
+    "file": "market-pulse-esm.min.js",
+    "bytes": 1510567,
+    "sha256": "6edd97bc51b70d5979408f0b080620322ddf20e93d46a52f3ab3f9fa81926731"
+  },
+  "sourceMap": {
+    "file": "market-pulse-esm.min.js.map",
+    "bytes": 2757873,
+    "sha256": "90dc046ee0f5f393008b96bb8b530ea1bdba51d8a3c982470ff5d592f8b3a465"
+  },
+  "classicFallback": [
+    "common-runtime.min.js",
+    "route-bundle.min.js",
+    "derivatives-status-addon.min.js"
+  ],
+  "productionAssetsModified": true,
+  "htmlModified": true,
+  "baselineModified": false
+}

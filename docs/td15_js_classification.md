@@ -103,3 +103,7 @@
 這 6 個在 repo 內**確實有字串形式出現**(只是出現在另一段同樣可能死掉的程式碼裡),不滿足
 第一項全過的門檻,所以依規則降級到第二層,不在本輪刪除範圍——這正是「寧可漏刪」原則要處理的
 情境:證據上模稜兩可時不刪。
+
+## 2026-09-01 REMAIN closure update
+
+R3 重核與 TD15-REMAIN closure 均已完成。歷史 58 個符號目前 declaration、literal hit、candidate dynamic hit 均為 0；本次未新增 JS deletion batch。未來 source 或入口變更時，仍須重新執行 R3 audit。

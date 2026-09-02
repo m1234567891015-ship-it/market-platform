@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from flask import Flask, jsonify, request
+from flask import Flask, has_request_context, jsonify, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from derivatives_store import DerivativesStore
@@ -24,6 +24,7 @@ from cache import (
 from security import (
     add_security_headers,
     enforce_api_rate_limit,
+    warn_if_multi_worker,
 )
 from fetchers import (
     build_market_url,
@@ -114,13 +115,13 @@ from routes_twse import bp as twse_bp
 
 BASE_DIR = Path(__file__).resolve().parent
 DERIVATIVES_STORE = DerivativesStore(os.environ.get("DERIVATIVES_DB_PATH", str(BASE_DIR / "derivatives-platform.sqlite3")))
-DERIVATIVES_STORE.initialize()
 LOG_LEVEL = str(os.environ.get("MARKET_PULSE_LOG_LEVEL") or "INFO").upper()
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL, logging.INFO),
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 LOGGER = logging.getLogger("market_pulse")
+warn_if_multi_worker()
 try:
     TZ = ZoneInfo("Asia/Taipei")
 except ZoneInfoNotFoundError:
@@ -297,20 +298,47 @@ PUBLIC_DATA_SOURCE_ERROR_MESSAGE = "資料來源暫不可用，請稍後再試"
 PUBLIC_TAIFEX_OPEN_INTEREST_ERROR_MESSAGE = "TAIFEX 未平倉資料暫時無法載入，請稍後再試"  # DEADCODE-CANDIDATE (confirmed zero callers 2026-07-19)
 
 
+def initialize_derivatives_store() -> None:
+    """Initialize persistence explicitly instead of during module import."""
+    DERIVATIVES_STORE.initialize()
+
+
+def initialize_derivatives_store_for_request() -> None:
+    """Lazily initialize the store for API traffic under WSGI app:app."""
+    if request.path.startswith("/api/"):
+        initialize_derivatives_store()
+
+
 def api_success_payload(data: dict[str, Any]) -> dict[str, Any]:
     return {"success": True, "data": data, "updated_at": datetime.now(TZ).isoformat()}
 
 
+def api_request_context() -> dict[str, Any]:
+    if not has_request_context():
+        return {}
+    return {
+        "path": request.path,
+        "method": request.method,
+        "parameter_names": sorted(request.args.keys()),
+    }
+
+
 def api_error_payload(code: str, message: str) -> dict[str, Any]:
-    return {"success": False, "error_code": code, "error": {"code": code, "message": message}}
+    return {
+        "success": False,
+        "error_code": code,
+        "error": {"code": code, "message": message},
+        "request_context": api_request_context(),
+    }
 
 
 def api_exception_response(code: str, public_message: str, exc: Exception, status: int = 502):
-    LOGGER.exception("API %s: %s", code, public_message, exc_info=exc)
+    LOGGER.exception("API %s: %s context=%s", code, public_message, api_request_context(), exc_info=exc)
     return jsonify(api_error_payload(code, public_message)), status
 
 
 app.after_request(add_security_headers)
+app.before_request(initialize_derivatives_store_for_request)
 app.before_request(enforce_api_rate_limit)
 app.register_blueprint(system_bp)
 app.register_blueprint(global_market_bp)
@@ -581,7 +609,13 @@ def apply_yahoo_quote(stock: dict[str, Any]) -> dict[str, Any]:
 
     try:
         chart = fetch_yahoo_chart(stock["code"], range_name="1d", interval="1m")
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.debug(
+            "Yahoo intraday quote fetch failed for stock=%s market=%s; using original stock",
+            stock.get("code"),
+            stock.get("market"),
+            exc_info=exc,
+        )
         return stock
     if not chart:
         return stock
@@ -635,6 +669,7 @@ def handle_internal_error(error):
 
 
 if __name__ == "__main__":
+    initialize_derivatives_store()
     if background_updater_enabled():
         start_background_updater()
     app.run(

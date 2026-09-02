@@ -1,7 +1,7 @@
 (() => {
-  const VERSION = "20260720-td09-swr-reenable-1";
+  const VERSION = "20260901-td02-full-esm-1";
   const STORAGE_KEY = "market-pulse-static-version";
-  const SERVICE_WORKER_URL = "service-worker.js?v=td-09-swr-20260720-1";
+  const SERVICE_WORKER_URL = "service-worker.js?v=td02-full-esm-20260901-1";
 
   async function unregisterServiceWorkers() {
     if (!("serviceWorker" in navigator)) return;

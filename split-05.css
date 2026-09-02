@@ -2578,16 +2578,6 @@
   background: rgba(245, 189, 85, 0.08);
 }
 
-
-.options-heat-cell.is-call {
-  background: rgba(255, 95, 122, var(--heat));
-}
-
-.options-heat-cell.is-put {
-  background: rgba(50, 213, 155, var(--heat));
-}
-
-
 .options-heatmap-side b.is-call {
   color: var(--red);
 }

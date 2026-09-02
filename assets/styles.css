@@ -58,19 +58,6 @@ a {
   padding: 20px 0 48px;
 }
 
-.navbar,
-.hero-panel,
-.panel-card,
-.metric-card,
-.link-card,
-.news-card,
-.stock-table,
-.search-result-item {
-  border: 1px solid var(--line);
-  background: var(--panel);
-  backdrop-filter: blur(18px);
-  box-shadow: var(--shadow);
-}
 
 .navbar {
   display: flex;
@@ -229,17 +216,6 @@ a {
   font-size: 2rem;
 }
 
-.headline-metrics,
-.overview-grid,
-.tri-grid,
-.quick-links,
-.split-layout,
-.news-grid,
-.detail-grid,
-.sector-grid {
-  display: grid;
-  gap: 18px;
-}
 
 .headline-metrics {
   margin-top: 24px;
@@ -304,9 +280,6 @@ a {
   gap: 12px;
 }
 
-.mini-list.wide {
-  grid-template-columns: repeat(2, 1fr);
-}
 
 .mini-item strong,
 .metric-pill strong,
@@ -820,34 +793,6 @@ a {
   background: rgba(147, 178, 220, 0.96);
 }
 
-.class-hero-main h3,
-.class-board-head h3 {
-  font-size: clamp(1.7rem, 2.8vw, 2.4rem);
-}
-
-.class-hero-value-row {
-  display: flex;
-  align-items: baseline;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-top: 12px;
-}
-
-.class-hero-value-row strong {
-  font-family: "Space Grotesk", sans-serif;
-  font-size: clamp(2.6rem, 4vw, 4rem);
-}
-
-.class-hero-value-row span {
-  font-size: 1.15rem;
-  font-weight: 700;
-}
-
-.class-hero-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-}
 
 .class-board-head {
   display: flex;
@@ -857,28 +802,8 @@ a {
   margin-bottom: 18px;
 }
 
-.trend-tabs {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 18px;
-}
 
-.trend-tab {
-  display: inline-flex;
-  align-items: center;
-  padding: 8px 14px;
-  border-radius: 999px;
-  color: var(--muted);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(147, 178, 220, 0.12);
-  font-weight: 700;
-}
 
-.trend-tab.is-active {
-  color: var(--text);
-  border-color: rgba(77, 167, 255, 0.4);
-  background: rgba(77, 167, 255, 0.12);
-}
 
 .class-table {
   display: grid;
@@ -986,31 +911,10 @@ a {
   font-size: 2rem;
 }
 
-.stock-table {
-  overflow: hidden;
-}
 
-.table-head,
-.table-row {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 12px;
-  align-items: center;
-  padding: 16px 18px;
-}
 
-.table-head {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--muted);
-}
 
-.table-row {
-  border-top: 1px solid rgba(147, 178, 220, 0.1);
-}
 
-.detail-grid {
-  grid-template-columns: repeat(2, 1fr);
-}
 
 #stock-detail.panel-card,
 #stock-detail {
@@ -1024,14 +928,7 @@ a {
   margin: 18px 0;
 }
 
-.insight-list {
-  margin: 0;
-  padding-left: 18px;
-}
 
-.insight-list li + li {
-  margin-top: 10px;
-}
 
 .news-grid {
   grid-template-columns: repeat(2, 1fr);
@@ -1122,11 +1019,6 @@ a {
   border-radius: var(--glass-tile-radius);
   background: var(--glass-tile-bg);
   border: var(--glass-tile-border);
-}
-
-.chart-stack {
-  display: grid;
-  gap: 18px;
 }
 
 .range-switcher {
@@ -1312,22 +1204,12 @@ a {
   stroke-width: 1;
 }
 
-.chart-area {
-  fill: rgba(77, 167, 255, 0.14);
-}
-
 .chart-line {
   fill: none;
   stroke: var(--blue);
   stroke-width: 3;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-.chart-points circle {
-  fill: #ffffff;
-  stroke: var(--blue);
-  stroke-width: 2;
 }
 
 .chart-ma-line {
@@ -1411,15 +1293,6 @@ a {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .hero-home,
-  .tri-grid,
-  .quick-links,
-  .overview-grid,
-  .detail-grid,
-  .news-grid,
-  .sector-grid {
-    grid-template-columns: 1fr;
-  }
 
   .split-layout {
     grid-template-columns: 1fr;
@@ -1434,10 +1307,6 @@ a {
   }
 
   .sector-sync-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .class-hero-metrics {
     grid-template-columns: 1fr;
   }
 
@@ -1470,12 +1339,6 @@ a {
   color: var(--muted);
 }
 
-.detail-link {
-  display: inline-block;
-  margin-top: 16px;
-  color: var(--gold);
-  font-weight: 700;
-}
 
 .up { color: var(--green); }
 .down { color: var(--red); }
@@ -1513,9 +1376,6 @@ a {
     align-items: start;
   }
 
-  .trend-tabs {
-    flex-wrap: wrap;
-  }
 
   .sector-sync-chart-summary {
     flex-direction: column;
@@ -1527,14 +1387,6 @@ a {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .mini-list.wide,
-  .detail-metrics,
-  .table-head,
-  .table-row,
-  .history-row,
-  .analysis-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
 
   #stock-detail .detail-metrics {
     grid-template-columns: repeat(2, 1fr);
@@ -1555,14 +1407,6 @@ a {
     align-items: stretch;
   }
 
-  .mini-list.wide,
-  .detail-metrics,
-  .table-head,
-  .table-row,
-  .history-row,
-  .analysis-grid {
-    grid-template-columns: 1fr;
-  }
 
   .sector-card-side {
     grid-template-columns: 1fr;

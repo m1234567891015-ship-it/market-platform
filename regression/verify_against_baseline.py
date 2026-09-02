@@ -1,15 +1,15 @@
 """工單 00 第三、四部分:與行為基準比對,判斷現版是否偏離原版行為。
 
 用法:
-    python regression/verify_against_baseline.py --quick        # 快取型端點 API 比對 + 安全檢查(快、穩定)
+    python regression/verify_against_baseline.py --quick        # offline fixture API 比對 + 安全檢查(快、穩定)
     python regression/verify_against_baseline.py --quick --api-live  # + 即時端點(見下)
     python regression/verify_against_baseline.py --full         # quick + --api-live + Playwright 前端比對 + 互動比對
 
-TD-17:`--quick` 只比對「有快取層」的端點,比對前先明確暖身一次快取
-(失敗即中止並標示為外部問題,不讓 44 個端點各自逾時後回含糊紅燈)。
-`live-sectors`/`live-overview`/`live-stocks`/`live-search` 這類設計上
-無快取、每次都直接打外部資料源的端點,移到獨立的 `--api-live` 旗標,
-`--full` 自動包含,`--quick` 預設不含,兩者分工明確。
+TD-17/TD-19:`--quick` 只用 `regression/baseline` 的 loopback fixture
+比對快取型端點,不啟動正式 app、不打外部資料源,因此在禁止外網時仍可
+重現 API schema/value 驗證。`live-sectors`/`live-overview`/`live-stocks`/
+`live-search` 這類設計上無快取、每次直接打外部資料源的端點,移到獨立的
+`--api-live` 旗標,`--full` 自動包含,`--quick` 預設不含,兩者分工明確。
 
 任一檢查失敗則結束碼為 1(可被 Stop hook 或 CI 使用)。
 """
@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from capture_baseline import build_cases, fetch  # noqa: E402
 from diffing import apply_mask, deep_diff, extract_schema, schema_diff  # noqa: E402
+from offline_fixtures import OfflineFixtureServer  # noqa: E402
 from route_scan import api_get_routes  # noqa: E402
 from server_harness import start_server  # noqa: E402
 
@@ -40,7 +41,6 @@ ESCAPEHTML_BASELINE_PATH = BASELINE_DIR / "escapehtml_baseline.json"
 APP_JS_PATH = REPO_ROOT / "app.js"
 
 RETRY_DELAY_SECONDS = 3
-WARMUP_TIMEOUT_SECONDS = 90
 
 # TD-17:這 4 個端點的 handler(routes_twse.py)設計上永遠直接呼叫外部即時
 # 抓取函式,沒有 cache_data/ensure_cache() 這層快取可暖身,天生比其餘端點
@@ -52,7 +52,61 @@ ALWAYS_LIVE_ENDPOINT_NAMES = {
     "api__twse__live-stocks",
     "api__twse__live-search",
 }
-WARMUP_ENDPOINT_PATH = "/api/twse/site-data"
+
+# TD-19:每個 manifest endpoint 都有一筆政策；required paths 只檢查 key 是否存在，
+# 不把 null/空資料誤判為失敗。error-only endpoint 由 ERROR_ONLY_ENDPOINT_NAMES
+# 標記，等 healthy fixture 補齊後才轉成 success policy。
+REQUIRED_KEY_PATHS: dict[str, tuple[str, ...]] = {
+    "api__health": ("status",),
+    "api__twse__site-data": ("snapshotDate", "stockCount", "sectors"),
+    "api__twse__live-sectors": ("snapshotDate", "sectors"),
+    "api__twse__live-overview": ("snapshotDate", "marketOverview", "marketStats", "stocks"),
+    "api__twse__live-stocks": ("snapshotDate", "count", "stocks"),
+    "api__twse__live-search": ("query", "count", "results"),
+    "api__yahoo__sector": (),
+    "api__yahoo__sector-chart": (),
+    "api__market__penny-sector-recommendations": ("available", "markets"),
+    "api__market__international-indexes": ("count", "indexes"),
+    "api__global-market__us-stocks": ("category", "items", "summary"),
+    "api__twse__search": ("query", "count", "results"),
+    "api__twse__stock__2330": ("code", "name", "close", "historyDays"),
+    "api__global-market__futures": ("category", "items", "summary"),
+    "api__global-market__options": ("category", "items", "summary"),
+    "api__global-market__precious-metals": ("category", "items", "summary"),
+    "api__global-market__bonds": ("category", "items", "summary"),
+    "api__index": ("data", "success"),
+    "api__derivatives__v1-status": ("data", "success"),
+    "api__futures": ("data", "success"),
+    "api__futures__TX": ("data", "success"),
+    "api__futures__TX__candles": ("data", "success"),
+    "api__options": ("data", "success"),
+    "api__open-interest": ("data", "success"),
+    "api__institution": ("data", "success"),
+    "api__basis": ("data", "success"),
+    "api__news": ("data", "success"),
+    "api__ai-analysis": ("data", "success"),
+    "api__futures__TX__technical-candles": ("data", "success"),
+    "api__options__chain": ("data", "success"),
+    "api__pcr": ("data", "success"),
+    "api__maxpain": ("data", "success"),
+    "api__us-market__etf-center": ("category", "items", "summary"),
+    "api__us-market__search": ("query", "count", "results"),
+    "api__us-market__listed": ("count", "results"),
+    "api__us-market__nyse-listed": ("group", "results", "returned"),
+    "api__us-market__options-chain__AAPL": ("symbol", "calls", "puts", "summary"),
+    "api__us-market__symbol__AAPL": ("symbol", "name", "market", "source"),
+    "api__us-market__sector-stocks": ("sector", "items", "usable"),
+    "api__twse__all-stocks": ("snapshotDate", "count", "stocks"),
+    "api__twse__etfs": ("count", "items"),
+    "api__twse__stock__0050": ("code", "name", "close", "historyDays"),
+    "api__twse__stock__2330__shareholders": ("code", "shareholderDistribution"),
+    "api__twse__stock__2330__institutional-history": ("code", "institutionalTrades", "institutionalTradeHistory"),
+}
+
+ERROR_ONLY_ENDPOINT_NAMES = {
+    "api__yahoo__sector",
+    "api__yahoo__sector-chart",
+}
 
 
 class CheckReport:
@@ -123,7 +177,7 @@ def check_security_headers() -> CheckReport:
         report.fail(f"找不到基準檔 {SECURITY_HEADERS_PATH}")
         return report
     baseline_headers = json.loads(SECURITY_HEADERS_PATH.read_text(encoding="utf-8"))
-    with start_server() as server:
+    with start_server(extra_env={"MARKET_PULSE_DISABLE_BACKGROUND": "1"}) as server:
         import urllib.request
 
         req = urllib.request.Request(server.base_url + "/api/health", headers={"User-Agent": "regression-verify"})
@@ -157,6 +211,44 @@ def _format_external_failure(request_path: str, status: int, body: object) -> st
     return f"[外部問題,非程式碼] {request_path}: 狀態碼={status}{suffix}"
 
 
+def _required_path_exists(body: object, path: str) -> bool:
+    """只沿 object key 走 dot-path；不把 null/空值當成 key 缺失。"""
+    current = body
+    for segment in path.split("."):
+        if not isinstance(current, dict) or segment not in current:
+            return False
+        current = current[segment]
+    return True
+
+
+def _validate_required_key_policy(endpoints: list[dict]) -> list[str]:
+    """確認 manifest 與 TD-19 policy 一對一，避免 allowlist 自己形成盲區。"""
+    manifest_names = [endpoint["name"] for endpoint in endpoints]
+    manifest_set = set(manifest_names)
+    policy_set = set(REQUIRED_KEY_PATHS)
+    errors: list[str] = []
+
+    if len(manifest_names) != len(manifest_set):
+        errors.append("[verifier 設定缺漏] manifest endpoint name 不唯一")
+    for name in sorted(manifest_set - policy_set):
+        errors.append(f"[verifier 設定缺漏] endpoint {name} 沒有 required-key policy")
+    for name in sorted(policy_set - manifest_set):
+        errors.append(f"[verifier 設定缺漏] policy {name} 不存在於 manifest")
+
+    for name, paths in REQUIRED_KEY_PATHS.items():
+        if name in ERROR_ONLY_ENDPOINT_NAMES:
+            if paths:
+                errors.append(f"[verifier 設定缺漏] error-only endpoint {name} 不應宣告 required path")
+            continue
+        if not paths:
+            errors.append(f"[verifier 設定缺漏] success endpoint {name} 沒有 required path")
+        for path in paths:
+            segments = path.split(".")
+            if not path or any(not segment or any(char in segment for char in "[]*?") for segment in segments):
+                errors.append(f"[verifier 設定缺漏] endpoint {name} 有非法 required path {path!r}")
+    return errors
+
+
 def _check_one_endpoint(server_base_url: str, endpoint: dict) -> str | None:
     """回傳 None 表示通過,否則回傳帶分類標籤(外部問題 / 程式碼問題)的失敗描述。"""
     from capture_baseline import Case
@@ -168,6 +260,20 @@ def _check_one_endpoint(server_base_url: str, endpoint: dict) -> str | None:
     if _is_external_failure(status, body):
         return _format_external_failure(endpoint["request_path"], status, body)
 
+    if status != endpoint["status_code"]:
+        return f"[程式碼可能改動回應格式] {endpoint['request_path']}: 狀態碼基準={endpoint['status_code']} 現況={status}"
+
+    if endpoint["name"] not in REQUIRED_KEY_PATHS:
+        return f"[verifier 設定缺漏] {endpoint['request_path']}: 沒有 required-key policy"
+
+    required_keys = REQUIRED_KEY_PATHS[endpoint["name"]]
+    if endpoint["name"] not in ERROR_ONLY_ENDPOINT_NAMES:
+        if not isinstance(body, dict):
+            return f"[程式碼可能改動回應格式] {endpoint['request_path']}: 成功回應不是 object"
+        missing = [path for path in required_keys if not _required_path_exists(body, path)]
+        if missing:
+            return f"[程式碼可能改動回應格式] {endpoint['request_path']}: 缺少必要欄位 {', '.join(missing)}"
+
     baseline_file = BASELINE_DIR / endpoint["baseline_file"]
     stored_value = json.loads(baseline_file.read_text(encoding="utf-8"))
 
@@ -177,9 +283,6 @@ def _check_one_endpoint(server_base_url: str, endpoint: dict) -> str | None:
         if schema_diffs:
             return f"[程式碼可能改動回應格式] {endpoint['request_path']}: 回應結構(schema)與基準不同 - {'; '.join(schema_diffs[:5])}"
         return None
-
-    if status != endpoint["status_code"]:
-        return f"[程式碼可能改動回應格式] {endpoint['request_path']}: 狀態碼基準={endpoint['status_code']} 現況={status}"
 
     masked_current = apply_mask(body, _parse_mask_paths(endpoint["mask_paths"]))
     diffs = deep_diff(stored_value, masked_current)
@@ -204,28 +307,6 @@ def _parse_mask_paths(mask_path_strs: list[str]) -> list[tuple]:
                 parts.append(match.group(2))
         parsed.append(tuple(parts))
     return parsed
-
-
-def _warm_up_cache(server_base_url: str) -> str | None:
-    """TD-17:server_harness.wait_for_health() 只確認 /api/health 回 200,
-    不保證 cache_data(cache.py)已經填好。--quick 比對的 40 個端點多數會
-    經 ensure_cache() 讀快取,若第一個打到的端點恰好觸發冷啟動同步刷新且
-    剛好較慢,就會在 44 個端點的迴圈裡分散成好幾個各自逾時的失敗,難以判讀。
-    這裡在比對迴圈開始前,先用寬鬆 timeout 明確打一次會觸發 ensure_cache()
-    的端點(/api/twse/site-data,無 refresh 參數),失敗就視為外部資料源
-    當下不可用,不進入 44 個端點比對迴圈。回傳 None 表示暖身成功。"""
-    import urllib.error
-    import urllib.request
-
-    url = server_base_url + WARMUP_ENDPOINT_PATH
-    req = urllib.request.Request(url, headers={"User-Agent": "regression-verify-warmup"})
-    try:
-        with urllib.request.urlopen(req, timeout=WARMUP_TIMEOUT_SECONDS) as resp:
-            if resp.status != 200:
-                return f"暖身請求 {WARMUP_ENDPOINT_PATH} 回應狀態碼 {resp.status}(非 200)"
-    except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        return f"暖身請求 {WARMUP_ENDPOINT_PATH} 逾時或連線失敗:{exc}"
-    return None
 
 
 def _run_endpoint_checks(server_base_url: str, endpoints: list[dict]) -> dict[str, str]:
@@ -254,23 +335,23 @@ def _run_endpoint_checks(server_base_url: str, endpoints: list[dict]) -> dict[st
 
 
 def check_api_baseline() -> CheckReport:
-    """工單 00 第一部分:API 回應行為必須與基準一致(含遮罩時變欄位、structure-only
-    端點)。TD-17:只比對有快取層的端點(見 ALWAYS_LIVE_ENDPOINT_NAMES 排除清單),
-    比對前先明確暖身快取一次。"""
+    """API 回應行為必須與基準一致(含遮罩時變欄位、structure-only 端點)。
+    TD-17/TD-19:使用離線 fixture，避免 quick 被外部資料源影響。"""
     report = CheckReport("API 行為基準比對(快取型端點)")
     if not MANIFEST_PATH.exists():
         report.fail(f"找不到基準 manifest {MANIFEST_PATH},請先執行 capture_baseline.py")
         return report
 
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    policy_errors = _validate_required_key_policy(manifest["endpoints"])
+    if policy_errors:
+        for error in policy_errors:
+            report.fail(error)
+        return report
     endpoints = [ep for ep in manifest["endpoints"] if ep["name"] not in ALWAYS_LIVE_ENDPOINT_NAMES]
 
-    with start_server() as server:
-        warmup_failure = _warm_up_cache(server.base_url)
-        if warmup_failure:
-            report.fail(f"[外部問題,非程式碼] 快取暖身失敗,中止本輪端點比對:{warmup_failure}")
-            return report
-        failures = _run_endpoint_checks(server.base_url, endpoints)
+    with OfflineFixtureServer(MANIFEST_PATH, BASELINE_DIR) as fixture:
+        failures = _run_endpoint_checks(fixture.base_url, endpoints)
 
     for failure in failures.values():
         report.fail(failure)
@@ -287,6 +368,11 @@ def check_api_live_baseline() -> CheckReport:
         return report
 
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    policy_errors = _validate_required_key_policy(manifest["endpoints"])
+    if policy_errors:
+        for error in policy_errors:
+            report.fail(error)
+        return report
     endpoints = [ep for ep in manifest["endpoints"] if ep["name"] in ALWAYS_LIVE_ENDPOINT_NAMES]
     if not endpoints:
         report.fail("manifest 中找不到任何 ALWAYS_LIVE_ENDPOINT_NAMES 對應端點,清單可能已跟 manifest 對不上")

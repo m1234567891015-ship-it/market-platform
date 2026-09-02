@@ -50,7 +50,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from market_config import EXCLUDED_SECTOR_SOURCE_NAMES
+from market_config import CACHE_BUCKET_MAX_ENTRIES, CACHE_TTL_SECONDS, EXCLUDED_SECTOR_SOURCE_NAMES
+from shared_state import (
+    RedisSharedStateAdapter,
+    SharedStateAdapter,
+    SharedStateError,
+    SharedStateTimeout,
+    SharedStateUnavailable,
+)
 
 LOGGER = logging.getLogger("market_pulse")
 
@@ -66,13 +73,44 @@ cache_refresh_lock = threading.Lock()
 cache_flight_lock = threading.Lock()
 cache_flights: dict[str, threading.Event] = {}
 CACHE_FLIGHT_WAIT_SECONDS = 120
+SINGLE_FLIGHT_MODE = os.environ.get("MARKET_PULSE_SINGLE_FLIGHT_MODE", "local").strip().lower()
+SINGLE_FLIGHT_LEASE_TTL_SECONDS = CACHE_FLIGHT_WAIT_SECONDS
+SINGLE_FLIGHT_POLL_SECONDS = 0.25
+single_flight_shared_adapter: SharedStateAdapter | None = None
+single_flight_shared_adapter_lock = threading.Lock()
+CACHE_L2_MODE = os.environ.get("MARKET_PULSE_CACHE_L2_MODE", "local").strip().lower()
+CACHE_L2_BUCKETS = frozenset(
+    {
+        "live_search_dedup",
+        "us_options_chains",
+        "global_market_items",
+        "yahoo_tw_future_technical_candles",
+        "taifex_openapi_list",
+        "yahoo_tw_stock_resources",
+        "global_markets",
+        "sector_charts",
+        "stock_details",
+        "taifex_options_chain",
+        "us_etf_center",
+        "yahoo_tw_option_chain",
+    }
+)
+CACHE_L2_NAMESPACE = f"{os.environ.get('MARKET_PULSE_SHARED_STATE_NAMESPACE', 'market-pulse:v1')}:cache-v{CACHE_VERSION}"
+cache_l2_shared_adapter: SharedStateAdapter | None = None
+cache_l2_shared_adapter_lock = threading.Lock()
 
 background_updater_lock = threading.Lock()
 background_updater_started = False
+BACKGROUND_UPDATER_MODE = os.environ.get("MARKET_PULSE_BACKGROUND_LEASE_MODE", "local").strip().lower()
+BACKGROUND_UPDATER_LEASE_NAME = "background-updater"
+BACKGROUND_UPDATER_LEASE_TTL_SECONDS = max(120, UPDATE_INTERVAL_SECONDS * 2)
+BACKGROUND_UPDATER_RENEW_INTERVAL_SECONDS = max(1.0, BACKGROUND_UPDATER_LEASE_TTL_SECONDS / 3)
+background_updater_shared_adapter: SharedStateAdapter | None = None
+background_updater_shared_adapter_lock = threading.Lock()
 
 penny_sector_recommendation_lock = threading.Lock()
 penny_sector_recommendation_cache: dict[str, Any] = {}
-PENNY_SECTOR_RECOMMENDATION_CACHE_SECONDS = 30 * 60
+PENNY_SECTOR_RECOMMENDATION_CACHE_SECONDS = CACHE_TTL_SECONDS["penny_sector_recommendation"]
 
 # Coalesces concurrent requests for the same option-chain cache key (e.g. a page that fires
 # /api/options/chain and /api/ai-analysis for the same underlying at once) so only one of them
@@ -126,21 +164,7 @@ _yahoo_options_crumb: dict[str, Any] = {"value": "", "stored_at": 0.0}
 # TTL-triggered purge. This is a genuine behavior change (not pure
 # behavior-preserving cleanup like the other 12 buckets below), called out
 # separately per its own commit.
-BUCKET_CAPS: dict[str, int] = {
-    "stock_details": 2500,
-    "yahoo_tw_stock_resources": 3000,
-    "us_options_chains": 500,
-    "yahoo_tw_option_chain": 150,
-    "taifex_options_chain": 300,
-    "external_text": 500,
-    "global_market_items": 300,
-    "global_markets": 100,
-    "us_etf_center": 500,
-    "sector_charts": 150,
-    "yahoo_tw_future_technical_candles": 200,
-    "taifex_openapi_list": 100,
-    "live_search_dedup": 500,
-}
+BUCKET_CAPS: dict[str, int] = dict(CACHE_BUCKET_MAX_ENTRIES)
 
 
 def enforce_bucket_cap(bucket: str) -> None:
@@ -172,37 +196,231 @@ def enforce_bucket_cap(bucket: str) -> None:
         entries.pop(key, None)
 
 
+def _cache_l2_enabled() -> bool:
+    mode = str(os.environ.get("MARKET_PULSE_CACHE_L2_MODE", CACHE_L2_MODE)).strip().lower()
+    return mode == "redis"
+
+
+def _build_cache_l2_shared_adapter() -> SharedStateAdapter:
+    redis_url = str(os.environ.get("MARKET_PULSE_REDIS_URL") or "").strip()
+    if not redis_url:
+        raise SharedStateUnavailable("MARKET_PULSE_REDIS_URL is required for cache L2")
+    try:
+        import redis
+    except ImportError as exc:
+        raise SharedStateUnavailable("redis package is required for cache L2") from exc
+    timeout_seconds = max(0.1, float(os.environ.get("MARKET_PULSE_SHARED_STATE_TIMEOUT_SECONDS", "1")))
+    try:
+        client = redis.Redis.from_url(
+            redis_url,
+            protocol=2,
+            socket_connect_timeout=timeout_seconds,
+            socket_timeout=timeout_seconds,
+            decode_responses=True,
+        )
+        client.ping()
+    except TimeoutError as exc:
+        raise SharedStateTimeout("Redis cache L2 health check timed out") from exc
+    except Exception as exc:
+        raise SharedStateUnavailable("Redis cache L2 health check failed") from exc
+    return RedisSharedStateAdapter(
+        client,
+        namespace=str(os.environ.get("MARKET_PULSE_SHARED_STATE_NAMESPACE", "market-pulse:v1")),
+    )
+
+
+def _get_cache_l2_shared_adapter() -> SharedStateAdapter:
+    global cache_l2_shared_adapter
+    if cache_l2_shared_adapter is not None:
+        return cache_l2_shared_adapter
+    with cache_l2_shared_adapter_lock:
+        if cache_l2_shared_adapter is None:
+            cache_l2_shared_adapter = _build_cache_l2_shared_adapter()
+        return cache_l2_shared_adapter
+
+
+def _cache_l2_namespace(bucket: str) -> str:
+    return f"{CACHE_L2_NAMESPACE}:{bucket}"
+
+
 def read_memory_cache(bucket: str, key: str, ttl_seconds: int | float) -> Any | None:
     now = time.time()
     with cache_lock:
         cached = cache_data.get(bucket, {}).get(key)
     if cached and now - float(cached.get("stored_at") or 0) < ttl_seconds:
         return cached.get("payload")
+    if _cache_l2_enabled() and bucket in CACHE_L2_BUCKETS and ttl_seconds > 0:
+        try:
+            payload = _get_cache_l2_shared_adapter().cache_get(_cache_l2_namespace(bucket), key)
+        except SharedStateError as exc:
+            LOGGER.debug("Cache L2 read degraded to local miss bucket=%s error_type=%s", bucket, type(exc).__name__)
+        else:
+            if payload is not None:
+                with cache_lock:
+                    cache_data.setdefault(bucket, {})[key] = {
+                        "stored_at": now,
+                        "payload": copy.deepcopy(payload),
+                    }
+                    enforce_bucket_cap(bucket)
+                LOGGER.debug("Cache L2 hit bucket=%s", bucket)
+                return payload
     return None
 
 
-def write_memory_cache(bucket: str, key: str, payload: Any) -> None:
+def write_memory_cache(bucket: str, key: str, payload: Any, ttl_seconds: int | float | None = None) -> None:
     with cache_lock:
         cache_data.setdefault(bucket, {})[key] = {"stored_at": time.time(), "payload": payload}
         enforce_bucket_cap(bucket)
+    if _cache_l2_enabled() and bucket in CACHE_L2_BUCKETS and ttl_seconds and ttl_seconds > 0:
+        try:
+            _get_cache_l2_shared_adapter().cache_set(_cache_l2_namespace(bucket), key, payload, ttl_seconds)
+        except (SharedStateError, TypeError, ValueError, OverflowError) as exc:
+            LOGGER.debug("Cache L2 write skipped bucket=%s error_type=%s", bucket, type(exc).__name__)
 
 
-def claim_cache_flight(key: str) -> tuple[bool, threading.Event]:
-    """Elect one request to refresh a cache key while concurrent requests wait."""
-    with cache_flight_lock:
-        event = cache_flights.get(key)
+class CacheFlightHandle:
+    """Local event plus optional cross-worker lease ownership."""
+
+    def __init__(
+        self,
+        event: threading.Event,
+        shared_adapter: SharedStateAdapter | None = None,
+        lease_name: str | None = None,
+        owner_token: str | None = None,
+    ) -> None:
+        self.event = event
+        self.shared_adapter = shared_adapter
+        self.lease_name = lease_name
+        self.owner_token = owner_token
+
+    @property
+    def uses_shared_lease(self) -> bool:
+        return self.shared_adapter is not None and self.lease_name is not None
+
+    def wait(self, timeout: float | None = None) -> bool:
+        if not self.uses_shared_lease:
+            return self.event.wait(timeout)
+        wait_seconds = CACHE_FLIGHT_WAIT_SECONDS if timeout is None else max(0.0, timeout)
+        deadline = time.monotonic() + wait_seconds
+        while True:
+            try:
+                if not self.shared_adapter.lease_is_active(self.lease_name):
+                    return True
+            except SharedStateError as exc:
+                LOGGER.warning("Shared cache-flight wait degraded to local path error_type=%s", type(exc).__name__)
+                return False
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return False
+            time.sleep(min(SINGLE_FLIGHT_POLL_SECONDS, remaining))
+
+
+def _shared_single_flight_mode() -> str:
+    mode = str(os.environ.get("MARKET_PULSE_SINGLE_FLIGHT_MODE", SINGLE_FLIGHT_MODE)).strip().lower()
+    return mode if mode in {"local", "redis"} else "local"
+
+
+def _build_single_flight_shared_adapter() -> SharedStateAdapter:
+    redis_url = str(os.environ.get("MARKET_PULSE_REDIS_URL") or "").strip()
+    if not redis_url:
+        raise SharedStateUnavailable("MARKET_PULSE_REDIS_URL is required for shared single-flight")
+    try:
+        import redis
+    except ImportError as exc:
+        raise SharedStateUnavailable("redis package is required for shared single-flight") from exc
+    timeout_seconds = max(0.1, float(os.environ.get("MARKET_PULSE_SHARED_STATE_TIMEOUT_SECONDS", "1")))
+    try:
+        client = redis.Redis.from_url(
+            redis_url,
+            protocol=2,
+            socket_connect_timeout=timeout_seconds,
+            socket_timeout=timeout_seconds,
+            decode_responses=True,
+        )
+        client.ping()
+    except TimeoutError as exc:
+        raise SharedStateTimeout("Redis single-flight health check timed out") from exc
+    except Exception as exc:
+        raise SharedStateUnavailable("Redis single-flight health check failed") from exc
+    return RedisSharedStateAdapter(
+        client,
+        namespace=str(os.environ.get("MARKET_PULSE_SHARED_STATE_NAMESPACE", "market-pulse:v1")),
+    )
+
+
+def _get_single_flight_shared_adapter() -> SharedStateAdapter:
+    global single_flight_shared_adapter
+    if single_flight_shared_adapter is not None:
+        return single_flight_shared_adapter
+    with single_flight_shared_adapter_lock:
+        if single_flight_shared_adapter is None:
+            single_flight_shared_adapter = _build_single_flight_shared_adapter()
+        return single_flight_shared_adapter
+
+
+def _claim_flight(
+    key: str,
+    local_flights: dict[str, threading.Event],
+    local_lock: threading.Lock,
+    lease_prefix: str,
+) -> tuple[bool, CacheFlightHandle]:
+    """Claim a local flight and, when enabled, a cross-worker lease."""
+    with local_lock:
+        event = local_flights.get(key)
         if event is not None:
-            return False, event
+            return False, CacheFlightHandle(event)
         event = threading.Event()
-        cache_flights[key] = event
-        return True, event
+        local_flights[key] = event
+
+    if _shared_single_flight_mode() != "redis":
+        return True, CacheFlightHandle(event)
+
+    lease_name = f"{lease_prefix}:{key}"
+    owner_token = f"{os.getpid()}:{threading.get_ident()}:{time.time_ns()}"
+    try:
+        adapter = _get_single_flight_shared_adapter()
+        if adapter.acquire_lease(lease_name, owner_token, SINGLE_FLIGHT_LEASE_TTL_SECONDS):
+            return True, CacheFlightHandle(event, adapter, lease_name, owner_token)
+        with local_lock:
+            local_flights.pop(key, None)
+        return False, CacheFlightHandle(threading.Event(), adapter, lease_name)
+    except SharedStateError as exc:
+        LOGGER.warning("Shared cache-flight claim degraded to local path error_type=%s", type(exc).__name__)
+        return True, CacheFlightHandle(event)
 
 
-def finish_cache_flight(key: str, event: threading.Event) -> None:
-    with cache_flight_lock:
-        if cache_flights.get(key) is event:
-            cache_flights.pop(key, None)
-            event.set()
+def _finish_flight(
+    key: str,
+    handle: CacheFlightHandle,
+    local_flights: dict[str, threading.Event],
+    local_lock: threading.Lock,
+) -> None:
+    with local_lock:
+        if local_flights.get(key) is handle.event:
+            local_flights.pop(key, None)
+            handle.event.set()
+    if handle.uses_shared_lease and handle.owner_token:
+        try:
+            handle.shared_adapter.release_lease(handle.lease_name, handle.owner_token)
+        except SharedStateError as exc:
+            LOGGER.warning("Shared cache-flight release failed error_type=%s", type(exc).__name__)
+
+
+def claim_cache_flight(key: str) -> tuple[bool, CacheFlightHandle]:
+    """Elect one request to refresh a cache key while concurrent requests wait."""
+    return _claim_flight(key, cache_flights, cache_flight_lock, "cache-flight")
+
+
+def finish_cache_flight(key: str, handle: CacheFlightHandle) -> None:
+    _finish_flight(key, handle, cache_flights, cache_flight_lock)
+
+
+def claim_taifex_options_chain_flight(key: str) -> tuple[bool, CacheFlightHandle]:
+    return _claim_flight(key, taifex_options_chain_inflight, taifex_options_chain_inflight_lock, "options-flight")
+
+
+def finish_taifex_options_chain_flight(key: str, handle: CacheFlightHandle) -> None:
+    _finish_flight(key, handle, taifex_options_chain_inflight, taifex_options_chain_inflight_lock)
 
 
 def serialize_treasury_yield_curve_cache(cached: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -359,22 +577,139 @@ def refresh_cache() -> None:
     save_disk_cache()
 
 
-def update_loop() -> None:
+def _background_updater_mode() -> str:
+    mode = str(os.environ.get("MARKET_PULSE_BACKGROUND_LEASE_MODE", BACKGROUND_UPDATER_MODE)).strip().lower()
+    return mode if mode in {"local", "redis"} else "local"
+
+
+def _build_background_updater_shared_adapter() -> SharedStateAdapter:
+    redis_url = str(os.environ.get("MARKET_PULSE_REDIS_URL") or "").strip()
+    if not redis_url:
+        raise SharedStateUnavailable("MARKET_PULSE_REDIS_URL is required for background updater lease")
+    try:
+        import redis
+    except ImportError as exc:
+        raise SharedStateUnavailable("redis package is required for background updater lease") from exc
+    timeout_seconds = max(0.1, float(os.environ.get("MARKET_PULSE_SHARED_STATE_TIMEOUT_SECONDS", "1")))
+    try:
+        client = redis.Redis.from_url(
+            redis_url,
+            protocol=2,
+            socket_connect_timeout=timeout_seconds,
+            socket_timeout=timeout_seconds,
+            decode_responses=True,
+        )
+        client.ping()
+    except TimeoutError as exc:
+        raise SharedStateTimeout("Redis background updater health check timed out") from exc
+    except Exception as exc:
+        raise SharedStateUnavailable("Redis background updater health check failed") from exc
+    return RedisSharedStateAdapter(
+        client,
+        namespace=str(os.environ.get("MARKET_PULSE_SHARED_STATE_NAMESPACE", "market-pulse:v1")),
+    )
+
+
+def _get_background_updater_shared_adapter() -> SharedStateAdapter:
+    global background_updater_shared_adapter
+    if background_updater_shared_adapter is not None:
+        return background_updater_shared_adapter
+    with background_updater_shared_adapter_lock:
+        if background_updater_shared_adapter is None:
+            background_updater_shared_adapter = _build_background_updater_shared_adapter()
+        return background_updater_shared_adapter
+
+
+def _background_updater_owner_token() -> str:
+    return f"{os.getpid()}:{threading.get_ident()}:{time.time_ns()}"
+
+
+def _renew_background_updater_lease(
+    adapter: SharedStateAdapter,
+    stop_event: threading.Event,
+    lease_lost_event: threading.Event,
+    owner_token: str,
+) -> None:
+    while not stop_event.wait(BACKGROUND_UPDATER_RENEW_INTERVAL_SECONDS):
+        try:
+            renewed = adapter.renew_lease(
+                BACKGROUND_UPDATER_LEASE_NAME,
+                owner_token,
+                BACKGROUND_UPDATER_LEASE_TTL_SECONDS,
+            )
+        except SharedStateError as exc:
+            lease_lost_event.set()
+            LOGGER.warning("Background updater lease renewal failed error_type=%s", type(exc).__name__)
+            return
+        if not renewed:
+            lease_lost_event.set()
+            LOGGER.warning("Background updater lease ownership lost")
+            return
+
+
+def _run_background_refresh_tasks() -> None:
     import app  # deferred: refresh_tpex_cache hasn't moved out of app.py yet (TD-01 slice 2c)
 
+    try:
+        app.refresh_tpex_cache()
+    except Exception:  # noqa: BLE001
+        LOGGER.exception("Background TPEx cache refresh failed")
+        with cache_lock:
+            cache_data["last_error"] = PUBLIC_CACHE_ERROR_MESSAGE
+    try:
+        refresh_cache()
+    except Exception:  # noqa: BLE001
+        LOGGER.exception("Background TWSE cache refresh failed")
+        with cache_lock:
+            cache_data["last_error"] = PUBLIC_CACHE_ERROR_MESSAGE
+
+
+def run_background_update_cycle() -> bool:
+    """Run one refresh cycle; return whether this process owned the cycle."""
+    if _background_updater_mode() != "redis":
+        _run_background_refresh_tasks()
+        return True
+
+    try:
+        adapter = _get_background_updater_shared_adapter()
+        owner_token = _background_updater_owner_token()
+        acquired = adapter.acquire_lease(
+            BACKGROUND_UPDATER_LEASE_NAME,
+            owner_token,
+            BACKGROUND_UPDATER_LEASE_TTL_SECONDS,
+        )
+    except SharedStateError as exc:
+        LOGGER.warning("Background updater lease unavailable; skipping refresh error_type=%s", type(exc).__name__)
+        return False
+    if not acquired:
+        LOGGER.debug("Background updater lease held by another worker; skipping refresh")
+        return False
+
+    stop_event = threading.Event()
+    lease_lost_event = threading.Event()
+    renew_thread = threading.Thread(
+        target=_renew_background_updater_lease,
+        args=(adapter, stop_event, lease_lost_event, owner_token),
+        daemon=True,
+    )
+    renew_thread.start()
+    try:
+        _run_background_refresh_tasks()
+    finally:
+        stop_event.set()
+        renew_thread.join(timeout=max(1.0, BACKGROUND_UPDATER_RENEW_INTERVAL_SECONDS))
+        if lease_lost_event.is_set():
+            LOGGER.warning("Background updater refresh completed after lease loss")
+        try:
+            adapter.release_lease(BACKGROUND_UPDATER_LEASE_NAME, owner_token)
+        except SharedStateError as exc:
+            LOGGER.warning("Background updater lease release failed error_type=%s", type(exc).__name__)
+    return True
+
+
+def update_loop() -> None:
     while True:
-        try:
-            app.refresh_tpex_cache()
-        except Exception:  # noqa: BLE001
-            LOGGER.exception("Background TPEx cache refresh failed")
-            with cache_lock:
-                cache_data["last_error"] = PUBLIC_CACHE_ERROR_MESSAGE
-        try:
-            refresh_cache()
-        except Exception:  # noqa: BLE001
-            LOGGER.exception("Background TWSE cache refresh failed")
-            with cache_lock:
-                cache_data["last_error"] = PUBLIC_CACHE_ERROR_MESSAGE
+        run_background_update_cycle()
         time.sleep(UPDATE_INTERVAL_SECONDS)
 
 

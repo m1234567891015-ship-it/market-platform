@@ -3971,7 +3971,9 @@ async function initGlobalMarketPage(refresh = false) {
     </section>
   `;
   try {
-    const initialLimit = ["precious-metals", "bonds", "futures", "options"].includes(category)
+    const initialLimit = category === "us-stocks" && document.body.dataset.marketView === "overview"
+      ? "all"
+      : ["precious-metals", "bonds", "futures", "options"].includes(category)
       ? "all"
       : ["futures", "options"].includes(category)
         ? 12

@@ -5,7 +5,8 @@
     python regression/frontend_check.py --compare   # 與基準比對(重構期反覆執行)
 
 比對規則:
-- console error 嚴格比對:基準為零,重構後也必須為零(warning 可容忍)。
+- 本地程式 console error 嚴格比對:基準為零,重構後也必須為零(warning 可容忍)。
+- 外部資源連線失敗另列為 external，不混入程式碼錯誤。
 - 關鍵元素數量(卡片 .card、表格列 tr、canvas)必須與基準完全一致(±0)。
 - 截圖像素差異率 > 2% 視為 fail。
 
@@ -66,8 +67,17 @@ def _measure_page(page) -> dict:
     )
 
 
+def _is_external_resource_error(message: str) -> bool:
+    return any(marker in message for marker in (
+        "net::ERR_NETWORK_ACCESS_DENIED",
+        "net::ERR_INTERNET_DISCONNECTED",
+        "net::ERR_NAME_NOT_RESOLVED",
+    ))
+
+
 def _visit_page(browser, base_url: str, page_file: str, mode: str) -> dict:
     console_errors: list[str] = []
+    external_errors: list[str] = []
     console_warnings: list[str] = []
 
     har_path = HAR_DIR / f"{page_file}.har"
@@ -88,7 +98,8 @@ def _visit_page(browser, base_url: str, page_file: str, mode: str) -> dict:
     page = context.new_page()
     page.on(
         "console",
-        lambda msg: (console_errors if msg.type == "error" else console_warnings).append(msg.text)
+        lambda msg: (external_errors if _is_external_resource_error(msg.text) else console_errors
+                     if msg.type == "error" else console_warnings).append(msg.text)
         if msg.type in ("error", "warning")
         else None,
     )
@@ -123,6 +134,7 @@ def _visit_page(browser, base_url: str, page_file: str, mode: str) -> dict:
     return {
         "file": page_file,
         "console_errors": console_errors,
+        "external_errors": external_errors,
         "console_warning_count": len(console_warnings),
         "counts": counts,
         "screenshot_bytes": screenshot_bytes,
@@ -156,6 +168,8 @@ def _write_baseline(results: list[dict]) -> dict:
         (SCREENSHOT_DIR / screenshot_name).write_bytes(result["screenshot_bytes"])
         if result["console_errors"]:
             warnings.append(f"{result['file']}: 基準抓取時已出現 console error: {result['console_errors']}")
+        if result["external_errors"]:
+            warnings.append(f"{result['file']}: 基準抓取時有 external resource error: {result['external_errors']}")
         for field in SPECIAL_NONZERO_CHECKS.get(result["file"], []):
             if result["counts"].get(field, 0) <= 0:
                 warnings.append(f"{result['file']}: 特別驗證點 {field} 於基準抓取時為 0,請確認頁面是否正常渲染")
@@ -221,6 +235,8 @@ def _compare(results: list[dict]) -> dict:
 
         if result["console_errors"]:
             failures.append(f"{file}: 出現 {len(result['console_errors'])} 個 console error: {result['console_errors'][:3]}")
+        if result["external_errors"]:
+            print(f"  [EXTERNAL] {file}: {len(result['external_errors'])} 個外部資源錯誤: {result['external_errors'][:3]}")
 
         for key, base_value in base["counts"].items():
             current_value = result["counts"].get(key)
@@ -239,7 +255,8 @@ def _compare(results: list[dict]) -> dict:
         if screenshot_path.exists():
             diff_pct = _pixel_diff_pct(screenshot_path.read_bytes(), result["screenshot_bytes"])
             if diff_pct > PIXEL_DIFF_FAIL_THRESHOLD_PCT:
-                failures.append(f"{file}: 截圖像素差異率 {diff_pct:.2f}% > {PIXEL_DIFF_FAIL_THRESHOLD_PCT}%")
+                external_note = "；同頁另有 external resource error，需在允許外網時複核" if result.get("external_errors") else ""
+                failures.append(f"[畫面差異] {file}: 截圖像素差異率 {diff_pct:.2f}% > {PIXEL_DIFF_FAIL_THRESHOLD_PCT}%{external_note}")
         else:
             failures.append(f"{file}: 找不到基準截圖 {screenshot_path}")
 

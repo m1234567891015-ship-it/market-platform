@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import socket
@@ -10,6 +11,7 @@ import tempfile
 import time
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
+from urllib.error import HTTPError
 from urllib.request import urlopen
 
 from market_config import ASSET_STATIC_FILES, PAGE_ROUTES, ROOT_STATIC_FILES
@@ -37,11 +39,27 @@ LOCAL_LINK_SKIP_PREFIXES = (
     "javascript:",
     "blob:",
 )
+EXTERNAL_DATA_PATHS = {"/twse-data.js", "/api/twse/site-data", "/api/twse/search"}
+LOGGER = logging.getLogger("market_pulse.portable_check")
 
 
 def read_url(path: str, timeout: int = 30) -> tuple[int, bytes]:
-    with urlopen(f"{BASE_URL}{path}", timeout=timeout) as response:
-        return response.status, response.read()
+    try:
+        with urlopen(f"{BASE_URL}{path}", timeout=timeout) as response:
+            return response.status, response.read()
+    except HTTPError as exc:
+        return exc.code, exc.read()
+
+
+def is_safe_external_failure(path: str, status: int, body: bytes) -> bool:
+    route = urlsplit(path).path
+    if route not in EXTERNAL_DATA_PATHS or status not in {502, 503, 504}:
+        return False
+    try:
+        payload = json.loads(body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return False
+    return payload.get("success") is False and bool(payload.get("error_code")) and "request_context" in payload
 
 
 def pick_free_port(start: int = 5055, attempts: int = 100) -> str:
@@ -145,6 +163,7 @@ def main() -> int:
         stderr=subprocess.STDOUT,
     )
     failures: list[str] = []
+    external_fallbacks: list[str] = []
     checked_urls: set[str] = set()
     server_ready = False
     try:
@@ -157,7 +176,13 @@ def main() -> int:
                 if status == 200:
                     server_ready = True
                     break
-            except Exception:
+            except Exception as exc:
+                LOGGER.debug(
+                    "portable health probe failed; attempt=%s/40 endpoint=%s",
+                    _ + 1,
+                    "/api/health",
+                    exc_info=exc,
+                )
                 time.sleep(0.5)
         else:
             failures.append("Server did not become ready (health check timed out).")
@@ -189,6 +214,9 @@ def main() -> int:
             for path in sorted(checked_urls):
                 try:
                     status, body = read_url(path)
+                    if is_safe_external_failure(path, status, body):
+                        external_fallbacks.append(f"{path}: upstream unavailable (safe API fallback)")
+                        continue
                     if status != 200 or not body:
                         failures.append(f"{path}: HTTP {status}, empty={not body}")
                 except Exception as exc:
@@ -196,9 +224,12 @@ def main() -> int:
 
             try:
                 status, body = read_url("/api/twse/search?q=2330")
-                payload = json.loads(body.decode("utf-8"))
-                if status != 200 or not payload.get("results"):
-                    failures.append("/api/twse/search?q=2330 returned no results.")
+                if is_safe_external_failure("/api/twse/search?q=2330", status, body):
+                    external_fallbacks.append("/api/twse/search?q=2330: upstream unavailable (safe API fallback)")
+                else:
+                    payload = json.loads(body.decode("utf-8"))
+                    if status != 200 or not payload.get("results"):
+                        failures.append("/api/twse/search?q=2330 returned no results.")
             except Exception as exc:
                 failures.append(f"Stock search API: {exc}")
 
@@ -220,6 +251,10 @@ def main() -> int:
         return 1
 
     log_path.unlink(missing_ok=True)
+    if external_fallbacks:
+        print("Portable check note: external data fallback observed:")
+        for fallback in sorted(set(external_fallbacks)):
+            print(f"- {fallback}")
     print(
         "Portable check passed: "
         f"{len(HTML_PAGES)} HTML pages, {len(checked_urls)} URLs/assets, health API, "

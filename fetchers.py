@@ -223,16 +223,16 @@ from cache import (
     cache_data,
     cache_lock,
     claim_cache_flight,
-    enforce_bucket_cap,
+    claim_taifex_options_chain_flight,
     finish_cache_flight,
+    finish_taifex_options_chain_flight,
     read_memory_cache,
     save_disk_cache,
-    taifex_options_chain_inflight,
-    taifex_options_chain_inflight_lock,
     write_memory_cache,
 )
 from fetch_registry import SourceSpec, fetch_from_registry, register
 from market_config import (
+    CACHE_TTL_SECONDS,
     FRED_GRAPH_CSV_BASE,
     GLOBAL_MARKET_CACHE_SECONDS,
     GOOGLE_NEWS_RSS_BASE,
@@ -265,25 +265,25 @@ from market_config import (
 )
 from security import _urlopen_with_ssl_fallback
 
-TREASURY_YIELD_CURVE_CACHE_SECONDS = 6 * 60 * 60
+TREASURY_YIELD_CURVE_CACHE_SECONDS = CACHE_TTL_SECONDS["treasury_yield_curve"]
 BARCHART_FUTURES_OPTIONS_PAGE_BASE = "https://www.barchart.com/futures/quotes"
 
-YAHOO_TW_FUTURE_CACHE_SECONDS = 60
-YAHOO_TW_OPTION_CACHE_SECONDS = 60
-YAHOO_TW_STOCK_RESOURCE_CACHE_SECONDS = 5 * 60
+YAHOO_TW_FUTURE_CACHE_SECONDS = CACHE_TTL_SECONDS["yahoo_tw_future"]
+YAHOO_TW_OPTION_CACHE_SECONDS = CACHE_TTL_SECONDS["yahoo_tw_option"]
+YAHOO_TW_STOCK_RESOURCE_CACHE_SECONDS = CACHE_TTL_SECONDS["yahoo_tw_stock_resource"]
 # TD-12 Finding B: this TTL was previously a bare `900` literal at the
 # read_memory_cache/write_memory_cache call sites in
 # fetch_taifex_futures_technical_candles - never promoted to a named
 # constant, which is why the audit's 25-constant count didn't match a plain
 # grep for *_CACHE_SECONDS identifiers (24 named + this 1 literal). Value
 # unchanged (900s = 15min); this is a pure rename, no behavior change.
-YAHOO_TW_FUTURE_TECHNICAL_CANDLE_CACHE_SECONDS = 15 * 60
+YAHOO_TW_FUTURE_TECHNICAL_CANDLE_CACHE_SECONDS = CACHE_TTL_SECONDS["yahoo_tw_future_technical_candle"]
 
 TAIFEX_FORM_QUERY_CONCURRENCY = 2
 TAIFEX_FUTURES_DAILY_OPENAPI_URL = "https://openapi.taifex.com.tw/v1/DailyMarketReportFut"
 TAIFEX_INSTITUTION_FUTURES_DETAIL_OPENAPI_URL = "https://openapi.taifex.com.tw/v1/MarketDataOfMajorInstitutionalTradersDetailsOfFuturesContractsBytheDate"
 TAIFEX_INSTITUTION_OPTIONS_DETAIL_OPENAPI_URL = "https://openapi.taifex.com.tw/v1/MarketDataOfMajorInstitutionalTradersDetailsOfOptionsContractsBytheDate"
-TAIFEX_INSTITUTION_DETAIL_CACHE_SECONDS = 15 * 60
+TAIFEX_INSTITUTION_DETAIL_CACHE_SECONDS = CACHE_TTL_SECONDS["taifex_institution_detail"]
 PRODUCT_TO_TAIFEX_INSTITUTION_CONTRACT = {
     "TX": "臺股期貨",
     "MTX": "小型臺指期貨",
@@ -310,7 +310,7 @@ taifex_open_interest_lock = threading.Semaphore(2)
 YAHOO_OPTIONS_CHAIN_BASE = "https://query1.finance.yahoo.com/v7/finance/options"
 YAHOO_OPTIONS_CRUMB_URL = "https://query1.finance.yahoo.com/v1/test/getcrumb"
 YAHOO_OPTIONS_PAGE_BASE = "https://finance.yahoo.com/quote"
-YAHOO_OPTIONS_CRUMB_CACHE_SECONDS = 45 * 60
+YAHOO_OPTIONS_CRUMB_CACHE_SECONDS = CACHE_TTL_SECONDS["yahoo_options_crumb"]
 _yahoo_options_cookie_jar = CookieJar()
 _yahoo_options_opener = build_opener(HTTPCookieProcessor(_yahoo_options_cookie_jar))
 
@@ -320,9 +320,9 @@ try:
 except ZoneInfoNotFoundError:
     TZ = timezone(timedelta(hours=8))
 
-EXTERNAL_TEXT_CACHE_SECONDS = 5 * 60
+EXTERNAL_TEXT_CACHE_SECONDS = CACHE_TTL_SECONDS["external_text"]
 
-TWSE_COMPANY_INDUSTRY_CACHE_SECONDS = 12 * 60 * 60
+TWSE_COMPANY_INDUSTRY_CACHE_SECONDS = CACHE_TTL_SECONDS["twse_company_industry"]
 TWSE_INDUSTRY_CODE_NAMES = {
     "01": "水泥",
     "02": "食品",
@@ -556,7 +556,7 @@ def remember_live_search_result(
     # LIVE_SEARCH_DEDUP_SECONDS) is unchanged - a stale-but-not-yet-evicted
     # entry still won't be served past its 8-second dedup window.
     key = live_search_dedup_key(query, requested_market, limit)
-    write_memory_cache("live_search_dedup", key, payload)
+    write_memory_cache("live_search_dedup", key, payload, LIVE_SEARCH_DEDUP_SECONDS)
     return payload
 
 
@@ -711,8 +711,15 @@ def get_yahoo_options_crumb(symbol: str) -> str:
     page_symbol = quote(symbol or "SPY", safe="")
     page_url = f"{YAHOO_OPTIONS_PAGE_BASE}/{page_symbol}/options/"
     page_req = Request(page_url, headers=yahoo_options_headers("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"))
-    with _yahoo_options_opener.open(page_req, timeout=20) as response:
-        response.read(2048)
+    try:
+        with _yahoo_options_opener.open(page_req, timeout=20) as response:
+            response.read(2048)
+    except HTTPError as exc:
+        # Yahoo may return 404 for the options page while its public crumb
+        # endpoint remains usable. The crumb is what the API request needs;
+        # an unavailable HTML page should not prevent authenticated retries.
+        if exc.code != 404:
+            raise
 
     crumb_req = Request(YAHOO_OPTIONS_CRUMB_URL, headers=yahoo_options_headers("text/plain,*/*"))
     with _yahoo_options_opener.open(crumb_req, timeout=20) as response:
@@ -1563,7 +1570,13 @@ def collect_futures_until_deadline(
         key = future_to_key[future]
         try:
             fetched[key] = future.result()
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.debug(
+                "Parallel fetch failed for key=%s; using %s fallback",
+                key,
+                "empty list" if key in list_defaults else "empty object",
+                exc_info=exc,
+            )
             fetched[key] = [] if key in list_defaults else {}
 
     for future in pending:
@@ -1870,7 +1883,7 @@ def fetch_text(url: str, timeout: int = 30) -> str:
     encoding = "cp950" if "ms950" in content_type or "big5" in content_type else "utf-8"
     text = raw.decode(encoding, errors="ignore")
     if should_cache_external_text(url):
-        write_memory_cache("external_text", cache_key, text)
+        write_memory_cache("external_text", cache_key, text, EXTERNAL_TEXT_CACHE_SECONDS)
     return text
 
 
@@ -1884,7 +1897,7 @@ def fetch_binary(url: str, timeout: int = 30) -> bytes:
     with _urlopen_with_ssl_fallback(req, timeout) as response:
         payload = response.read()
     if should_cache_external_text(url):
-        write_memory_cache("external_text", cache_key, payload)
+        write_memory_cache("external_text", cache_key, payload, EXTERNAL_TEXT_CACHE_SECONDS)
     return payload
 
 
@@ -1910,7 +1923,7 @@ def fetch_form_text(url: str, fields: dict[str, str], timeout: int = 30) -> str:
     encoding = "cp950" if "ms950" in content_type or "big5" in content_type else "utf-8"
     text = raw.decode(encoding, errors="ignore")
     if should_cache_external_text(url):
-        write_memory_cache("external_text", cache_key, text)
+        write_memory_cache("external_text", cache_key, text, EXTERNAL_TEXT_CACHE_SECONDS)
     return text
 
 
@@ -2275,7 +2288,13 @@ def fetch_stock_valuation_history(
         for future in as_completed(futures):
             try:
                 point = future.result()
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.debug(
+                    "Stock valuation fetch failed for stock=%s date=%s; skipping point",
+                    stock.get("code"),
+                    futures[future],
+                    exc_info=exc,
+                )
                 point = {}
             if point:
                 points.append(point)
@@ -2287,6 +2306,12 @@ register(SourceSpec(name="stock_company_profile_twse", url=f"{TWSE_OPENAPI_BASE}
 
 
 def fetch_stock_company_profile(stock: dict[str, Any]) -> dict[str, Any]:
+    def normalize_industry(value: Any) -> str:
+        text = str(value or "--").strip() or "--"
+        if re.fullmatch(r"\d{1,2}", text):
+            return TWSE_INDUSTRY_CODE_NAMES.get(text.zfill(2), text)
+        return text
+
     market = str(stock.get("market") or "TWSE").upper()
     code = str(stock["code"])
     if market == "TPEX":
@@ -2302,7 +2327,7 @@ def fetch_stock_company_profile(stock: dict[str, Any]) -> dict[str, Any]:
             return {}
         return {
             "fullName": str(matched.get("CompanyName") or stock.get("name") or "").strip(),
-            "industry": str(matched.get("SecuritiesIndustryCode") or "--").strip(),
+            "industry": normalize_industry(matched.get("SecuritiesIndustryCode")),
             "chairman": str(matched.get("Chairman") or "--").strip(),
             "generalManager": str(matched.get("GeneralManager") or "--").strip(),
             "capital": format_company_capital(matched.get("Paidin.Capital.NTDollars")),
@@ -2322,7 +2347,7 @@ def fetch_stock_company_profile(stock: dict[str, Any]) -> dict[str, Any]:
         return {}
     return {
         "fullName": str(matched.get("公司名稱") or stock.get("name") or "").strip(),
-        "industry": str(matched.get("產業別") or "--").strip(),
+        "industry": normalize_industry(matched.get("產業別")),
         "chairman": str(matched.get("董事長") or "--").strip(),
         "generalManager": str(matched.get("總經理") or "--").strip(),
         "capital": format_company_capital(matched.get("實收資本額")),
@@ -2375,7 +2400,14 @@ def fetch_stock_institutional_trade_for_date(
         try:
             payload = fetch_from_registry("stock_institutional_trade_for_date", date_str, timeout=10)
             break
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.debug(
+                "Stock institutional fetch failed for stock=%s date=%s attempt=%s; retrying or re-raising",
+                stock.get("code"),
+                date_str,
+                attempt + 1,
+                exc_info=exc,
+            )
             if attempt >= 2:
                 raise
             time.sleep(0.15 * (attempt + 1))
@@ -2445,7 +2477,13 @@ def fetch_stock_institutional_trade_history(
             for future in as_completed(futures):
                 try:
                     record = future.result()
-                except Exception:  # noqa: BLE001
+                except Exception as exc:  # noqa: BLE001
+                    LOGGER.debug(
+                        "Stock institutional history fetch failed for stock=%s date=%s; skipping record",
+                        stock.get("code"),
+                        futures[future],
+                        exc_info=exc,
+                    )
                     record = {}
                 record_date = str(record.get("date") or "")
                 if record and record_date and record_date not in seen_dates:
@@ -2487,7 +2525,13 @@ def fetch_stock_history_rows(stock_no: str, date_str: str, months_back: int = ST
         target = shift_month(date_str, offset)
         try:
             payload = fetch_from_registry("stock_day_candles", target, stock_no, timeout=STOCK_HISTORY_TIMEOUT_SECONDS)
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.debug(
+                "TWSE stock history fetch failed for stock=%s month=%s; using empty month",
+                stock_no,
+                target,
+                exc_info=exc,
+            )
             return []
         return payload.get("data", []) if isinstance(payload, dict) else []
 
@@ -2521,7 +2565,13 @@ def fetch_recent_trade_rows(stock_no: str, date_str: str) -> list[list[str]]:
     def fetch_month(target: str) -> list[list[str]]:
         try:
             payload = fetch_from_registry("stock_day_candles", target, stock_no, timeout=SECTOR_CHART_TRADE_TIMEOUT_SECONDS)
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.debug(
+                "TWSE recent trade fetch failed for stock=%s month=%s; using empty month",
+                stock_no,
+                target,
+                exc_info=exc,
+            )
             return []
         return payload.get("data", []) if isinstance(payload, dict) else []
 
@@ -2787,7 +2837,13 @@ def _refresh_international_market_indexes() -> list[dict[str, Any]]:
             try:
                 chart = fetch_yahoo_symbol_chart(symbol, "1y", "1d")
                 series = build_yahoo_chart_series(chart, volume_divisor=1)
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.debug(
+                    "International index fetch failed for key=%s symbol=%s; trying next symbol",
+                    spec.get("key"),
+                    symbol,
+                    exc_info=exc,
+                )
                 series = []
             if len(series) >= 2:
                 selected_symbol = symbol
@@ -2835,11 +2891,21 @@ def _refresh_international_market_indexes() -> list[dict[str, Any]]:
         }
 
     with ThreadPoolExecutor(max_workers=min(8, len(INTERNATIONAL_INDEX_SPECS))) as executor:
-        futures = [executor.submit(fetch_one, spec) for spec in INTERNATIONAL_INDEX_SPECS]
+        futures = {
+            executor.submit(fetch_one, spec): spec
+            for spec in INTERNATIONAL_INDEX_SPECS
+        }
         for future in as_completed(futures):
             try:
                 item = future.result()
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
+                spec = futures[future]
+                LOGGER.debug(
+                    "International index item failed for key=%s symbol=%s; using catalog fallback",
+                    spec.get("key"),
+                    spec.get("symbol"),
+                    exc_info=exc,
+                )
                 item = None
             if item:
                 indexes.append(item)
@@ -2896,7 +2962,12 @@ def fetch_yahoo_spot_snapshot(symbol: str, name: str) -> dict[str, Any]:
         chart = fetch_yahoo_symbol_chart(symbol, "5d", "1d")
         series = build_yahoo_chart_series(chart, volume_divisor=1)
         meta = (chart or {}).get("meta") or {}
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.debug(
+            "Yahoo spot snapshot fetch failed for symbol=%s; returning unavailable snapshot",
+            symbol,
+            exc_info=exc,
+        )
         series = []
         meta = {}
     if not series:
@@ -3037,7 +3108,26 @@ register(SourceSpec(
 
 
 def fetch_yahoo_quote_summary(symbol: str) -> dict[str, Any]:
-    payload = fetch_from_registry("yahoo_quote_summary", symbol)
+    try:
+        payload = fetch_from_registry("yahoo_quote_summary", symbol)
+    except HTTPError as exc:
+        if exc.code not in {401, 403}:
+            raise
+        crumb = get_yahoo_options_crumb(symbol)
+        url = (
+            f"{YAHOO_QUOTE_SUMMARY_BASE}/{quote(symbol, safe='')}?"
+            f"{urlencode({'modules': YAHOO_QUOTE_SUMMARY_MODULES, 'crumb': crumb})}"
+        )
+        req = Request(url, headers=yahoo_options_headers("application/json, text/plain, */*"))
+        try:
+            with _yahoo_options_opener.open(req, timeout=20) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except HTTPError as retry_exc:
+            if retry_exc.code in {401, 403}:
+                with cache_lock:
+                    _yahoo_options_crumb["value"] = ""
+                    _yahoo_options_crumb["stored_at"] = 0.0
+            raise
     result = ((payload.get("quoteSummary") or {}).get("result") or [None])[0] if isinstance(payload, dict) else None
     return result or {}
 
@@ -3437,7 +3527,12 @@ def fetch_taifex_futures_technical_candles(
         "sourceUrl": TAIFEX_FUTURES_DATA_DOWNLOAD_URL,
         "technicalAnalysisUrl": selected_contract.get("url") or app.build_yahoo_taiwan_future_technical_url(selected_code),
     }
-    write_memory_cache("yahoo_tw_future_technical_candles", cache_key, payload)
+    write_memory_cache(
+        "yahoo_tw_future_technical_candles",
+        cache_key,
+        payload,
+        YAHOO_TW_FUTURE_TECHNICAL_CANDLE_CACHE_SECONDS,
+    )
     return payload
 
 
@@ -3589,25 +3684,17 @@ def fetch_taifex_txo_option_chain(
     product = app.get_taiwan_option_product(underlying)
     query_date = parse_taifex_query_date(market_date)
     cache_key = f"{product['symbol']}:{query_date}:{expiry or ''}"
-    now = time.time()
-    with cache_lock:
-        cached = cache_data["taifex_options_chain"].get(cache_key)
-    if cached and now - cached.get("stored_at", 0) < OPTIONS_CHAIN_CACHE_SECONDS:
-        return {**app.supplement_taifex_option_payload_with_yahoo_oi(cached["payload"]), "cached": True}
+    cached_payload = read_memory_cache("taifex_options_chain", cache_key, OPTIONS_CHAIN_CACHE_SECONDS)
+    if cached_payload is not None:
+        return {**app.supplement_taifex_option_payload_with_yahoo_oi(cached_payload), "cached": True}
 
-    with taifex_options_chain_inflight_lock:
-        leader_event = taifex_options_chain_inflight.get(cache_key)
-        is_leader = leader_event is None
-        if is_leader:
-            leader_event = threading.Event()
-            taifex_options_chain_inflight[cache_key] = leader_event
+    is_leader, leader_event = claim_taifex_options_chain_flight(cache_key)
 
     if not is_leader:
-        leader_event.wait(timeout=30)
-        with cache_lock:
-            cached = cache_data["taifex_options_chain"].get(cache_key)
-        if cached and time.time() - cached.get("stored_at", 0) < OPTIONS_CHAIN_CACHE_SECONDS:
-            return {**app.supplement_taifex_option_payload_with_yahoo_oi(cached["payload"]), "cached": True}
+        leader_event.wait(timeout=CACHE_FLIGHT_WAIT_SECONDS)
+        cached_payload = read_memory_cache("taifex_options_chain", cache_key, OPTIONS_CHAIN_CACHE_SECONDS)
+        if cached_payload is not None:
+            return {**app.supplement_taifex_option_payload_with_yahoo_oi(cached_payload), "cached": True}
         # The leader's scan didn't leave a usable cache entry (e.g. no data for any
         # scanned date) -- fall through and run our own scan rather than giving up.
 
@@ -3640,9 +3727,7 @@ def fetch_taifex_txo_option_chain(
             payload = app.supplement_taifex_option_payload_with_yahoo_oi(
                 app.build_taifex_txo_option_payload(rows, target.strftime("%Y-%m-%d"), expiry, product["symbol"], spot_snapshot)
             )
-            with cache_lock:
-                cache_data["taifex_options_chain"][cache_key] = {"stored_at": now, "payload": payload}
-                enforce_bucket_cap("taifex_options_chain")
+            write_memory_cache("taifex_options_chain", cache_key, payload, OPTIONS_CHAIN_CACHE_SECONDS)
             return {**payload, "cached": False}
         return {
             "underlying": product["symbol"],
@@ -3659,9 +3744,7 @@ def fetch_taifex_txo_option_chain(
         }
     finally:
         if is_leader:
-            with taifex_options_chain_inflight_lock:
-                taifex_options_chain_inflight.pop(cache_key, None)
-            leader_event.set()
+            finish_taifex_options_chain_flight(cache_key, leader_event)
 
 
 def fetch_taifex_openapi_list(url: str, cache_seconds: int, timeout: int = 20) -> list[dict[str, Any]]:
@@ -3671,7 +3754,7 @@ def fetch_taifex_openapi_list(url: str, cache_seconds: int, timeout: int = 20) -
     rows = fetch_json(url, timeout=timeout)
     if not isinstance(rows, list):
         rows = []
-    write_memory_cache("taifex_openapi_list", url, rows)
+    write_memory_cache("taifex_openapi_list", url, rows, cache_seconds)
     return rows
 
 
@@ -3726,19 +3809,15 @@ def fetch_yahoo_txo_option_chain(expiry: str | None = None, underlying: str | No
                 for key, item in app.TAIWAN_OPTION_PRODUCTS.items()
             ],
         }
-    now = time.time()
     cache_key = f"{product['symbol']}:{expiry or ''}"
-    with cache_lock:
-        cached = cache_data["yahoo_tw_option_chain"].get(cache_key)
-    if cached and now - cached.get("stored_at", 0) < YAHOO_TW_OPTION_CACHE_SECONDS:
-        return {**cached["payload"], "cached": True}
+    cached_payload = read_memory_cache("yahoo_tw_option_chain", cache_key, YAHOO_TW_OPTION_CACHE_SECONDS)
+    if cached_payload is not None:
+        return {**cached_payload, "cached": True}
     yahoo_url = app.build_yahoo_taiwan_option_url(product["symbol"], expiry)
     html = fetch_text(yahoo_url, timeout=12)
     payload = app.parse_yahoo_txo_option_page(html, product["symbol"], expiry)
     if not payload.get("error"):
-        with cache_lock:
-            cache_data["yahoo_tw_option_chain"][cache_key] = {"stored_at": now, "payload": payload}
-            enforce_bucket_cap("yahoo_tw_option_chain")
+        write_memory_cache("yahoo_tw_option_chain", cache_key, payload, YAHOO_TW_OPTION_CACHE_SECONDS)
     return {**payload, "cached": False}
 
 
@@ -3861,7 +3940,13 @@ def fetch_yahoo_class_quote_pages(
             for future in as_completed(futures):
                 try:
                     fetched.append((futures[future], future.result()))
-                except Exception:  # noqa: BLE001
+                except Exception as exc:  # noqa: BLE001
+                    LOGGER.debug(
+                        "Yahoo class quote page fetch failed for offset=%s url=%s; skipping page",
+                        futures[future],
+                        url,
+                        exc_info=exc,
+                    )
                     continue
             payloads.extend(payload for _, payload in sorted(fetched))
 
@@ -3905,7 +3990,7 @@ def fetch_yahoo_tw_stock_resource(
     )
     with _urlopen_with_ssl_fallback(req, timeout) as response:
         payload = json.loads(response.read().decode("utf-8"))
-    write_memory_cache("yahoo_tw_stock_resources", cache_key, payload)
+    write_memory_cache("yahoo_tw_stock_resources", cache_key, payload, YAHOO_TW_STOCK_RESOURCE_CACHE_SECONDS)
     return payload
 
 
@@ -4401,6 +4486,13 @@ def fetch_tdcc_holding_distribution_text(timeout: int = 12) -> str:
         try:
             return fetch_from_registry("tdcc_holding_distribution_page", url, timeout=timeout)
         except Exception as exc:  # noqa: BLE001
+            LOGGER.debug(
+                "TDCC holding distribution fetch failed for url=%s attempt=%s/%s; retrying or raising after fallback",
+                url,
+                index + 1,
+                len(attempts),
+                exc_info=exc,
+            )
             last_exc = exc
             errors.append(f"{url}: {exc!r}")
             if index < len(attempts) - 1:
@@ -4423,7 +4515,13 @@ def fetch_market_macro_factors(market_date: str) -> dict[str, Any]:
             key = futures[future]
             try:
                 value = future.result()
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.debug(
+                    "Market macro factor fetch failed for key=%s market_date=%s; skipping factor",
+                    key,
+                    market_date,
+                    exc_info=exc,
+                )
                 value = None
             if value:
                 result[key] = value
@@ -4717,7 +4815,14 @@ def fetch_nasdaq_quote_endpoint(symbol: str, endpoint: str, asset_classes: list[
     for asset_class in asset_classes:
         try:
             payload = fetch_from_registry("nasdaq_api", f"/quote/{clean_symbol}/{endpoint}?assetclass={asset_class}", timeout=10)
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.debug(
+                "Nasdaq quote endpoint failed for symbol=%s endpoint=%s asset_class=%s; trying next asset class",
+                symbol,
+                endpoint,
+                asset_class,
+                exc_info=exc,
+            )
             continue
         data = nasdaq_data(payload)
         if data:
@@ -4728,7 +4833,12 @@ def fetch_nasdaq_quote_endpoint(symbol: str, endpoint: str, asset_classes: list[
 def fetch_nasdaq_company_profile(symbol: str) -> dict[str, Any]:
     try:
         payload = fetch_from_registry("nasdaq_api", f"/company/{quote(symbol.upper(), safe='')}/company-profile", timeout=10)
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.debug(
+            "Nasdaq company profile fetch failed for symbol=%s; using empty supplement",
+            symbol,
+            exc_info=exc,
+        )
         return {}
     data = nasdaq_data(payload)
     return data if isinstance(data, dict) else {}
@@ -4737,7 +4847,12 @@ def fetch_nasdaq_company_profile(symbol: str) -> dict[str, Any]:
 def fetch_nasdaq_company_financials(symbol: str) -> dict[str, Any]:
     try:
         payload = fetch_from_registry("nasdaq_api", f"/company/{quote(symbol.upper(), safe='')}/financials?frequency=1", timeout=12)
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.debug(
+            "Nasdaq company financials fetch failed for symbol=%s; using empty supplement",
+            symbol,
+            exc_info=exc,
+        )
         return {}
     data = nasdaq_data(payload)
     return data if isinstance(data, dict) else {}
@@ -4746,7 +4861,12 @@ def fetch_nasdaq_company_financials(symbol: str) -> dict[str, Any]:
 def fetch_nasdaq_company_institutional_holdings(symbol: str) -> dict[str, Any]:
     try:
         payload = fetch_from_registry("nasdaq_api", f"/company/{quote(symbol.upper(), safe='')}/institutional-holdings", timeout=12)
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.debug(
+            "Nasdaq institutional holdings fetch failed for symbol=%s; using empty supplement",
+            symbol,
+            exc_info=exc,
+        )
         return {}
     data = nasdaq_data(payload)
     return data if isinstance(data, dict) else {}
@@ -4755,7 +4875,12 @@ def fetch_nasdaq_company_institutional_holdings(symbol: str) -> dict[str, Any]:
 def fetch_nasdaq_company_insider_trades(symbol: str) -> dict[str, Any]:
     try:
         payload = fetch_from_registry("nasdaq_api", f"/company/{quote(symbol.upper(), safe='')}/insider-trades", timeout=12)
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.debug(
+            "Nasdaq insider trades fetch failed for symbol=%s; using empty supplement",
+            symbol,
+            exc_info=exc,
+        )
         return {}
     data = nasdaq_data(payload)
     return data if isinstance(data, dict) else {}
@@ -4777,7 +4902,13 @@ def fetch_nasdaq_us_supplement(symbol: str, is_etf_hint: bool = False) -> dict[s
         for key, future in futures.items():
             try:
                 supplement[key] = future.result(timeout=14)
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.debug(
+                    "Nasdaq supplement fetch failed for symbol=%s key=%s; using empty object",
+                    symbol,
+                    key,
+                    exc_info=exc,
+                )
                 supplement[key] = {}
     return supplement
 
@@ -4785,7 +4916,11 @@ def fetch_nasdaq_us_supplement(symbol: str, is_etf_hint: bool = False) -> dict[s
 def fetch_us_treasury_yield_curve() -> dict[str, Any]:
     try:
         dated_rows = fetch_us_treasury_yield_curve_rows()
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.debug(
+            "U.S. Treasury yield curve fetch failed; using empty yield curve",
+            exc_info=exc,
+        )
         return {}
     if not dated_rows:
         return {}

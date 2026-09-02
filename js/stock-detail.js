@@ -1733,7 +1733,7 @@ function renderStockDetail(detail) {
         sourceNote: "公司基本資料仍在同步；目前先顯示個股行情可判斷的市場資訊與來源連結。",
       };
   const profileRows = [
-    ["市場 / 產業代碼", [detail.marketLabel || detail.market, displayProfile.industry].filter((item) => !isProfileMissing(item)).join(" / ")],
+    ["市場 / 產業", [detail.marketLabel || detail.market, displayProfile.industry].filter((item) => !isProfileMissing(item)).join(" / ")],
     ["董事長", displayProfile.chairman],
     ["總經理", displayProfile.generalManager],
     ["實收資本額", displayProfile.capital],

@@ -82,91 +82,6 @@ function renderSectorSnapshotLineChart(sector) {
     </svg>
   `;
 }
-function renderWeightedVixComparisonChart(weightedIndex, volatility, options = {}) {
-  const totalPoints = buildWeightedVixComparisonModel(weightedIndex, volatility).length;
-  const aligned = buildWeightedVixComparisonModel(weightedIndex, volatility, options.visibleCount, options.panOffset);
-  if (aligned.length < 2) {
-    return {
-      html: '<div class="class-line-empty">台股與 VIX 共同日期資料不足，暫不繪製比對圖。</div>',
-      points: [],
-      width: 0,
-      height: 0,
-      totalPoints,
-      visiblePoints: 0,
-    };
-  }
-
-  const width = 980;
-  const height = 520;
-  const pad = { top: 34, right: 28, bottom: 58, left: 58 };
-  const plotWidth = width - pad.left - pad.right;
-  const plotHeight = height - pad.top - pad.bottom;
-  const values = aligned.flatMap((item) => [item.weightedNorm, item.vixNorm]);
-  const minValue = Math.min(...values);
-  const maxValue = Math.max(...values);
-  const range = maxValue - minValue || 1;
-  const step = plotWidth / Math.max(aligned.length - 1, 1);
-  const xAt = (index) => pad.left + index * step;
-  const yAt = (value) => pad.top + ((maxValue - value) / range) * plotHeight;
-  const weightedPoints = aligned.map((item, index) => ({ x: xAt(index), y: yAt(item.weightedNorm), value: item.weightedNorm }));
-  const vixPoints = aligned.map((item, index) => ({ x: xAt(index), y: yAt(item.vixNorm), value: item.vixNorm }));
-  const weightedDelta = aligned.at(-1).weightedNorm - 100;
-  const vixDelta = aligned.at(-1).vixNorm - 100;
-  const gridLines = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-    const y = pad.top + ratio * plotHeight;
-    const label = maxValue - ratio * range;
-    return `
-      <line x1="${pad.left}" y1="${y}" x2="${width - pad.right}" y2="${y}"></line>
-      <text x="8" y="${y + 5}">${label.toFixed(1)}</text>
-    `;
-  }).join("");
-  const hoverZones = aligned.map((item, index) => {
-    const left = index === 0 ? pad.left : xAt(index) - step / 2;
-    const zoneWidth = index === aligned.length - 1 ? (width - pad.right) - left : step;
-    return `<rect class="sector-hover-zone" x="${left.toFixed(1)}" y="${pad.top}" width="${Math.max(zoneWidth, 8).toFixed(1)}" height="${plotHeight}" data-sync-index="${index}" data-tooltip-mode="vix-compare" data-label="${item.label}" data-taiex-close="${item.close.toFixed(2)}" data-vix-value="${item.vix.toFixed(2)}" data-taiex-base="${item.weightedNorm.toFixed(2)}" data-vix-base="${item.vixNorm.toFixed(2)}" data-base-diff="${(item.weightedNorm - item.vixNorm).toFixed(2)}"></rect>`;
-  }).join("");
-
-  return {
-    html: `
-      <div class="sector-sync-chart-summary">
-        <span>台股加權指數與 VIX 比對</span>
-        <strong>Base = 100</strong>
-        <span>台股 ${weightedDelta >= 0 ? "+" : ""}${weightedDelta.toFixed(2)}% / VIX ${vixDelta >= 0 ? "+" : ""}${vixDelta.toFixed(2)}%</span>
-      </div>
-      <div class="sector-chart-frame">
-        <svg class="sector-comparison-chart weighted-vix-comparison-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="台股加權指數與 VIX 比對圖">
-          <g class="chart-grid">${gridLines}</g>
-          <line class="sector-base-line" x1="${pad.left}" y1="${yAt(100)}" x2="${width - pad.right}" y2="${yAt(100)}"></line>
-          <path class="weighted-vix-taiex-line" d="${buildPath(weightedPoints)}"></path>
-          <path class="weighted-vix-risk-line" d="${buildPath(vixPoints)}"></path>
-          <line class="sector-hover-guide" x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${height - pad.bottom}"></line>
-          <circle class="sector-hover-dot sector-hover-dot-sector" cx="${pad.left}" cy="${pad.top}" r="5"></circle>
-          <g class="chart-labels">
-            <text x="${pad.left}" y="${height - 18}">${aligned[0].label}</text>
-            <text x="${width - pad.right - 90}" y="${height - 18}">${aligned.at(-1).label}</text>
-            <text x="${width - pad.right - 230}" y="24">台股加權 / VIX / 共同日期</text>
-          </g>
-          <g class="sector-hover-zones">${hoverZones}</g>
-        </svg>
-        <div class="sector-sync-tooltip" hidden></div>
-      </div>
-      <div class="sector-chart-legend">
-        <span><i class="legend-swatch weighted-vix-taiex-swatch"></i>台股加權指數</span>
-        <span><i class="legend-swatch weighted-vix-risk-swatch"></i>VIX 指數</span>
-        <span>兩條線都從 100 開始</span>
-      </div>
-    `,
-    points: aligned.map((item, index) => ({
-      ...item,
-      x: xAt(index),
-      sectorY: yAt(item.weightedNorm),
-    })),
-    width,
-    height,
-    totalPoints,
-    visiblePoints: aligned.length,
-  };
-}
 function renderVixSparkline(series = []) {
   const points = (Array.isArray(series) ? series : [])
     .map((item) => ({
@@ -473,64 +388,67 @@ function renderTechnicalChart(detail, interval = "day", overlayIndicators = [], 
     return `<path class="chart-ma-line ma-${series.period}" d="${buildPath(points)}"></path>`;
   }).join("");
 
-  const renderPriceLevel = (level, className, label, dash = false) => {
-    if (!Number.isFinite(level)) return "";
-    const y = priceY(level);
-    return `
-      <g class="${className}">
-        <line x1="${pad.left}" y1="${y.toFixed(1)}" x2="${width - pad.right}" y2="${y.toFixed(1)}" ${dash ? 'stroke-dasharray="6 6"' : ""}></line>
-        <text x="${width - pad.right - 4}" y="${(y - 5).toFixed(1)}" text-anchor="end">${label}</text>
+  const buildOverlayMarkup = () => {
+    const renderPriceLevel = (level, className, label, dash = false) => {
+      if (!Number.isFinite(level)) return "";
+      const y = priceY(level);
+      return `
+        <g class="${className}">
+          <line x1="${pad.left}" y1="${y.toFixed(1)}" x2="${width - pad.right}" y2="${y.toFixed(1)}" ${dash ? 'stroke-dasharray="6 6"' : ""}></line>
+          <text x="${width - pad.right - 4}" y="${(y - 5).toFixed(1)}" text-anchor="end">${label}</text>
+        </g>
+      `;
+    };
+
+    const bollingerOverlay = activeOverlayIndicators.includes("bollinger") ? (() => {
+      const upperPoints = bollinger.map((item, index) => ({ x: xAt(index), y: item.upper === null ? 0 : priceY(item.upper), value: item.upper }));
+      const middlePoints = bollinger.map((item, index) => ({ x: xAt(index), y: item.middle === null ? 0 : priceY(item.middle), value: item.middle }));
+      const lowerPoints = bollinger.map((item, index) => ({ x: xAt(index), y: item.lower === null ? 0 : priceY(item.lower), value: item.lower }));
+      const latestBand = bollinger.at(-1);
+      return `
+        <g class="chart-overlay bollinger-overlay">
+          <path class="bollinger-band-line is-upper" d="${buildPath(upperPoints)}"></path>
+          <path class="bollinger-band-line is-middle" d="${buildPath(middlePoints)}"></path>
+          <path class="bollinger-band-line is-lower" d="${buildPath(lowerPoints)}"></path>
+          <text x="${pad.left}" y="24">布林通道 ${latestBand?.bandwidth ? `帶寬 ${latestBand.bandwidth.toFixed(1)}%` : ""}</text>
+        </g>
+      `;
+    })() : "";
+
+    const fibonacciOverlay = activeOverlayIndicators.includes("fibonacci") && fibonacci ? `
+      <g class="chart-overlay fibonacci-overlay">
+        ${fibonacci.levels.map((level) => renderPriceLevel(level.value, "fibonacci-level", `Fib ${level.label} ${level.value.toFixed(2)}`, true)).join("")}
+        <text x="${pad.left}" y="24">${fibonacci.upSwing ? "上升波回撤" : "下降波反彈"}：${fibonacci.lowPoint.value.toFixed(2)} - ${fibonacci.highPoint.value.toFixed(2)}</text>
       </g>
-    `;
+    ` : "";
+
+    const supportResistanceOverlay = activeOverlayIndicators.includes("supportResistance") && supportResistance ? `
+      <g class="chart-overlay support-resistance-overlay">
+        ${(supportResistance.supports || []).map((item) => renderPriceLevel(item.value, "support-level", `支撐 ${item.value.toFixed(2)} (${item.touches})`)).join("")}
+        ${(supportResistance.resistances || []).map((item) => renderPriceLevel(item.value, "resistance-level", `壓力 ${item.value.toFixed(2)} (${item.touches})`)).join("")}
+        <text x="${pad.left}" y="24">Support and Resistance</text>
+      </g>
+    ` : "";
+
+    const smcOverlay = activeOverlayIndicators.includes("smc") && smc ? `
+      <g class="chart-overlay smc-overlay">
+        ${(smc.levels || []).map((item) => {
+          if (Number.isFinite(item.upper) && Number.isFinite(item.lower)) {
+            const yTop = priceY(Math.max(item.upper, item.lower));
+            const yBottom = priceY(Math.min(item.upper, item.lower));
+            return `
+              <rect class="smc-zone ${item.type}" x="${pad.left}" y="${yTop.toFixed(1)}" width="${plotWidth}" height="${Math.max(yBottom - yTop, 3).toFixed(1)}" rx="6"></rect>
+              <text x="${pad.left + 8}" y="${(yTop + 14).toFixed(1)}">${item.label}</text>
+            `;
+          }
+          return renderPriceLevel(item.value, `smc-level ${item.type}`, `${item.label} ${item.value.toFixed(2)}`, true);
+        }).join("")}
+        <text x="${pad.left}" y="24">SMC：${smc.signals?.[0] || "觀察 BOS / 流動性 / FVG"}</text>
+      </g>
+    ` : "";
+    return `${bollingerOverlay}${fibonacciOverlay}${supportResistanceOverlay}${smcOverlay}`;
   };
-
-  const bollingerOverlay = activeOverlayIndicators.includes("bollinger") ? (() => {
-    const upperPoints = bollinger.map((item, index) => ({ x: xAt(index), y: item.upper === null ? 0 : priceY(item.upper), value: item.upper }));
-    const middlePoints = bollinger.map((item, index) => ({ x: xAt(index), y: item.middle === null ? 0 : priceY(item.middle), value: item.middle }));
-    const lowerPoints = bollinger.map((item, index) => ({ x: xAt(index), y: item.lower === null ? 0 : priceY(item.lower), value: item.lower }));
-    const latestBand = bollinger.at(-1);
-    return `
-      <g class="chart-overlay bollinger-overlay">
-        <path class="bollinger-band-line is-upper" d="${buildPath(upperPoints)}"></path>
-        <path class="bollinger-band-line is-middle" d="${buildPath(middlePoints)}"></path>
-        <path class="bollinger-band-line is-lower" d="${buildPath(lowerPoints)}"></path>
-        <text x="${pad.left}" y="24">布林通道 ${latestBand?.bandwidth ? `帶寬 ${latestBand.bandwidth.toFixed(1)}%` : ""}</text>
-      </g>
-    `;
-  })() : "";
-
-  const fibonacciOverlay = activeOverlayIndicators.includes("fibonacci") && fibonacci ? `
-    <g class="chart-overlay fibonacci-overlay">
-      ${fibonacci.levels.map((level) => renderPriceLevel(level.value, "fibonacci-level", `Fib ${level.label} ${level.value.toFixed(2)}`, true)).join("")}
-      <text x="${pad.left}" y="24">${fibonacci.upSwing ? "上升波回撤" : "下降波反彈"}：${fibonacci.lowPoint.value.toFixed(2)} - ${fibonacci.highPoint.value.toFixed(2)}</text>
-    </g>
-  ` : "";
-
-  const supportResistanceOverlay = activeOverlayIndicators.includes("supportResistance") && supportResistance ? `
-    <g class="chart-overlay support-resistance-overlay">
-      ${(supportResistance.supports || []).map((item) => renderPriceLevel(item.value, "support-level", `支撐 ${item.value.toFixed(2)} (${item.touches})`)).join("")}
-      ${(supportResistance.resistances || []).map((item) => renderPriceLevel(item.value, "resistance-level", `壓力 ${item.value.toFixed(2)} (${item.touches})`)).join("")}
-      <text x="${pad.left}" y="24">Support and Resistance</text>
-    </g>
-  ` : "";
-
-  const smcOverlay = activeOverlayIndicators.includes("smc") && smc ? `
-    <g class="chart-overlay smc-overlay">
-      ${(smc.levels || []).map((item) => {
-        if (Number.isFinite(item.upper) && Number.isFinite(item.lower)) {
-          const yTop = priceY(Math.max(item.upper, item.lower));
-          const yBottom = priceY(Math.min(item.upper, item.lower));
-          return `
-            <rect class="smc-zone ${item.type}" x="${pad.left}" y="${yTop.toFixed(1)}" width="${plotWidth}" height="${Math.max(yBottom - yTop, 3).toFixed(1)}" rx="6"></rect>
-            <text x="${pad.left + 8}" y="${(yTop + 14).toFixed(1)}">${item.label}</text>
-          `;
-        }
-        return renderPriceLevel(item.value, `smc-level ${item.type}`, `${item.label} ${item.value.toFixed(2)}`, true);
-      }).join("")}
-      <text x="${pad.left}" y="24">SMC：${smc.signals?.[0] || "觀察 BOS / 流動性 / FVG"}</text>
-    </g>
-  ` : "";
-  const overlayHtml = `${bollingerOverlay}${fibonacciOverlay}${supportResistanceOverlay}${smcOverlay}`;
+  const overlayHtml = buildOverlayMarkup();
 
   const gridLines = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
     const y = pad.top + ratio * priceHeight;
@@ -585,159 +503,166 @@ function renderTechnicalChart(detail, interval = "day", overlayIndicators = [], 
     : volumeTop + volumeHeight;
   const crosshairBottom = height - 18;
 
-  // Transparent hover zones — one per candle, covering the full chart stack.
-  const hoverZoneWidth = Math.max(step, candleWidth + 4);
-  const hoverZones = history.map((day, index) => {
-    const x = xAt(index);
-    const left = Math.max(pad.left, x - hoverZoneWidth / 2);
-    const right = Math.min(width - pad.right, x + hoverZoneWidth / 2);
-    const zoneW = right - left;
-    const rawChange = typeof day.change === "number" ? day.change : parseFloat(day.change);
-    const changeStr = Number.isFinite(rawChange)
-      ? (rawChange >= 0 ? "+" : "") + rawChange.toFixed(2)
-      : "--";
-    return `<rect class="chart-hover-zone"
-      x="${left.toFixed(1)}" y="${pad.top}"
-      width="${Math.max(zoneW, 8).toFixed(1)}" height="${hoverBottom - pad.top}"
-      data-index="${index}"
-      data-date="${day.date ?? ""}"
-      data-open="${day.open ?? "--"}"
-      data-high="${day.high ?? "--"}"
-      data-low="${day.low ?? "--"}"
-      data-close="${day.close ?? "--"}"
-      data-change="${changeStr}"
-      data-volume="${typeof day.volume === "number" ? day.volume.toLocaleString() : (day.volume ?? "--")}"
-      data-k="${kd[index]?.k?.toFixed(2) ?? "--"}"
-      data-d="${kd[index]?.d?.toFixed(2) ?? "--"}"
-      data-dif="${macd[index]?.dif?.toFixed(2) ?? "--"}"
-      data-macd="${macd[index]?.macd?.toFixed(2) ?? "--"}"
-      data-osc="${macd[index]?.osc?.toFixed(2) ?? "--"}"
-      data-rsi="${rsi[index]?.toFixed(2) ?? "--"}"
-      data-bias="${bias[index]?.toFixed(2) ?? "--"}"
-      data-plus-di="${dmi[index]?.plusDi?.toFixed(2) ?? "--"}"
-      data-minus-di="${dmi[index]?.minusDi?.toFixed(2) ?? "--"}"
-      data-adx="${dmi[index]?.adx?.toFixed(2) ?? "--"}"
-      data-obv="${obv[index] !== undefined ? Math.round(obv[index]).toLocaleString() : "--"}"
-      data-atr="${atr[index]?.toFixed(2) ?? "--"}"
-      data-cci="${cci[index]?.toFixed(2) ?? "--"}"
-      data-williams="${williams[index]?.toFixed(2) ?? "--"}"
-      data-mfi="${mfi[index]?.toFixed(2) ?? "--"}"
-      data-momentum="${momentum[index]?.toFixed(2) ?? "--"}"
-      data-sar="${sar[index]?.toFixed(2) ?? "--"}"
-      data-bollinger="${panelBollinger[index]?.upper ? `${panelBollinger[index].lower.toFixed(2)} / ${panelBollinger[index].upper.toFixed(2)}` : "--"}"
-      data-ichimoku="${ichimoku[index]?.tenkan ? `${ichimoku[index].tenkan.toFixed(2)} / ${ichimoku[index].kijun?.toFixed(2) || "--"} / ${ichimoku[index].senkouB?.toFixed(2) || "--"}` : "--"}"
-    ></rect>`;
-  }).join("");
+  const buildHoverZones = () => {
+    // Transparent hover zones — one per candle, covering the full chart stack.
+    const hoverZoneWidth = Math.max(step, candleWidth + 4);
+    return history.map((day, index) => {
+      const x = xAt(index);
+      const left = Math.max(pad.left, x - hoverZoneWidth / 2);
+      const right = Math.min(width - pad.right, x + hoverZoneWidth / 2);
+      const zoneW = right - left;
+      const rawChange = typeof day.change === "number" ? day.change : parseFloat(day.change);
+      const changeStr = Number.isFinite(rawChange)
+        ? (rawChange >= 0 ? "+" : "") + rawChange.toFixed(2)
+        : "--";
+      return `<rect class="chart-hover-zone"
+        x="${left.toFixed(1)}" y="${pad.top}"
+        width="${Math.max(zoneW, 8).toFixed(1)}" height="${hoverBottom - pad.top}"
+        data-index="${index}"
+        data-date="${day.date ?? ""}"
+        data-open="${day.open ?? "--"}"
+        data-high="${day.high ?? "--"}"
+        data-low="${day.low ?? "--"}"
+        data-close="${day.close ?? "--"}"
+        data-change="${changeStr}"
+        data-volume="${typeof day.volume === "number" ? day.volume.toLocaleString() : (day.volume ?? "--")}"
+        data-k="${kd[index]?.k?.toFixed(2) ?? "--"}"
+        data-d="${kd[index]?.d?.toFixed(2) ?? "--"}"
+        data-dif="${macd[index]?.dif?.toFixed(2) ?? "--"}"
+        data-macd="${macd[index]?.macd?.toFixed(2) ?? "--"}"
+        data-osc="${macd[index]?.osc?.toFixed(2) ?? "--"}"
+        data-rsi="${rsi[index]?.toFixed(2) ?? "--"}"
+        data-bias="${bias[index]?.toFixed(2) ?? "--"}"
+        data-plus-di="${dmi[index]?.plusDi?.toFixed(2) ?? "--"}"
+        data-minus-di="${dmi[index]?.minusDi?.toFixed(2) ?? "--"}"
+        data-adx="${dmi[index]?.adx?.toFixed(2) ?? "--"}"
+        data-obv="${obv[index] !== undefined ? Math.round(obv[index]).toLocaleString() : "--"}"
+        data-atr="${atr[index]?.toFixed(2) ?? "--"}"
+        data-cci="${cci[index]?.toFixed(2) ?? "--"}"
+        data-williams="${williams[index]?.toFixed(2) ?? "--"}"
+        data-mfi="${mfi[index]?.toFixed(2) ?? "--"}"
+        data-momentum="${momentum[index]?.toFixed(2) ?? "--"}"
+        data-sar="${sar[index]?.toFixed(2) ?? "--"}"
+        data-bollinger="${panelBollinger[index]?.upper ? `${panelBollinger[index].lower.toFixed(2)} / ${panelBollinger[index].upper.toFixed(2)}` : "--"}"
+        data-ichimoku="${ichimoku[index]?.tenkan ? `${ichimoku[index].tenkan.toFixed(2)} / ${ichimoku[index].kijun?.toFixed(2) || "--"} / ${ichimoku[index].senkouB?.toFixed(2) || "--"}` : "--"}"
+      ></rect>`;
+    }).join("");
+  };
+  const hoverZones = buildHoverZones();
 
   const firstDate = history[0]?.date || "";
   const lastDate = history[history.length - 1]?.date || "";
   const latest = history[history.length - 1];
-  const buildPanelConfig = (key, index) => {
-    const top = indicatorStartTop + (indicatorHeight + indicatorGap) * index;
-    const baseConfig = {
-      top,
-      height: indicatorHeight,
-      width,
-      pad,
-      xAt,
+  const buildCombinedIndicators = () => {
+    const buildPanelConfig = (key, index) => {
+      const top = indicatorStartTop + (indicatorHeight + indicatorGap) * index;
+      const baseConfig = {
+        top,
+        height: indicatorHeight,
+        width,
+        pad,
+        xAt,
+      };
+      const configs = {
+        kd: {
+          title: "KD",
+          ...baseConfig,
+          values: kd.map((item) => item.k),
+          secondaryValues: kd.map((item) => item.d),
+          fixedMin: 0,
+          fixedMax: 100,
+        },
+        macd: {
+          title: "MACD",
+          ...baseConfig,
+          values: macd.map((item) => item.dif),
+          secondaryValues: macd.map((item) => item.macd),
+          bars: macd.map((item) => item.osc),
+        },
+        rsi: {
+          title: "RSI",
+          ...baseConfig,
+          values: rsi,
+          fixedMin: 0,
+          fixedMax: 100,
+        },
+        bias: {
+          title: "BIAS",
+          ...baseConfig,
+          values: bias,
+        },
+        dmi: {
+          title: "DMI (+DI / -DI / ADX)",
+          ...baseConfig,
+          values: dmi.map((item) => item.plusDi),
+          secondaryValues: dmi.map((item) => item.minusDi),
+          tertiaryValues: dmi.map((item) => item.adx),
+          fixedMin: 0,
+          fixedMax: 100,
+        },
+        obv: {
+          title: "OBV",
+          ...baseConfig,
+          values: obv,
+        },
+        atr: {
+          title: "ATR",
+          ...baseConfig,
+          values: atr,
+        },
+        cci: {
+          title: "CCI",
+          ...baseConfig,
+          values: cci,
+        },
+        williams: {
+          title: "Williams %R",
+          ...baseConfig,
+          values: williams,
+          fixedMin: -100,
+          fixedMax: 0,
+        },
+        mfi: {
+          title: "MFI",
+          ...baseConfig,
+          values: mfi,
+          fixedMin: 0,
+          fixedMax: 100,
+        },
+        momentum: {
+          title: "Momentum",
+          ...baseConfig,
+          values: momentum,
+        },
+        sar: {
+          title: "SAR / Close",
+          ...baseConfig,
+          values: history.map((item) => item.close),
+          secondaryValues: sar,
+        },
+        bollinger: {
+          title: "Bollinger",
+          ...baseConfig,
+          values: panelBollinger.map((item) => item.lower),
+          secondaryValues: panelBollinger.map((item) => item.middle),
+          tertiaryValues: panelBollinger.map((item) => item.upper),
+        },
+        ichimoku: {
+          title: "Ichimoku",
+          ...baseConfig,
+          values: ichimoku.map((item) => item.tenkan),
+          secondaryValues: ichimoku.map((item) => item.kijun),
+          tertiaryValues: ichimoku.map((item) => item.senkouB),
+        },
+      };
+      return configs[key] || configs.kd;
     };
-    const configs = {
-      kd: {
-      title: "KD",
-      ...baseConfig,
-      values: kd.map((item) => item.k),
-      secondaryValues: kd.map((item) => item.d),
-      fixedMin: 0,
-      fixedMax: 100,
-    },
-    macd: {
-      title: "MACD",
-      ...baseConfig,
-      values: macd.map((item) => item.dif),
-      secondaryValues: macd.map((item) => item.macd),
-      bars: macd.map((item) => item.osc),
-    },
-    rsi: {
-      title: "RSI",
-      ...baseConfig,
-      values: rsi,
-      fixedMin: 0,
-      fixedMax: 100,
-    },
-    bias: {
-      title: "BIAS",
-      ...baseConfig,
-      values: bias,
-    },
-    dmi: {
-      title: "DMI (+DI / -DI / ADX)",
-      ...baseConfig,
-      values: dmi.map((item) => item.plusDi),
-      secondaryValues: dmi.map((item) => item.minusDi),
-      tertiaryValues: dmi.map((item) => item.adx),
-      fixedMin: 0,
-      fixedMax: 100,
-    },
-    obv: {
-      title: "OBV",
-      ...baseConfig,
-      values: obv,
-    },
-    atr: {
-      title: "ATR",
-      ...baseConfig,
-      values: atr,
-    },
-    cci: {
-      title: "CCI",
-      ...baseConfig,
-      values: cci,
-    },
-    williams: {
-      title: "Williams %R",
-      ...baseConfig,
-      values: williams,
-      fixedMin: -100,
-      fixedMax: 0,
-    },
-    mfi: {
-      title: "MFI",
-      ...baseConfig,
-      values: mfi,
-      fixedMin: 0,
-      fixedMax: 100,
-    },
-    momentum: {
-      title: "Momentum",
-      ...baseConfig,
-      values: momentum,
-    },
-    sar: {
-      title: "SAR / Close",
-      ...baseConfig,
-      values: history.map((item) => item.close),
-      secondaryValues: sar,
-    },
-    bollinger: {
-      title: "Bollinger",
-      ...baseConfig,
-      values: panelBollinger.map((item) => item.lower),
-      secondaryValues: panelBollinger.map((item) => item.middle),
-      tertiaryValues: panelBollinger.map((item) => item.upper),
-    },
-    ichimoku: {
-      title: "Ichimoku",
-      ...baseConfig,
-      values: ichimoku.map((item) => item.tenkan),
-      secondaryValues: ichimoku.map((item) => item.kijun),
-      tertiaryValues: ichimoku.map((item) => item.senkouB),
-    },
+
+    return hasTechnicalIndicators
+      ? selectedPanelIndicators.map((key, index) => renderCombinedIndicatorPanel(buildPanelConfig(key, index))).join("")
+      : "";
   };
-    return configs[key] || configs.kd;
-  };
-  const combinedIndicators = hasTechnicalIndicators
-    ? selectedPanelIndicators.map((key, index) => renderCombinedIndicatorPanel(buildPanelConfig(key, index))).join("")
-    : "";
+  const combinedIndicators = buildCombinedIndicators();
   const modeLabel = {
     day: "日線",
     week: "週線",
@@ -770,34 +695,35 @@ function renderTechnicalChart(detail, interval = "day", overlayIndicators = [], 
   };
   const panelLabel = selectedPanelIndicators.map((key) => panelLabels[key] || key).join(" / ");
 
-  return `
-    <div class="chart-summary">
-      <span>${detail.code} ${detail.name} / ${modeLabel} / ${indicatorLabel} / 下方指標：${panelLabel}</span>
-      <strong>${latest?.close?.toLocaleString() || "--"}</strong>
-      <span>${firstDate} - ${lastDate}</span>
-    </div>
-    ${isSnapshotHistory ? '<p class="chart-data-notice">目前為快取行情快照；歷史資料同步完成後會自動更新完整 K 線與技術指標。</p>' : ""}
-    <div class="sector-chart-frame">
-      <svg class="technical-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${detail.code} ${detail.name} technical chart">
-        <g class="chart-grid">${gridLines}</g>
-        <g>${candles}</g>
-        <path class="chart-line technical-price-line" d="${buildPath(closePoints)}"></path>
-        ${maPaths}
-        ${overlayHtml}
-        <g class="chart-volume-bars">${volumeBars}</g>
-        ${combinedIndicators}
-        <g class="chart-labels">
-          <text x="${pad.left}" y="${height - 24}">${firstDate}</text>
-          <text x="${width - pad.right - 90}" y="${height - 24}">${lastDate}</text>
-          <text x="${pad.left}" y="${volumeTop - 12}">成交量</text>
-          <text class="chart-ma-label" x="${width - pad.right - 238}" y="24">${modeLabel} / ${indicatorLabel}</text>
-        </g>
-        <g class="chart-hover-zones">${hoverZones}</g>
-        <line class="chart-crosshair" x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${crosshairBottom}" style="display:none"></line>
-      </svg>
-      <div class="sector-sync-tooltip chart-kline-tooltip" hidden></div>
-    </div>
-  `;
+  const renderChartMarkup = () => `
+      <div class="chart-summary">
+        <span>${detail.code} ${detail.name} / ${modeLabel} / ${indicatorLabel} / 下方指標：${panelLabel}</span>
+        <strong>${latest?.close?.toLocaleString() || "--"}</strong>
+        <span>${firstDate} - ${lastDate}</span>
+      </div>
+      ${isSnapshotHistory ? '<p class="chart-data-notice">目前為快取行情快照；歷史資料同步完成後會自動更新完整 K 線與技術指標。</p>' : ""}
+      <div class="sector-chart-frame">
+        <svg class="technical-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${detail.code} ${detail.name} technical chart">
+          <g class="chart-grid">${gridLines}</g>
+          <g>${candles}</g>
+          <path class="chart-line technical-price-line" d="${buildPath(closePoints)}"></path>
+          ${maPaths}
+          ${overlayHtml}
+          <g class="chart-volume-bars">${volumeBars}</g>
+          ${combinedIndicators}
+          <g class="chart-labels">
+            <text x="${pad.left}" y="${height - 24}">${firstDate}</text>
+            <text x="${width - pad.right - 90}" y="${height - 24}">${lastDate}</text>
+            <text x="${pad.left}" y="${volumeTop - 12}">成交量</text>
+            <text class="chart-ma-label" x="${width - pad.right - 238}" y="24">${modeLabel} / ${indicatorLabel}</text>
+          </g>
+          <g class="chart-hover-zones">${hoverZones}</g>
+          <line class="chart-crosshair" x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${crosshairBottom}" style="display:none"></line>
+        </svg>
+        <div class="sector-sync-tooltip chart-kline-tooltip" hidden></div>
+      </div>
+    `;
+  return renderChartMarkup();
 }
 function bindChartHover(chartView) {
   if (!chartView) return;

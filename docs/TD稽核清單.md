@@ -2,6 +2,14 @@
 
 來源:`MarketPulse_技術債稽核_2026-07-16.xlsx`(market-platform-Backup_1_.zip 的 2026-07-12 快照,稽核日期 2026-07-16)
 
+目前狀態（2026-09-01）：TD-03 為部分完成、暫時封存。封存期間維持 `Procfile`／`render.yaml` 的
+單 worker 安全設定與所有 shared mode=`local`；Redis 實連、雙 worker staging、觀測期與 rollout
+不在本階段執行。詳見 `docs/TD03_archive_2026-09-01.md`。
+
+TD-15 目前狀態（2026-09-01）：REMAIN-01～07 已完成全量 review closure；263 個 CSS blocks 均已
+完成 evidence／disposition，`retain=263`、`delete_candidate=0`、`blocked=0`。原始稽核表的「第一輪」
+標籤保留作歷史脈絡，現況以 `docs/TD15_final_closure_2026-09-01.md` 為準。
+
 ## 債項清單
 
 | ID | 嚴重度 | 類別 | 債項 | 位置(檔案:行號) | 影響 | 建議修法 | 預估工時 | 優先序 |
@@ -27,8 +35,8 @@
 | TD-21 | 低 | 測試/工具失效 | `route_scan.py` 只掃描 `app.py` 的 `@app.route`,但 48 條路由已於 TD-01 搬至 4 個 Blueprint(`routes_*.py`),裝飾器變成 `@bp.route`,搬遷後永遠回報 0 條(外部技術回饋發現,記帳補登,本輪已修復) | regression/route_scan.py | `capture_baseline.py` 若重新執行(重建基準)會用 `route_scan` 掃出的 0 條路由重建 manifest,造成基準錯誤地清空;日常 `--quick`/`--full` 因改讀既有 manifest.json 不受即時影響,是潛伏而非現行的風險 | 已修復:掃描範圍改為 app.py + 全部 routes_*.py,裝飾器 pattern 放寬為 `@<任意變數名>.route(...)`;修復後正確掃出 49 條路由(非稽核原估的 48,差異為 TD-02 新增的 `/js/<path:filename>` 靜態路由,經核實為合法必要新增,非缺陷) | 已修復 | 21 |
 | TD-20 | 低 | 測試/交付 | `verify_release_integrity.py` 假設工作目錄含資料庫,查表前未先建表,乾淨交付包解壓後執行會噴 `no such table`(外部技術回饋發現,記帳補登,TD-RELEASE-v2 F-03 重啟並已修復) | verify_release_integrity.py(`db_snapshot()`/`main()`,新增 `mode`/`db_source`/`unverified_in_this_mode`/`side_effect_db_removed`) | 排除 SQLite 是刻意的設計取捨(CLAUDE.md 明訂資料與程式碼分離),並非缺陷;此腳本原本是「工作目錄完整性檢查」,尚不是「乾淨交付包完整性檢查」,對「已排除 60MB SQLite 的乾淨交付包」解壓後直接執行會噴 `sqlite3.OperationalError: no such table: option_chain_snapshot` | 已修復:偵測 `DB_PATH.exists()` 分兩模式——存在時(`mode: existing_database`)行為完全不變;不存在時(`mode: clean_package`)在暫存目錄(非 `DB_PATH`)建 schema-only db 驗證查詢邏輯不會炸,`before`/`after` 比對邏輯不需調整(已確認 `test_derivatives_platform.py` 用自己的 tempfile 隔離 db,兩種模式下皆不觸碰 `DB_PATH`,before==after 恆成立)。額外發現並處理:`app.py:117` 的 `DERIVATIVES_STORE.initialize()` 於 import 時無條件執行(見 TD-23),測試子行程 import app.py 會在 `DB_PATH` 產生一個非本腳本寫入的 schema-only 檔案,`clean_package` 模式下偵測到即刪除並在報告標記 `side_effect_db_removed: true`,不假裝該檔案不會出現。`db_snapshot()` 原本 `with sqlite3.connect(...)` 不會真的關閉連線,在 Windows 上會鎖住暫存目錄檔案導致 `TemporaryDirectory` 清理失敗,已改為顯式 `connection.close()`。已用兩組情境驗證:(a) 完整 repo(`DB_PATH` 存在真實資料 259/139 筆):`mode: existing_database`,before==after,exit 0,115 tests OK,行為與修復前逐位元相同;(b) 乾淨可攜包(`DB_PATH` 不存在):`mode: clean_package`,`side_effect_db_removed: true`,無殘留 `.sqlite3`,暫存目錄正確清除,exit 0,115 tests OK | 已修復 | 20 |
 | TD-22 | 低 | 測試/交付 | `security_guardrail_check.py` 的 `TD-02 frontend global symbol stability` 與 `TD-00B interaction baseline completeness` 兩條護欄假設 `regression/` 目錄一定存在;`build_portable_package.py`(TD-RELEASE-v2 F-02)產出的乾淨可攜包故意不含 `regression/`,解壓後執行會分別拋 `GuardrailFailure`(缺 `global_symbols.json`)與 `ModuleNotFoundError`(`interaction_specs` 匯入失敗),被 `SECURITY_GUARDRAIL_FAILED` 一併計為失敗,無法與真正的迴歸區分(F-02 乾淨包驗收時發現,已修復) | security_guardrail_check.py(`CheckResult`/`run_checks()`/`main()`,新增 `STATUS_SKIP`/`REQUIRES_REGRESSION_DIR`) | 修復前,乾淨可攜包裡執行 `security_guardrail_check.py`,或經 `verify_release_integrity.py` 間接呼叫 `unittest`,都會看到這 2 條「失敗」——但成因是設計上刻意排除 `regression/`,不是程式碼壞掉,兩者在原本的 pass/fail 二元輸出中無法區分,容易被誤判為迴歸而擋下交付 | 已修復:`CheckResult` 從 `passed: bool` 改為三態 `status`(pass/fail/skip);`run_checks()` 呼叫這 2 條檢查前先判斷 `(BASE_DIR / "regression").exists()`,不存在時回報 `SKIP`(標註 `context: portable_package`)且不呼叫函式本體(避免裸露的 `ModuleNotFoundError`);`regression/` 存在但內容不完整或與基準不符時維持現有 FAIL 邏輯不變。已用兩組情境驗證:(a) 乾淨可攜包(無 `regression/`):`14 passed, 2 skipped`,exit 0;(b) 完整 repo 故意移除 `regression/baseline/frontend/global_symbols.json` 製造殘缺:對應檢查正確回報 FAIL,exit 1(驗證後檔案已還原,`git status` 乾淨) | 已修復 | 22 |
-| TD-23 | 低 | 架構 | `app.py:117` 的 `DERIVATIVES_STORE.initialize()` 在 module import 時無條件執行,任何 import `app.py` 的程式(含驗證腳本、測試)都會在當前目錄產生 schema-only SQLite(TD-RELEASE-v2 F-03 驗收時發現,記帳補登,本輪不修) | app.py:115-117(`BASE_DIR = Path(__file__).resolve().parent`;`DERIVATIVES_STORE = DerivativesStore(...)`;`DERIVATIVES_STORE.initialize()`,三行皆在 module 頂層,import 當下立即執行) | 屬 import 副作用,不是「呼叫某個函式才初始化」的顯式行為:`test_derivatives_platform.py` 的 `setUpClass` 雖會把 `app.DERIVATIVES_STORE` 換成自己 tempfile 隔離的實例,但那是「import 完成之後」才做的事後替換,換不掉 import 當下已經在 `BASE_DIR`(app.py 所在目錄)寫入的 schema-only 檔案。F-03 驗收 `verify_release_integrity.py` 的 clean-package 模式時,子行程 import app.py 觸發此副作用,在乾淨可攜包目錄憑空生出一個不在原始交付清單內的 `.sqlite3`(已由 F-03 修復自行偵測並清除,見 TD-20)。這個副作用不只影響 verify_release_integrity.py,未來任何工具、測試、CI 只要 import app.py 都會踩到 | 理想上應改為 lazy/顯式初始化(例如移入 `if __name__ == "__main__":` 區塊,或由應用啟動流程明確呼叫,而非 module 頂層的匯入時副作用),讓「import 模組」與「初始化資料庫」兩件事分離 | 待評估 | 23 |
-| TD-24 | 低 | 測試/交付 | clean-package 驗證流程中執行 test_derivatives_platform.py 會產生 `__pycache__`(21 個 `.pyc`)並改動 `twse-cache.json`,屬測試執行的既有副作用,非 `verify_release_integrity.py`/`build_portable_package.py` 寫入。導致乾淨交付包在驗證後無法完全回滾至原始狀態(F-03 修復後,對交付包做逐檔 SHA-256 前後比對時發現,記帳補登,本輪不修) | test_derivatives_platform.py(未對快取檔做等同資料庫的 tempfile 隔離);cache.py:59(`CACHE_FILE` 預設落在 `BASE_DIR / "twse-cache.json"`,無 `MARKET_PULSE_CACHE_FILE` 覆寫時即為交付包內的實體檔);import 多個模組時 Python 自動產生的 `__pycache__/*.pyc` | 用 `build_portable_package.py` 產出的包解壓後,先做逐檔 SHA-256 記錄,再跑 `verify_release_integrity.py`(內部呼叫 `unittest`),事後再比對一次,發現新增 21 個 `.pyc`(`./__pycache__/`、`./derivatives/__pycache__/`)且 `twse-cache.json` 內容雜湊改變(測試套件對資料庫已用 tempfile 隔離,見 TD-23 討論脈絡,但對快取檔沒有相同機制,觸發 `cache.py` 的 `save_disk_cache` 時直接改寫執行目錄下的實體檔)。已在 `release_proof/VERIFY.md` 明確告知稽核者:逐檔 SHA 比對必須在執行任何測試之前進行,或排除這兩類項目,否則會產生「交付包不自洽」的假警報 | 可能方向:(a) 測試改用 `PYTHONDONTWRITEBYTECODE` 或以 tempfile 隔離 pycache;(b) 測試不寫入正式 `twse-cache.json`,改用獨立 temp 快取目錄(仿照資料庫已有的隔離機制);(c) 驗證流程結束後清理 `__pycache__`(`twse-cache.json` 依 CLAUDE.md 不得由本工具碰觸,不可比照 TD-20 的「偵測後刪除」做法處理) | 待評估 | 24 |
+| TD-23 | 低 | 架構 | `app.py:117` 的 `DERIVATIVES_STORE.initialize()` 在 module import 時無條件執行,任何 import `app.py` 的程式(含驗證腳本、測試)都會在當前目錄產生 schema-only SQLite(TD-RELEASE-v2 F-03 驗收時發現,記帳補登,本輪已修復) | app.py:115-117(`BASE_DIR = Path(__file__).resolve().parent`;`DERIVATIVES_STORE = DerivativesStore(...)`;初始化已移至明確啟動/第一個 API request) | import `app.py` 不再寫入 SQLite；主程式啟動明確初始化，WSGI `app:app` 由第一個 API request lazy initialize，測試可替換為 tempfile store 後正常運作 | 已修復：移除 module-level initialize，新增啟動與 request lifecycle 初始化，並加入 import 無副作用回歸測試 | 已修復 | 23 |
+| TD-24 | 低 | 測試/交付 | clean-package 驗證流程中執行 test_derivatives_platform.py 會產生 `__pycache__`(21 個 `.pyc`)並改動 `twse-cache.json`,屬測試執行的既有副作用,非 `verify_release_integrity.py`/`build_portable_package.py` 寫入。導致乾淨交付包在驗證後無法完全回滾至原始狀態(F-03 修復後,對交付包做逐檔 SHA-256 前後比對時發現,記帳補登,本輪已修復) | test_derivatives_platform.py（module-level TemporaryDirectory 指定 `MARKET_PULSE_CACHE_FILE`）；verify_release_integrity.py（子測試程序指定 `PYTHONDONTWRITEBYTECODE=1` 與暫存 cache） | 測試不再寫入交付目錄的 cache；clean-package 驗證後無新增 `.pyc`、無 DB side effect，並以 cache hash 確認 `twse-cache.json` 未變更 | 已修復：測試 cache tempfile、release integrity cache hash/side-effect assertions | 已修復 | 24 |
 
 ## 總覽
 
@@ -180,3 +188,17 @@
 | 測試基礎設施存在 | e2e_smoke.py、TAIFEX/TWSE fixtures、verify_release_integrity.py | 以 fixtures 為基礎擴充特性測試(TD-10) |
 | 安全標頭完整 | X-Frame-Options、HSTS、nosniff、Permissions-Policy | — |
 | SSL fallback 有 production 阻擋與 allowlist | `_urlopen_with_ssl_fallback` 設計上已有 gating | TD-07 為收緊而非重寫 |
+
+## 2026-08-30 現況覆核註記
+
+本文件的第 1～182 行是 2026-07-16 稽核快照，原始位置、行號、問題描述與建議修法保留不改，不能直接視為目前狀態。2026-08-30 依下列證據重新核對：`技術債改善計畫_2026-08-29.md` 的 A～G 完成事件、`docs/REFACTOR_SUMMARY.md`、目前程式碼與測試結果。
+
+覆核結果摘要：
+
+| 狀態 | TD 項目 | 現況判定 |
+|---|---|---|
+| ✅ 已完成/實質解決 | TD-01、TD-04～TD-09、TD-11～TD-14、TD-16、TD-17、TD-20～TD-24 | 已有程式碼、測試或交付驗證證據；TD-02/TD-14 的 classic-script/CSS split 不代表已完成 bundling，bundling 另列 TD-18。 |
+| 🟡 部分完成 | TD-03、TD-10、TD-15 | 短期護欄或第一輪已完成，長期共享狀態、完整 top-10 coverage、TD-15 第二輪仍未完成。 |
+| ⚪ 延後/未立案 | TD-18、TD-19 | 分別是前端打包效能評估/導入，以及 schema required-key allowlist；本週期未實作。 |
+
+可重現驗證證據：目前 Unit 為 126 tests、security guardrail 為 16 項；最近一次批次 G 完成後的 `e2e_smoke.py` 為 `E2E_SMOKE_OK`，`regression/verify_against_baseline.py --full` 為 `VERIFY_OK`。詳細的後續優先序、回退策略與暫不處理邊界，以 [技術債改善計畫 V2（2026-08-30）](../技術債改善計畫_V2_2026-08-30.md) 為準。

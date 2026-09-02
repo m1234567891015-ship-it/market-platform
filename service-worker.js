@@ -1,4 +1,4 @@
-const CACHE_VERSION = "market-pulse-swr-20260720-1";
+const CACHE_VERSION = "market-pulse-swr-20260902-us-etf-detail-1";
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
 // TD-09: stale-while-revalidate for static assets only. /api/* (live TWSE/

@@ -1,0 +1,4405 @@
+{
+  "schema_version": 1,
+  "batch": "TD02-FULL-ESM-BRIDGE-CONTRACT",
+  "snapshot_date": "2026-09-01",
+  "status": "TD02_FULL_ESM_PHASE_2_CONTRACT_LOCKED_ARCHIVED_NO_PRODUCTION_SWITCH",
+  "scope": {
+    "inventory_symbols": 895,
+    "bridge_entries": 477,
+    "required_global_bridge_entries": 468,
+    "entrypoint_entries": 5,
+    "window_property_entries": 4,
+    "cycles_requiring_bridge_or_deferred_import": 2
+  },
+  "policy": {
+    "production_wiring_changed": false,
+    "html_changed": false,
+    "baseline_changed": false,
+    "globals_published_by_this_batch": false,
+    "classic_fallback_preserved": true,
+    "browser_runtime_gate": "blocked-no-browser-backend"
+  },
+  "owner_rule": "each inventory symbol has exactly one source owner; bridge entries are aliases/adapters only",
+  "entries": [
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "derivatives-ui.js",
+      "consumer_module": "route/derivatives-status-addon",
+      "symbol": "data",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "derivatives-ui.js",
+      "consumer_module": "route/derivatives-status-addon",
+      "symbol": "escapeHtml",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "TECHNICAL_PANEL_INDICATOR_KEYS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "aggregateHistory",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "buildPath",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "calculateAtr",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "calculateBias",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "calculateBollingerBands",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "calculateCci",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "calculateDmi",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "calculateFibonacciRetracement",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "calculateIchimoku",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "calculateKd",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "calculateMacd",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "calculateMfi",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "calculateMomentum",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "calculateObv",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "calculateParabolicSarSeries",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "calculateRsi",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "calculateSmartMoneyConcepts",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "calculateSupportResistance",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "calculateWilliamsR",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "escapeHtml",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "movingAverage",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "normalizeHistory",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "parseMarketNumber",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "renderCombinedIndicatorPanel",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "sliceVisibleWindow",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/charts.js",
+      "consumer_module": "runtime/charts",
+      "symbol": "toneClass",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "window-property",
+      "consumer": "js/core.js",
+      "consumer_module": "compat/legacy-global-bridge",
+      "symbol": "__MARKET_PULSE_SAFE_INNER_HTML__",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "compat/legacy-global-bridge",
+      "removal_gate": "all readers and writers use explicit input, store, or private safety adapter",
+      "reason": "private idempotence sentinel for the innerHTML safety guard"
+    },
+    {
+      "bridge_class": "entrypoint",
+      "consumer": "js/core.js",
+      "consumer_module": "runtime/core",
+      "symbol": "nativeInnerHtmlDescriptor",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "single ESM entry imports route facade before bootstrap evaluation and canary is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/core.js",
+      "consumer_module": "runtime/core",
+      "symbol": "nativeInnerHtmlDescriptor",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "data",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "fetchWithTimeout",
+      "owner_source": "js/api.js",
+      "owner_candidate_module": "runtime/api",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "initAssetHubPage",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "initDerivativesAiPage",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "initDerivativesAnalyticsPage",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "entrypoint",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "initGlobalMarketPage",
+      "owner_source": "js/page-global-market-options.js",
+      "owner_candidate_module": "route/global-market-options",
+      "removal_gate": "single ESM entry imports route facade before bootstrap evaluation and canary is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "initGlobalMarketPage",
+      "owner_source": "js/page-global-market-options.js",
+      "owner_candidate_module": "route/global-market-options",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "entrypoint",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "initSearchPage",
+      "owner_source": "js/page-tw.js",
+      "owner_candidate_module": "route/page-tw",
+      "removal_gate": "single ESM entry imports route facade before bootstrap evaluation and canary is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "initSearchPage",
+      "owner_source": "js/page-tw.js",
+      "owner_candidate_module": "route/page-tw",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "initTwEtfPage",
+      "owner_source": "js/page-tw.js",
+      "owner_candidate_module": "route/page-tw",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "initUsEtfPage",
+      "owner_source": "js/page-us.js",
+      "owner_candidate_module": "route/page-us",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "initUsStockSearchPage",
+      "owner_source": "js/page-us.js",
+      "owner_candidate_module": "route/page-us",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "initUsWatchlistPage",
+      "owner_source": "js/page-us.js",
+      "owner_candidate_module": "route/page-us",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "entrypoint",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "initWatchlistPage",
+      "owner_source": "js/page-tw.js",
+      "owner_candidate_module": "route/page-tw",
+      "removal_gate": "single ESM entry imports route facade before bootstrap evaluation and canary is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "initWatchlistPage",
+      "owner_source": "js/page-tw.js",
+      "owner_candidate_module": "route/page-tw",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "entrypoint",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "loadYahooSectorCategory",
+      "owner_source": "js/page-tw.js",
+      "owner_candidate_module": "route/page-tw",
+      "removal_gate": "single ESM entry imports route facade before bootstrap evaluation and canary is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "loadYahooSectorCategory",
+      "owner_source": "js/page-tw.js",
+      "owner_candidate_module": "route/page-tw",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "localAllStocks",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "renderHome",
+      "owner_source": "js/page-home.js",
+      "owner_candidate_module": "route/page-home",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "renderMarketPage",
+      "owner_source": "js/page-home.js",
+      "owner_candidate_module": "route/page-home",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "renderSectorPageV2",
+      "owner_source": "js/page-tw.js",
+      "owner_candidate_module": "route/page-tw",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "renderWatchlist",
+      "owner_source": "js/page-tw.js",
+      "owner_candidate_module": "route/page-tw",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "setText",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/main.js",
+      "consumer_module": "runtime/bootstrap",
+      "symbol": "startVixPolling",
+      "owner_source": "js/page-tw.js",
+      "owner_candidate_module": "route/page-tw",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "ASSET_FINANCE_TREND_FILTERS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "ASSET_FINANCE_TREND_RANGES",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "ASSET_HUB_OPTION_CHAIN_UNDERLYINGS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "ASSET_HUB_REGION_ORDER",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "ASSET_HUB_SCHEMA_FALLBACK",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "assetFinanceBondEtfBucketKey",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "assetFinanceBondFocusKey",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "assetFinanceTrendChartCounter",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "assetHubTone",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "averageFuturesValues",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "buildFuturesCenterModel",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "buildFuturesTechnicalSnapshot",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "buildGlobalMarketInsight",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "buildOptionsAiFunctionalModel",
+      "owner_source": "js/page-global-market-options.js",
+      "owner_candidate_module": "route/global-market-options",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "buildOptionsStrategyRows",
+      "owner_source": "js/page-global-market-options.js",
+      "owner_candidate_module": "route/global-market-options",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "buildPath",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "buildYahooFinanceUrl",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "derivativesOptionsChainSource",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "derivativesOptionsSelectedStrike",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "derivativesOptionsSelectedUnderlying",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "escapeHtml",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "fetchDerivativesApi",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "fetchWithTimeout",
+      "owner_source": "js/api.js",
+      "owner_candidate_module": "runtime/api",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "formatAssetHubExpiration",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "formatAssetOptionIv",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "formatAssetOptionNumber",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "formatAssetOptionWhole",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "formatFuturesIndicatorValue",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "formatGlobalValue",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "formatGlobalVolume",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "getActiveTaiwanOptionUnderlying",
+      "owner_source": "js/page-global-market-options.js",
+      "owner_candidate_module": "route/global-market-options",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "getAssetPlatformConfig",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "getFuturesMarketScope",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "getTaiwanOptionProductLabel",
+      "owner_source": "js/page-global-market-options.js",
+      "owner_candidate_module": "route/global-market-options",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "getVixSentimentBand",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "normalizeFuturesTechnicalCandles",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "normalizeGlobalOhlcvSeries",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "normalizeGlobalSeries",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "optionsDecimal",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "optionsPct",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "optionsWhole",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "parseMarketNumber",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "renderDerivativeNameMappingCard",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "renderGlobalMarketSections",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "renderTaiwanOptionProductTabs",
+      "owner_source": "js/page-global-market-options.js",
+      "owner_candidate_module": "route/global-market-options",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "renderUsBacktestLearningCard",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-assethub.js",
+      "consumer_module": "route/global-market-assethub",
+      "symbol": "safeUrl",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "DERIVATIVES_WATCHLIST_STORAGE_KEY",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "DERIVATIVE_ASSET_NAME_MAP",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "FUTURES_TECHNICAL_INTERVAL_OPTIONS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "TECHNICAL_PANEL_INDICATOR_KEYS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "TECHNICAL_PANEL_INDICATOR_OPTIONS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "US_INDUSTRY_SECTOR_SYMBOLS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "US_MAJOR_INDEX_SECTOR_SYMBOLS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "US_MAJOR_INDEX_SYMBOLS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "US_NYSE_DIRECTORY_PAGE_SIZE",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "US_SECTOR_STOCK_SELECTION_KEY",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "US_SP500_SECTOR_SYMBOLS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "analyzeTechnicalTheories",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "averageFuturesValues",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "bindHorizontalChartPan",
+      "owner_source": "js/charts.js",
+      "owner_candidate_module": "runtime/charts",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "buildFuturesTechnicalSnapshot",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "buildPath",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "buildTechnicalTrendSummary",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "buildUsStockSearchUrl",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "clampAssetHubScore",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "derivativesFuturesDetailSymbol",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "derivativesFuturesFrameworkScope",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "derivativesFuturesMarketScope",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "derivativesFuturesRegionalExpandedKeys",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "derivativesFuturesStockStyleMaState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "derivativesFuturesStockStyleOverlayState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "derivativesFuturesStockStylePanState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "derivativesFuturesStockStylePanelState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "derivativesFuturesStockStyleVisibleState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "escapeHtml",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "fetchWithTimeout",
+      "owner_source": "js/api.js",
+      "owner_candidate_module": "runtime/api",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "findAssetHubItem",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "formatAssetOptionWhole",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "formatGlobalValue",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "formatGlobalVolume",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "getAssetHubItems",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "getAssetHubMetric",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "getAssetHubRegion",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "getAssetHubUsableItems",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "getChartHistory",
+      "owner_source": "js/charts.js",
+      "owner_candidate_module": "runtime/charts",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "getFuturesTechnicalCachedPayload",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "getFuturesTechnicalIndicatorStateKey",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "getFuturesTechnicalIntervalLabel",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "getSelectedFuturesTechnicalContract",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "getSelectedFuturesTechnicalInterval",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "getVixSentimentBand",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "groupAssetHubItemsByRegion",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "normalizeGlobalOhlcvSeries",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "normalizeGlobalSeries",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "parseMarketNumber",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "renderAssetHubOnlineTable",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "renderAssetHubQuoteGrid",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "renderFuturesBacktestLearningCard",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "renderGlobalMarketPage",
+      "owner_source": "js/page-global-market-options.js",
+      "owner_candidate_module": "route/global-market-options",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "renderTechnicalChart",
+      "owner_source": "js/charts.js",
+      "owner_candidate_module": "runtime/charts",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "renderTechnicalTrendForecastSummary",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "safeUrl",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "technicalSma",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "toneClass",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "usMajorIndexChartSymbol",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "usMajorIndexChartSymbols",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "usMajorIndexPanOffsets",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "usMajorIndexShowVix",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "usMajorIndexZoomCounts",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "usSectorBenchmarkSymbol",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "usSectorCompareSymbol",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "usSectorNyseStockState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "usSectorStockBenchmarkSymbol",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-futures.js",
+      "consumer_module": "route/global-market-futures",
+      "symbol": "usSectorStockSymbol",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "DERIVATIVES_OPTIONS_AUTO_REFRESH_MS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "FUTURES_TECHNICAL_INDICATOR_OPTIONS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "FUTURES_TECHNICAL_INTERVAL_OPTIONS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "OPTIONS_DOCUMENT_CATEGORY_ORDER",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "OPTIONS_MARKET_CHAIN_FUTURES_SYMBOLS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "OPTIONS_MARKET_CHAIN_SYMBOL_ALIASES",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "TAIWAN_OPTION_CHAIN_UNDERLYINGS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "TAIWAN_OPTION_PRODUCT_FALLBACKS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "TECHNICAL_PANEL_INDICATOR_KEYS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "US_INDUSTRY_SECTOR_SYMBOLS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "US_MAJOR_INDEX_SECTOR_SYMBOLS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "US_MAJOR_INDEX_SYMBOLS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "US_SP500_SECTOR_SYMBOLS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "assetHubTone",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "bindChartHover",
+      "owner_source": "js/charts.js",
+      "owner_candidate_module": "runtime/charts",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "bindDerivativeWatchlistControls",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "bindHorizontalChartPan",
+      "owner_source": "js/charts.js",
+      "owner_candidate_module": "runtime/charts",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "bindUsMajorIndexVixCard",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "bindUsSectorIndexComparisonCard",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "bindUsSectorStocksBrowser",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "buildPath",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "buildUsMarketPulseAnalysis",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "buildUsStockSearchUrl",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "buildYahooFinanceUrl",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "clampAssetHubScore",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesFuturesDetailSymbol",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesFuturesFrameworkScope",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesFuturesMarketScope",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesFuturesRegionalExpandedKeys",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesFuturesStockStyleMaState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesFuturesStockStyleOverlayState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesFuturesStockStylePanState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesFuturesStockStylePanelState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesFuturesStockStyleVisibleState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesFuturesTechnicalContractState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesFuturesTechnicalIndicatorState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesFuturesTechnicalIntervalState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesFuturesTechnicalLoadingKeys",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesFuturesTechnicalSeriesCache",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesOptionsAutoRefreshInFlight",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesOptionsAutoRefreshPayload",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesOptionsAutoRefreshTimer",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesOptionsChainSource",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesOptionsMarketChainInFlightKey",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesOptionsRegionalExpandedKeys",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesOptionsSelectedFocus",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesOptionsSelectedStrategy",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesOptionsSelectedStrike",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "derivativesOptionsSelectedUnderlying",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "escapeHtml",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "fetchDerivativesApi",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "fetchWithTimeout",
+      "owner_source": "js/api.js",
+      "owner_candidate_module": "runtime/api",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "findAssetHubItemAny",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "formatAssetHubExpiration",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "formatGlobalValue",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "formatGlobalVolume",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "getAssetHubItemUrl",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "getAssetHubItems",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "getAssetHubMetric",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "getAssetHubRegion",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "getAssetHubUsableItems",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "getAssetPlatformConfig",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "getFuturesMarketScope",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "getFuturesScopeDetailConfig",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "getFuturesStockStyleMaPeriods",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "getFuturesStockStyleOverlayIndicators",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "getFuturesStockStylePanelIndicators",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "getFuturesTechnicalSeriesCacheKey",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "getSelectedFuturesTechnicalContract",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "getUsBenchmarkDisplayName",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "getUsMarketPayloadCounts",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "getUsSectorDisplayName",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "getVixSentimentBand",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "loadUsSectorStocks",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "normalizeFuturesTechnicalCandles",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "normalizeGlobalSeries",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "optionsAiExtrasLoading",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "optionsDecimal",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "optionsNumber",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "optionsPct",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "optionsWhole",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "parseMarketNumber",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "pickTaiwanOptionRows",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "renderAssetHubOnlineTable",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "renderAssetHubRegionalGroups",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "renderAssetPlatformDashboard",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "renderDerivativeWatchButton",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "renderDerivativesFuturesPanel",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "renderFuturesAnalysisCenter",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "renderGlobalMarketSections",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "renderGlobalSummaryCard",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "renderTaiwanOptionAnalysis",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "renderTaiwanOptionChainCard",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "renderTaiwanOptionExpiryTabs",
+      "owner_source": "js/page-global-market-assethub.js",
+      "owner_candidate_module": "route/global-market-assethub",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "renderUsMajorIndexVixCard",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "renderUsSectorIndexComparisonCard",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "renderUsSectorStocksBrowser",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "safeUrl",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "setFuturesStockStyleStateList",
+      "owner_source": "js/page-global-market-futures.js",
+      "owner_candidate_module": "route/global-market-futures",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "toneClass",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-global-market-options.js",
+      "consumer_module": "route/global-market-options",
+      "symbol": "usMarketSectorRankingState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-home.js",
+      "consumer_module": "route/page-home",
+      "symbol": "clampScore",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-home.js",
+      "consumer_module": "route/page-home",
+      "symbol": "data",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-home.js",
+      "consumer_module": "route/page-home",
+      "symbol": "escapeHtml",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-home.js",
+      "consumer_module": "route/page-home",
+      "symbol": "fetchWithTimeout",
+      "owner_source": "js/api.js",
+      "owner_candidate_module": "runtime/api",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-home.js",
+      "consumer_module": "route/page-home",
+      "symbol": "getSectorPageGroups",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-home.js",
+      "consumer_module": "route/page-home",
+      "symbol": "homePennySectorMarket",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-home.js",
+      "consumer_module": "route/page-home",
+      "symbol": "homePennySectorPayload",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-home.js",
+      "consumer_module": "route/page-home",
+      "symbol": "homePennySectorPromise",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-home.js",
+      "consumer_module": "route/page-home",
+      "symbol": "isExcludedSector",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-home.js",
+      "consumer_module": "route/page-home",
+      "symbol": "localAllStocks",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-home.js",
+      "consumer_module": "route/page-home",
+      "symbol": "marketSectorRankingState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-home.js",
+      "consumer_module": "route/page-home",
+      "symbol": "parseMarketNumber",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-home.js",
+      "consumer_module": "route/page-home",
+      "symbol": "renderScrollableClassTable",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-home.js",
+      "consumer_module": "route/page-home",
+      "symbol": "renderSectorLineChart",
+      "owner_source": "js/charts.js",
+      "owner_candidate_module": "runtime/charts",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-home.js",
+      "consumer_module": "route/page-home",
+      "symbol": "renderSectorSortControl",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-home.js",
+      "consumer_module": "route/page-home",
+      "symbol": "renderSectorStockName",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-home.js",
+      "consumer_module": "route/page-home",
+      "symbol": "safeUrl",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-home.js",
+      "consumer_module": "route/page-home",
+      "symbol": "sectorFundFlowState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-home.js",
+      "consumer_module": "route/page-home",
+      "symbol": "sectorSortState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-home.js",
+      "consumer_module": "route/page-home",
+      "symbol": "setText",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-home.js",
+      "consumer_module": "route/page-home",
+      "symbol": "sortSectorItemsByActiveMode",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-home.js",
+      "consumer_module": "route/page-home",
+      "symbol": "toneClass",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "PORTFOLIO_COST_MODEL",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "PORTFOLIO_FACTOR_SOURCE",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "PORTFOLIO_SIM_STORAGE_KEY",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "SECTOR_SYNC_PICKER_LIMIT",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "TW_ETF_DEFAULT_PAGE_SIZE",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "TW_ETF_PAGE_SIZE_OPTIONS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "WEIGHTED_SECTOR_THEME_RULES",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "activeRenderedStockDetail",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "activeStockCode",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "activeStockMarket",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "activeYahooSectorCategories",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "activeYahooSectorStocks",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "analyzeTechnicalTheories",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "bindHorizontalChartPan",
+      "owner_source": "js/charts.js",
+      "owner_candidate_module": "runtime/charts",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "buildPath",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "buildPortfolioTheoryAssessment",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "clampScore",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "data",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "defaultYahooSectorCategoryAttempts",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "escapeHtml",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "fetchWithTimeout",
+      "owner_source": "js/api.js",
+      "owner_candidate_module": "runtime/api",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "formatGlobalValue",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "formatSignedPercentValue",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "getSectorPageGroups",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "getSimulationSignal",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "getStockDetailCacheKey",
+      "owner_source": "js/stock-detail.js",
+      "owner_candidate_module": "route/stock-detail",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "getVixSentimentBand",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "getWatchlist",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "getWeekKey",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "internationalIndexesPromise",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "isExcludedSector",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "loadLiveData",
+      "owner_source": "js/main.js",
+      "owner_candidate_module": "runtime/bootstrap",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "localAllStocks",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "movingAverage",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "parseAnalysisNumber",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "parseMarketNumber",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "renderScrollableClassTable",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "renderSectorLineChart",
+      "owner_source": "js/charts.js",
+      "owner_candidate_module": "runtime/charts",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "renderSectorSortControl",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "renderSectorStockName",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "renderStockDetail",
+      "owner_source": "js/stock-detail.js",
+      "owner_candidate_module": "route/stock-detail",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "safeUrl",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "saveWatchlist",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "sectorComparisonPanOffsets",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "sectorComparisonZoomCounts",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "sectorSortState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "setText",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "sliceVisibleWindow",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "sortSectorItemsByActiveMode",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "stockDetailRequestId",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "stockFullDetailCache",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "stockFullDetailPending",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "stockSearchRequestId",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "stockShareholderCache",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "stockShareholderPending",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "toneClass",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "twEtfPayload",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "twEtfSelectedCode",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "twEtfState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "twEtfWeightText",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "watchlistAnalysisCache",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "watchlistDetailCache",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "watchlistKey",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "yahooSectorChartErrors",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "yahooSectorChartLoading",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "yahooSectorQuoteCache",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-tw.js",
+      "consumer_module": "route/page-tw",
+      "symbol": "yahooSectorRequestId",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "TECHNICAL_PANEL_INDICATOR_OPTIONS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "US_ETF_CATEGORY_DEFINITIONS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "US_ETF_CATEGORY_LABELS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "US_ETF_DEFAULT_PAGE_SIZE",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "US_ETF_DIRECTORY_SORT_OPTIONS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "US_ETF_PAGE_SIZE_OPTIONS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "US_NYSE_DIRECTORY_PAGE_SIZE",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "US_PORTFOLIO_SIM_STORAGE_KEY",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "analyzeTechnicalTheories",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "bindChartHover",
+      "owner_source": "js/charts.js",
+      "owner_candidate_module": "runtime/charts",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "bindHorizontalChartPan",
+      "owner_source": "js/charts.js",
+      "owner_candidate_module": "runtime/charts",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "buildTechnicalTrendSummary",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "buildUsSearchDetail",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "buildUsStockSearchUrl",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "buildYahooFinanceUrl",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "escapeHtml",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "fetchWithTimeout",
+      "owner_source": "js/api.js",
+      "owner_candidate_module": "runtime/api",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "formatGlobalValue",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "formatGlobalVolume",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "formatSignedPercentValue",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "getChartHistory",
+      "owner_source": "js/charts.js",
+      "owner_candidate_module": "runtime/charts",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "getStockDetailCacheKey",
+      "owner_source": "js/stock-detail.js",
+      "owner_candidate_module": "route/stock-detail",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "getUsWatchlist",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "normalizeGlobalSeries",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "parseAnalysisNumber",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "parseMarketNumber",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "renderTechnicalChart",
+      "owner_source": "js/charts.js",
+      "owner_candidate_module": "runtime/charts",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "renderTechnicalTrendForecastSummary",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "renderUsBacktestLearningCard",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "renderUsPortfolioSimulator",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "renderUsWatchlist",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "safeUrl",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "saveUsWatchlist",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "setText",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "stockChipTabState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "toneClass",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "twEtfWeightText",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "upsertUsWatchlistSymbol",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "usNyseDirectoryState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "usStockSearchRequestId",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "usWatchlistAnalysisCache",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "usWatchlistDetailCache",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/page-us.js",
+      "consumer_module": "route/page-us",
+      "symbol": "usWatchlistKey",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "window-property",
+      "consumer": "js/page-us.js + js/page-global-market-options.js",
+      "consumer_module": "compat/legacy-global-bridge",
+      "symbol": "currentGlobalMarketPayload",
+      "owner_source": "js/page-us.js + js/page-global-market-options.js",
+      "owner_candidate_module": "compat/legacy-global-bridge",
+      "removal_gate": "all readers and writers use explicit input, store, or private safety adapter",
+      "reason": "cross-route window payload handoff; replace with explicit context API"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "EXCLUDED_SECTOR_SOURCE_NAMES",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "PORTFOLIO_FACTOR_SOURCE",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "US_PORTFOLIO_SIM_STORAGE_KEY",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "US_WATCHLIST_STORAGE_KEY",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "activeYahooSectorCategories",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "buildGlobalMarketDetail",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "buildPortfolioTheoryAssessment",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "data",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "escapeHtml",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "fetchWithTimeout",
+      "owner_source": "js/api.js",
+      "owner_candidate_module": "runtime/api",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "formatBacktestPercent",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "formatBacktestRatio",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "formatChartDate",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "formatGlobalValue",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "formatUsDetailMetric",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "formatUsSimulationMoney",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "getSimulationSignal",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "parseAnalysisNumber",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "parseMarketNumber",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "safeUrl",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "sectorSortState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "setText",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "toneClass",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "usWatchlistAnalysisCache",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "usWatchlistDetailCache",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/render-shared.js",
+      "consumer_module": "runtime/render-shared",
+      "symbol": "yahooSectorQuoteCache",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/shared-calc.js",
+      "consumer_module": "runtime/shared-calc",
+      "symbol": "BACKTEST_BENCHMARK_SOURCE",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/shared-calc.js",
+      "consumer_module": "runtime/shared-calc",
+      "symbol": "BACKTEST_DRIFT_SOURCE",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/shared-calc.js",
+      "consumer_module": "runtime/shared-calc",
+      "symbol": "BACKTEST_FACTOR_BASELINE",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/shared-calc.js",
+      "consumer_module": "runtime/shared-calc",
+      "symbol": "MARKET_BREADTH_STORAGE_KEY",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/shared-calc.js",
+      "consumer_module": "runtime/shared-calc",
+      "symbol": "data",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/shared-calc.js",
+      "consumer_module": "runtime/shared-calc",
+      "symbol": "formatGlobalVolume",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/shared-calc.js",
+      "consumer_module": "runtime/shared-calc",
+      "symbol": "localAllStocks",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/shared-calc.js",
+      "consumer_module": "runtime/shared-calc",
+      "symbol": "parseAnalysisNumber",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/shared-calc.js",
+      "consumer_module": "runtime/shared-calc",
+      "symbol": "parseMarketNumber",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "window-property",
+      "consumer": "js/state.js",
+      "consumer_module": "compat/legacy-global-bridge",
+      "symbol": "TWSE_ALL_STOCKS",
+      "owner_source": "external/server-seeded window property",
+      "owner_candidate_module": "compat/legacy-global-bridge",
+      "removal_gate": "all readers and writers use explicit input, store, or private safety adapter",
+      "reason": "state.js reads an optional preloaded seed before live fetch"
+    },
+    {
+      "bridge_class": "window-property",
+      "consumer": "js/state.js",
+      "consumer_module": "compat/legacy-global-bridge",
+      "symbol": "TWSE_DATA",
+      "owner_source": "external/server-seeded window property",
+      "owner_candidate_module": "compat/legacy-global-bridge",
+      "removal_gate": "all readers and writers use explicit input, store, or private safety adapter",
+      "reason": "state.js reads an optional preloaded seed before live fetch"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "TECHNICAL_PANEL_INDICATOR_OPTIONS",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "activeRenderedStockDetail",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "activeStockMarket",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "analyzeTechnicalTheories",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "bindChartHover",
+      "owner_source": "js/charts.js",
+      "owner_candidate_module": "runtime/charts",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "bindHorizontalChartPan",
+      "owner_source": "js/charts.js",
+      "owner_candidate_module": "runtime/charts",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "buildTechnicalTrendSummary",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "data",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "escapeHtml",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "fetchWithTimeout",
+      "owner_source": "js/api.js",
+      "owner_candidate_module": "runtime/api",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "formatChartDate",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "formatRocDateFromDate",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "getChartHistory",
+      "owner_source": "js/charts.js",
+      "owner_candidate_module": "runtime/charts",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "getWatchlist",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "normalizePortfolioHistory",
+      "owner_source": "js/shared-calc.js",
+      "owner_candidate_module": "runtime/shared-calc",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "parseAnalysisNumber",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "parseMarketNumber",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "renderTechnicalChart",
+      "owner_source": "js/charts.js",
+      "owner_candidate_module": "runtime/charts",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "renderTechnicalTrendForecastSummary",
+      "owner_source": "js/render-shared.js",
+      "owner_candidate_module": "runtime/render-shared",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "safeUrl",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "saveWatchlist",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "stockChipTabState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "stockInstitutionHistoryAttempted",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "stockInstitutionHistoryCache",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "stockInstitutionHistoryPending",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "stockInstitutionPeriodState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "stockInstitutionRangeHistoryCache",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "stockInstitutionRangeState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "stockInstitutionSeriesState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "stockMarginPeriodState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "stockMarginRangeState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "stockMarginSummaryModeState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "stockMarginTableTypeState",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "named-symbol",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "toneClass",
+      "owner_source": "js/core.js",
+      "owner_candidate_module": "runtime/core",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    },
+    {
+      "bridge_class": "mutable-state",
+      "consumer": "js/stock-detail.js",
+      "consumer_module": "route/stock-detail",
+      "symbol": "watchlistKey",
+      "owner_source": "js/state.js",
+      "owner_candidate_module": "runtime/state",
+      "removal_gate": "consumer uses named import or explicit store API and shadow verifier is green"
+    }
+  ],
+  "cycles": [
+    {
+      "candidate_modules": [
+        "runtime/bootstrap",
+        "route/page-tw"
+      ],
+      "reason": "mutual cross-slice references; do not perform direct ESM cutover until TD02-02 defines a deferred entrypoint or temporary bridge",
+      "sources": [
+        "js/main.js",
+        "js/page-tw.js"
+      ]
+    },
+    {
+      "candidate_modules": [
+        "route/global-market-assethub",
+        "route/global-market-futures",
+        "route/global-market-options"
+      ],
+      "reason": "mutual cross-slice references; do not perform direct ESM cutover until TD02-02 defines a deferred entrypoint or temporary bridge",
+      "sources": [
+        "js/page-global-market-assethub.js",
+        "js/page-global-market-futures.js",
+        "js/page-global-market-options.js"
+      ]
+    }
+  ],
+  "dynamic_window_properties": [
+    {
+      "owner": "external/server-seeded window property",
+      "property": "TWSE_ALL_STOCKS",
+      "read_lines": [
+        2
+      ],
+      "reason": "state.js reads an optional preloaded seed before live fetch; preserve as an explicit runtime input",
+      "write_lines": []
+    },
+    {
+      "owner": "external/server-seeded window property",
+      "property": "TWSE_DATA",
+      "read_lines": [
+        1
+      ],
+      "reason": "state.js reads an optional preloaded seed before live fetch; preserve as an explicit runtime input",
+      "write_lines": []
+    },
+    {
+      "owner": "js/core.js",
+      "property": "__MARKET_PULSE_SAFE_INNER_HTML__",
+      "read_lines": [
+        64
+      ],
+      "reason": "idempotence sentinel for the innerHTML safety guard; keep private to the safety adapter",
+      "write_lines": [
+        68
+      ]
+    },
+    {
+      "owner": "js/page-us.js + js/page-global-market-options.js",
+      "property": "currentGlobalMarketPayload",
+      "read_lines": [
+        1911,
+        2052,
+        2087,
+        2093,
+        2106
+      ],
+      "reason": "cross-route window payload handoff; replace with an explicit store/import before removing the bridge",
+      "write_lines": [
+        1287,
+        3850
+      ]
+    }
+  ],
+  "rollback": "disable future ESM entry/bridge, restore H-10 production bundle, then classic lockfile order; status page may restore derivatives-ui addon",
+  "next_gate": [
+    "browser-backed shadow for each wave",
+    "runtime owner-publish and duplicate-run canary",
+    "normal ESM/classic rollback canary",
+    "21/21 page wiring, 895/895 symbols, 94/94 interactions, security, E2E and full verify"
+  ],
+  "error_injection": {
+    "duplicate_or_owner_mutation": "caught"
+  }
+}

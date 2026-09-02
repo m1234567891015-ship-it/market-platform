@@ -421,12 +421,6 @@
 }
 
 
-.futures-timeframe-chip.is-disabled {
-  border-style: dashed;
-  color: var(--muted);
-  opacity: 0.7;
-}
-
 .futures-advanced-technical-panel {
   display: grid;
   gap: 14px;
@@ -1009,15 +1003,6 @@
 
 
 
-.us-architecture-node.is-blue { border-color: rgba(69, 166, 255, 0.3); }
-.us-architecture-node.is-green { border-color: rgba(69, 214, 170, 0.3); }
-.us-architecture-node.is-orange { border-color: rgba(245, 142, 85, 0.32); }
-.us-architecture-node.is-gold { border-color: rgba(245, 189, 85, 0.36); }
-.us-architecture-node.is-purple { border-color: rgba(169, 126, 255, 0.32); }
-.us-architecture-node.is-cyan { border-color: rgba(96, 220, 232, 0.32); }
-.us-architecture-node.is-red { border-color: rgba(255, 102, 122, 0.32); }
-
-
 
 
 
@@ -1368,17 +1353,6 @@
 }
 
 
-.us-etf-category-filters .range-button {
-  min-height: 38px;
-  padding: 8px 12px;
-}
-
-.us-etf-category-filters .range-button small {
-  color: inherit;
-  font-size: 0.72rem;
-  opacity: 0.74;
-}
-
 .us-directory-tools button,
 .us-directory-pager button {
   border: 1px solid rgba(129, 180, 255, 0.24);
@@ -1464,7 +1438,7 @@
 }
 
 .us-etf-detail-layout {
-  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+  grid-template-columns: 1fr;
   align-items: start;
 }
 

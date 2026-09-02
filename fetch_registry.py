@@ -134,7 +134,7 @@ def fetch_from_registry(
 
     result = spec.parser(payload) if spec.parser else payload
     if spec.cache_bucket and cache_key is not None:
-        write_memory_cache(spec.cache_bucket, cache_key, result)
+        write_memory_cache(spec.cache_bucket, cache_key, result, spec.ttl_seconds)
     return result
 
 

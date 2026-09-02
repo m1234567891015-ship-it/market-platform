@@ -56,6 +56,7 @@ modules back.
 from __future__ import annotations
 
 import copy
+import logging
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -78,8 +79,9 @@ from cache import (
     cache_data,
     cache_lock,
     claim_cache_flight,
-    enforce_bucket_cap,
     finish_cache_flight,
+    read_memory_cache,
+    write_memory_cache,
 )
 from fetchers import (
     fetch_nasdaq_trader_us_listed_universe,
@@ -92,6 +94,7 @@ from fetchers import (
     parse_float,
 )
 from market_config import (
+    CACHE_TTL_SECONDS,
     GLOBAL_MARKET_CACHE_SECONDS,
     GLOBAL_MARKET_CATEGORIES,
     GLOBAL_MARKET_DEFAULT_LOAD_LIMIT,
@@ -100,6 +103,8 @@ from market_config import (
     US_SECTOR_STOCK_GROUPS,
 )
 from parsers import TAIWAN_OPTION_DEFAULT_PRODUCT, normalize_taiwan_option_source
+
+LOGGER = logging.getLogger("market_pulse")
 
 
 bp = Blueprint("global_market", __name__)
@@ -125,11 +130,9 @@ def api_global_market(category: str):
         except ValueError:
             requested_limit = GLOBAL_MARKET_DEFAULT_LOAD_LIMIT
     limit = min(max(requested_limit, 1), GLOBAL_MARKET_MAX_LOAD_LIMIT)
-    now = time.time()
     cache_key = f"{category_key}:{limit}:{option_underlying}:{option_source if category_key == 'options' else 'default'}"
-    with cache_lock:
-        cached = cache_data["global_markets"].get(cache_key)
-    cached_payload = cached.get("payload") if cached else None
+    cached_payload = None if refresh else read_memory_cache("global_markets", cache_key, GLOBAL_MARKET_CACHE_SECONDS)
+    cached = {"payload": cached_payload} if cached_payload is not None else None
     cached_items = cached_payload.get("items", []) if isinstance(cached_payload, dict) else []
     cached_vix = next((item for item in cached_items if item.get("symbol") == "^VIX"), None)
     cache_is_stale_us_vix = category_key == "us-stocks" and (not cached_vix or cached_vix.get("error") or cached_vix.get("close") in {None, "--"})
@@ -143,9 +146,8 @@ def api_global_market(category: str):
         and cached
         and not cache_is_stale_us_vix
         and not cache_is_stale_derivative_payload
-        and now - cached.get("stored_at", 0) < GLOBAL_MARKET_CACHE_SECONDS
     ):
-        cached_payload = copy.deepcopy(cached["payload"])
+        cached_payload = copy.deepcopy(cached_payload)
         if category_key == "futures":
             cached_payload["items"] = [normalize_futures_yahoo_uncovered_links(item) for item in cached_payload.get("items", [])]
         return jsonify({**cached_payload, "cached": True})
@@ -153,10 +155,9 @@ def api_global_market(category: str):
     is_leader, flight = claim_cache_flight(f"global-market:{cache_key}")
     if not is_leader:
         flight.wait(CACHE_FLIGHT_WAIT_SECONDS)
-        with cache_lock:
-            refreshed = cache_data["global_markets"].get(cache_key)
-        if refreshed and refreshed.get("payload"):
-            shared_payload = copy.deepcopy(refreshed["payload"])
+        refreshed_payload = read_memory_cache("global_markets", cache_key, GLOBAL_MARKET_CACHE_SECONDS)
+        if refreshed_payload:
+            shared_payload = copy.deepcopy(refreshed_payload)
             if category_key == "futures":
                 shared_payload["items"] = [normalize_futures_yahoo_uncovered_links(item) for item in shared_payload.get("items", [])]
             return jsonify({**shared_payload, "cached": True})
@@ -164,9 +165,7 @@ def api_global_market(category: str):
 
     try:
         payload = build_global_market_payload(category_key, limit, option_source=option_source, option_underlying=option_underlying)
-        with cache_lock:
-            cache_data["global_markets"][cache_key] = {"stored_at": time.time(), "payload": payload}
-            enforce_bucket_cap("global_markets")
+        write_memory_cache("global_markets", cache_key, payload, GLOBAL_MARKET_CACHE_SECONDS)
         return jsonify({**payload, "cached": False})
     finally:
         finish_cache_flight(f"global-market:{cache_key}", flight)
@@ -221,7 +220,7 @@ def find_us_listed_symbol(symbol: str) -> dict[str, Any] | None:
     return next((item for item in universe if str(item.get("symbol") or "").upper() == clean_symbol), None)
 
 
-US_ETF_CENTER_CACHE_SECONDS = 5 * 60
+US_ETF_CENTER_CACHE_SECONDS = CACHE_TTL_SECONDS["us_etf_center"]
 
 
 @bp.route("/api/us-market/etf-center")
@@ -239,27 +238,22 @@ def api_us_market_etf_center():
     except ValueError:
         quote_limit = 48
 
-    now = time.time()
     cache_key = f"{query.lower()}:{directory_limit}:{quote_limit}"
-    with cache_lock:
-        cached = cache_data["us_etf_center"].get(cache_key)
-    if not refresh and cached and now - cached.get("stored_at", 0) < US_ETF_CENTER_CACHE_SECONDS:
-        return jsonify({**cached["payload"], "cached": True})
+    cached_payload = None if refresh else read_memory_cache("us_etf_center", cache_key, US_ETF_CENTER_CACHE_SECONDS)
+    if cached_payload is not None:
+        return jsonify({**cached_payload, "cached": True})
 
     is_leader, flight = claim_cache_flight(f"us-etf-center:{cache_key}")
     if not is_leader:
         flight.wait(CACHE_FLIGHT_WAIT_SECONDS)
-        with cache_lock:
-            refreshed = cache_data["us_etf_center"].get(cache_key)
-        if refreshed and refreshed.get("payload"):
-            return jsonify({**copy.deepcopy(refreshed["payload"]), "cached": True})
+        refreshed_payload = read_memory_cache("us_etf_center", cache_key, US_ETF_CENTER_CACHE_SECONDS)
+        if refreshed_payload:
+            return jsonify({**copy.deepcopy(refreshed_payload), "cached": True})
         return jsonify(app.api_error_payload("CACHE_REFRESH_UNAVAILABLE", app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE)), 503
 
     try:
         payload = build_us_etf_center_payload(query, directory_limit, quote_limit, refresh)
-        with cache_lock:
-            cache_data["us_etf_center"][cache_key] = {"stored_at": time.time(), "payload": payload}
-            enforce_bucket_cap("us_etf_center")
+        write_memory_cache("us_etf_center", cache_key, payload, US_ETF_CENTER_CACHE_SECONDS)
         return jsonify({**payload, "cached": False})
     finally:
         finish_cache_flight(f"us-etf-center:{cache_key}", flight)
@@ -273,7 +267,8 @@ def api_us_market_search():
         source = "Nasdaq Trader 官方 Symbol Directory"
         try:
             _items, totals = fetch_nasdaq_trader_us_listed_universe(False)
-        except Exception:
+        except Exception as exc:
+            LOGGER.debug("Nasdaq Trader empty-query lookup failed", exc_info=exc)
             totals = {
                 "美股個股": sum(1 for item in US_MARKET_SEARCH_UNIVERSE if item.get("group") == "美股個股"),
                 "美股 ETF": sum(1 for item in US_MARKET_SEARCH_UNIVERSE if item.get("group") == "美股 ETF"),
@@ -290,19 +285,22 @@ def api_us_market_search():
     def run_listed_search() -> tuple[list[dict[str, Any]], dict[str, int], str]:
         try:
             return search_us_listed_universe(query, 120)
-        except Exception:
+        except Exception as exc:
+            LOGGER.debug("Listed U.S. market search failed for query=%r", query, exc_info=exc)
             return [], {}, ""
 
     def run_nyse_search() -> tuple[list[dict[str, Any]], dict[str, int]]:
         try:
             return fetch_nyse_us_market_search(query, 60)
-        except Exception:
+        except Exception as exc:
+            LOGGER.debug("NYSE U.S. market search failed for query=%r", query, exc_info=exc)
             return [], {}
 
     def run_yahoo_search() -> list[dict[str, Any]]:
         try:
             return fetch_yahoo_us_market_search(query, 20)
-        except Exception:
+        except Exception as exc:
+            LOGGER.debug("Yahoo U.S. market search failed for query=%r", query, exc_info=exc)
             return []
 
     # These four sources are independent (results are merged, not tried-until-success),

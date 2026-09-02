@@ -57,6 +57,26 @@ from market_config import ASSET_STATIC_FILES, JS_MODULE_STATIC_FILES, PAGE_ROUTE
 
 
 BASE_DIR = Path(__file__).resolve().parent
+IMMUTABLE_ROOT_FILES = {
+    "common-runtime.min.js",
+    "common-runtime.min.js.map",
+    "route-bundle.min.js",
+    "route-bundle.min.js.map",
+    "derivatives-status-addon.min.js",
+    "derivatives-status-addon.min.js.map",
+    "market-pulse-esm.min.js",
+    "market-pulse-esm.min.js.map",
+}
+IMMUTABLE_ASSET_VERSIONS = {
+    "common-runtime.min.js": "td18-minify-20260901-1",
+    "common-runtime.min.js.map": "td18-minify-20260901-1",
+    "route-bundle.min.js": "td18-minify-20260901-1",
+    "route-bundle.min.js.map": "td18-minify-20260901-1",
+    "derivatives-status-addon.min.js": "td18-minify-20260901-1",
+    "derivatives-status-addon.min.js.map": "td18-minify-20260901-1",
+    "market-pulse-esm.min.js": "td02-full-esm-20260901-1",
+    "market-pulse-esm.min.js.map": "td02-full-esm-20260901-1",
+}
 
 bp = Blueprint("system", __name__)
 
@@ -86,7 +106,12 @@ def pwa_service_worker():
     return no_store_static_response(response)
 
 
-def no_store_static_response(response: Response) -> Response:
+def no_store_static_response(response: Response, filename: str | None = None) -> Response:
+    if filename in IMMUTABLE_ROOT_FILES and request.args.get("v") == IMMUTABLE_ASSET_VERSIONS.get(filename):
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        response.headers.pop("Pragma", None)
+        response.headers.pop("Expires", None)
+        return response
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
@@ -95,7 +120,7 @@ def no_store_static_response(response: Response) -> Response:
 
 def send_no_store_root_file(filename: str, **kwargs: Any) -> Response:
     response = send_from_directory(BASE_DIR, filename, **kwargs)
-    return no_store_static_response(response)
+    return no_store_static_response(response, filename)
 
 
 def redirect_legacy_page(target: str):

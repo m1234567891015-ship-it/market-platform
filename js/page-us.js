@@ -1449,6 +1449,7 @@ function renderUsDetailAnalysisCards(detail, technicalTheory) {
   const ownership = detail.ownershipTrading || {};
   const ownershipMetrics = ownership.metrics || {};
   const profile = detail.companyProfile || {};
+  const etfHoldings = Array.isArray(detail.etfComponents?.holdings) ? detail.etfComponents.holdings : [];
   const avgVolume = parseMarketNumber(detail.avgVolume5);
   const latestHistoryDay = (detail.historyDays || []).at(-1);
   const latestVolume = parseMarketNumber(latestHistoryDay?.volume);
@@ -1898,19 +1899,32 @@ function renderUsDetailAnalysisCards(detail, technicalTheory) {
         `Beta：${valuation.beta || "--"}，營收成長：${valuation.revenueGrowth || "--"}，淨利率：${valuation.profitMargins || "--"}`,
       ],
     },
-    {
-      title: "籌碼面",
-      key: "chips",
-      summary: "美股缺少台股三大法人、主力分點與集保口徑，改以 Short Interest、成交量、OBV 與股本結構作為公開籌碼代理。",
-      items: [
-        `成交量：${formatGlobalVolume(detail.rawItem?.volume)}，5 日均量：${detail.avgVolume5}`,
-        `量比：${Number.isFinite(volumeRatio) ? volumeRatio.toFixed(2) : "--"}`,
-        `Short % float：${displayValue(margin.shortPercentOfFloat)}，Days to cover：${displayValue(margin.shortRatio)}`,
-        ...(volumeSignals.length ? volumeSignals.map((item) => `${item.name} ${item.value}：${item.text}`) : ["OBV / 平均成交量資料不足。"]),
-        ...(breadthSignals.length ? breadthSignals.map((item) => `${item.name} ${item.value}：${item.text}`) : []),
-      ],
-      chipProxy: true,
-    },
+    detail.isEtf
+      ? {
+        title: "ETF 交易面",
+        key: "chips",
+        summary: "ETF 不套用個股法人、主力分點與 Short Interest 籌碼口徑，改以成交量、波動與流動性觀察交易品質。",
+        items: [
+          `成交量：${displayValue(formatGlobalVolume(detail.rawItem?.volume))}，5 日均量：${displayValue(detail.avgVolume5 || valuation.averageVolume)}`,
+          `量比：${Number.isFinite(volumeRatio) ? volumeRatio.toFixed(2) : "--"}`,
+          "波動與流動性：依歷史價格、成交量與 OBV 訊號判讀。",
+          ...(volumeSignals.length ? volumeSignals.map((item) => `${item.name} ${item.value}：${item.text}`) : ["OBV / 平均成交量資料不足。"]),
+          `持股配置：${etfHoldings.length ? `${etfHoldings.length} 項` : "資料同步中"}；配息與費用率請至下方 ETF Holdings / ETF Dividend 核對。`,
+        ],
+      }
+      : {
+        title: "籌碼面",
+        key: "chips",
+        summary: "美股缺少台股三大法人、主力分點與集保口徑，改以 Short Interest、成交量、OBV 與股本結構作為公開籌碼代理。",
+        items: [
+          `成交量：${formatGlobalVolume(detail.rawItem?.volume)}，5 日均量：${detail.avgVolume5}`,
+          `量比：${Number.isFinite(volumeRatio) ? volumeRatio.toFixed(2) : "--"}`,
+          `Short % float：${displayValue(margin.shortPercentOfFloat)}，Days to cover：${displayValue(margin.shortRatio)}`,
+          ...(volumeSignals.length ? volumeSignals.map((item) => `${item.name} ${item.value}：${item.text}`) : ["OBV / 平均成交量資料不足。"]),
+          ...(breadthSignals.length ? breadthSignals.map((item) => `${item.name} ${item.value}：${item.text}`) : []),
+        ],
+        chipProxy: true,
+      },
   ];
   return `
     <div class="analysis-grid">
@@ -2038,30 +2052,52 @@ function renderUsValuationCompanyCard(detail) {
       <p class="stock-theory-note">${escapeHtml(profile.businessSummary || "公司摘要目前未取得。")}</p>
     </aside>
   `;
-  if (detail.isEtf && holdings.length) {
+  if (detail.isEtf) {
     return `
-      <section class="valuation-company-card etf-components-card">
-        <div class="card-title-row">
-          <div>
-            <h3>${escapeHtml(components.title || "ETF 成分股比例")}</h3>
-            <p class="chart-subtitle">${escapeHtml(components.summary || "ETF 持股資料依 Yahoo Finance Top Holdings 整理。")}</p>
+      <div class="us-etf-fundamentals-stack">
+        <section class="valuation-company-card etf-dividend-card">
+          <div class="card-title-row">
+            <div>
+              <p class="panel-kicker">ETF Dividend</p>
+              <h3>ETF 股利資訊</h3>
+              <p class="chart-subtitle">以 Yahoo Finance / Nasdaq 可取得的年化股息、股息率、費用率與基金規模呈現。</p>
+            </div>
+            <span class="chip chip-gold">收益資料</span>
           </div>
-          <span class="chip chip-blue">${holdings.length} 項配置</span>
-        </div>
-        <div class="etf-holding-list">
-          ${holdings.map((item) => {
-            const weight = Math.max(0, Math.min(100, Number(item.weight) || 0));
-            return `
-              <div class="etf-holding-row">
-                <div><strong>${escapeHtml(item.name || "--")}</strong><span>${escapeHtml(item.code || "--")}</span></div>
-                <div class="etf-holding-bar"><i style="width:${weight}%"></i></div>
-                <b>${weight.toFixed(2)}%</b>
-              </div>
-            `;
-          }).join("")}
-        </div>
-        <p class="stock-theory-note">${escapeHtml(components.sourceNote || "實際持股比例請以發行商公告為準。")}</p>
-      </section>
+          ${renderMetricGrid([
+            ["年化股息", valuation.dividendPerShare ? `${valuation.dividendPerShare} USD` : "--"],
+            ["股息率", isMissingValue(valuation.dividendYield) ? "--" : `${valuation.dividendYield}%`],
+            ["費用率", valuation.expenseRatio],
+            ["AUM", valuation.aum],
+            ["Beta", valuation.beta],
+            ["52 週區間", valuation.fiftyTwoWeekRange],
+          ])}
+          <p class="stock-theory-note">ETF 實際配息頻率、除息日與發放日請以發行商公告核對。</p>
+        </section>
+        <section class="valuation-company-card etf-components-card">
+          <div class="card-title-row">
+            <div>
+              <p class="panel-kicker">ETF Holdings</p>
+              <h3>${escapeHtml(components.title || "ETF 成分股比例")}</h3>
+              <p class="chart-subtitle">${escapeHtml(components.summary || "ETF 持股資料依 Yahoo Finance Top Holdings 整理；資料同步中時保留明確狀態。")}</p>
+            </div>
+            <span class="chip chip-blue">${holdings.length ? `${holdings.length} 項配置` : "資料待補"}</span>
+          </div>
+          <div class="etf-holding-list">
+            ${holdings.map((item) => {
+              const weight = Math.max(0, Math.min(100, Number(item.weight) || 0));
+              return `
+                <div class="etf-holding-row">
+                  <div><strong>${escapeHtml(item.name || "--")}</strong><span>${escapeHtml(item.code || "--")}</span></div>
+                  <div class="etf-holding-bar"><i style="width:${weight}%"></i></div>
+                  <b>${weight.toFixed(2)}%</b>
+                </div>
+              `;
+            }).join("") || '<p class="stock-detail-empty">ETF 成分股資料目前同步中，請稍後重新整理。</p>'}
+          </div>
+          <p class="stock-theory-note">${escapeHtml(components.sourceNote || "實際持股比例請以發行商公告為準。")} ${components.sourceLink ? `<a href="${safeUrl(components.sourceLink)}" target="_blank" rel="noreferrer noopener">查看來源</a>` : ""}</p>
+        </section>
+      </div>
     `;
   }
   return `
@@ -2830,50 +2866,6 @@ async function loadUsWatchlistAiAnalyses(force = false) {
     setText("us-watchlist-status", `AI 分析已更新，完成 ${items.length} 檔美股自選標的。`);
     renderUsWatchlist();
   }
-}
-function renderUsWatchlistSearchResults(results = []) {
-  const container = document.getElementById("us-watchlist-results");
-  if (!container) return;
-  if (!results.length) {
-    container.innerHTML = '<div class="stock-detail-empty">輸入代號或名稱後，這裡會列出可加入自選的美股 / ETF。</div>';
-    return;
-  }
-  const watchSymbols = new Set(getUsWatchlist().map((item) => String(item.symbol).toUpperCase()));
-  container.innerHTML = results.map((item) => {
-    const symbol = String(item.symbol || "").toUpperCase();
-    const added = watchSymbols.has(symbol);
-    return `
-      <div class="search-result-item us-result-card" data-us-watch-result-card>
-        <button class="us-result-main-button" type="button" data-us-watch-symbol="${escapeHtml(symbol)}">
-          <span class="search-result-main">
-            ${escapeHtml(symbol || "--")} ${escapeHtml(item.name || "")}
-            <small class="search-result-market">${escapeHtml(item.group || "美股 / ETF")}</small>
-          </span>
-          <span class="search-result-sub">
-            ${escapeHtml(item.type || "--")}
-            ${item.exchange ? ` · ${escapeHtml(item.exchange)}` : ""}
-            ${item.source ? ` · ${escapeHtml(item.source)}` : ""}
-          </span>
-        </button>
-        <button class="btn btn-secondary" type="button" data-us-watch-add="${escapeHtml(symbol)}"${added ? " disabled" : ""}>
-          ${added ? "已加入" : "加入自選"}
-        </button>
-      </div>
-    `;
-  }).join("");
-  container.querySelectorAll("[data-us-watch-symbol]").forEach((button) => {
-    button.addEventListener("click", () => loadUsWatchlistSymbol(button.dataset.usWatchSymbol));
-  });
-  container.querySelectorAll("[data-us-watch-add]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const symbol = String(button.dataset.usWatchAdd || "").toUpperCase();
-      const item = results.find((entry) => String(entry.symbol || "").toUpperCase() === symbol);
-      if (upsertUsWatchlistSymbol(item || { symbol })) {
-        setText("us-watchlist-status", `${symbol} 已加入美股自選股。`);
-        renderUsWatchlistSearchResults(results);
-      }
-    });
-  });
 }
 function initUsWatchlistPage() {
   renderUsWatchlist();

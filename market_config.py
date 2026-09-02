@@ -87,8 +87,25 @@ PAGE_ROUTES = {
 }
 ROOT_STATIC_FILES = {
     "app.js",
+    "common-runtime.js",
+    "common-runtime.js.map",
+    "common-runtime.min.js",
+    "common-runtime.min.js.map",
     "derivatives-ui.js",
+    "derivatives-status-addon.js",
+    "derivatives-status-addon.js.map",
+    "derivatives-status-addon.min.js",
+    "derivatives-status-addon.min.js.map",
+    "derivatives-status-esm.js",
+    "derivatives-status-esm-loader.js",
+    "market-pulse-esm-loader.js",
+    "market-pulse-esm.min.js",
+    "market-pulse-esm.min.js.map",
     "pwa.js",
+    "route-bundle.js",
+    "route-bundle.js.map",
+    "route-bundle.min.js",
+    "route-bundle.min.js.map",
     "styles.css",
     "twse-cache.json",
     "twse-data.js",
@@ -147,16 +164,64 @@ TWSE_MARGIN_URL = f"{TWSE_OPENAPI_BASE}/exchangeReport/MI_MARGN"
 TAIFEX_FUTURES_DAILY_URL = "https://www.taifex.com.tw/cht/3/futDailyMarketReport"
 TAIFEX_OPTIONS_DAILY_URL = "https://www.taifex.com.tw/cht/3/optDailyMarketReport"
 TAIFEX_OPTIONS_PC_RATIO_URL = "https://www.taifex.com.tw/cht/3/pcRatio"
+
+# Central cache policy registry (TD-12). Feature modules keep their historical
+# named constants as aliases for compatibility, but the values live here so a
+# TTL audit and a capacity review have one source of truth.
+CACHE_TTL_SECONDS: dict[str, int] = {
+    "penny_sector_recommendation": 30 * 60,
+    "options_chain": 5 * 60,
+    "tdcc_holding": 6 * 60 * 60,
+    "global_market": 5 * 60,
+    "us_listed_universe": 12 * 60 * 60,
+    "treasury_yield_curve": 6 * 60 * 60,
+    "yahoo_tw_future": 60,
+    "yahoo_tw_option": 60,
+    "yahoo_tw_stock_resource": 5 * 60,
+    "yahoo_tw_future_technical_candle": 15 * 60,
+    "taifex_institution_detail": 15 * 60,
+    "yahoo_options_crumb": 45 * 60,
+    "external_text": 5 * 60,
+    "twse_company_industry": 12 * 60 * 60,
+    "taifex_stock_derivative_aggregate": 15 * 60,
+    "taifex_underlying_list": 6 * 60 * 60,
+    "deribit_options_chain": 60,
+    "bybit_options_chain": 60,
+    "sector_fund_flow": 10 * 60,
+    "global_market_item": 5 * 60,
+    "us_etf_center": 5 * 60,
+    "sector_chart": 5 * 60,
+    "stock_detail": 5 * 60,
+}
+
+# Only per-key buckets need count eviction. Snapshot buckets are replaced as a
+# whole and are documented as such in CLOUD_DEPLOYMENT.md.
+CACHE_BUCKET_MAX_ENTRIES: dict[str, int] = {
+    "stock_details": 2500,
+    "yahoo_tw_stock_resources": 3000,
+    "us_options_chains": 500,
+    "yahoo_tw_option_chain": 150,
+    "taifex_options_chain": 300,
+    "external_text": 500,
+    "global_market_items": 300,
+    "global_markets": 100,
+    "us_etf_center": 500,
+    "sector_charts": 150,
+    "yahoo_tw_future_technical_candles": 200,
+    "taifex_openapi_list": 100,
+    "live_search_dedup": 500,
+}
+
 # TD-12: merged with builders.py's former US_/YAHOO_/BARCHART_OPTIONS_CHAIN_CACHE_SECONDS
 # (also 300s, also gating options-chain freshness, just for different sources/buckets)
 # into one shared constant - all 4 were the same "5-minute options chain freshness"
 # concept under different names. DERIBIT_/BYBIT_OPTIONS_CHAIN_CACHE_SECONDS (60s,
 # builders.py) stay separate: 24/7 crypto markets genuinely need fresher data than
 # session-hours markets, not a coincidental value match.
-OPTIONS_CHAIN_CACHE_SECONDS = 5 * 60
+OPTIONS_CHAIN_CACHE_SECONDS = CACHE_TTL_SECONDS["options_chain"]
 TDCC_HOLDING_DISTRIBUTION_URL = "https://smart.tdcc.com.tw/opendata/getOD.ashx?id=1-5"
 TDCC_HOLDING_DISTRIBUTION_FALLBACK_URL = "http://smart.tdcc.com.tw/opendata/getOD.ashx?id=1-5"
-TDCC_HOLDING_CACHE_SECONDS = 6 * 60 * 60
+TDCC_HOLDING_CACHE_SECONDS = CACHE_TTL_SECONDS["tdcc_holding"]
 US_TREASURY_YIELD_CURVE_YEAR = datetime.now().year
 US_TREASURY_YIELD_CURVE_CSV_URL = (
     "https://home.treasury.gov/resource-center/data-chart-center/interest-rates/"
@@ -206,10 +271,10 @@ INTERNATIONAL_INDEX_SPECS = [
     {"key": "msciem", "name": "MSCI Emerging Markets Index", "symbol": "EEM", "market": "新興市場", "proxy": "iShares MSCI Emerging Markets ETF"},
     {"key": "vix", "name": "VIX 指數", "symbol": "^VIX", "market": "波動率"},
 ]
-GLOBAL_MARKET_CACHE_SECONDS = 5 * 60
+GLOBAL_MARKET_CACHE_SECONDS = CACHE_TTL_SECONDS["global_market"]
 GLOBAL_MARKET_DEFAULT_LOAD_LIMIT = 36
 GLOBAL_MARKET_MAX_LOAD_LIMIT = 160
-US_LISTED_UNIVERSE_CACHE_SECONDS = 12 * 60 * 60
+US_LISTED_UNIVERSE_CACHE_SECONDS = CACHE_TTL_SECONDS["us_listed_universe"]
 GLOBAL_MARKET_CATEGORIES = {
     "us-stocks": {
         "title": "美股",

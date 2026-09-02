@@ -77,14 +77,6 @@
 
 
 
-.chip-summary-card.is-up {
-  border-color: rgba(61, 220, 151, 0.24);
-}
-
-.chip-summary-card.is-down {
-  border-color: rgba(255, 107, 122, 0.24);
-}
-
 .chip-summary-head {
   display: flex;
   align-items: flex-start;
@@ -118,16 +110,6 @@
   background: rgba(77, 167, 255, 0.12);
   color: #4da7ff;
   font-size: 0.76rem;
-}
-
-.chip-summary-card.is-up .chip-summary-head b {
-  background: rgba(61, 220, 151, 0.12);
-  color: var(--green);
-}
-
-.chip-summary-card.is-down .chip-summary-head b {
-  background: rgba(255, 107, 122, 0.12);
-  color: var(--red);
 }
 
 .chip-summary-metrics {
@@ -2998,16 +2980,6 @@
 }
 
 
-.us-sector-plain-result.is-ahead {
-  border-color: rgba(53, 227, 162, 0.26);
-  background: linear-gradient(135deg, rgba(53, 227, 162, 0.12), rgba(18, 32, 53, 0.84));
-}
-
-.us-sector-plain-result.is-behind {
-  border-color: rgba(255, 102, 128, 0.28);
-  background: linear-gradient(135deg, rgba(255, 102, 128, 0.12), rgba(18, 32, 53, 0.84));
-}
-
 
 
 
@@ -3023,17 +2995,8 @@
 
 
 
-.us-sector-end-label.is-leading rect {
-  stroke: rgba(53, 227, 162, 0.7);
-}
 
-.us-sector-end-label.is-lagging rect {
-  stroke: rgba(255, 102, 128, 0.72);
-}
 
-.us-sector-end-label.is-benchmark rect {
-  stroke: rgba(144, 171, 208, 0.75);
-}
 
 .us-sector-analysis-grid {
   display: grid;

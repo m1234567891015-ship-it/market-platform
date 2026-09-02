@@ -72,9 +72,10 @@ from cache import (
     cache_lock,
     claim_cache_flight,
     ensure_cache,
-    enforce_bucket_cap,
     finish_cache_flight,
+    read_memory_cache,
     save_disk_cache,
+    write_memory_cache,
 )
 from fetchers import (
     build_yahoo_chart_series,
@@ -98,11 +99,21 @@ from fetchers import (
     normalize_market_request,
     parse_float,
 )
-from market_config import INTERNATIONAL_INDEX_SPECS, YAHOO_TPEX_ETF_URL
+from market_config import CACHE_TTL_SECONDS, INTERNATIONAL_INDEX_SPECS, YAHOO_TPEX_ETF_URL
 from parsers import enrich_stocks_with_industry, find_stock_by_query, pick_exact_live_stock
 
 
 bp = Blueprint("twse", __name__)
+
+
+def ensure_cache_or_error(error_code: str):
+    import app
+
+    try:
+        ensure_cache()
+    except Exception as exc:  # noqa: BLE001
+        return app.api_exception_response(error_code, app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc)
+    return None
 
 
 @bp.route("/api/twse/site-data")
@@ -115,7 +126,9 @@ def api_site_data():
             return jsonify(build_live_sector_site_data())
         except Exception as exc:  # noqa: BLE001
             return app.api_exception_response("LIVE_SITE_DATA_UNAVAILABLE", app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc)
-    ensure_cache()
+    cache_error = ensure_cache_or_error("SITE_DATA_UNAVAILABLE")
+    if cache_error is not None:
+        return cache_error
     with cache_lock:
         return jsonify(cache_data["site_data"])
 
@@ -253,11 +266,13 @@ def api_yahoo_sector():
     )
 
 
-SECTOR_CHART_CACHE_SECONDS = 300
+SECTOR_CHART_CACHE_SECONDS = CACHE_TTL_SECONDS["sector_chart"]
 
 
 @bp.route("/api/yahoo/sector-chart")
 def api_yahoo_sector_chart():
+    import app
+
     raw_symbol = request.args.get("symbol", "").strip().upper()
     exchange = request.args.get("exchange", "").strip().upper()
     equity_match = re.fullmatch(r"(\d{4,6}[A-Z]?)(?:\.(TW|TWO))?", raw_symbol)
@@ -270,11 +285,9 @@ def api_yahoo_sector_chart():
     market = "TWSE" if exchange in {"TAI", "TW", "TWSE"} or symbol_suffix == "TW" else "TPEx"
     yahoo_symbol = raw_symbol if not equity_match else ""
     cache_key = f"{raw_symbol}:{exchange}:{market}"
-    now = time.monotonic()
-    with cache_lock:
-        cached_chart = cache_data["sector_charts"].get(cache_key)
-        if cached_chart and now - cached_chart["stored_at"] < SECTOR_CHART_CACHE_SECONDS:
-            return jsonify(cached_chart["payload"])
+    cached_chart = read_memory_cache("sector_charts", cache_key, SECTOR_CHART_CACHE_SECONDS)
+    if cached_chart is not None:
+        return jsonify(cached_chart)
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         history_future = (
@@ -285,11 +298,22 @@ def api_yahoo_sector_chart():
         benchmark_future = executor.submit(fetch_yahoo_symbol_chart, "^TWII", "2y", "1d")
         try:
             history_chart = history_future.result()
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            app.LOGGER.debug(
+                "Yahoo sector chart history fetch failed for symbol=%s market=%s; using empty history chart",
+                symbol,
+                market,
+                exc_info=exc,
+            )
             history_chart = None
         try:
             benchmark_chart = benchmark_future.result()
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            app.LOGGER.debug(
+                "Yahoo sector chart benchmark fetch failed for symbol=%s; using empty benchmark chart",
+                symbol,
+                exc_info=exc,
+            )
             benchmark_chart = None
 
     day_series = build_yahoo_chart_series(history_chart)
@@ -375,12 +399,7 @@ def api_yahoo_sector_chart():
             "intradayAvailable": False,
         },
     }
-    with cache_lock:
-        cache_data["sector_charts"][cache_key] = {
-            "stored_at": now,
-            "payload": payload,
-        }
-        enforce_bucket_cap("sector_charts")
+    write_memory_cache("sector_charts", cache_key, payload, SECTOR_CHART_CACHE_SECONDS)
     return jsonify(payload)
 
 
@@ -396,7 +415,9 @@ def api_market_penny_sector_recommendations():
 
 @bp.route("/api/market/international-indexes")
 def api_market_international_indexes():
-    ensure_cache()
+    cache_error = ensure_cache_or_error("MARKET_INDEX_CACHE_UNAVAILABLE")
+    if cache_error is not None:
+        return cache_error
     with cache_lock:
         site_data = cache_data["site_data"] or {}
         cached_indexes = site_data.get("marketInternationalIndexes") or []
@@ -418,7 +439,9 @@ def api_market_international_indexes():
 
 @bp.route("/twse-data.js")
 def twse_data_script():
-    ensure_cache()
+    cache_error = ensure_cache_or_error("TWSE_DATA_SCRIPT_UNAVAILABLE")
+    if cache_error is not None:
+        return cache_error
     with cache_lock:
         site_payload = json.dumps(cache_data["site_data"], ensure_ascii=False)
         stocks_payload = json.dumps(cache_data["all_stocks"], ensure_ascii=False)
@@ -431,7 +454,9 @@ def twse_data_script():
 
 @bp.route("/api/twse/all-stocks")
 def api_all_stocks():
-    ensure_cache()
+    cache_error = ensure_cache_or_error("ALL_STOCKS_UNAVAILABLE")
+    if cache_error is not None:
+        return cache_error
     with cache_lock:
         stocks = list(cache_data["all_stocks"])
         market_date = cache_data["market_date"]
@@ -548,7 +573,9 @@ def tw_etf_sort_key(item: dict[str, Any], sort_key: str) -> Any:
 
 @bp.route("/api/twse/etfs")
 def api_twse_etfs():
-    ensure_cache()
+    cache_error = ensure_cache_or_error("TWSE_ETFS_UNAVAILABLE")
+    if cache_error is not None:
+        return cache_error
     query = request.args.get("q", "").strip().lower()
     category = request.args.get("category", "all").strip()
     sort_key = request.args.get("sort", "return_desc").strip()
@@ -636,14 +663,22 @@ def api_twse_etfs():
 
 @bp.route("/api/twse/search")
 def api_stock_search():
-    ensure_cache()
+    import app
+
+    cache_error = ensure_cache_or_error("STOCK_SEARCH_UNAVAILABLE")
+    if cache_error is not None:
+        return cache_error
     query = request.args.get("q", "").strip()
     with cache_lock:
-        stocks = list(cache_data["all_stocks"])
+        raw_stocks = cache_data.get("all_stocks")
+        stocks = list(raw_stocks) if isinstance(raw_stocks, list) else []
         cached_at = cache_data["cached_at"]
         market_date = cache_data["market_date"]
 
-    matches = find_stock_by_query(query, stocks)
+    try:
+        matches = find_stock_by_query(query, stocks)
+    except Exception as exc:  # noqa: BLE001
+        return app.api_exception_response("STOCK_SEARCH_INVALID_DATA", app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc)
     return jsonify(
         {
             "query": query,
@@ -691,13 +726,14 @@ def api_stock_detail(code: str):
         detail = {**detail, "cachedAt": app.taipei_now().strftime("%Y-%m-%d %H:%M:%S")}
         return jsonify(detail)
 
-    ensure_cache()
+    cache_error = ensure_cache_or_error("STOCK_DETAIL_UNAVAILABLE")
+    if cache_error is not None:
+        return cache_error
     with cache_lock:
         stocks = list(cache_data["all_stocks"])
         market_date = cache_data["market_date"]
         cached_at = cache_data["cached_at"]
         site_data = cache_data["site_data"]
-        stock_details = cache_data["stock_details"]
 
     stock = next(
         (
@@ -721,15 +757,13 @@ def api_stock_detail(code: str):
         return jsonify({"error": "查無個股資料", "code": code_key}), 404
     detail_mode = "quick" if quick else "full"
     cache_key = f"{stock.get('market', 'TWSE')}:{stock.get('code', code_key)}:{market_date}:{history_mode}:{months_back}:{detail_mode}"
-    with cache_lock:
-        detail = stock_details.get(cache_key)
+    detail = read_memory_cache("stock_details", cache_key, CACHE_TTL_SECONDS["stock_detail"])
 
     if detail is None:
         is_leader, flight = claim_cache_flight(f"stock-detail:{cache_key}")
         if not is_leader:
             flight.wait(CACHE_FLIGHT_WAIT_SECONDS)
-            with cache_lock:
-                detail = cache_data["stock_details"].get(cache_key)
+            detail = read_memory_cache("stock_details", cache_key, CACHE_TTL_SECONDS["stock_detail"])
             if detail is None:
                 return jsonify(app.api_error_payload("CACHE_REFRESH_UNAVAILABLE", app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE)), 503
         else:
@@ -745,9 +779,7 @@ def api_stock_detail(code: str):
                     include_shareholders=not defer_slow,
                     include_institutional_history=not defer_slow,
                 )
-                with cache_lock:
-                    cache_data["stock_details"][cache_key] = detail
-                    enforce_bucket_cap("stock_details")
+                write_memory_cache("stock_details", cache_key, detail, CACHE_TTL_SECONDS["stock_detail"])
             finally:
                 finish_cache_flight(f"stock-detail:{cache_key}", flight)
 
@@ -820,7 +852,13 @@ def api_stock_institutional_history(code: str):
     if not trading_dates:
         try:
             rows = fetch_yahoo_history_rows(stock["code"], STOCK_HISTORY_RECENT_MONTHS, market=stock.get("market") or "TWSE")
-        except Exception:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
+            app.LOGGER.debug(
+                "Yahoo institutional history seed fetch failed for code=%s market_date=%s; using empty rows",
+                code_key,
+                market_date,
+                exc_info=exc,
+            )
             rows = []
         trading_dates = build_institutional_trade_candidate_dates(rows, market_date, max(70, requested_limit * 2))
 
