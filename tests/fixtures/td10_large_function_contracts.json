@@ -1,0 +1,78 @@
+{
+  "stock": {
+    "code": "2330",
+    "name": "台積電",
+    "market": "TWSE",
+    "marketLabel": "上市",
+    "securityType": "STOCK",
+    "close": "600",
+    "change": "10",
+    "open": "590",
+    "high": "605",
+    "low": "585",
+    "pct": "+1.67%",
+    "volume": "100000",
+    "trades": "12000",
+    "turnover": "60000000000",
+    "bidVolume": "500",
+    "askVolume": "400"
+  },
+  "margin": {
+    "dailyRows": [
+      {"date": "2026-07-17", "financingBalance": 1200, "shortBalance": 300}
+    ],
+    "summary": {"financingBalance": 1200, "shortBalance": 300}
+  },
+  "stockHistoryRows": [
+    ["20260714", "80000", "", "580", "590", "575", "585", "+1.00"],
+    ["20260715", "90000", "", "585", "595", "580", "590", "+0.85"],
+    ["20260716", "95000", "", "590", "600", "585", "595", "+0.85"],
+    ["20260717", "100000", "", "590", "605", "585", "600", "+0.84"]
+  ],
+  "taifexOpenInterest": {
+    "spec": {"symbol": "TX", "name": "臺股期貨 未平倉", "type": "臺股期貨"},
+    "snapshot": {
+      "date": "2026-07-17",
+      "open": 20900,
+      "high": 21100,
+      "low": 20800,
+      "close": 21000,
+      "change": 100,
+      "changePct": 0.48,
+      "volume": 12345,
+      "openInterest": 98765,
+      "settlement": 20980,
+      "sourceLink": "https://example.test/taifex",
+      "observations": [
+        {"date": "2026-07-16", "open": 20800, "high": 20950, "low": 20750, "close": 20900, "volume": 11000, "openInterest": 98000}
+      ]
+    },
+    "yahooQuote": null
+  },
+  "taifexAggregate": {
+    "spec": {"symbol": "STF", "name": "股票期貨", "dataProvider": "taifex_product_status"},
+    "underlyings": [
+      {"Contract": "CDF", "StockCode": "2330", "StockName": "台積電", "Type": "上市普通股標的證券"}
+    ],
+    "reportRows": [
+      {"Date": "20260717", "Contract": "CDF", "Volume": "500", "OpenInterest": "1200", "Last": "1100"}
+    ]
+  },
+  "matrix": [
+    {"function": "build_stock_detail", "fixture": "stock + stockHistoryRows", "successTest": "test_build_stock_detail_fixture_contract", "emptyTest": "test_build_stock_detail_empty_history_fixture_contract", "upstreamFailureTest": "test_build_stock_detail_upstream_failure_fixture_contract", "requiredOutput": ["snapshotDate", "historyDays", "analysis", "chipSummary", "detailMode"]},
+    {"function": "build_analysis_sections", "fixture": "stock + inline analysis inputs", "successTest": "test_build_analysis_sections_fixture_contract", "emptyTest": "test_build_analysis_sections_empty_fixture_contract", "upstreamFailureTest": null, "requiredOutput": ["technical", "chips", "fundamental", "news"]},
+    {"function": "build_sector_fund_flow", "fixture": "stock + mocked T86/industry map", "successTest": "test_sector_fund_flow_aggregates_institutional_net_buy", "emptyTest": "test_build_sector_fund_flow_empty_fixture_contract", "upstreamFailureTest": "test_build_sector_fund_flow_upstream_failure_fixture_contract", "requiredOutput": ["available", "date", "rows", "sectorCount"]},
+    {"function": "build_site_data", "fixture": "empty upstream payloads + stock", "successTest": "test_build_site_data_assembles_snapshot_from_sub_builders", "emptyTest": "test_build_site_data_assembles_snapshot_from_sub_builders", "upstreamFailureTest": null, "requiredOutput": ["snapshotDate", "stockCount", "sectors", "institutions", "news"]},
+    {"function": "build_news", "fixture": "inline site data", "successTest": "test_build_news_summarizes_market_sectors_and_institutions", "emptyTest": "test_build_news_empty_fixture_contract", "upstreamFailureTest": null, "requiredOutput": ["tag", "title", "body", "link"]},
+    {"function": "build_live_sector_site_data", "fixture": "mocked live payloads + stock", "successTest": "test_build_live_sector_site_data_fixture_contract", "emptyTest": null, "upstreamFailureTest": null, "requiredOutput": ["snapshotDate", "stockCount", "tpexHighlights", "news"]},
+    {"function": "fetch_yahoo_margin_trading", "fixture": "stock + normalized margin payload", "successTest": "test_fetch_yahoo_margin_trading_fixture_contract", "emptyTest": "test_fetch_yahoo_margin_trading_upstream_failure_fixture_contract", "upstreamFailureTest": "test_fetch_yahoo_margin_trading_upstream_failure_fixture_contract", "requiredOutput": ["source", "dailyRows", "marginBalancePeriodRows", "marginSummaryAccumulationRows"]},
+    {"function": "build_taifex_open_interest_item", "fixture": "taifexOpenInterest", "successTest": "test_build_taifex_open_interest_fixture_contract", "emptyTest": "test_build_taifex_open_interest_upstream_failure_fixture_contract", "upstreamFailureTest": "test_build_taifex_open_interest_upstream_failure_fixture_contract", "requiredOutput": ["symbol", "date", "close", "openInterest", "series"]},
+    {"function": "build_taifex_stock_derivative_aggregate_item", "fixture": "taifexAggregate", "successTest": "test_build_taifex_stock_derivative_aggregate_fixture_contract", "emptyTest": "test_build_taifex_stock_derivative_aggregate_empty_fixture_contract", "upstreamFailureTest": "test_build_taifex_stock_derivative_aggregate_empty_fixture_contract", "requiredOutput": ["status", "openInterestValue", "contractCount", "leaderStockName"]},
+    {"function": "build_chip_summary", "fixture": "stock + chip inputs", "successTest": "test_build_chip_summary_fixture_contract", "emptyTest": "test_build_chip_summary_empty_fixture_contract", "upstreamFailureTest": null, "requiredOutput": ["title", "summary", "cards"]}
+  ],
+  "expectedMarginPeriods": {
+    "week": [{"date": "2026-07-17", "financingBalance": 1200}],
+    "month": [{"date": "2026-07-17", "financingBalance": 1200}],
+    "quarter": [{"date": "2026-07-17", "financingBalance": 1200}]
+  }
+}

@@ -1,0 +1,2539 @@
+{
+  "page_count": 21,
+  "pages": {
+    "bonds.html": {
+      "known_issues": [],
+      "render_only": false,
+      "step_count": 3,
+      "steps": [
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "bonds__etf-bucket",
+          "note": "切換ETF分類→重渲染債券ETF表格與訊號卡(app.js:27890-27898)",
+          "pre_fill": null,
+          "selector": "[data-bond-etf-bucket]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "bonds__yield-focus",
+          "note": "切換殖利率焦點→更新AI評論文字,按鈕active狀態切換(app.js:27881-27889)",
+          "pre_fill": null,
+          "selector": "[data-bond-yield-focus]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "bonds__volume-symbol",
+          "note": "選取ETF→切換24日趨勢圖+個股AI分析面板(app.js:26211-26213)",
+          "pre_fill": null,
+          "selector": "[data-asset-finance-volume-symbol]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        }
+      ]
+    },
+    "derivatives-ai.html": {
+      "known_issues": [],
+      "render_only": true,
+      "step_count": 1,
+      "steps": [
+        {
+          "action": null,
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "url_matches",
+              "n": null,
+              "pattern": "**/derivatives-analytics.html#derivatives-ai-section",
+              "target": null
+            }
+          ],
+          "id": "derivatives-ai__redirect",
+          "note": "頁面載入(load)→window.location.replace 導向 derivatives-analytics.html#derivatives-ai-section(app.js:33518-33520)",
+          "pre_fill": null,
+          "selector": "body",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": null
+          }
+        }
+      ]
+    },
+    "derivatives-analytics.html": {
+      "known_issues": [],
+      "render_only": true,
+      "step_count": 1,
+      "steps": [
+        {
+          "action": null,
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "min_count",
+              "n": 1,
+              "pattern": null,
+              "target": "#derivatives-analytics-root .panel-card"
+            }
+          ],
+          "id": "derivatives-analytics__render",
+          "note": "頁面載入→8個平行API請求組出TXO選擇權鏈/PCR/法人籌碼/基差等卡片(app.js:33377-33420)",
+          "pre_fill": null,
+          "selector": "#derivatives-analytics-root",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": null
+          }
+        }
+      ]
+    },
+    "derivatives-assets.html": {
+      "known_issues": [],
+      "render_only": true,
+      "step_count": 1,
+      "steps": [
+        {
+          "action": null,
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "min_count",
+              "n": 1,
+              "pattern": null,
+              "target": "#asset-hub-root .asset-hub-nav-card"
+            }
+          ],
+          "id": "derivatives-assets__render",
+          "note": "頁面載入→renderDerivativesMarketOverview() 渲染文字卡片與導航卡(app.js:28488-28726)",
+          "pre_fill": null,
+          "selector": "#asset-hub-root",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": null
+          }
+        }
+      ]
+    },
+    "derivatives-status.html": {
+      "known_issues": [],
+      "render_only": true,
+      "step_count": 1,
+      "steps": [
+        {
+          "action": null,
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "min_count",
+              "n": 1,
+              "pattern": null,
+              "target": "#derivatives-status-root .panel-card"
+            }
+          ],
+          "id": "derivatives-status__render",
+          "note": "頁面載入→derivatives-ui.js 抓 /api/derivatives/v1-status 渲染狀態頁(derivatives-ui.js:73)",
+          "pre_fill": null,
+          "selector": "#derivatives-status-root",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": null
+          }
+        }
+      ]
+    },
+    "futures.html": {
+      "known_issues": [],
+      "render_only": false,
+      "step_count": 11,
+      "steps": [
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#futures-detail"
+            }
+          ],
+          "id": "futures__technical-contract-code",
+          "note": "切換 TAIFEX 合約月份(app.js:19064-19072,無早退判斷,點擊必重渲染)",
+          "pre_fill": null,
+          "selector": "[data-futures-technical-contract-code]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": ".futures-contract-scroll"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "futures__technical-interval-week",
+          "note": "切換週線(app.js:19073-19081)",
+          "pre_fill": null,
+          "selector": "[data-futures-technical-interval=\"week\"]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": ".futures-technical-intervals"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "futures__chart-ma",
+          "note": "切換均線疊圖(app.js:19091-19102)",
+          "pre_fill": null,
+          "selector": "[data-futures-chart-ma]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "futures__chart-indicator",
+          "note": "切換疊圖指標(布林/斐波那契/支撐壓力/SMC)(app.js:19103-19114)",
+          "pre_fill": null,
+          "selector": "[data-futures-chart-indicator]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "not_disabled",
+              "n": null,
+              "pattern": null,
+              "target": "[data-futures-chart-zoom=\"out\"]"
+            }
+          ],
+          "id": "futures__chart-zoom-in",
+          "note": "縮放圖表可視K棒範圍→縮小/重設按鈕從 disabled 變為可用(app.js:19127-19161)",
+          "pre_fill": null,
+          "selector": "[data-futures-chart-zoom=\"in\"]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": ".stock-chart-zoom"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "not_disabled",
+              "n": null,
+              "pattern": null,
+              "target": "[data-futures-chart-pan=\"newer\"]"
+            }
+          ],
+          "id": "futures__chart-pan",
+          "note": "平移可視範圍→往前平移後「往後」按鈕從 disabled(panOffset<=0)變為可用(app.js:15487-15488,19143-19164)",
+          "pre_fill": null,
+          "selector": "[data-futures-chart-pan=\"older\"]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": ".stock-chart-zoom"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "futures__watchlist-toggle",
+          "note": "加入/移除自選→按鈕文字切換(app.js:13365-13387,僅 localStorage)",
+          "pre_fill": null,
+          "selector": "[data-derivative-watch-symbol]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": ".asset-hub-summary-actions"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "futures__framework-scope",
+          "note": "切換投資框架分頁(台灣/美國/國際)(app.js:19013-19020)",
+          "pre_fill": null,
+          "selector": "[data-futures-framework-scope]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": ".futures-investment-market-grid"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "futures__detail-scope",
+          "note": "切換詳細面板市場範圍(台灣/美國/國際期貨)(app.js:19021-19036)",
+          "pre_fill": null,
+          "selector": "[data-futures-detail-scope]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#futures-detail .futures-detail-scope-switcher"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#futures-detail"
+            }
+          ],
+          "id": "futures__detail-symbol",
+          "note": "切換合約(TX/MTX/ES=F等)→重渲染詳情/圖表面板(app.js:19037-19043,主要合約選擇器)",
+          "pre_fill": null,
+          "selector": "[data-futures-detail-symbol]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#futures-detail .us-index-switcher"
+          }
+        },
+        {
+          "action": null,
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "min_count",
+              "n": 1,
+              "pattern": null,
+              "target": "[data-futures-technical-chart-view]"
+            }
+          ],
+          "id": "futures__technical-candles-hydrate",
+          "note": "非點擊,自動觸發:hydrateDerivativesFuturesCandles() 於頁面載入與合約/週期切換後把 TAIFEX 官方 K 線資料填入圖表(app.js:18962-19009,19176)。這裡只以圖表容器確實存在佐證渲染骨架就緒,不嚴格檢查資料是否已抓到(見上方 detail-symbol 說明,TAIFEX 官方資料源時序在本機驗證時不穩定)。",
+          "pre_fill": null,
+          "selector": "[data-futures-detail-symbol]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": null
+          }
+        }
+      ]
+    },
+    "index.html": {
+      "known_issues": [],
+      "render_only": false,
+      "step_count": 1,
+      "steps": [
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "index__penny-trend-market",
+          "note": "裁決升級為P0(互動型):切換銅板股市場分頁→重渲染卡片網格與摘要文字(app.js:4117-4122)",
+          "pre_fill": null,
+          "selector": "#penny-trend-controls [data-home-penny-market]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        }
+      ]
+    },
+    "international-finance.html": {
+      "known_issues": [],
+      "render_only": false,
+      "step_count": 3,
+      "steps": [
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "international-finance__trend-range",
+          "note": "切換國際貴金屬走勢圖時間範圍→重繪趨勢圖、更新狀態文字與預測面板(app.js:24397,24447-24450)",
+          "pre_fill": null,
+          "selector": "[data-asset-finance-trend-range]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "international-finance__trend-metal",
+          "note": "篩選單一金屬序列(app.js:24452-24458)",
+          "pre_fill": null,
+          "selector": "[data-asset-finance-trend-metal]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "international-finance__volume-symbol",
+          "note": "切換ETF圖表+個股分析文字(app.js:26179)",
+          "pre_fill": null,
+          "selector": "button.asset-finance-etf-select[data-asset-finance-volume-symbol]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        }
+      ]
+    },
+    "market-overview.html": {
+      "known_issues": [],
+      "render_only": false,
+      "step_count": 3,
+      "steps": [
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "market-overview__sector-flow-mode",
+          "note": "裁決升級為P0(互動型):切換類股資金流向模式(app.js:306,365-370)",
+          "pre_fill": null,
+          "selector": "#sector-fund-flow [data-sector-flow-mode]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "market-overview__sector-ranking-group",
+          "note": "切換排行市場群組(app.js:2311)",
+          "pre_fill": null,
+          "selector": "#market-sector-ranking [data-market-sector-ranking-group]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "select",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "value_changed",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "market-overview__sector-sort",
+          "note": "依所選指標重新排序表格列(app.js:2603-2606)",
+          "pre_fill": null,
+          "selector": "#sector-sort-select",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#market-sector-ranking"
+          }
+        }
+      ]
+    },
+    "news.html": {
+      "known_issues": [],
+      "render_only": false,
+      "step_count": 3,
+      "steps": [
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "market-overview__sector-flow-mode",
+          "note": "裁決升級為P0(互動型):切換類股資金流向模式(app.js:306,365-370)",
+          "pre_fill": null,
+          "selector": "#sector-fund-flow [data-sector-flow-mode]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "market-overview__sector-ranking-group",
+          "note": "切換排行市場群組(app.js:2311)",
+          "pre_fill": null,
+          "selector": "#market-sector-ranking [data-market-sector-ranking-group]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "select",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "value_changed",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "market-overview__sector-sort",
+          "note": "依所選指標重新排序表格列(app.js:2603-2606)",
+          "pre_fill": null,
+          "selector": "#sector-sort-select",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#market-sector-ranking"
+          }
+        }
+      ]
+    },
+    "options.html": {
+      "known_issues": [],
+      "render_only": false,
+      "step_count": 5,
+      "steps": [
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-selected",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "options__chain-strike-select",
+          "note": "點選履約價列→標記 is-selected,下方插入 OI/履約價 AI 摘要列(app.js:19347-19360)",
+          "pre_fill": null,
+          "selector": "[data-options-chain-strike]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": "is-selected",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#global-market-root"
+            }
+          ],
+          "id": "options__focus-key-select-us-market",
+          "note": "切換到美股指數選擇權(S&P 500)→改走市場選擇權鏈渲染路徑(app.js:19464-19498)",
+          "pre_fill": null,
+          "selector": "[data-options-focus-key*=\"GSPC\"]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "response",
+            "pattern": "**/options-chain/**",
+            "target": null
+          }
+        },
+        {
+          "action": "select",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "value_changed",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "options__market-expiration-select",
+          "note": "切換到期日→重渲染鏈表格+OI摘要(app.js:19416-19439)",
+          "pre_fill": null,
+          "selector": "[data-options-market-expiration-select]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "[data-options-market-expiration-select]"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "options__focus-key-select",
+          "note": "切換市場選擇權鏈地區/分類分頁→重渲染商品清單+摘要+鏈表格(app.js:19464-19498)",
+          "pre_fill": null,
+          "selector": "[data-options-focus-key]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "response",
+            "pattern": "**/options/chain**",
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "options__strategy-button",
+          "note": "切換策略卡→顯示對應策略的證據/風險文字(app.js:19456-19463)",
+          "pre_fill": null,
+          "selector": "button.options-strategy-button[data-options-strategy-key]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        }
+      ]
+    },
+    "precious-metals.html": {
+      "known_issues": [],
+      "render_only": false,
+      "step_count": 3,
+      "steps": [
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "precious-metals__trend-range",
+          "note": "切換貴金屬走勢圖時間範圍(app.js:24397,24447-24450,與international-finance.html同機制)",
+          "pre_fill": null,
+          "selector": "button[data-asset-finance-trend-range]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "precious-metals__trend-metal",
+          "note": "篩選單一金屬序列(app.js:24452-24458)",
+          "pre_fill": null,
+          "selector": "button[data-asset-finance-trend-metal]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "precious-metals__volume-symbol",
+          "note": "切換ETF圖表+個股分析文字(app.js:26179)",
+          "pre_fill": null,
+          "selector": "button.asset-finance-etf-select[data-asset-finance-volume-symbol]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        }
+      ]
+    },
+    "tw-Optional-stocks.html": {
+      "known_issues": [],
+      "render_only": false,
+      "step_count": 8,
+      "steps": [
+        {
+          "action": "fill",
+          "action_index": 0,
+          "action_value": "999",
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "value_changed",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "tw-optional-stocks__portfolio-entry-price",
+          "note": "修改進場價→重算並重渲染整個模擬器摘要與表格(app.js:5707-5718)",
+          "pre_fill": null,
+          "selector": "input[type=number][data-portfolio-field=\"entryPrice\"]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#portfolio-simulator-table"
+          }
+        },
+        {
+          "action": "fill",
+          "action_index": 0,
+          "action_value": "500",
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "value_changed",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "tw-optional-stocks__portfolio-shares",
+          "note": "修改股數→重算並重渲染整個模擬器摘要與表格(app.js:5707-5718)",
+          "pre_fill": null,
+          "selector": "input[type=number][data-portfolio-field=\"shares\"]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#portfolio-simulator-table"
+          }
+        },
+        {
+          "action": "fill",
+          "action_index": 0,
+          "action_value": "15",
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "value_changed",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "tw-optional-stocks__portfolio-stop-loss",
+          "note": "修改停損%→重算停損風險金額/riskLabel(app.js:5707-5718)",
+          "pre_fill": null,
+          "selector": "input[type=number][data-portfolio-field=\"stopLossPct\"]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#portfolio-simulator-table"
+          }
+        },
+        {
+          "action": "fill",
+          "action_index": 0,
+          "action_value": "25",
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "value_changed",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "tw-optional-stocks__portfolio-take-profit",
+          "note": "修改停利%→重算並重渲染(app.js:5707-5718)",
+          "pre_fill": null,
+          "selector": "input[type=number][data-portfolio-field=\"takeProfitPct\"]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#portfolio-simulator-table"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#portfolio-simulator-table"
+            }
+          ],
+          "id": "tw-optional-stocks__portfolio-reset",
+          "note": "重設為預設值(進場價=現價、股數=0、停損8%/停利15%)(app.js:8848-8851)",
+          "pre_fill": null,
+          "selector": "#portfolio-simulator-reset",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#portfolio-simulator-table"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "request_fired",
+              "n": null,
+              "pattern": "**/api/twse/stock/**",
+              "target": null
+            }
+          ],
+          "id": "tw-optional-stocks__analysis-refresh",
+          "note": "AI分析重新整理→清除快取,逐檔重新抓取即時資料(app.js:8726,8845-8847)",
+          "pre_fill": null,
+          "selector": "#watchlist-analysis-refresh",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "networkidle",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#watchlist-grid"
+            }
+          ],
+          "id": "tw-optional-stocks__watchlist-remove",
+          "note": "移除自選→從 localStorage 移除,重渲染清單,更新統計/狀態文字(app.js:8715-8723)",
+          "pre_fill": null,
+          "selector": "button.watchlist-remove[data-watchlist-remove]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#watchlist-grid"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "url_matches",
+              "n": null,
+              "pattern": "**/tw-stock-search.html?q=2330*",
+              "target": null
+            }
+          ],
+          "id": "tw-optional-stocks__card-navigate",
+          "note": "點擊卡片→完整導航到 tw-stock-search.html?q=...(app.js:8699-8713)",
+          "pre_fill": null,
+          "selector": ".watchlist-card[data-watchlist-detail-url]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": null
+          }
+        }
+      ]
+    },
+    "tw-etf.html": {
+      "known_issues": [],
+      "render_only": false,
+      "step_count": 5,
+      "steps": [
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#tw-etf-table-section"
+            }
+          ],
+          "id": "tw-etf__page-next",
+          "note": "下一頁→對已載入資料切片重繪表格與分頁(純前端,app.js:33671)",
+          "pre_fill": null,
+          "selector": "[data-tw-etf-page=\"next\"]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#tw-etf-table-section"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#tw-etf-table-section"
+            }
+          ],
+          "id": "tw-etf__filter-form-submit",
+          "note": "篩選送出→依 query+category+sort 重建清單(app.js:33889-33892,33873)",
+          "pre_fill": [
+            ".tw-etf-list-toolbar #tw-etf-query",
+            "00"
+          ],
+          "selector": ".tw-etf-list-toolbar #tw-etf-filter-form button[type=submit]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "response",
+            "pattern": "**/api/twse/etfs**",
+            "target": null
+          }
+        },
+        {
+          "action": "select",
+          "action_index": 0,
+          "action_value": "high-dividend",
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#tw-etf-table-section"
+            }
+          ],
+          "id": "tw-etf__category-select",
+          "note": "切換分類→重渲染清單+分頁(app.js:33893,routes_twse.py TW_ETF_CATEGORY_DEFINITIONS)",
+          "pre_fill": null,
+          "selector": ".tw-etf-list-toolbar #tw-etf-category",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "response",
+            "pattern": "**/api/twse/etfs**",
+            "target": null
+          }
+        },
+        {
+          "action": "select",
+          "action_index": 0,
+          "action_value": "code",
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#tw-etf-table-section"
+            }
+          ],
+          "id": "tw-etf__sort-select",
+          "note": "依代號排序→重新排序清單(app.js:33894)",
+          "pre_fill": null,
+          "selector": ".tw-etf-list-toolbar #tw-etf-sort",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "response",
+            "pattern": "**/api/twse/etfs**",
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#tw-etf-detail"
+            }
+          ],
+          "id": "tw-etf__detail-button-click",
+          "note": "查看→#tw-etf-detail 替換為 ETF 分析/持股/配息卡片(app.js:33903-33915,33965)",
+          "pre_fill": null,
+          "selector": "button.tw-etf-detail-button[data-tw-etf-detail]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "response",
+            "pattern": "**/api/twse/stock/**",
+            "target": null
+          }
+        }
+      ]
+    },
+    "tw-stock-search.html": {
+      "known_issues": [],
+      "render_only": false,
+      "step_count": 10,
+      "steps": [
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "min_count",
+              "n": 1,
+              "pattern": null,
+              "target": "#search-results [data-code]"
+            },
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#stock-detail"
+            }
+          ],
+          "id": "tw-stock-search__search-form-submit",
+          "note": "表單送出→live 搜尋 2330→自動選取第一筆→載入個股詳情(app.js:33195,33139)",
+          "pre_fill": [
+            "#stock-search-input",
+            "2330"
+          ],
+          "selector": "#stock-search-form button[type=submit]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "fill",
+          "action_index": 0,
+          "action_value": "0050",
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#search-results"
+            }
+          ],
+          "id": "tw-stock-search__input-debounce",
+          "note": "輸入去抖 600ms 觸發 live 搜尋,不自動選取(app.js:33205-33214)",
+          "pre_fill": null,
+          "selector": "#stock-search-input",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "response",
+            "pattern": "**/api/twse/live-search**",
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            },
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#stock-detail"
+            }
+          ],
+          "id": "tw-stock-search__result-click",
+          "note": "點擊搜尋結果→標記 is-active→更新 URL→載入個股詳情(app.js:8880-8898)",
+          "pre_fill": null,
+          "selector": "#search-results [data-code]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#stock-detail"
+          }
+        },
+        {
+          "action": null,
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "min_count",
+              "n": 1,
+              "pattern": null,
+              "target": ".chip-institution-daily-table .chip-data-row"
+            }
+          ],
+          "id": "tw-stock-search__institution-history-background-load",
+          "note": "TD-16:個股詳情頁渲染完成後自動背景觸發的法人買賣超歷史載入(js/stock-detail.js:loadInstitutionalTradeHistoryIfNeeded)。非任何 P0/P1 控制項觸發,是 renderStockDetail 內部無條件呼叫的背景 fetch;渲染型 step(無 action)。wait_for 標記為networkidle,但實測頁面背景輪詢會讓 networkidle 永遠不觸發,interaction_check.py 對渲染型 step 改直接輪詢本 step 的min_count 斷言目標(逾時 90 秒,涵蓋法人籌碼這類多批次即時外部資料抓取實測會用到的時間),等目標選擇器數量真的達標才斷言。TD-16 修復前此路徑會在法人交易歷史筆數 < 5 時無限遞迴,列為 known-broken 排除於基準外;修復後正式納入。",
+          "pre_fill": null,
+          "selector": ".chip-institution-daily-table",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "networkidle",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-added",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "tw-stock-search__watchlist-toggle",
+          "note": "加入自選→按鈕文字/樣式切換(app.js:32188-32198)",
+          "pre_fill": null,
+          "selector": "#stock-detail [data-stock-watchlist-toggle]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-added",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "tw-stock-search__interval-week",
+          "note": "切換週線→active 樣式切換,重繪技術圖表(app.js:32477-32487)",
+          "pre_fill": null,
+          "selector": "#stock-detail [data-interval=\"week\"]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#stock-detail"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "tw-stock-search__ma-period-20",
+          "note": "切換 MA20 疊圖(app.js:32497-32509)",
+          "pre_fill": null,
+          "selector": "#stock-detail [data-ma-period=\"20\"]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "tw-stock-search__chart-indicator-bollinger",
+          "note": "切換布林通道疊圖指標(app.js:32511-32524)",
+          "pre_fill": null,
+          "selector": "#stock-detail [data-chart-indicator=\"bollinger\"]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "not_disabled",
+              "n": null,
+              "pattern": null,
+              "target": "#stock-detail [data-stock-zoom=\"out\"]"
+            }
+          ],
+          "id": "tw-stock-search__stock-zoom-in",
+          "note": "縮放圖表可視K棒數→縮小/重設按鈕從 disabled 變為可用(app.js:32452-32463)",
+          "pre_fill": null,
+          "selector": "#stock-detail [data-stock-zoom=\"in\"]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#stock-detail"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#stock-detail"
+            }
+          ],
+          "id": "tw-stock-search__institution-range-3m",
+          "note": "切換法人 3 個月區間(純前端重渲染,預設為 1m)→重建法人買賣超區塊(app.js:32209-32276)",
+          "pre_fill": null,
+          "selector": "#stock-detail [data-institution-range=\"3m\"]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#stock-detail"
+          }
+        }
+      ]
+    },
+    "tw-stocks.html": {
+      "known_issues": [],
+      "render_only": false,
+      "step_count": 6,
+      "steps": [
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "tw-stocks__class-tab-select",
+          "note": "切換產業分類分頁→設定 activeCategory,全頁重渲染(app.js:2597-2602)",
+          "pre_fill": null,
+          "selector": ".class-tabs [data-category]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "select",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "value_changed",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "tw-stocks__sector-sort-select",
+          "note": "切換排行指標→重渲染排行表(app.js:2603-2606)",
+          "pre_fill": null,
+          "selector": "#sector-sort-slot [data-sector-sort]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#sector-sort-slot"
+          }
+        },
+        {
+          "action": "select",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#sector-sync-view"
+            }
+          ],
+          "id": "tw-stocks__sector-source-select",
+          "note": "切換比較圖來源→重渲染同步比較視圖(app.js:2447-2457,V2版,非TD-15死碼的V1版)",
+          "pre_fill": null,
+          "selector": "#sector-sync-view [data-sector-source-select]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#sector-sync-view"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#class-links"
+            }
+          ],
+          "id": "tw-stocks__yahoo-sector-group",
+          "note": "切換 Yahoo 子分類(電子產業/概念股等)→抓取/快取子分類報價,重渲染全頁(委派於document,app.js:34138-34143,loadYahooSectorCategory 1849)",
+          "pre_fill": null,
+          "selector": "#class-links [data-yahoo-sector-group][data-yahoo-sector-index]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#class-links"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "tw-stocks__weighted-mode",
+          "note": "切換加權指數圖表模式(日/週/月/指數比對)→重渲染整個面板(app.js:3976-3981)",
+          "pre_fill": null,
+          "selector": "#weighted-index-panel [data-weighted-mode=\"comparison\"]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#weighted-index-panel"
+            }
+          ],
+          "id": "tw-stocks__international-key",
+          "note": "切換比較圖顯示的國際指數線(多選,app.js:3982-3991)",
+          "pre_fill": null,
+          "selector": "#weighted-index-panel [data-international-key]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#weighted-index-panel"
+          }
+        }
+      ]
+    },
+    "us-etf.html": {
+      "known_issues": [],
+      "render_only": false,
+      "step_count": 4,
+      "steps": [
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#us-nyse-etf-table"
+            }
+          ],
+          "id": "us-etf__page-next",
+          "note": "下一頁→更新 #us-nyse-etf-table(前端切片,app.js:12850-12865)",
+          "pre_fill": null,
+          "selector": "[data-us-nyse-page=\"etf\"][data-page=\"next\"]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#us-nyse-etf-table"
+          }
+        },
+        {
+          "action": "select",
+          "action_index": 0,
+          "action_value": "50",
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#us-nyse-etf-table"
+            }
+          ],
+          "id": "us-etf__page-size-select",
+          "note": "切換每頁筆數→重渲染表格(前端切片,app.js:12818-12827)",
+          "pre_fill": null,
+          "selector": "[data-us-nyse-page-size=\"etf\"]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#us-nyse-etf-table"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#us-nyse-etf-table"
+            }
+          ],
+          "id": "us-etf__search-form-submit",
+          "note": "篩選送出→重設頁碼並重新查詢(app.js:12787-12802,bindUsNyseDirectoryControls)",
+          "pre_fill": [
+            "#us-nyse-etf-search",
+            "SPY"
+          ],
+          "selector": "[data-us-nyse-search-form=\"etf\"] button[type=submit]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "response",
+            "pattern": "**/api/us-market/etf-center**",
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#us-etf-detail"
+            }
+          ],
+          "id": "us-etf__detail-button-click",
+          "note": "查看→#us-etf-detail 填入 ETF 行情與明細(app.js:12829-12839,11614)",
+          "pre_fill": null,
+          "selector": "[data-us-etf-detail]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "response",
+            "pattern": "**/api/us-market/etf-center**",
+            "target": null
+          }
+        }
+      ]
+    },
+    "us-market-overview.html": {
+      "known_issues": [],
+      "render_only": false,
+      "step_count": 3,
+      "steps": [
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#global-market-root"
+            }
+          ],
+          "id": "us-market-overview__global-refresh",
+          "note": "重新整理→全頁重新抓取+重渲染(app.js:34132-34137;本頁非衍生品分類,與futures.html不同,此控制項確實存在)",
+          "pre_fill": null,
+          "selector": "[data-global-refresh]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "response",
+            "pattern": "**/api/global-market/us-stocks**",
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "us-market-overview__sector-ranking-group",
+          "note": "重渲染排行子清單(S&P500 vs 產業群組)(app.js:19964-19969)",
+          "pre_fill": null,
+          "selector": "[data-us-market-sector-ranking-group]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "select",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "value_changed",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "us-market-overview__sector-sort",
+          "note": "重新排序排行清單(app.js:19970-19973)",
+          "pre_fill": null,
+          "selector": "[data-us-market-sector-sort]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#us-market-overview"
+          }
+        }
+      ]
+    },
+    "us-stock-search.html": {
+      "known_issues": [],
+      "render_only": false,
+      "step_count": 8,
+      "steps": [
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "min_count",
+              "n": 1,
+              "pattern": null,
+              "target": "#us-search-results .us-result-main-button[data-us-symbol]"
+            },
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#us-stock-detail"
+            }
+          ],
+          "id": "us-stock-search__search-form-submit",
+          "note": "表單送出→搜尋 AAPL→自動選取第一筆→載入美股詳情(app.js:22277-22285,22235,autoSelect=true)",
+          "pre_fill": [
+            "#us-stock-search-input",
+            "AAPL"
+          ],
+          "selector": "#us-stock-search-form button[type=submit]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "response",
+            "pattern": "**/api/us-market/symbol/**",
+            "target": null
+          }
+        },
+        {
+          "action": "fill",
+          "action_index": 0,
+          "action_value": "MSFT",
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#us-search-results"
+            }
+          ],
+          "id": "us-stock-search__input-debounce",
+          "note": "輸入去抖 300ms 觸發搜尋,不自動選取(app.js:22287-22297)",
+          "pre_fill": null,
+          "selector": "#us-stock-search-input",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "response",
+            "pattern": "**/api/us-market/search**",
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#us-stock-detail"
+            }
+          ],
+          "id": "us-stock-search__result-click",
+          "note": "點擊搜尋結果→卡片標記 is-active→呼叫 loadUsStockSymbol()(app.js:22198-22204,22207)",
+          "pre_fill": null,
+          "selector": "#us-search-results .us-result-main-button[data-us-symbol]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "response",
+            "pattern": "**/api/us-market/symbol/**",
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-added",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "us-stock-search__watchlist-toggle",
+          "note": "加入自選→按鈕文字/樣式切換(app.js:22140-22145)",
+          "pre_fill": null,
+          "selector": "#us-stock-detail [data-us-stock-watchlist-toggle]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-added",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "us-stock-search__interval-week",
+          "note": "切換週線,資料已內嵌不需重新請求(app.js:21983-21991)",
+          "pre_fill": null,
+          "selector": "#us-stock-detail [data-us-interval=\"week\"]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "us-stock-search__ma-period-20",
+          "note": "切換 MA20 疊圖(app.js:21992-21999)",
+          "pre_fill": null,
+          "selector": "#us-stock-detail [data-us-ma-period=\"20\"]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "us-stock-search__chart-indicator-bollinger",
+          "note": "切換布林通道疊圖指標(app.js:22001-22009)",
+          "pre_fill": null,
+          "selector": "#us-stock-detail [data-us-chart-indicator=\"bollinger\"]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "not_disabled",
+              "n": null,
+              "pattern": null,
+              "target": "#us-stock-detail [data-us-stock-zoom=\"out\"]"
+            }
+          ],
+          "id": "us-stock-search__stock-zoom-in",
+          "note": "縮放圖表可視範圍→縮小/重設按鈕從 disabled 變為可用(app.js:21942-21944,22021-22023)",
+          "pre_fill": null,
+          "selector": "#us-stock-detail [data-us-stock-zoom=\"in\"]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#us-stock-detail .stock-chart-zoom"
+          }
+        }
+      ]
+    },
+    "us-stocks.html": {
+      "known_issues": [],
+      "render_only": false,
+      "step_count": 9,
+      "steps": [
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#us-market-overview"
+            }
+          ],
+          "id": "us-stocks__global-refresh",
+          "note": "重新整理→全頁重新抓取+重渲染(app.js:34132-34137)",
+          "pre_fill": null,
+          "selector": "#us-market-overview [data-global-refresh]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "response",
+            "pattern": "**/api/global-market/us-stocks**",
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "us-stocks__major-index-select",
+          "note": "切換主要指數圖表線(S&P/Dow/Nasdaq/Russell)(app.js:9783-9801)",
+          "pre_fill": null,
+          "selector": "#us-major-index-vix [data-us-major-index]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "us-stocks__major-index-all",
+          "note": "全選四大指數(app.js:9802-9808)",
+          "pre_fill": null,
+          "selector": "#us-major-index-vix [data-us-major-index-all]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_toggled",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "us-stocks__vix-toggle",
+          "note": "切換VIX疊圖(app.js:9809-9812)",
+          "pre_fill": null,
+          "selector": "#us-major-index-vix [data-us-vix-toggle]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#us-major-index-vix .us-index-switcher"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "us-stocks__sector-benchmark",
+          "note": "切換比較基準指數,重渲染卡片(app.js:10272-10277)",
+          "pre_fill": null,
+          "selector": "#us-sector-index-comparison [data-us-sector-benchmark]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "us-stocks__sector-index",
+          "note": "切換比較的類股指數(app.js:10278-10283)",
+          "pre_fill": null,
+          "selector": "#us-sector-index-comparison [data-us-sector-index]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": "is-active",
+            "kind": "class_present",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#us-sector-stock-table"
+            }
+          ],
+          "id": "us-stocks__sector-stock-select",
+          "note": "切換類股(非benchmark角色)→重新載入成分股表格(app.js:12710-12758,loadUsSectorStocks)",
+          "pre_fill": null,
+          "selector": "#us-sector-stock-browser [data-us-sector-stock][data-us-sector-stock-role=\"sector\"]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#us-sector-stock-table"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#us-sector-stock-table"
+            }
+          ],
+          "id": "us-stocks__sector-nyse-search-form",
+          "note": "搜尋送出→設定查詢字串,重設頁碼,重新載入(app.js:12759-12765)",
+          "pre_fill": [
+            "#us-sector-nyse-search",
+            "AAPL"
+          ],
+          "selector": "#us-sector-stock-browser form[data-us-sector-nyse-search-form] button[type=submit]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#us-sector-stock-table"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "value_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#us-sector-nyse-search"
+            }
+          ],
+          "id": "us-stocks__sector-nyse-reset",
+          "note": "清除→清空輸入/查詢字串(app.js:12766-12772)",
+          "pre_fill": null,
+          "selector": "#us-sector-stock-browser [data-us-sector-nyse-reset]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#us-sector-stock-table"
+          }
+        }
+      ]
+    },
+    "us-watchlist.html": {
+      "known_issues": [],
+      "render_only": false,
+      "step_count": 5,
+      "steps": [
+        {
+          "action": "fill",
+          "action_index": 0,
+          "action_value": "999",
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "value_changed",
+              "n": null,
+              "pattern": null,
+              "target": null
+            }
+          ],
+          "id": "us-watchlist__portfolio-entry-price",
+          "note": "修改進場價→寫入storage,重渲染模擬器(重算損益/風險指標)(app.js:22893-22902)",
+          "pre_fill": null,
+          "selector": "#us-portfolio-simulator-table input[type=number][data-us-portfolio-field=\"entryPrice\"]",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#us-portfolio-simulator-table"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "value_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#us-portfolio-simulator-table input[data-us-portfolio-field=\"entryPrice\"]"
+            }
+          ],
+          "id": "us-watchlist__portfolio-reset",
+          "note": "清除模擬器 storage,重渲染為預設值(app.js:22994-22997)",
+          "pre_fill": null,
+          "selector": "#us-portfolio-simulator-reset",
+          "tier": "P1",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#us-portfolio-simulator-table"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "request_fired",
+              "n": null,
+              "pattern": "**/api/us-market/symbol/**",
+              "target": null
+            }
+          ],
+          "id": "us-watchlist__analysis-refresh",
+          "note": "AI分析重新整理→清除快取,逐檔重新抓取(app.js:22551,22991-22993)",
+          "pre_fill": null,
+          "selector": "#us-watchlist-analysis-refresh",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "networkidle",
+            "pattern": null,
+            "target": null
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#us-watchlist-grid"
+            }
+          ],
+          "id": "us-watchlist__watch-remove",
+          "note": "從localStorage移除,重渲染網格,更新狀態文字(app.js:22679-22688)",
+          "pre_fill": null,
+          "selector": "#us-watchlist-grid [data-us-watch-remove]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#us-watchlist-grid"
+          }
+        },
+        {
+          "action": "click",
+          "action_index": 0,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": null,
+              "kind": "url_matches",
+              "n": null,
+              "pattern": "**/us-stock-search.html?*AAPL*",
+              "target": null
+            }
+          ],
+          "id": "us-watchlist__card-navigate",
+          "note": "點擊卡片→完整導航到 us-stock-search.html(app.js:22664-22678)",
+          "pre_fill": null,
+          "selector": "#us-watchlist-grid [data-us-watchlist-detail-url]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": null
+          }
+        }
+      ]
+    }
+  },
+  "step_count_total": 94
+}

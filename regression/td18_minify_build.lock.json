@@ -1,0 +1,67 @@
+{
+  "lockfileVersion": 1,
+  "nodeVersion": "24.18.0",
+  "builder": {
+    "name": "td18-minify-terser",
+    "version": "1.0.0",
+    "terserVersion": "5.51.2",
+    "sourceMapVersion": 3
+  },
+  "options": {
+    "compressTopLevel": false,
+    "mangleTopLevel": false,
+    "compress": {
+      "passes": 1,
+      "toplevel": false
+    },
+    "mangle": {
+      "toplevel": false,
+      "keep_fnames": true
+    },
+    "format": {
+      "comments": false,
+      "beautify": false
+    }
+  },
+  "bundles": [
+    {
+      "name": "common-runtime",
+      "output": "common-runtime.min.js",
+      "sourceMap": "common-runtime.min.js.map",
+      "inputs": [
+        "pwa.js",
+        "js/state.js",
+        "js/core.js",
+        "js/api.js",
+        "js/shared-calc.js",
+        "js/render-shared.js",
+        "js/charts.js",
+        "js/stock-detail.js"
+      ]
+    },
+    {
+      "name": "route-bundle",
+      "output": "route-bundle.min.js",
+      "sourceMap": "route-bundle.min.js.map",
+      "inputs": [
+        "js/page-home.js",
+        "js/page-us.js",
+        "js/page-global-market-futures.js",
+        "js/page-global-market-options.js",
+        "js/page-global-market-assethub.js",
+        "js/page-tw.js",
+        "js/legacy-unclassified.js",
+        "js/main.js",
+        "app.js"
+      ]
+    },
+    {
+      "name": "derivatives-status-addon",
+      "output": "derivatives-status-addon.min.js",
+      "sourceMap": "derivatives-status-addon.min.js.map",
+      "inputs": [
+        "derivatives-ui.js"
+      ]
+    }
+  ]
+}

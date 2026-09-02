@@ -1,0 +1,60 @@
+name: TD-03 substitute validation
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "cache.py"
+      - "security.py"
+      - "shared_state.py"
+      - "regression/td03_*.py"
+      - ".github/workflows/td03-substitute-validation.yml"
+
+jobs:
+  td03-substitute:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install regression dependencies
+        run: python -m pip install -r regression/requirements-regression.txt
+
+      - name: Run Redis staging contract canary
+        env:
+          MARKET_PULSE_REDIS_URL: redis://127.0.0.1:6379/15
+          MARKET_PULSE_SHARED_STATE_NAMESPACE: market-pulse:ci:${{ github.run_id }}
+        run: python regression/td03_redis_staging_canary.py
+
+      - name: Run production shared-mode probe
+        env:
+          MARKET_PULSE_REDIS_URL: redis://127.0.0.1:6379/15
+          MARKET_PULSE_SHARED_STATE_NAMESPACE: market-pulse:ci:${{ github.run_id }}
+        run: python regression/td03_production_shared_mode_probe.py
+
+      - name: Run dual-process HTTP canary
+        env:
+          MARKET_PULSE_REDIS_URL: redis://127.0.0.1:6379/15
+        run: python regression/td03_http_dual_process_canary.py
+
+      - name: Run accelerated synthetic observation
+        env:
+          MARKET_PULSE_REDIS_URL: redis://127.0.0.1:6379/15
+          MARKET_PULSE_SHARED_STATE_NAMESPACE: market-pulse:ci:${{ github.run_id }}
+        run: python regression/td03_synthetic_observation.py --duration-seconds 120 --interval-seconds 5

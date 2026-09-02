@@ -1,0 +1,92 @@
+{
+  "data": {
+    "futures": {
+      "advancers": "int",
+      "avgPct": "str",
+      "count": "int",
+      "decliners": "int",
+      "strongest": "str",
+      "strongestPct": "str",
+      "weakest": "str",
+      "weakestPct": "str"
+    },
+    "options": {
+      "advancers": "int",
+      "avgPct": "str",
+      "count": "int",
+      "decliners": "int",
+      "strongest": "str",
+      "strongestPct": "str",
+      "weakest": "str",
+      "weakestPct": "str"
+    },
+    "sources": {
+      "futures": "str",
+      "options": "str"
+    },
+    "taiwanOption": {
+      "analysis": {
+        "bias": "str",
+        "confidenceScore": "int",
+        "crossValidation": [
+          {
+            "name": "str",
+            "signal": "str",
+            "status": "str"
+          }
+        ],
+        "disclaimer": "str",
+        "marketScore": "int",
+        "maxPain": "float",
+        "reasons": [
+          "str"
+        ],
+        "resistanceLevel": "float",
+        "riskLevel": "str",
+        "riskScore": "int",
+        "scenarios": [
+          {
+            "condition": "str",
+            "name": "str",
+            "view": "str"
+          }
+        ],
+        "scoreFormula": {
+          "confidenceScore": "str",
+          "evidenceLayers": [
+            "str"
+          ],
+          "marketScore": "str",
+          "riskScore": "str"
+        },
+        "scoreLabels": {
+          "confidence": "str",
+          "market": "str",
+          "risk": "str"
+        },
+        "strategySuggestion": "str",
+        "supportLevel": "float"
+      },
+      "expiry": "str",
+      "summary": {
+        "atmStrike": "float",
+        "callCount": "int",
+        "callOpenInterest": "float",
+        "callVolume": "float",
+        "contractCount": "int",
+        "maxPain": "float",
+        "maxPainLoss": "float",
+        "putCallRatio": "float",
+        "putCount": "int",
+        "putOpenInterest": "float",
+        "putVolume": "float",
+        "totalOpenInterest": "float",
+        "totalVolume": "float",
+        "volumePutCallRatio": "float"
+      },
+      "tradeDate": "str"
+    }
+  },
+  "success": "bool",
+  "updated_at": "str"
+}

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#071426">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="台股脈動">
+  <title>台股脈動 | 個股搜尋</title>
+  <link rel="manifest" href="manifest.webmanifest?v=pwa-20260615-1">
+  <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/app-icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="split-01.css">
+  <link rel="stylesheet" href="split-02.css">
+  <link rel="stylesheet" href="split-03.css">
+  <link rel="stylesheet" href="split-04.css">
+  <link rel="stylesheet" href="split-05.css">
+  <link rel="stylesheet" href="split-06.css">
+  <link rel="stylesheet" href="split-07.css">
+  <link rel="stylesheet" href="styles.css?v=technical-summary-forecast-20260707-1">
+</head>
+<body data-page="search">
+  <div class="page-shell">
+    <header class="site-header">
+      <nav class="navbar">
+        <a class="brand" href="index.html">
+          <span class="brand-mark">MP</span>
+          <span>台股脈動</span>
+        </a>
+        <div class="nav-links">
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="subpage-hero">
+        <p class="eyebrow">個股搜尋</p>
+        <h1>輸入部分代號或名稱查詢個股</h1>
+        <p class="hero-text">不必輸入完整內容，例如輸入 30、台積或積電，即可搜尋符合的上市與上櫃股票。</p>
+      </section>
+
+      <section class="section">
+        <article class="panel-card">
+          <form id="stock-search-form" class="search-form">
+            <input id="stock-search-input" class="search-input" type="search" placeholder="輸入部分代號或名稱，例如 30、台積或積電" autocomplete="off">
+            <button class="btn btn-primary" type="submit">搜尋</button>
+          </form>
+          <p id="search-status" class="source-note">可輸入部分代號或名稱搜尋，輸入後會自動列出結果</p>
+        </article>
+      </section>
+
+      <section class="section">
+        <article class="panel-card">
+          <div class="card-title-row">
+            <h3>搜尋結果</h3>
+            <span class="chip chip-blue">最多 20 筆</span>
+          </div>
+          <div id="search-results" class="search-results"></div>
+        </article>
+      </section>
+
+      <section class="section search-detail-section">
+        <article class="panel-card detail-panel-card">
+          <div class="card-title-row">
+            <h3>個股詳情</h3>
+            <span class="chip chip-gold">技術 / 籌碼 / 基本面 / 脈絡</span>
+          </div>
+          <div id="stock-detail" class="stock-detail-empty">
+            請先輸入股票代號或名稱，再查看個股詳細資料。
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+<script src="market-pulse-esm-loader.js?v=td02-full-esm-20260901-1"></script>
+</body>
+</html>

@@ -1,0 +1,190 @@
+{
+  "cached": "bool",
+  "catalogCount": "int",
+  "catalogRegionBreakdown": [
+    {
+      "region": "str",
+      "total": "int",
+      "usable": "int"
+    }
+  ],
+  "category": "str",
+  "futuresMarketBreakdown": [
+    {
+      "key": "str",
+      "label": "str",
+      "loaded": "int",
+      "total": "int",
+      "usable": "int"
+    }
+  ],
+  "items": [
+    {
+      "ask": "str",
+      "basis": "str",
+      "bid": "str",
+      "change": "str",
+      "close": "str",
+      "currency": "str",
+      "dataSource": "str",
+      "dataSymbol": "str",
+      "date": "str",
+      "exchange": "str",
+      "group": "str",
+      "high": "str",
+      "low": "str",
+      "market": "str",
+      "metricLabel": "str",
+      "name": "str",
+      "open": "str",
+      "openInterest": "str",
+      "openInterestValue": "float",
+      "pct": "str",
+      "periodReturn": "str",
+      "quoteDate": "str",
+      "quoteSource": "str",
+      "quoteSourceUrl": "str",
+      "quoteStatus": "str",
+      "quoteTime": "str",
+      "referencePrice": "str",
+      "referenceSource": "str",
+      "region": "str",
+      "series": [
+        {
+          "close": "float",
+          "date": "str",
+          "high": "float",
+          "low": "float",
+          "open": "float",
+          "openInterest": "float",
+          "settlement": "float",
+          "volume": "float",
+          "volumeValue": "float"
+        }
+      ],
+      "settlement": "str",
+      "source": "str",
+      "sourceLink": "str",
+      "sourceNote": "str",
+      "sourceUrl": "str",
+      "symbol": "str",
+      "taifexSourceLink": "str",
+      "technicalAnalysisSource": "str",
+      "technicalAnalysisUrl": "str",
+      "technicalContracts": [
+        {
+          "code": "str",
+          "contractMonth": "str",
+          "isPrimary": "bool",
+          "kind": "str",
+          "label": "str",
+          "url": "str"
+        }
+      ],
+      "type": "str",
+      "verification": {
+        "checks": {
+          "closeMatch": "bool",
+          "fresh": "bool",
+          "history": "bool",
+          "ohlc": "bool"
+        },
+        "primarySource": "str",
+        "referenceSource": "str",
+        "referenceUrl": "str",
+        "status": "str"
+      },
+      "volume": "str",
+      "volumeValue": "float",
+      "yahooFutureCode": "str"
+    }
+  ],
+  "kicker": "str",
+  "loadLimit": "int",
+  "loadedCount": "int",
+  "macroSchema": {
+    "automation": "str",
+    "dashboardSignals": [
+      "str"
+    ],
+    "sources": [
+      {
+        "name": "str",
+        "role": "str"
+      }
+    ],
+    "tables": [
+      {
+        "label": "str",
+        "name": "str"
+      }
+    ]
+  },
+  "regionBreakdown": [
+    {
+      "region": "str",
+      "total": "int",
+      "usable": "int"
+    }
+  ],
+  "source": "str",
+  "sourceInfo": {
+    "primary": "str",
+    "reference": "str",
+    "referenceUrl": "str"
+  },
+  "subtitle": "str",
+  "summary": {
+    "advancers": "int",
+    "avgPct": "str",
+    "count": "int",
+    "decliners": "int",
+    "strongest": "str",
+    "strongestPct": "str",
+    "weakest": "str",
+    "weakestPct": "str"
+  },
+  "title": "str",
+  "updatedAt": "str",
+  "v1ProductStatus": {
+    "futures": {
+      "connected": "int",
+      "items": [
+        {
+          "dataStatus": "str",
+          "group": "str",
+          "name": "str",
+          "status": "str",
+          "symbol": "str"
+        }
+      ],
+      "sourcePending": "int",
+      "total": "int"
+    },
+    "options": {
+      "connected": "int",
+      "items": [
+        {
+          "dataStatus": "str",
+          "group": "str",
+          "name": "str",
+          "status": "str",
+          "symbol": "str"
+        }
+      ],
+      "sourcePending": "int",
+      "total": "int"
+    }
+  },
+  "v1Scope": "str",
+  "validation": {
+    "failedCount": "int",
+    "limitedCount": "int",
+    "primary": "str",
+    "reference": "str",
+    "referenceUrl": "str",
+    "secondaryMatchedCount": "int",
+    "treasuryCurve": {},
+    "verifiedCount": "int"
+  }
+}

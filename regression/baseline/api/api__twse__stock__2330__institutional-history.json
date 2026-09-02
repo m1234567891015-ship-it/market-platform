@@ -1,0 +1,107 @@
+{
+  "cachedAt": "str",
+  "code": "str",
+  "institutionalTradeHistory": {
+    "available": "bool",
+    "candidateCount": "int",
+    "defaultPeriod": "int",
+    "limit": "int",
+    "periods": [
+      "int"
+    ],
+    "range": "str",
+    "requestedLimit": "int",
+    "rows": [
+      {
+        "date": "str",
+        "dealerLotsValue": "float",
+        "dealerValue": "float",
+        "foreignLotsValue": "float",
+        "foreignValue": "float",
+        "label": "str",
+        "totalLotsValue": "float",
+        "totalValue": "float",
+        "trustLotsValue": "float",
+        "trustValue": "float"
+      }
+    ],
+    "source": "str",
+    "sourceLink": "str",
+    "sourceNote": "str",
+    "summaries": {
+      "10": {
+        "date": "str",
+        "dealerLotsValue": "float",
+        "dealerValue": "float",
+        "foreignLotsValue": "float",
+        "foreignValue": "float",
+        "label": "str",
+        "totalLotsValue": "float",
+        "totalValue": "float",
+        "trustLotsValue": "float",
+        "trustValue": "float"
+      },
+      "20": {
+        "date": "str",
+        "dealerLotsValue": "float",
+        "dealerValue": "float",
+        "foreignLotsValue": "float",
+        "foreignValue": "float",
+        "label": "str",
+        "totalLotsValue": "float",
+        "totalValue": "float",
+        "trustLotsValue": "float",
+        "trustValue": "float"
+      },
+      "30": {
+        "date": "str",
+        "dealerLotsValue": "float",
+        "dealerValue": "float",
+        "foreignLotsValue": "float",
+        "foreignValue": "float",
+        "label": "str",
+        "totalLotsValue": "float",
+        "totalValue": "float",
+        "trustLotsValue": "float",
+        "trustValue": "float"
+      },
+      "5": {
+        "date": "str",
+        "dealerLotsValue": "float",
+        "dealerValue": "float",
+        "foreignLotsValue": "float",
+        "foreignValue": "float",
+        "label": "str",
+        "totalLotsValue": "float",
+        "totalValue": "float",
+        "trustLotsValue": "float",
+        "trustValue": "float"
+      }
+    },
+    "summary": {
+      "date": "str",
+      "dealerLotsValue": "float",
+      "dealerValue": "float",
+      "foreignLotsValue": "float",
+      "foreignValue": "float",
+      "label": "str",
+      "totalLotsValue": "float",
+      "totalValue": "float",
+      "trustLotsValue": "float",
+      "trustValue": "float"
+    },
+    "unit": "str"
+  },
+  "institutionalTrades": {
+    "date": "str",
+    "dealer": "str",
+    "dealerValue": "float",
+    "foreign": "str",
+    "foreignValue": "float",
+    "total": "str",
+    "totalValue": "float",
+    "trust": "str",
+    "trustValue": "float"
+  },
+  "market": "str"
+}

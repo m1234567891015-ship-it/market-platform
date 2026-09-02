@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#071426">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="台股脈動">
+  <title>台股脈動 | 台股盤勢</title>
+  <link rel="manifest" href="manifest.webmanifest?v=pwa-20260615-1">
+  <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/app-icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="split-01.css">
+<link rel="stylesheet" href="split-02.css">
+<link rel="stylesheet" href="split-03.css">
+<link rel="stylesheet" href="split-04.css">
+<link rel="stylesheet" href="split-05.css">
+<link rel="stylesheet" href="split-06.css">
+<link rel="stylesheet" href="split-07.css">
+<link rel="stylesheet" href="styles.css?v=scroll-table-20260704-1">
+</head>
+<body data-page="market">
+  <div class="page-shell">
+    <header class="site-header">
+      <nav class="navbar">
+        <a class="brand" href="index.html">
+          <span class="brand-mark">MP</span>
+          <span>台股脈動</span>
+        </a>
+        <div class="nav-links">
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="subpage-hero">
+        <p class="eyebrow">台股盤勢</p>
+        <h1>大盤與法人動向總覽</h1>
+        <p class="hero-text">集中查看加權指數、電子、半導體與金融保險等主要指標，並搭配法人買賣超判斷市場氛圍。</p>
+      </section>
+
+      <section class="section">
+        <div id="market-index-grid" class="overview-grid"></div>
+      </section>
+
+      <section class="section split-layout market-institution-layout">
+        <article class="panel-card market-institution-card">
+          <div class="card-title-row">
+            <div>
+              <p class="panel-kicker">法人資金</p>
+              <h3>外資與自營商動向</h3>
+            </div>
+            <span id="institution-date" class="chip chip-blue">資料同步中</span>
+          </div>
+          <div id="institution-summary" class="institution-summary"></div>
+          <div class="institution-detail-head">
+            <span>法人</span>
+            <span>買進</span>
+            <span>賣出</span>
+            <span>買賣超（億元）</span>
+          </div>
+          <div id="institution-grid" class="institution-list"></div>
+          <div id="sector-fund-flow" class="sector-fund-flow"></div>
+          <div id="market-sector-ranking" class="institution-sector-ranking"></div>
+        </article>
+
+        <article class="panel-card market-notes-card">
+          <div class="card-title-row">
+            <h3>市場提示</h3>
+            <span class="chip chip-gold">自動整理</span>
+          </div>
+          <div id="market-notes" class="market-ai-insight"></div>
+        </article>
+      </section>
+      <section class="section">
+        <div class="card-title-row">
+          <div>
+            <p class="panel-kicker">After market</p>
+            <h2>盤後快訊</h2>
+          </div>
+          <span class="chip chip-gold">每日盤後整理</span>
+        </div>
+        <article id="market-risk-advice" class="market-risk-card" aria-live="polite"></article>
+        <div id="market-limit-move-card"></div>
+        <div id="market-news-grid" class="news-grid"></div>
+      </section>
+    </main>
+  </div>
+
+<script src="market-pulse-esm-loader.js?v=td02-full-esm-20260901-1"></script>
+</body>
+</html>

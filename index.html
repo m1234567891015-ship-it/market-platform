@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#071426">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="台股脈動">
+  <title>台股脈動 | 台股即時儀表板</title>
+  <link rel="manifest" href="manifest.webmanifest?v=pwa-20260615-1">
+  <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/app-icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="split-01.css">
+<link rel="stylesheet" href="split-02.css">
+<link rel="stylesheet" href="split-03.css">
+<link rel="stylesheet" href="split-04.css">
+<link rel="stylesheet" href="split-05.css">
+<link rel="stylesheet" href="split-06.css">
+<link rel="stylesheet" href="split-07.css">
+<link rel="stylesheet" href="styles.css?v=home-penny-sector-trend-20260709-1">
+</head>
+<body data-page="home">
+  <div class="page-shell">
+    <header class="site-header">
+      <nav class="navbar">
+        <a class="brand" href="index.html">
+          <span class="brand-mark">MP</span>
+          <span>台股脈動</span>
+        </a>
+        <div class="nav-links">
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero hero-home">
+        <div class="hero-copy">
+          <p class="eyebrow">證交所即時儀表板</p>
+          <h1>掌握大盤、族群、法人與個股動向</h1>
+          <p class="hero-text">
+            台股脈動以 Python Flask 串接證交所公開資料，整理加權指數、法人買賣超、類股走勢與個股技術資料，
+            讓你快速看懂市場節奏。
+          </p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="market-overview.html">查看台股盤勢</a>
+          </div>
+          <p class="source-note" id="source-note">資料載入中...</p>
+        </div>
+
+        <aside class="hero-panel">
+          <div class="panel-header">
+            <p>加權指數</p>
+            <strong id="hero-index">載入中...</strong>
+          </div>
+          <div class="headline-metrics" id="hero-metrics"></div>
+        </aside>
+      </section>
+
+      <section class="section">
+        <div class="section-heading">
+          <p class="eyebrow">三個觀察面向</p>
+          <h2>從大盤、法人與族群切入市場</h2>
+          <p>把最重要的盤勢資訊先整理好，讓你在第一時間就能看見方向。</p>
+        </div>
+
+        <div class="tri-grid">
+          <article class="panel-card">
+            <div class="card-title-row">
+              <h3>盤面核心</h3>
+              <span class="chip chip-gold">重點指標</span>
+            </div>
+            <p class="card-copy">追蹤加權、電子、半導體與金融保險等重要指數，快速確認盤勢重心。</p>
+            <div id="fundamental-cards" class="mini-list"></div>
+          </article>
+
+          <article class="panel-card">
+            <div class="card-title-row">
+              <h3>法人動向</h3>
+              <span class="chip chip-blue">資金方向</span>
+            </div>
+            <p class="card-copy">彙整三大法人買賣超，掌握外資、投信與自營商的資金方向。</p>
+            <div id="chip-cards" class="mini-list"></div>
+          </article>
+
+          <article class="panel-card">
+            <div class="card-title-row">
+              <h3>前段族群</h3>
+              <span class="chip chip-green">相對強勢</span>
+            </div>
+            <p class="card-copy">依證交所產業類股指數排序，觀察目前相對強勢的板塊。</p>
+            <div id="technical-cards" class="mini-list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section penny-trend-section" aria-labelledby="penny-trend-title">
+        <div class="section-heading">
+          <p class="eyebrow">Sector penny picks</p>
+          <h2 id="penny-trend-title">類股成分股銅板股推薦</h2>
+          <p>從證交所產業類別中篩選股價 50 元以下成分股，綜合當日漲跌與法人資金流排序。</p>
+        </div>
+        <div id="penny-trend-controls" class="sector-flow-tabs penny-trend-controls" aria-label="銅板股市場切換"></div>
+        <p id="penny-trend-summary" class="source-note">正在整理三市場全部類股成分股...</p>
+        <div id="penny-trend-grid" class="penny-trend-grid">
+          <article class="panel-card"><p class="stock-detail-empty">銅板股推薦載入中...</p></article>
+        </div>
+        <p class="source-note">此區為量價與法人資料自動篩選，僅供研究觀察，不構成投資建議。</p>
+      </section>
+      <section class="section quick-links">
+        <a class="link-card" href="market-overview.html">
+          <p>台股盤勢</p>
+          <h3>即時查看大盤與法人脈絡</h3>
+        </a>
+        <a class="link-card" href="tw-stocks.html">
+          <p>台股指數</p>
+          <h3>追蹤族群輪動與技術走勢</h3>
+        </a>
+        <a class="link-card" href="tw-etf.html">
+          <p>台股 ETF</p>
+          <h3>搜尋、分類、排行榜、比較與配息風險總覽</h3>
+        </a>
+        <a class="link-card" href="tw-stock-search.html">
+          <p>個股搜尋</p>
+          <h3>輸入代號或名稱快速找股票</h3>
+        </a>
+        <a class="link-card" href="tw-Optional-stocks.html">
+          <p>自選股</p>
+          <h3>管理關注股票與模擬組合損益</h3>
+        </a>
+      </section>
+    </main>
+  </div>
+
+<script src="market-pulse-esm-loader.js?v=td02-full-esm-20260901-1"></script>
+</body>
+</html>

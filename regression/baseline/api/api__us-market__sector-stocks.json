@@ -1,0 +1,53 @@
+{
+  "count": "int",
+  "items": [
+    {
+      "change": "str",
+      "close": "str",
+      "currency": "str",
+      "dataSource": "str",
+      "dataSymbol": "str",
+      "date": "str",
+      "documentCategory": "str",
+      "exchange": "str",
+      "group": "str",
+      "high": "str",
+      "low": "str",
+      "market": "str",
+      "metricLabel": "str",
+      "name": "str",
+      "open": "str",
+      "optionCategory": "str",
+      "optionChainSymbol": "str",
+      "optionChainUnavailableReason": "str",
+      "optionSourceRole": "str",
+      "optionSubcategory": "str",
+      "pct": "str",
+      "periodReturn": "str",
+      "previousClose": "str",
+      "referenceSource": "str",
+      "region": "str",
+      "series": [
+        {
+          "close": "str",
+          "date": "str",
+          "high": "str",
+          "low": "str",
+          "open": "str",
+          "volume": "str",
+          "volumeValue": "str"
+        }
+      ],
+      "source": "str",
+      "sourceUrl": "str",
+      "symbol": "str",
+      "taifexCommodity": "str",
+      "type": "str",
+      "volume": "str"
+    }
+  ],
+  "label": "str",
+  "sector": "str",
+  "source": "str",
+  "usable": "int"
+}

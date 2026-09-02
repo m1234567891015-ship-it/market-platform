@@ -1,0 +1,124 @@
+dc0296f docs: add AGENTS.md and new-feature dev spec for Codex handoff
+d6c2adf docs: tighten "JS module" wording to classic-script (回應外部技術回饋 項目6)
+0ad70af feat(release): add delivery-package self-proof files (回應外部技術回饋 項目5)
+cfdd109 docs(TD-20): register verify_release_integrity.py clean-package gap (回應外部技術回饋 項目4, log only)
+64e6252 fix(portable_check): print backend log tail on startup failure (回應外部技術回饋 項目3)
+860dcd7 docs: sync stale interaction-baseline count 93->94 (回應外部技術回饋 項目2)
+91fb3ce fix(TD-21): repair route_scan.py after TD-01 moved routes into Blueprints
+f4516b7 docs: archive v1.0-refactor-complete cycle, mark TD-15r2/18/19 as future work
+6b8048b docs(TD-19): register schema_diff() key-tolerance blind spot (log only, no fix)
+0a3ea20 docs(TD-17): document the --quick/--api-live/--full split and warm-up behavior
+743ca57 fix(TD-17): stabilize --quick's API baseline check against external data flakiness
+8326d64 docs(TD-15): annotate css_unused_report.md with two corrections found during deletion
+cf5a6da refactor(TD-15): delete confirmed-dead static CSS rules, batch 7/7 (final, 3 classes)
+2165e1c refactor(TD-15): delete confirmed-dead static CSS rules, batch 6/7 (20 classes)
+562eb83 refactor(TD-15): delete confirmed-dead static CSS rules, batch 5/7 (20 classes)
+a946ed8 refactor(TD-15): delete confirmed-dead static CSS rules, batch 4/7 (18 classes)
+dda9749 refactor(TD-15): delete confirmed-dead static CSS rules, batch 3/7 (20 classes)
+1543f60 refactor(TD-15): delete confirmed-dead static CSS rules, batch 2/7 (20 classes)
+6c715f9 refactor(TD-15): delete confirmed-dead static CSS rules, batch 1/7 (20 classes)
+189b4e6 docs(TD-15): mark Layer 2 symbols @TD-15-OBSERVE, record suspected dead-chain finding
+fd7e521 refactor(TD-15): delete confirmed-dead JS symbols, Layer 1 batch 3/3 (12, final)
+0e62c49 refactor(TD-15): delete confirmed-dead JS symbols, Layer 1 batch 2/3 (20)
+1214071 refactor(TD-15): delete confirmed-dead JS symbols, Layer 1 batch 1/3 (20)
+2c13ce0 docs(TD-15): Part 1 dead-code classification (JS + CSS candidates)
+afc4778 test(regression): add interaction baseline completeness guardrail check
+429becc fix(regression): restore 7 pages silently missing from interaction baseline since TD-00B
+8783f06 fix(TD-16): fix loadInstitutionalTradeHistoryIfNeeded infinite recursion
+0ca97c3 test(TD-16): reproduce loadInstitutionalTradeHistoryIfNeeded infinite recursion
+d36480a docs(TD-02): CSS unused-rule scan report (scan only, no deletion)
+b2800b5 refactor(TD-02): CSS positional split batch 7/7 (final) - split-07.css (89 blocks)
+690b994 refactor(TD-02): CSS positional split batch 6/7 - split-06.css (556 blocks)
+46a8ca2 refactor(TD-02): CSS positional split batch 5/7 - split-05.css (513 blocks)
+e36dfa9 refactor(TD-02): CSS positional split batch 4/7 - split-04.css (599 blocks)
+daa21c3 refactor(TD-02): CSS positional split batch 3/7 - split-03.css (474 blocks)
+c9910ad refactor(TD-02): CSS positional split batch 2/7 - split-02.css (547 blocks)
+55f709d refactor(TD-02): CSS split restart with pure positional slicing - split-01.css (batch 1/7)
+d62618a Revert "refactor(TD-02): begin CSS split - css/charts.css (batch 1/N, 37 rule blocks)"
+4c2cfbb refactor(TD-02): begin CSS split - css/charts.css (batch 1/N, 37 rule blocks)
+419c35d refactor(TD-02): frontend split batch 23 (final) - js/main.js (2 functions + bootstrap tail)
+4cddc9e refactor(TD-02): frontend split batch 22 - js/legacy-unclassified.js (58 symbols)
+e490bcc refactor(TD-02): frontend split batch 21 - js/page-tw.js part 2 (51 symbols)
+4ad9f9f refactor(TD-02): frontend split batch 20 - js/page-tw.js part 1 (60 symbols)
+a5a144e refactor(TD-02): frontend split batch 19 - js/page-global-market-assethub.js part 3 (25 symbols)
+594b868 refactor(TD-02): frontend split batch 18 - js/page-global-market-assethub.js part 2 (60 symbols)
+e12171c refactor(TD-02): frontend split batch 17 - js/page-global-market-assethub.js part 1 (60 symbols)
+195faaf refactor(TD-02): frontend split batch 16 - js/page-global-market-options.js part 3 (11 symbols)
+fde65e3 refactor(TD-02): frontend split batch 15 - js/page-global-market-options.js part 2 (60 symbols)
+d2f4784 refactor(TD-02): frontend split batch 14 - js/page-global-market-options.js part 1 (60 symbols)
+67d90cf refactor(TD-02): frontend split batch 13 - js/page-global-market-futures.js part 2 (34 symbols)
+7768786 refactor(TD-02): frontend split batch 12 - js/page-global-market-futures.js part 1 (60 symbols)
+85f33cc refactor(TD-02): frontend split batch 11/22 - js/page-us.js part 2 (6 symbols)
+44a9aaf refactor(TD-02): frontend split batch 10/22 - js/page-us.js part 1 (60 symbols)
+683784f refactor(TD-02): frontend split batch 9/22 - js/page-home.js (33 symbols)
+19fd898 refactor(TD-02): frontend split batch 8/22 - js/stock-detail.js (10 symbols)
+92d9277 refactor(TD-02): frontend split batch 7/22 - js/charts.js (10 symbols)
+5f300c2 refactor(TD-02): frontend split batch 6/22 - js/render-shared.js (46 symbols)
+89ce3b2 refactor(TD-02): frontend split batch 5/22 - js/shared-calc.js part 2 (18 symbols)
+c924afe refactor(TD-02): frontend split batch 4/22 - js/shared-calc.js part 1 (54 symbols)
+82a4ac2 refactor(TD-02): frontend split batch 3/22 - js/api.js (4 symbols)
+e2262e5 fix(TD-02): byte-exact verification tooling + retroactive fix for batches 1-2
+b046a80 refactor(TD-02): frontend split batch 2/22 - js/core.js (26 symbols)
+a2f7c8c refactor(TD-02): frontend split batch 1/22 - js/state.js (151 symbols)
+066ec72 docs(TD-02): dependency inventory + plan revision after pilot findings
+fc34004 docs(TD-17): register --quick external-dependency debt, correct stale ~1min claim
+b0117f7 test(TD-00B): integrate interaction checks into verify_against_baseline + harden compare against crashes
+71c236d test(TD-00B): interaction checks for dashboard/render-type pages (batch 5/6)
+9e878d2 test(TD-00B): interaction checks for asset-hub pages (batch 4/6)
+3fd02dc test(TD-00B): interaction checks for watchlist/portfolio pages (batch 3/6)
+2b20cd1 test(TD-00B): interaction checks for derivatives/chart pages (batch 2/6)
+b57ba7d test(TD-00B): interaction checks for search/directory pages (batch 1/6)
+8d49fc4 docs(TD-16): register frontend runtime crash bug, exclude from interaction baseline
+e59debc test(TD-00B): interaction test framework + P0/P1 checks for tw-stock-search (batch 0/6)
+c919e73 docs(TD-00B): apply P0 tier decisions and register TD-15 dead code findings
+2fbce5b fix(TD-12): switch live_search_dedup to the shared count-capped LRU (行為微調, batch 12c/12)
+7795596 perf(TD-12): bound 12 previously-unbounded caches with a shared LRU cap (batch 12b/12)
+c839d21 refactor(TD-05): delete 4 confirmed dead-code functions (batch 12a/12)
+6177315 refactor(TD-05): migrate everything-else fetchers, all 86 functions reviewed (batch 11/12)
+4e03a7d refactor(TD-05): migrate TDCC/Google News fetchers + registry hardening (batch 10/12)
+41a2612 refactor(TD-05): migrate Yahoo Taiwan quote-page fetchers to the registry (batch 9/12)
+cdbf0fa refactor(TD-05/TD-12): confirm TAIFEX complex fetchers unchanged + merge options-chain TTLs (batch 8/12)
+528eb90 refactor(TD-05): migrate TAIFEX simple GET fetchers + Finding B TTL promotion (batch 7/12)
+dd5eed9 refactor(TD-05): migrate remaining Yahoo Finance global fetchers, cluster complete (batch 6/12)
+ed310c9 refactor(TD-05): migrate Yahoo Finance global core fetchers (batch 5/12)
+405866c refactor(TD-05): migrate remaining TWSE/TPEX fetchers, cluster complete (batch 4/12)
+5204c00 refactor(TD-05): migrate TWSE institutional/history fetchers (batch 3/12)
+11dfedd refactor(TD-05): migrate TWSE core fetchers to the registry (batch 2/12)
+b0f8f8f docs: add TD-14 (styles.css monolith, bookkeeping only, folded into TD-02)
+d45d021 refactor(TD-05): fetch registry foundation, no fetchers migrated yet (batch 1/12)
+8b054f8 docs: add behavior-change work-item protocol + TD-09 retroactive writeup
+3d9c3c2 feat(TD-09): re-enable service worker with stale-while-revalidate static caching
+60f632d fix(TD-08): unify site nav to a single source and fix orphaned derivatives-ai.html
+e397a1b refactor(TD-11): rename duplicate app.js `worker` function to avoid same-name landmine
+4475478 fix(TD-07): require explicit opt-in for unverified SSL fallback in every environment
+8bf8e02 refactor(TD-06): split enforce_api_rate_limit into identity/window/eviction/response
+fa22139 fix(regression): repair 2 fetchers.py deferred-import references broken by TD-01 slice 4
+ec81c3b refactor(TD-01): final skeleton cleanup (slice 5, batch B4/8, TD-01 CLOSED)
+5d0ea71 refactor(TD-01): extract routes_derivatives.py Blueprint (slice 5, batch B3/8, LAST route batch)
+f2a2cc8 refactor(TD-01): extract routes_twse.py Blueprint (slice 5, batch B2/8)
+4c3b585 refactor(TD-01): extract routes_global_market.py Blueprint (slice 5, batch B1/8)
+65a68f8 refactor(TD-01): extract routes_system.py Blueprint (slice 5, batch B0/8, Phase B starts)
+afed7d0 refactor(TD-01): extract parsers.py - final merge/enrich/validate cluster (slice 5, batch A2/8, Phase A complete)
+2e9ae2d refactor(TD-01): extract parsers.py - parse_* cluster (slice 5, batch A1/8)
+bdf146d refactor(TD-01): extract parsers.py - TAIFEX option-config + pricing (slice 5, batch A0/8)
+1373f67 docs(TD-01): note build_site_data's builders.py move in cache.py's docstring
+7e9f086 refactor(TD-01): extract builders.py - site-data composites (slice 4, batch 5/6, FINAL)
+954de3d refactor(TD-01): extract builders.py - US-market/global-market cluster (slice 4, batch 4/6)
+1597b55 refactor(TD-01): extract builders.py - stock-detail/institutional cluster (slice 4, batch 3/6)
+d795a46 refactor(TD-01): extract builders.py - Yahoo/sector + technical-analysis cluster (slice 4, batch 2/6)
+a30b20f refactor(TD-01): extract builders.py - TAIFEX/options-chain + derivatives misc (slice 4, batch 1/6)
+eeba96a refactor(TD-01): extract builders.py - small isolated leaf builders (slice 4, batch 0/6)
+52f354d refactor(TD-01): extract fetchers.py - other sources + composite (slice 3, batch 5/6, FINAL)
+19c964d refactor(TD-01): extract fetchers.py - Yahoo Taiwan (slice 3, batch 4/6)
+7d98e29 refactor(TD-01): extract fetchers.py - TAIFEX (slice 3, batch 3/6)
+809664f refactor(TD-01): extract fetchers.py - Yahoo Finance global (slice 3, batch 2/6)
+e8451e3 refactor(TD-01): extract fetchers.py - TWSE/TPEX (slice 3, batch 1/6)
+a95b79f refactor(TD-01): extract fetchers.py - generic HTTP helpers (slice 3, batch 0/6)
+e9c4802 refactor(TD-01): extract cache.py core functions (slice 2b)
+ab3626a refactor(TD-01): extract cache.py state (slice 2a - constants/locks only)
+d692620 refactor(TD-01): extract security.py (headers, rate limiting, admin-token, SSL fallback)
+2fc9321 fix(regression): guard schema_diff numeric-type check against unhashable list schemas
+01e9014 fix(regression): tolerate int/float and new-field variance in schema_diff
+ac09ed8 docs: add TD technical-debt audit (source xlsx + TD稽核清單.md)
+6ac4fa4 feat(TD-00): add behavior baseline regression system
+f1a469d chore: initial commit of original codebase before TD refactor (baseline)

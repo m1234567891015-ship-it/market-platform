@@ -1,0 +1,21 @@
+{
+  "count": "int",
+  "query": "str",
+  "results": [
+    {
+      "exchange": "str",
+      "group": "str",
+      "name": "str",
+      "nyseUrl": "str",
+      "source": "str",
+      "symbol": "str",
+      "type": "str"
+    }
+  ],
+  "returned": "int",
+  "source": "str",
+  "totals": {
+    "美股 ETF": "int",
+    "美股個股": "int"
+  }
+}

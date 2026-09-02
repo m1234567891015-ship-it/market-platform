@@ -1,0 +1,29 @@
+{
+  "count": "int",
+  "refreshedAt": "str",
+  "snapshotDate": "str",
+  "source": "str",
+  "stocks": [
+    {
+      "ask": "str",
+      "askVolume": "str",
+      "bid": "str",
+      "bidVolume": "str",
+      "change": "str",
+      "close": "str",
+      "code": "str",
+      "high": "str",
+      "low": "str",
+      "market": "str",
+      "marketLabel": "str",
+      "name": "str",
+      "open": "str",
+      "pct": "str",
+      "tone": "str",
+      "trades": "str",
+      "turnover": "str",
+      "volume": "str"
+    }
+  ],
+  "tpexStockDate": "str"
+}

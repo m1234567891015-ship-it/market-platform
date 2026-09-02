@@ -1,0 +1,14 @@
+{
+  "name": "market-pulse-frontend-build",
+  "private": true,
+  "version": "1.0.0",
+  "engines": {
+    "node": ">=24.18.0"
+  },
+  "scripts": {
+    "build:minify": "node regression/td18_minify_build.js --out .tmp/td18-minify-build"
+  },
+  "devDependencies": {
+    "terser": "5.51.2"
+  }
+}

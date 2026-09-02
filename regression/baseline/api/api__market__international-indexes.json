@@ -1,0 +1,33 @@
+{
+  "cached": "bool",
+  "count": "int",
+  "indexes": [
+    {
+      "change": "str",
+      "date": "str",
+      "high": "str",
+      "key": "str",
+      "low": "str",
+      "market": "str",
+      "name": "str",
+      "open": "str",
+      "pct": "str",
+      "previousClose": "str",
+      "proxy": "null",
+      "resolvedSymbol": "str",
+      "series": [
+        {
+          "date": "str",
+          "value": "str"
+        }
+      ],
+      "sourceLink": "str",
+      "sourceStatus": "str",
+      "symbol": "str",
+      "tone": "str",
+      "value": "str",
+      "volume": "str",
+      "volumeValue": "str"
+    }
+  ]
+}

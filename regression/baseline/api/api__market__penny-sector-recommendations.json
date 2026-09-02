@@ -1,0 +1,45 @@
+{
+  "available": "bool",
+  "markets": [
+    {
+      "availableSectorCount": "int",
+      "catalogCount": "int",
+      "key": "str",
+      "label": "str",
+      "pennyStockCount": "int",
+      "sectorCount": "int",
+      "sectors": [
+        {
+          "group": "str",
+          "index": "int",
+          "marketLabel": "str",
+          "name": "str",
+          "pennyStockCount": "int",
+          "pennyStocks": [
+            {
+              "close": "str",
+              "closeValue": "float",
+              "code": "str",
+              "market": "str",
+              "marketLabel": "str",
+              "name": "str",
+              "pct": "str",
+              "pctValue": "float",
+              "score": "int",
+              "tone": "str",
+              "volume": "str",
+              "volumeValue": "float"
+            }
+          ],
+          "snapshotDate": "str",
+          "sourceUrl": "str",
+          "stockCount": "int"
+        }
+      ]
+    }
+  ],
+  "priceLimit": "int",
+  "source": "str",
+  "sourceNote": "str",
+  "updatedAt": "str"
+}

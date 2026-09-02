@@ -1,0 +1,27 @@
+{
+  "data": {
+    "message": "str",
+    "product": "str",
+    "rows": [
+      {
+        "institution": "str",
+        "longContracts": "float",
+        "netContracts": "float",
+        "shortContracts": "float",
+        "status": "str"
+      }
+    ],
+    "source": {
+      "name": "str",
+      "url": "str"
+    },
+    "summary": {
+      "bias": "str",
+      "netContracts": "float",
+      "status": "str"
+    },
+    "tradeDate": "str"
+  },
+  "success": "bool",
+  "updated_at": "str"
+}

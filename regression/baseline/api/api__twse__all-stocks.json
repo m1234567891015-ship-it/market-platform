@@ -1,0 +1,34 @@
+{
+  "cachedAt": "str",
+  "count": "int",
+  "snapshotDate": "str",
+  "stocks": [
+    {
+      "ask": "str",
+      "askVolume": "str",
+      "bid": "str",
+      "bidVolume": "str",
+      "change": "str",
+      "close": "str",
+      "code": "str",
+      "high": "str",
+      "low": "str",
+      "market": "str",
+      "marketLabel": "str",
+      "name": "str",
+      "open": "str",
+      "pct": "str",
+      "technicalAnalysis": {
+        "bias": "str",
+        "candle": "str",
+        "signal": "str",
+        "strength": "str",
+        "volatilityPct": "str"
+      },
+      "tone": "str",
+      "trades": "str",
+      "turnover": "str",
+      "volume": "str"
+    }
+  ]
+}

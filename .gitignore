@@ -1,0 +1,50 @@
+# ===== 執行期資料(TD-04:資料與程式碼分離)=====
+# SQLite 資料庫(含 WAL 模式的附屬檔)
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.db
+
+# TWSE 執行期快取(可由 MARKET_PULSE_CACHE_FILE 覆寫路徑)
+twse-cache.json
+
+# 未來若改用 data/ 目錄(設定 DERIVATIVES_DB_PATH / MARKET_PULSE_CACHE_FILE)
+data/
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# ===== 打包與發佈產物 =====
+# build_portable_package.py 的輸出
+portable/
+dist/
+build/
+*.zip
+
+# TD-POST 項目5:交付包自證檔(git bundle create ... --all 產生,
+# 供未來連同交付包一起分發用,不進版控——理由與上方 SQLite/快取
+# 一致:是生成產物,commit 進去只會讓 repo 隨每次重新產生而遞迴變大。
+# 需要時用 `git bundle create market-platform-full-history.bundle --all`
+# 在本機重新產生;release_proof/ 底下的文字檔仍照常入版控。
+*.bundle
+
+# ===== 日誌與暫存 =====
+*.log
+.tmp/
+.td03_runtime/
+
+# ===== 編輯器 / OS =====
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# ===== Node.js =====
+node_modules/
+
+# ===== Windows =====
+desktop.ini

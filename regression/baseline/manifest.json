@@ -1,0 +1,451 @@
+{
+  "captured_at": "2026-07-16T23:38:59+0800",
+  "endpoint_count": 44,
+  "endpoints": [
+    {
+      "baseline_file": "api/api__health.json",
+      "content_type": "application/json",
+      "mask_paths": [
+        "cachedAt"
+      ],
+      "name": "api__health",
+      "request_path": "/api/health",
+      "rule": "/api/health",
+      "status_code": 200,
+      "structure_only": false
+    },
+    {
+      "baseline_file": "api/api__twse__site-data.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__twse__site-data",
+      "request_path": "/api/twse/site-data",
+      "rule": "/api/twse/site-data",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__twse__live-sectors.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__twse__live-sectors",
+      "request_path": "/api/twse/live-sectors",
+      "rule": "/api/twse/live-sectors",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__twse__live-overview.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__twse__live-overview",
+      "request_path": "/api/twse/live-overview",
+      "rule": "/api/twse/live-overview",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__twse__live-stocks.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__twse__live-stocks",
+      "request_path": "/api/twse/live-stocks",
+      "rule": "/api/twse/live-stocks",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__twse__live-search.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__twse__live-search",
+      "request_path": "/api/twse/live-search",
+      "rule": "/api/twse/live-search",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__yahoo__sector.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__yahoo__sector",
+      "request_path": "/api/yahoo/sector",
+      "rule": "/api/yahoo/sector",
+      "status_code": 404,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__yahoo__sector-chart.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__yahoo__sector-chart",
+      "request_path": "/api/yahoo/sector-chart",
+      "rule": "/api/yahoo/sector-chart",
+      "status_code": 400,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__market__penny-sector-recommendations.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__market__penny-sector-recommendations",
+      "request_path": "/api/market/penny-sector-recommendations",
+      "rule": "/api/market/penny-sector-recommendations",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__market__international-indexes.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__market__international-indexes",
+      "request_path": "/api/market/international-indexes",
+      "rule": "/api/market/international-indexes",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__global-market__us-stocks.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__global-market__us-stocks",
+      "request_path": "/api/global-market/us-stocks",
+      "rule": "/api/global-market/<category>",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__global-market__futures.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__global-market__futures",
+      "request_path": "/api/global-market/futures",
+      "rule": "/api/global-market/<category>",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__global-market__options.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__global-market__options",
+      "request_path": "/api/global-market/options",
+      "rule": "/api/global-market/<category>",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__global-market__precious-metals.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__global-market__precious-metals",
+      "request_path": "/api/global-market/precious-metals",
+      "rule": "/api/global-market/<category>",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__global-market__bonds.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__global-market__bonds",
+      "request_path": "/api/global-market/bonds",
+      "rule": "/api/global-market/<category>",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__index.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__index",
+      "request_path": "/api/index",
+      "rule": "/api/index",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__derivatives__v1-status.json",
+      "content_type": "application/json",
+      "mask_paths": [
+        "updated_at"
+      ],
+      "name": "api__derivatives__v1-status",
+      "request_path": "/api/derivatives/v1-status",
+      "rule": "/api/derivatives/v1-status",
+      "status_code": 200,
+      "structure_only": false
+    },
+    {
+      "baseline_file": "api/api__futures.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__futures",
+      "request_path": "/api/futures?sort=open_interest",
+      "rule": "/api/futures",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__futures__TX.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__futures__TX",
+      "request_path": "/api/futures/TX",
+      "rule": "/api/futures/<symbol>",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__futures__TX__candles.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__futures__TX__candles",
+      "request_path": "/api/futures/TX/candles",
+      "rule": "/api/futures/<symbol>/candles",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__options.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__options",
+      "request_path": "/api/options?underlying=TXO",
+      "rule": "/api/options",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__open-interest.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__open-interest",
+      "request_path": "/api/open-interest?symbol=TX",
+      "rule": "/api/open-interest",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__institution.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__institution",
+      "request_path": "/api/institution",
+      "rule": "/api/institution",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__basis.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__basis",
+      "request_path": "/api/basis",
+      "rule": "/api/basis",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__news.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__news",
+      "request_path": "/api/news",
+      "rule": "/api/news",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__ai-analysis.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__ai-analysis",
+      "request_path": "/api/ai-analysis?target=TXO",
+      "rule": "/api/ai-analysis",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__futures__TX__technical-candles.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__futures__TX__technical-candles",
+      "request_path": "/api/futures/TX/technical-candles",
+      "rule": "/api/futures/<symbol>/technical-candles",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__options__chain.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__options__chain",
+      "request_path": "/api/options/chain?underlying=TXO",
+      "rule": "/api/options/chain",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__pcr.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__pcr",
+      "request_path": "/api/pcr?underlying=TXO",
+      "rule": "/api/pcr",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__maxpain.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__maxpain",
+      "request_path": "/api/maxpain?underlying=TXO",
+      "rule": "/api/maxpain",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__us-market__etf-center.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__us-market__etf-center",
+      "request_path": "/api/us-market/etf-center",
+      "rule": "/api/us-market/etf-center",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__us-market__search.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__us-market__search",
+      "request_path": "/api/us-market/search?q=AAPL",
+      "rule": "/api/us-market/search",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__us-market__listed.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__us-market__listed",
+      "request_path": "/api/us-market/listed",
+      "rule": "/api/us-market/listed",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__us-market__nyse-listed.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__us-market__nyse-listed",
+      "request_path": "/api/us-market/nyse-listed",
+      "rule": "/api/us-market/nyse-listed",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__us-market__options-chain__AAPL.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__us-market__options-chain__AAPL",
+      "request_path": "/api/us-market/options-chain/AAPL",
+      "rule": "/api/us-market/options-chain/<symbol>",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__us-market__symbol__AAPL.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__us-market__symbol__AAPL",
+      "request_path": "/api/us-market/symbol/AAPL",
+      "rule": "/api/us-market/symbol/<symbol>",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__us-market__sector-stocks.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__us-market__sector-stocks",
+      "request_path": "/api/us-market/sector-stocks",
+      "rule": "/api/us-market/sector-stocks",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__twse__all-stocks.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__twse__all-stocks",
+      "request_path": "/api/twse/all-stocks",
+      "rule": "/api/twse/all-stocks",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__twse__etfs.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__twse__etfs",
+      "request_path": "/api/twse/etfs",
+      "rule": "/api/twse/etfs",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__twse__search.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__twse__search",
+      "request_path": "/api/twse/search?q=2330",
+      "rule": "/api/twse/search",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__twse__stock__2330.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__twse__stock__2330",
+      "request_path": "/api/twse/stock/2330",
+      "rule": "/api/twse/stock/<code>",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__twse__stock__0050.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__twse__stock__0050",
+      "request_path": "/api/twse/stock/0050",
+      "rule": "/api/twse/stock/<code>",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__twse__stock__2330__shareholders.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__twse__stock__2330__shareholders",
+      "request_path": "/api/twse/stock/2330/shareholders",
+      "rule": "/api/twse/stock/<code>/shareholders",
+      "status_code": 200,
+      "structure_only": true
+    },
+    {
+      "baseline_file": "api/api__twse__stock__2330__institutional-history.json",
+      "content_type": "application/json",
+      "mask_paths": [],
+      "name": "api__twse__stock__2330__institutional-history",
+      "request_path": "/api/twse/stock/2330/institutional-history",
+      "rule": "/api/twse/stock/<code>/institutional-history",
+      "status_code": 200,
+      "structure_only": true
+    }
+  ],
+  "route_count": 39
+}

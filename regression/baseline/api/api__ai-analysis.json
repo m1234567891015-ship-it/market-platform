@@ -1,0 +1,46 @@
+{
+  "data": {
+    "bias": "str",
+    "confidenceScore": "int",
+    "crossValidation": [
+      {
+        "name": "str",
+        "signal": "str",
+        "status": "str"
+      }
+    ],
+    "disclaimer": "str",
+    "marketScore": "int",
+    "maxPain": "float",
+    "reasons": [
+      "str"
+    ],
+    "resistanceLevel": "float",
+    "riskLevel": "str",
+    "riskScore": "int",
+    "scenarios": [
+      {
+        "condition": "str",
+        "name": "str",
+        "view": "str"
+      }
+    ],
+    "scoreFormula": {
+      "confidenceScore": "str",
+      "evidenceLayers": [
+        "str"
+      ],
+      "marketScore": "str",
+      "riskScore": "str"
+    },
+    "scoreLabels": {
+      "confidence": "str",
+      "market": "str",
+      "risk": "str"
+    },
+    "strategySuggestion": "str",
+    "supportLevel": "float"
+  },
+  "success": "bool",
+  "updated_at": "str"
+}

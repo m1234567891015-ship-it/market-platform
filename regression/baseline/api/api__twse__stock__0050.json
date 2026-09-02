@@ -1,0 +1,933 @@
+{
+  "allHistoryLoaded": "bool",
+  "analysis": {
+    "chips": {
+      "chipSummary": {
+        "cards": [
+          {
+            "items": [
+              "str"
+            ],
+            "key": "str",
+            "label": "str",
+            "metrics": [
+              {
+                "label": "str",
+                "value": "str"
+              }
+            ],
+            "source": "str",
+            "sourceLink": "str",
+            "sourceNote": "str",
+            "title": "str",
+            "tone": "str"
+          }
+        ],
+        "summary": "str",
+        "title": "str"
+      },
+      "items": [
+        "str"
+      ],
+      "skipSupplementalPanels": "bool",
+      "summary": "str",
+      "title": "str"
+    },
+    "fundamental": {
+      "items": [
+        "str"
+      ],
+      "summary": "str",
+      "title": "str"
+    },
+    "news": {
+      "items": [
+        "str"
+      ],
+      "summary": "str",
+      "title": "str"
+    },
+    "technical": {
+      "items": [
+        "str"
+      ],
+      "summary": "str",
+      "title": "str"
+    }
+  },
+  "ask": "str",
+  "askVolume": "str",
+  "avgVolume5": "str",
+  "bid": "str",
+  "bidVolume": "str",
+  "brokerTrading": {
+    "buyBrokers": [
+      {
+        "broker": "str",
+        "buy": "float",
+        "net": "float",
+        "sell": "float"
+      }
+    ],
+    "date": "str",
+    "sellBrokers": [
+      {
+        "broker": "str",
+        "buy": "float",
+        "net": "float",
+        "sell": "float"
+      }
+    ],
+    "source": "str",
+    "sourceLink": "str",
+    "sourceNote": "str",
+    "summary": {
+      "buyLots": "float",
+      "netLots": "float",
+      "sellLots": "float",
+      "volumeRatio": "str"
+    }
+  },
+  "cachedAt": "str",
+  "change": "str",
+  "chartIntervals": {
+    "intradayAvailable": "bool",
+    "intradayUnavailableReason": "str",
+    "supported": [
+      "str"
+    ]
+  },
+  "chipSummary": {
+    "cards": [
+      {
+        "items": [
+          "str"
+        ],
+        "key": "str",
+        "label": "str",
+        "metrics": [
+          {
+            "label": "str",
+            "value": "str"
+          }
+        ],
+        "source": "str",
+        "sourceLink": "str",
+        "sourceNote": "str",
+        "title": "str",
+        "tone": "str"
+      }
+    ],
+    "summary": "str",
+    "title": "str"
+  },
+  "close": "str",
+  "code": "str",
+  "companyNews": [
+    {
+      "link": "str",
+      "publishedAt": "str",
+      "source": "str",
+      "title": "str"
+    }
+  ],
+  "companyProfile": {},
+  "detailMode": "str",
+  "etfComponents": {
+    "holdings": [
+      {
+        "code": "str",
+        "name": "str",
+        "weight": "float"
+      }
+    ],
+    "sourceLink": "str",
+    "sourceNote": "str",
+    "summary": "str",
+    "title": "str"
+  },
+  "etfDividendInfo": {
+    "latest": {
+      "cashDividend": "str",
+      "cashPayDate": "str",
+      "exDate": "str",
+      "isUpcoming": "bool",
+      "period": "str",
+      "year": "str"
+    },
+    "recent": [
+      {
+        "accYieldByPayDateYear": "str",
+        "cashDividend": "str",
+        "cashPayDate": "str",
+        "exDate": "str",
+        "period": "str",
+        "previousClose": "str",
+        "recoveryDays": "str",
+        "year": "str",
+        "yieldByExDate": "str"
+      }
+    ],
+    "sourceLink": "str",
+    "sourceNote": "str",
+    "summary": "str",
+    "symbol": "str",
+    "title": "str",
+    "totals": {
+      "averageYears": "str",
+      "averageYield": "str",
+      "continuousYears": "str",
+      "totalDividends": "str"
+    }
+  },
+  "high": "str",
+  "historyCount": "int",
+  "historyDays": [
+    {
+      "change": "str",
+      "close": "str",
+      "date": "str",
+      "high": "str",
+      "low": "str",
+      "open": "str",
+      "volume": "str"
+    }
+  ],
+  "historyEndDate": "str",
+  "historyInvalidRowsRemoved": "int",
+  "historyStartDate": "str",
+  "historyWarning": "null",
+  "institutionalTradeHistory": {
+    "available": "bool",
+    "defaultPeriod": "int",
+    "limit": "int",
+    "periods": [
+      "int"
+    ],
+    "rows": [
+      {
+        "date": "str",
+        "dealerLotsValue": "float",
+        "dealerValue": "float",
+        "foreignLotsValue": "float",
+        "foreignValue": "float",
+        "label": "str",
+        "totalLotsValue": "float",
+        "totalValue": "float",
+        "trustLotsValue": "float",
+        "trustValue": "float"
+      }
+    ],
+    "source": "str",
+    "sourceLink": "str",
+    "sourceNote": "str",
+    "summaries": {
+      "10": {
+        "date": "str",
+        "dealerLotsValue": "float",
+        "dealerValue": "float",
+        "foreignLotsValue": "float",
+        "foreignValue": "float",
+        "label": "str",
+        "totalLotsValue": "float",
+        "totalValue": "float",
+        "trustLotsValue": "float",
+        "trustValue": "float"
+      },
+      "20": {
+        "date": "str",
+        "dealerLotsValue": "float",
+        "dealerValue": "float",
+        "foreignLotsValue": "float",
+        "foreignValue": "float",
+        "label": "str",
+        "totalLotsValue": "float",
+        "totalValue": "float",
+        "trustLotsValue": "float",
+        "trustValue": "float"
+      },
+      "30": {
+        "date": "str",
+        "dealerLotsValue": "float",
+        "dealerValue": "float",
+        "foreignLotsValue": "float",
+        "foreignValue": "float",
+        "label": "str",
+        "totalLotsValue": "float",
+        "totalValue": "float",
+        "trustLotsValue": "float",
+        "trustValue": "float"
+      },
+      "5": {
+        "date": "str",
+        "dealerLotsValue": "float",
+        "dealerValue": "float",
+        "foreignLotsValue": "float",
+        "foreignValue": "float",
+        "label": "str",
+        "totalLotsValue": "float",
+        "totalValue": "float",
+        "trustLotsValue": "float",
+        "trustValue": "float"
+      }
+    },
+    "summary": {
+      "date": "str",
+      "dealerLotsValue": "float",
+      "dealerValue": "float",
+      "foreignLotsValue": "float",
+      "foreignValue": "float",
+      "label": "str",
+      "totalLotsValue": "float",
+      "totalValue": "float",
+      "trustLotsValue": "float",
+      "trustValue": "float"
+    },
+    "unit": "str"
+  },
+  "institutionalTrades": {
+    "date": "str",
+    "dealer": "str",
+    "dealerValue": "float",
+    "foreign": "str",
+    "foreignValue": "float",
+    "total": "str",
+    "totalValue": "float",
+    "trust": "str",
+    "trustValue": "float"
+  },
+  "isEtf": "bool",
+  "isFallbackHistory": "bool",
+  "low": "str",
+  "ma20": "str",
+  "ma5": "str",
+  "ma60": "str",
+  "majorHolderData": {
+    "date": "str",
+    "latest": {
+      "date": "str",
+      "directorHoldingRatio": "null",
+      "foreignChipRatio": "float",
+      "majorHolderRatio": "null",
+      "price": "float"
+    },
+    "rows": [
+      {
+        "date": "str",
+        "directorHoldingRatio": "null",
+        "foreignChipRatio": "float",
+        "majorHolderRatio": "null",
+        "price": "float"
+      }
+    ],
+    "source": "str",
+    "sourceLink": "str",
+    "sourceNote": "str"
+  },
+  "marginTrading": {
+    "dailyRows": [
+      {
+        "changePct": "float",
+        "closePrice": "float",
+        "date": "str",
+        "endDate": "str",
+        "financingBalance": "float",
+        "financingBuy": "float",
+        "financingChange": "float",
+        "financingRepayment": "float",
+        "financingSell": "float",
+        "financingUtilizationRate": "float",
+        "label": "str",
+        "lendingBalance": "float",
+        "lendingChange": "float",
+        "lendingRepay": "float",
+        "lendingSell": "float",
+        "offsetting": "float",
+        "period": "str",
+        "shortBalance": "float",
+        "shortBuy": "float",
+        "shortChange": "float",
+        "shortFinancingRatio": "float",
+        "shortLimit": "float",
+        "shortRepayment": "float",
+        "shortSell": "float",
+        "shortUtilizationRate": "float",
+        "totalDays": "float"
+      }
+    ],
+    "date": "str",
+    "financingBalance": "float",
+    "financingBuy": "float",
+    "financingCashRedemption": "float",
+    "financingChange": "float",
+    "financingPrevious": "float",
+    "financingSell": "float",
+    "financingUtilizationRate": "float",
+    "marginBalanceChartDataKey": "str",
+    "marginBalanceChartRows": [
+      {
+        "changePct": "float",
+        "closePrice": "float",
+        "date": "str",
+        "endDate": "str",
+        "financingBalance": "float",
+        "financingBuy": "float",
+        "financingChange": "float",
+        "financingRepayment": "float",
+        "financingSell": "float",
+        "financingUtilizationRate": "float",
+        "label": "str",
+        "lendingBalance": "float",
+        "lendingChange": "float",
+        "lendingRepay": "float",
+        "lendingSell": "float",
+        "offsetting": "float",
+        "period": "str",
+        "shortBalance": "float",
+        "shortBuy": "float",
+        "shortChange": "float",
+        "shortFinancingRatio": "float",
+        "shortLimit": "float",
+        "shortRepayment": "float",
+        "shortSell": "float",
+        "shortUtilizationRate": "float",
+        "totalDays": "float"
+      }
+    ],
+    "marginBalanceChartSource": "str",
+    "marginBalancePeriodRows": {
+      "day": [
+        {
+          "changePct": "float",
+          "closePrice": "float",
+          "date": "str",
+          "endDate": "str",
+          "financingBalance": "float",
+          "financingBuy": "float",
+          "financingChange": "float",
+          "financingRepayment": "float",
+          "financingSell": "float",
+          "financingUtilizationRate": "float",
+          "label": "str",
+          "lendingBalance": "float",
+          "lendingChange": "float",
+          "lendingRepay": "float",
+          "lendingSell": "float",
+          "offsetting": "float",
+          "period": "str",
+          "shortBalance": "float",
+          "shortBuy": "float",
+          "shortChange": "float",
+          "shortFinancingRatio": "float",
+          "shortLimit": "float",
+          "shortRepayment": "float",
+          "shortSell": "float",
+          "shortUtilizationRate": "float",
+          "totalDays": "float"
+        }
+      ],
+      "month": [
+        {
+          "changePct": "float",
+          "closePrice": "float",
+          "date": "str",
+          "endDate": "str",
+          "financingBalance": "float",
+          "financingBuy": "float",
+          "financingChange": "float",
+          "financingRepayment": "float",
+          "financingSell": "float",
+          "financingUtilizationRate": "float",
+          "label": "str",
+          "lendingBalance": "float",
+          "lendingChange": "float",
+          "lendingRepay": "float",
+          "lendingSell": "float",
+          "offsetting": "float",
+          "period": "str",
+          "shortBalance": "float",
+          "shortBuy": "float",
+          "shortChange": "float",
+          "shortFinancingRatio": "float",
+          "shortLimit": "null",
+          "shortRepayment": "float",
+          "shortSell": "float",
+          "shortUtilizationRate": "float",
+          "totalDays": "float"
+        }
+      ],
+      "quarter": [
+        {
+          "changePct": "float",
+          "closePrice": "float",
+          "date": "str",
+          "endDate": "str",
+          "financingBalance": "float",
+          "financingBuy": "float",
+          "financingChange": "float",
+          "financingRepayment": "float",
+          "financingSell": "float",
+          "financingUtilizationRate": "float",
+          "label": "str",
+          "lendingBalance": "float",
+          "lendingChange": "float",
+          "lendingRepay": "float",
+          "lendingSell": "float",
+          "offsetting": "float",
+          "period": "str",
+          "shortBalance": "float",
+          "shortBuy": "float",
+          "shortChange": "float",
+          "shortFinancingRatio": "float",
+          "shortLimit": "null",
+          "shortRepayment": "float",
+          "shortSell": "float",
+          "shortUtilizationRate": "float",
+          "totalDays": "float"
+        }
+      ],
+      "week": [
+        {
+          "changePct": "float",
+          "closePrice": "float",
+          "date": "str",
+          "endDate": "str",
+          "financingBalance": "float",
+          "financingBuy": "float",
+          "financingChange": "float",
+          "financingRepayment": "float",
+          "financingSell": "float",
+          "financingUtilizationRate": "float",
+          "label": "str",
+          "lendingBalance": "float",
+          "lendingChange": "float",
+          "lendingRepay": "float",
+          "lendingSell": "float",
+          "offsetting": "float",
+          "period": "str",
+          "shortBalance": "float",
+          "shortBuy": "float",
+          "shortChange": "float",
+          "shortFinancingRatio": "float",
+          "shortLimit": "null",
+          "shortRepayment": "float",
+          "shortSell": "float",
+          "shortUtilizationRate": "float",
+          "totalDays": "float"
+        }
+      ]
+    },
+    "marginSummaryAccumulationRows": [
+      {
+        "date": "str",
+        "endDate": "str",
+        "financingChange": "float",
+        "label": "str",
+        "periodSum": "str",
+        "shortChange": "float",
+        "shortFinancingRatioChange": "float",
+        "totalDays": "float"
+      }
+    ],
+    "marginSummaryTrend": {
+      "financing": {
+        "change": "str",
+        "day": "int",
+        "dayNow": "int",
+        "text": "str",
+        "trend": "str",
+        "trendNow": "str"
+      },
+      "lendingPercent": {
+        "change": "str",
+        "day": "int",
+        "dayNow": "int",
+        "text": "str",
+        "trend": "str",
+        "trendNow": "str"
+      },
+      "shortFinancingPercent": {
+        "day": "int",
+        "dayNow": "int",
+        "text": "str",
+        "trend": "str",
+        "trendNow": "str"
+      },
+      "tradeShort": {
+        "change": "str",
+        "day": "int",
+        "dayNow": "int",
+        "text": "str",
+        "trend": "str",
+        "trendNow": "str"
+      }
+    },
+    "offsetting": "float",
+    "overviewRows": [
+      {
+        "balance": "float",
+        "buy": "float",
+        "change": "float",
+        "key": "str",
+        "name": "str",
+        "repayment": "float",
+        "sell": "float",
+        "streak": "str",
+        "utilizationRate": "float"
+      }
+    ],
+    "shortBalance": "float",
+    "shortBuy": "float",
+    "shortChange": "float",
+    "shortFinancingRatio": "float",
+    "shortPrevious": "float",
+    "shortSell": "float",
+    "shortStockRedemption": "float",
+    "shortUtilizationRate": "float",
+    "source": "str",
+    "sourceLink": "str",
+    "sourceNote": "str",
+    "unit": "str",
+    "yahoo": {
+      "dailyRows": [
+        {
+          "changePct": "float",
+          "closePrice": "float",
+          "date": "str",
+          "endDate": "str",
+          "financingBalance": "float",
+          "financingBuy": "float",
+          "financingChange": "float",
+          "financingRepayment": "float",
+          "financingSell": "float",
+          "financingUtilizationRate": "float",
+          "label": "str",
+          "lendingBalance": "float",
+          "lendingChange": "float",
+          "lendingRepay": "float",
+          "lendingSell": "float",
+          "offsetting": "float",
+          "period": "str",
+          "shortBalance": "float",
+          "shortBuy": "float",
+          "shortChange": "float",
+          "shortFinancingRatio": "float",
+          "shortLimit": "float",
+          "shortRepayment": "float",
+          "shortSell": "float",
+          "shortUtilizationRate": "float",
+          "totalDays": "float"
+        }
+      ],
+      "date": "str",
+      "financingBalance": "float",
+      "financingBuy": "float",
+      "financingCashRedemption": "float",
+      "financingChange": "float",
+      "financingSell": "float",
+      "financingUtilizationRate": "float",
+      "marginBalanceChartDataKey": "str",
+      "marginBalanceChartRows": [
+        {
+          "changePct": "float",
+          "closePrice": "float",
+          "date": "str",
+          "endDate": "str",
+          "financingBalance": "float",
+          "financingBuy": "float",
+          "financingChange": "float",
+          "financingRepayment": "float",
+          "financingSell": "float",
+          "financingUtilizationRate": "float",
+          "label": "str",
+          "lendingBalance": "float",
+          "lendingChange": "float",
+          "lendingRepay": "float",
+          "lendingSell": "float",
+          "offsetting": "float",
+          "period": "str",
+          "shortBalance": "float",
+          "shortBuy": "float",
+          "shortChange": "float",
+          "shortFinancingRatio": "float",
+          "shortLimit": "float",
+          "shortRepayment": "float",
+          "shortSell": "float",
+          "shortUtilizationRate": "float",
+          "totalDays": "float"
+        }
+      ],
+      "marginBalanceChartSource": "str",
+      "marginBalancePeriodRows": {
+        "day": [
+          {
+            "changePct": "float",
+            "closePrice": "float",
+            "date": "str",
+            "endDate": "str",
+            "financingBalance": "float",
+            "financingBuy": "float",
+            "financingChange": "float",
+            "financingRepayment": "float",
+            "financingSell": "float",
+            "financingUtilizationRate": "float",
+            "label": "str",
+            "lendingBalance": "float",
+            "lendingChange": "float",
+            "lendingRepay": "float",
+            "lendingSell": "float",
+            "offsetting": "float",
+            "period": "str",
+            "shortBalance": "float",
+            "shortBuy": "float",
+            "shortChange": "float",
+            "shortFinancingRatio": "float",
+            "shortLimit": "float",
+            "shortRepayment": "float",
+            "shortSell": "float",
+            "shortUtilizationRate": "float",
+            "totalDays": "float"
+          }
+        ],
+        "month": [
+          {
+            "changePct": "float",
+            "closePrice": "float",
+            "date": "str",
+            "endDate": "str",
+            "financingBalance": "float",
+            "financingBuy": "float",
+            "financingChange": "float",
+            "financingRepayment": "float",
+            "financingSell": "float",
+            "financingUtilizationRate": "float",
+            "label": "str",
+            "lendingBalance": "float",
+            "lendingChange": "float",
+            "lendingRepay": "float",
+            "lendingSell": "float",
+            "offsetting": "float",
+            "period": "str",
+            "shortBalance": "float",
+            "shortBuy": "float",
+            "shortChange": "float",
+            "shortFinancingRatio": "float",
+            "shortLimit": "null",
+            "shortRepayment": "float",
+            "shortSell": "float",
+            "shortUtilizationRate": "float",
+            "totalDays": "float"
+          }
+        ],
+        "quarter": [
+          {
+            "changePct": "float",
+            "closePrice": "float",
+            "date": "str",
+            "endDate": "str",
+            "financingBalance": "float",
+            "financingBuy": "float",
+            "financingChange": "float",
+            "financingRepayment": "float",
+            "financingSell": "float",
+            "financingUtilizationRate": "float",
+            "label": "str",
+            "lendingBalance": "float",
+            "lendingChange": "float",
+            "lendingRepay": "float",
+            "lendingSell": "float",
+            "offsetting": "float",
+            "period": "str",
+            "shortBalance": "float",
+            "shortBuy": "float",
+            "shortChange": "float",
+            "shortFinancingRatio": "float",
+            "shortLimit": "null",
+            "shortRepayment": "float",
+            "shortSell": "float",
+            "shortUtilizationRate": "float",
+            "totalDays": "float"
+          }
+        ],
+        "week": [
+          {
+            "changePct": "float",
+            "closePrice": "float",
+            "date": "str",
+            "endDate": "str",
+            "financingBalance": "float",
+            "financingBuy": "float",
+            "financingChange": "float",
+            "financingRepayment": "float",
+            "financingSell": "float",
+            "financingUtilizationRate": "float",
+            "label": "str",
+            "lendingBalance": "float",
+            "lendingChange": "float",
+            "lendingRepay": "float",
+            "lendingSell": "float",
+            "offsetting": "float",
+            "period": "str",
+            "shortBalance": "float",
+            "shortBuy": "float",
+            "shortChange": "float",
+            "shortFinancingRatio": "float",
+            "shortLimit": "null",
+            "shortRepayment": "float",
+            "shortSell": "float",
+            "shortUtilizationRate": "float",
+            "totalDays": "float"
+          }
+        ]
+      },
+      "marginSummaryAccumulationRows": [
+        {
+          "date": "str",
+          "endDate": "str",
+          "financingChange": "float",
+          "label": "str",
+          "periodSum": "str",
+          "shortChange": "float",
+          "shortFinancingRatioChange": "float",
+          "totalDays": "float"
+        }
+      ],
+      "marginSummaryTrend": {
+        "financing": {
+          "change": "str",
+          "day": "int",
+          "dayNow": "int",
+          "text": "str",
+          "trend": "str",
+          "trendNow": "str"
+        },
+        "lendingPercent": {
+          "change": "str",
+          "day": "int",
+          "dayNow": "int",
+          "text": "str",
+          "trend": "str",
+          "trendNow": "str"
+        },
+        "shortFinancingPercent": {
+          "day": "int",
+          "dayNow": "int",
+          "text": "str",
+          "trend": "str",
+          "trendNow": "str"
+        },
+        "tradeShort": {
+          "change": "str",
+          "day": "int",
+          "dayNow": "int",
+          "text": "str",
+          "trend": "str",
+          "trendNow": "str"
+        }
+      },
+      "offsetting": "float",
+      "overviewRows": [
+        {
+          "balance": "float",
+          "buy": "float",
+          "change": "float",
+          "key": "str",
+          "name": "str",
+          "repayment": "float",
+          "sell": "float",
+          "streak": "str",
+          "utilizationRate": "float"
+        }
+      ],
+      "shortBalance": "float",
+      "shortBuy": "float",
+      "shortChange": "float",
+      "shortFinancingRatio": "float",
+      "shortSell": "float",
+      "shortStockRedemption": "float",
+      "shortUtilizationRate": "float",
+      "source": "str",
+      "sourceLink": "str",
+      "sourceNote": "str",
+      "unit": "str"
+    }
+  },
+  "market": "str",
+  "marketLabel": "str",
+  "monthHigh": "str",
+  "monthLow": "str",
+  "name": "str",
+  "newsLinks": {
+    "google": "str",
+    "mops": "str",
+    "yahoo": "str"
+  },
+  "open": "str",
+  "pct": "str",
+  "recentDays": [
+    {
+      "change": "str",
+      "close": "str",
+      "date": "str",
+      "high": "str",
+      "low": "str",
+      "open": "str",
+      "volume": "str"
+    }
+  ],
+  "shareholderDistribution": {
+    "date": "str",
+    "largeHolderRatio": "float",
+    "largeHolderThreshold": "str",
+    "otherHolderRatio": "float",
+    "retailHolderRatio": "float",
+    "retailHolderThreshold": "str",
+    "source": "str",
+    "sourceLink": "str"
+  },
+  "snapshotDate": "str",
+  "sourceLink": "str",
+  "technicalAnalysis": {
+    "bias": "str",
+    "candle": "str",
+    "signal": "str",
+    "strength": "str",
+    "volatilityPct": "str"
+  },
+  "tone": "str",
+  "trades": "str",
+  "trend": "str",
+  "turnover": "str",
+  "valuation": {},
+  "valuationHistory": "empty_list",
+  "volume": "str",
+  "yahooInstitutionalTrading": {
+    "dailyRows": [
+      {
+        "changePct": "float",
+        "date": "str",
+        "dealerLotsValue": "float",
+        "foreignChipRatio": "float",
+        "foreignLotsValue": "float",
+        "label": "str",
+        "totalLotsValue": "float",
+        "trustLotsValue": "float",
+        "volume": "float"
+      }
+    ],
+    "date": "str",
+    "overviewRows": [
+      {
+        "buyLots": "float",
+        "name": "str",
+        "netLots": "float",
+        "sellLots": "float",
+        "streak": "str"
+      }
+    ],
+    "source": "str",
+    "sourceLink": "str",
+    "sourceNote": "str",
+    "unit": "str"
+  }
+}

@@ -1,0 +1,3478 @@
+
+
+.tw-option-expiry-tabs button.is-active {
+  border-color: rgba(245, 189, 85, 0.56);
+  color: var(--text);
+  background: rgba(245, 189, 85, 0.14);
+}
+
+.tw-option-expiry-tabs b {
+  color: inherit;
+  font-size: 0.8rem;
+}
+
+.tw-option-expiry-tabs small {
+  font-size: 0.68rem;
+}
+
+.tw-option-expiry-select {
+  display: inline-flex;
+  align-items: center;
+  margin: -2px 0 16px;
+}
+
+.tw-option-expiry-select select {
+  min-width: 140px;
+  height: 40px;
+  padding: 0 34px 0 12px;
+  border: 1px solid rgba(129, 180, 255, 0.28);
+  border-radius: 10px;
+  color: var(--text);
+  background-color: rgba(18, 32, 53, 0.9);
+  color-scheme: dark;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.tw-option-expiry-select select:focus {
+  border-color: rgba(245, 189, 85, 0.68);
+  outline: 2px solid rgba(245, 189, 85, 0.18);
+  outline-offset: 2px;
+}
+
+.tw-option-expiry-select select:hover {
+  border-color: rgba(129, 180, 255, 0.44);
+  background-color: rgba(22, 38, 62, 0.95);
+}
+
+.tw-option-expiry-select option {
+  color: var(--text);
+  background: #0f1b2d;
+}
+
+.tw-option-expiry-select select:disabled {
+  cursor: progress;
+  opacity: 0.72;
+}
+
+.tw-option-product-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 14px;
+}
+
+.tw-option-product-tabs button {
+  display: grid;
+  gap: 2px;
+  min-width: 88px;
+  padding: 9px 13px;
+  border: 1px solid rgba(129, 180, 255, 0.18);
+  border-radius: 12px;
+  color: var(--muted);
+  background: rgba(18, 32, 53, 0.74);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tw-option-product-tabs button.is-active {
+  border-color: rgba(245, 189, 85, 0.62);
+  color: var(--text);
+  background: rgba(245, 189, 85, 0.15);
+}
+
+.tw-option-product-tabs b {
+  color: inherit;
+  font-size: 0.86rem;
+}
+
+.tw-option-product-tabs small {
+  font-size: 0.68rem;
+}
+
+.options-market-chain-selector {
+  display: grid;
+  gap: 10px;
+  margin: 10px 0 14px;
+  padding: 12px;
+  border: 1px solid rgba(129, 180, 255, 0.14);
+  border-radius: 14px;
+  background: rgba(7, 18, 34, 0.42);
+}
+
+.options-market-chain-categories,
+.options-market-chain-products,
+.options-market-chain-selected {
+  display: grid;
+  gap: 8px;
+}
+
+.options-market-chain-categories {
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+}
+
+.options-market-chain-products {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.options-market-chain-selected {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.options-market-chain-categories button,
+.options-market-chain-products button,
+.options-market-chain-selected span {
+  min-width: 0;
+  border: 1px solid rgba(129, 180, 255, 0.15);
+  border-radius: 12px;
+  background: rgba(18, 32, 53, 0.68);
+}
+
+.options-market-chain-categories button,
+.options-market-chain-products button {
+  color: var(--muted);
+  cursor: pointer;
+  text-align: left;
+}
+
+.options-market-chain-categories button {
+  display: grid;
+  gap: 3px;
+  min-height: 64px;
+  padding: 9px 11px;
+}
+
+.options-market-chain-products button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  min-height: 74px;
+  padding: 10px 12px;
+}
+
+.options-market-chain-categories button.is-active,
+.options-market-chain-products button.is-active {
+  border-color: rgba(245, 189, 85, 0.64);
+  color: var(--text);
+  background: rgba(245, 189, 85, 0.13);
+  box-shadow: inset 3px 0 0 rgba(245, 189, 85, 0.82);
+}
+
+.options-market-chain-products button span,
+.options-market-chain-selected span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.options-market-chain-selected span {
+  padding: 10px 11px;
+}
+
+.options-market-chain-categories b,
+.options-market-chain-products b,
+.options-market-chain-products strong,
+.options-market-chain-selected b {
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.options-market-chain-categories small,
+.options-market-chain-categories em,
+.options-market-chain-products small,
+.options-market-chain-products em,
+.options-market-chain-products i,
+.options-market-chain-selected small,
+.options-market-chain-selected em {
+  overflow: hidden;
+  color: var(--muted);
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.options-market-chain-products strong,
+.options-market-chain-selected b {
+  font-size: 0.9rem;
+  font-weight: 950;
+}
+
+.options-market-chain-products strong {
+  align-self: center;
+  text-align: right;
+}
+
+.options-market-chain-products i {
+  grid-column: 1 / -1;
+  font-size: 0.74rem;
+}
+
+.options-market-chain-products .up,
+.options-market-chain-selected .up {
+  color: var(--green);
+}
+
+.options-market-chain-products .down,
+.options-market-chain-selected .down {
+  color: var(--red);
+}
+
+.options-market-chain-data-panel {
+  display: grid;
+  gap: 11px;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid rgba(129, 180, 255, 0.14);
+  border-radius: 14px;
+  background: rgba(7, 18, 34, 0.36);
+}
+
+.options-market-chain-data-panel h5 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.options-market-chain-data-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.options-market-chain-data-summary span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid rgba(129, 180, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(18, 32, 53, 0.62);
+}
+
+.options-market-chain-data-summary small,
+.options-market-chain-data-summary em {
+  overflow: hidden;
+  color: var(--muted);
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.options-market-chain-data-summary b {
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+
+@media (max-width: 980px) {
+  .options-market-chain-selected,
+  .options-market-chain-data-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .options-market-chain-categories,
+  .options-market-chain-products,
+  .options-market-chain-selected,
+  .options-market-chain-data-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .options-market-chain-products button {
+    grid-template-columns: 1fr;
+  }
+
+  .options-market-chain-products strong {
+    text-align: left;
+  }
+}
+
+.tw-option-chain-scroll {
+  overflow-x: visible;
+  border: 1px solid rgba(129, 180, 255, 0.14);
+  border-radius: 16px;
+}
+
+.tw-option-chain-table {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+}
+
+.tw-option-spot-benchmark {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 22px;
+  align-items: center;
+  padding: 8px 2px 12px;
+  border-bottom: 1px solid rgba(129, 180, 255, 0.12);
+}
+
+.tw-option-spot-benchmark span {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+  white-space: nowrap;
+}
+
+.tw-option-spot-benchmark small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.tw-option-spot-benchmark b {
+  color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 950;
+}
+
+.tw-option-spot-benchmark .is-up b {
+  color: var(--red);
+}
+
+.tw-option-spot-benchmark .is-down b {
+  color: var(--green);
+}
+
+.tw-option-chain-table th {
+  text-align: center;
+}
+
+.tw-option-chain-table td {
+  text-align: right;
+}
+
+.tw-option-chain-table td:nth-child(5) {
+  text-align: center;
+  background: rgba(69, 166, 255, 0.07);
+}
+
+.tw-option-chain-table tbody tr {
+  cursor: pointer;
+  transition: background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.tw-option-chain-table tbody tr:hover td,
+.tw-option-chain-table tbody tr:focus-visible td {
+  background: rgba(85, 166, 255, 0.09);
+}
+
+.tw-option-chain-table tbody tr:focus-visible {
+  outline: 2px solid rgba(245, 189, 85, 0.5);
+  outline-offset: -2px;
+}
+
+.tw-option-chain-table tr.is-atm td {
+  background: rgba(245, 189, 85, 0.09);
+}
+
+.tw-option-chain-table tr.is-selected td {
+  background: rgba(245, 189, 85, 0.15);
+  box-shadow: inset 0 1px 0 rgba(245, 189, 85, 0.2), inset 0 -1px 0 rgba(245, 189, 85, 0.2);
+}
+
+.tw-option-chain-table tr.is-selected td:nth-child(5) {
+  color: var(--gold);
+  font-weight: 950;
+}
+
+.tw-option-chain-table .tw-option-chain-analysis-row {
+  cursor: default;
+}
+
+.tw-option-chain-table .tw-option-chain-analysis-row td {
+  padding: 12px;
+  text-align: left;
+  background: rgba(8, 19, 35, 0.72);
+}
+
+.tw-option-chain-table .tw-option-chain-analysis-row:hover td {
+  background: rgba(8, 19, 35, 0.72);
+}
+
+.tw-option-chain-table .tw-option-chain-spot-row {
+  cursor: default;
+}
+
+.tw-option-chain-table .tw-option-chain-spot-row td {
+  position: relative;
+  height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.tw-option-chain-table .tw-option-chain-spot-row td::before {
+  content: "";
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  right: 0;
+  left: 0;
+  border-top: 2px solid rgba(210, 219, 229, 0.62);
+}
+
+.tw-option-chain-table .tw-option-chain-spot-row span {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 58px;
+  padding: 2px 6px;
+  transform: translate(-50%, -50%);
+  border-radius: 4px;
+  background: rgba(123, 134, 149, 0.95);
+  color: #f8fbff;
+  font-size: 0.72rem;
+  font-weight: 950;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.tw-option-chain-table .tw-option-chain-spot-row:hover td {
+  background: transparent;
+}
+
+.tw-option-oi-distribution {
+  display: grid;
+  grid-template-columns: repeat(16, minmax(28px, 1fr));
+  gap: 7px;
+  height: 150px;
+  margin-top: 16px;
+  padding: 14px 10px 28px;
+  border: 1px solid rgba(129, 180, 255, 0.12);
+  border-radius: 16px;
+  background: rgba(8, 19, 35, 0.4);
+}
+
+.tw-option-oi-distribution > div {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.tw-option-oi-distribution span {
+  width: 8px;
+  min-height: 4px;
+  border-radius: 6px 6px 2px 2px;
+}
+
+.tw-option-oi-distribution .is-call {
+  background: rgba(50, 213, 155, 0.72);
+}
+
+.tw-option-oi-distribution .is-put {
+  background: rgba(255, 95, 122, 0.72);
+}
+
+.tw-option-oi-distribution small {
+  position: absolute;
+  right: 50%;
+  bottom: -22px;
+  color: var(--muted);
+  font-size: 0.62rem;
+  transform: translateX(50%) rotate(-34deg);
+  transform-origin: center;
+}
+
+.tw-option-ai-main {
+  padding: 14px;
+  border: 1px solid rgba(245, 189, 85, 0.18);
+  border-radius: 16px;
+  background: rgba(245, 189, 85, 0.08);
+}
+
+.tw-option-ai-main strong {
+  display: block;
+  color: var(--gold);
+  font-size: 1.3rem;
+  margin-bottom: 6px;
+}
+
+.tw-option-ai-main p,
+.tw-option-ai-reasons,
+.tw-option-scenarios p,
+.tw-option-scenarios small {
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.tw-option-ai-main p,
+.tw-option-scenarios p {
+  margin: 0;
+}
+
+.tw-option-ai-reasons {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.tw-option-scenarios {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.tw-option-scenarios section {
+  padding: 12px;
+  border: 1px solid rgba(129, 180, 255, 0.13);
+  border-radius: 14px;
+  background: rgba(18, 32, 53, 0.6);
+}
+
+.tw-option-scenarios b {
+  display: block;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.asset-option-contract-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 14px;
+}
+
+.asset-option-side {
+  padding: 14px;
+  border: 1px solid rgba(147, 178, 220, 0.14);
+  border-radius: 16px;
+  background: rgba(18, 32, 53, 0.62);
+}
+
+.asset-option-side.is-call { border-color: rgba(50, 213, 155, 0.28); }
+.asset-option-side.is-put { border-color: rgba(255, 95, 122, 0.28); }
+
+.asset-option-side h5 {
+  margin: 0 0 10px;
+  color: var(--text);
+}
+
+.asset-option-rows {
+  display: grid;
+  gap: 7px;
+}
+
+.asset-option-rows > div {
+  display: grid;
+  grid-template-columns: 0.8fr 1fr 0.8fr;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid rgba(147, 178, 220, 0.1);
+}
+
+.asset-option-rows span,
+.asset-option-rows small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.asset-option-rows strong {
+  color: var(--text);
+  text-align: center;
+  font-size: 0.78rem;
+}
+
+.asset-option-rows small {
+  text-align: right;
+}
+
+.asset-yield-curve-card {
+  grid-column: 1 / -1;
+}
+
+.asset-yield-points {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.asset-yield-points small.up { color: var(--green); }
+.asset-yield-points small.down { color: var(--red); }
+
+.asset-yield-curve-card > p {
+  margin: 14px 0 0;
+  color: var(--muted);
+}
+
+.asset-yield-curve-card > p b {
+  color: var(--text);
+}
+
+.asset-hub-online-card {
+  grid-column: 1 / -1;
+  margin-top: 2px;
+}
+
+.asset-finance-dashboard-section {
+  scroll-margin-top: 90px;
+}
+
+.asset-finance-overview-card {
+  border-color: rgba(245, 189, 85, 0.28);
+  background: rgba(8, 19, 35, 0.86);
+}
+
+.asset-finance-dashboard-stack {
+  display: grid;
+  gap: 24px;
+}
+
+.asset-finance-overview-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.asset-finance-signal-panel {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding-top: 2px;
+}
+
+.asset-finance-signal-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(129, 180, 255, 0.12);
+}
+
+.asset-finance-signal-panel-head h4 {
+  margin: 0;
+  color: var(--text);
+}
+
+.asset-finance-signal-panel-head small {
+  max-width: 180px;
+  color: var(--muted);
+  line-height: 1.55;
+  text-align: right;
+}
+
+.asset-finance-signal-panel.is-metals .asset-finance-signal-panel-head {
+  border-color: rgba(245, 189, 85, 0.22);
+}
+
+.asset-finance-signal-panel.is-bonds .asset-finance-signal-panel-head {
+  border-color: rgba(69, 214, 170, 0.2);
+}
+
+.asset-finance-signal-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.asset-finance-signal-panel .asset-finance-signal-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 0;
+}
+
+.asset-finance-signal {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  min-height: 118px;
+  padding: 13px;
+  border: 1px solid rgba(129, 180, 255, 0.15);
+  border-radius: 16px;
+  background: rgba(18, 32, 53, 0.78);
+}
+
+.asset-finance-signal small,
+.asset-finance-signal i {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-finance-signal strong {
+  color: var(--text);
+  font-size: 1.18rem;
+}
+
+.asset-finance-signal b {
+  color: var(--gold);
+  font-size: 0.8rem;
+}
+
+.asset-finance-signal em {
+  font-size: 0.76rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.asset-finance-signal em.up,
+.asset-finance-compare-grid em.up,
+.asset-finance-mini-grid em.up {
+  color: var(--green);
+}
+
+.asset-finance-signal em.down,
+.asset-finance-compare-grid em.down,
+.asset-finance-mini-grid em.down {
+  color: var(--red);
+}
+
+.asset-finance-signal em.flat,
+.asset-finance-compare-grid em.flat,
+.asset-finance-mini-grid em.flat {
+  color: var(--blue);
+}
+
+.asset-finance-dashboard-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.asset-finance-zone-section {
+  display: grid;
+  gap: 16px;
+  scroll-margin-top: 90px;
+}
+
+.asset-finance-zone-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 2px 12px;
+  border-bottom: 1px solid rgba(129, 180, 255, 0.14);
+}
+
+.asset-finance-zone-heading h3 {
+  margin: 0;
+  color: var(--text);
+}
+
+.asset-finance-zone-heading p {
+  max-width: 560px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.65;
+  text-align: right;
+}
+
+.asset-finance-zone-section.is-metals .asset-finance-zone-heading {
+  border-color: rgba(245, 189, 85, 0.24);
+}
+
+.asset-finance-zone-section.is-bonds .asset-finance-zone-heading {
+  border-color: rgba(69, 214, 170, 0.2);
+}
+
+.asset-finance-zone-section.is-cross .asset-finance-zone-heading {
+  border-color: rgba(255, 130, 105, 0.18);
+}
+
+.asset-finance-zone-layout,
+.asset-finance-cross-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.asset-finance-zone-layout > .asset-finance-module-card,
+.asset-finance-zone-layout > .asset-finance-etf-card {
+  grid-column: 1 / -1;
+}
+
+.asset-finance-cross-layout > .asset-finance-module-card,
+.asset-finance-cross-layout > .asset-finance-scenario-card {
+  grid-column: auto;
+}
+
+.asset-finance-module-card,
+.asset-finance-etf-card {
+  min-width: 0;
+}
+
+.asset-finance-etf-card,
+.asset-finance-scenario-card {
+  grid-column: 1 / -1;
+}
+
+.asset-finance-zone-section.is-metals .asset-finance-market-map-card,
+.asset-finance-zone-section.is-metals .asset-finance-metal-driver-card,
+.asset-finance-zone-section.is-metals .asset-finance-decision-card {
+  grid-column: auto;
+}
+
+.asset-finance-zone-section.is-metals .asset-finance-metal-profile-card,
+.asset-finance-zone-section.is-metals .asset-finance-metals-dashboard-card,
+.asset-finance-zone-section.is-metals .asset-finance-forecast-card,
+.asset-finance-zone-section.is-metals .asset-finance-etf-card,
+.asset-finance-zone-section.is-metals .asset-finance-compare-card {
+  grid-column: 1 / -1;
+}
+
+.asset-finance-mini-grid,
+.asset-finance-yield-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.asset-finance-metal-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.asset-finance-metal-profile-grid section {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid rgba(245, 189, 85, 0.16);
+  border-radius: 14px;
+  background: rgba(18, 32, 53, 0.66);
+}
+
+.asset-finance-metal-profile-grid small,
+.asset-finance-metal-profile-grid p,
+.asset-finance-metal-profile-grid i {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-style: normal;
+  line-height: 1.55;
+}
+
+.asset-finance-metal-profile-grid strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.asset-finance-metal-profile-grid b {
+  color: var(--gold);
+}
+
+.asset-finance-metal-profile-grid em {
+  margin-left: 6px;
+  font-size: 0.76rem;
+  font-style: normal;
+}
+
+.asset-finance-metal-profile-grid em.up { color: var(--green); }
+.asset-finance-metal-profile-grid em.down { color: var(--red); }
+.asset-finance-metal-profile-grid em.flat { color: var(--blue); }
+
+.asset-finance-profile-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.asset-finance-profile-top small,
+.asset-finance-profile-top em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-finance-profile-callout {
+  display: grid;
+  gap: 4px;
+  margin-top: 2px;
+  padding: 9px 10px;
+  border-left: 3px solid rgba(245, 189, 85, 0.82);
+  border-radius: 10px;
+  color: var(--muted);
+  background: rgba(245, 189, 85, 0.07);
+  font-size: 0.73rem;
+  line-height: 1.55;
+}
+
+.asset-finance-profile-callout small {
+  color: var(--gold);
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.asset-finance-zone-section.is-metals .asset-finance-metal-profile-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.asset-finance-market-list {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.asset-finance-market-brief {
+  margin: 0 0 12px;
+  padding: 11px 13px;
+  border-left: 3px solid rgba(245, 189, 85, 0.78);
+  border-radius: 12px;
+  background: rgba(245, 189, 85, 0.07);
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.65;
+}
+
+.asset-finance-market-list span {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid rgba(129, 180, 255, 0.13);
+  border-radius: 14px;
+  background: rgba(18, 32, 53, 0.64);
+}
+
+.asset-finance-market-list b {
+  color: var(--text);
+}
+
+.asset-finance-market-list em {
+  color: var(--gold);
+  font-size: 0.74rem;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1.45;
+}
+
+.asset-finance-market-list small {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.asset-finance-zone-section.is-metals .asset-finance-market-list {
+  grid-template-columns: 1fr;
+}
+
+.asset-finance-driver-notes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.asset-finance-zone-section.is-metals .asset-finance-metal-driver-card .asset-finance-sync-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.asset-finance-zone-section.is-metals .asset-finance-driver-notes {
+  grid-template-columns: 1fr;
+}
+
+.asset-finance-driver-readout {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 13px 14px;
+  border: 1px solid rgba(245, 189, 85, 0.2);
+  border-radius: 14px;
+  background: rgba(245, 189, 85, 0.08);
+}
+
+.asset-finance-driver-readout.is-up {
+  border-color: rgba(50, 213, 155, 0.26);
+  background: rgba(50, 213, 155, 0.08);
+}
+
+.asset-finance-driver-readout.is-down {
+  border-color: rgba(255, 95, 122, 0.24);
+  background: rgba(255, 95, 122, 0.07);
+}
+
+.asset-finance-driver-readout-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.asset-finance-driver-readout-head div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.asset-finance-driver-readout-head span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: var(--gold);
+  background: rgba(245, 189, 85, 0.11);
+  font-size: 0.74rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.asset-finance-driver-readout small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.asset-finance-driver-readout strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.asset-finance-driver-readout p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.asset-finance-driver-pulse-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.asset-finance-driver-pulse-row span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid rgba(129, 180, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(18, 32, 53, 0.58);
+}
+
+.asset-finance-driver-pulse-row small,
+.asset-finance-driver-pulse-row b,
+.asset-finance-driver-pulse-row em {
+  overflow-wrap: anywhere;
+}
+
+.asset-finance-driver-pulse-row small {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.asset-finance-driver-pulse-row b {
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
+.asset-finance-driver-pulse-row em {
+  color: var(--gold);
+  font-size: 0.68rem;
+  font-style: normal;
+  line-height: 1.45;
+}
+
+.asset-finance-driver-thesis {
+  display: grid;
+  gap: 5px;
+  padding: 10px 11px;
+  border-left: 3px solid rgba(245, 189, 85, 0.82);
+  border-radius: 10px;
+  background: rgba(245, 189, 85, 0.07);
+}
+
+.asset-finance-driver-thesis b {
+  color: var(--gold);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.asset-finance-driver-scenario-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.asset-finance-driver-scenario-grid section {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid rgba(129, 180, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(7, 20, 38, 0.32);
+}
+
+.asset-finance-driver-scenario-grid b {
+  color: var(--text);
+  font-size: 0.76rem;
+}
+
+.asset-finance-driver-scenario-grid small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.asset-finance-driver-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.asset-finance-driver-summary-grid span {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid rgba(129, 180, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(7, 20, 38, 0.32);
+}
+
+.asset-finance-driver-summary-grid b {
+  color: var(--text);
+  font-size: 0.76rem;
+}
+
+.asset-finance-driver-summary-grid small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.asset-finance-driver-factor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.asset-finance-driver-factor {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  min-height: 184px;
+  padding: 14px;
+  border: 1px solid rgba(129, 180, 255, 0.13);
+  border-radius: 14px;
+  background: rgba(18, 32, 53, 0.66);
+}
+
+.asset-finance-driver-factor.is-up {
+  border-color: rgba(50, 213, 155, 0.22);
+}
+
+.asset-finance-driver-factor.is-down {
+  border-color: rgba(255, 95, 122, 0.22);
+}
+
+.asset-finance-driver-factor span {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 7px 10px;
+  align-items: start;
+  min-width: 0;
+}
+
+.asset-finance-driver-factor small,
+.asset-finance-driver-factor p,
+.asset-finance-driver-factor em {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-style: normal;
+  line-height: 1.55;
+}
+
+.asset-finance-driver-factor span small {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-finance-driver-factor b {
+  max-width: 132px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: var(--text);
+  background: rgba(129, 180, 255, 0.1);
+  font-size: 0.72rem;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.asset-finance-driver-factor.is-up b {
+  color: var(--green);
+  background: rgba(50, 213, 155, 0.1);
+}
+
+.asset-finance-driver-factor.is-down b {
+  color: var(--red);
+  background: rgba(255, 95, 122, 0.1);
+}
+
+.asset-finance-driver-factor strong {
+  display: block;
+  padding-bottom: 2px;
+  color: var(--gold);
+  font-size: 1.04rem;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.asset-finance-driver-factor p {
+  padding-top: 2px;
+}
+
+.asset-finance-driver-predict {
+  display: grid;
+  gap: 4px;
+  min-height: 70px;
+  padding: 10px 11px;
+  border-left: 3px solid rgba(69, 166, 255, 0.76);
+  border-radius: 10px;
+  background: rgba(69, 166, 255, 0.07);
+}
+
+.asset-finance-driver-predict b {
+  color: var(--blue);
+  font-size: 0.7rem;
+  text-align: left;
+}
+
+.asset-finance-driver-predict small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.55;
+}
+
+.asset-finance-driver-meter {
+  overflow: hidden;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(129, 180, 255, 0.12);
+}
+
+.asset-finance-driver-meter i {
+  display: block;
+  width: var(--driver-score, 50%);
+  max-width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--blue);
+}
+
+.asset-finance-driver-factor.is-up .asset-finance-driver-meter i {
+  background: var(--green);
+}
+
+.asset-finance-driver-factor.is-down .asset-finance-driver-meter i {
+  background: var(--red);
+}
+
+.asset-finance-forecast-card {
+  border-color: rgba(245, 189, 85, 0.22);
+}
+
+.asset-finance-forecast-content {
+  min-width: 0;
+}
+
+.asset-finance-forecast-content.is-embedded {
+  margin-top: 4px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(245, 189, 85, 0.18);
+}
+
+.asset-finance-forecast-readout {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.asset-finance-forecast-readout span {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 12px 13px;
+  border: 1px solid rgba(129, 180, 255, 0.13);
+  border-radius: 14px;
+  background: rgba(18, 32, 53, 0.62);
+}
+
+.asset-finance-forecast-readout small {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.asset-finance-forecast-readout b {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.88rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-finance-forecast-readout b.up { color: var(--green); }
+.asset-finance-forecast-readout b.down { color: var(--red); }
+.asset-finance-forecast-readout b.flat { color: var(--blue); }
+
+.asset-finance-forecast-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.asset-finance-forecast-grid.is-focused {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.asset-finance-forecast-grid > section {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(129, 180, 255, 0.13);
+  border-radius: 14px;
+  background: rgba(18, 32, 53, 0.66);
+}
+
+.asset-finance-forecast-grid > section.is-up {
+  border-color: rgba(50, 213, 155, 0.24);
+}
+
+.asset-finance-forecast-grid > section.is-down {
+  border-color: rgba(255, 95, 122, 0.24);
+}
+
+.asset-finance-forecast-head,
+.asset-finance-forecast-current {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.asset-finance-forecast-head small,
+.asset-finance-forecast-head em,
+.asset-finance-forecast-current small,
+.asset-finance-forecast-grid p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-style: normal;
+  line-height: 1.55;
+}
+
+.asset-finance-forecast-head em {
+  color: var(--blue);
+  font-weight: 900;
+}
+
+.asset-finance-forecast-grid h5 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.asset-finance-forecast-current span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.asset-finance-forecast-current b {
+  color: var(--gold);
+  font-size: 1rem;
+}
+
+.asset-finance-forecast-current b.up { color: var(--green); }
+.asset-finance-forecast-current b.down { color: var(--red); }
+.asset-finance-forecast-current b.flat { color: var(--blue); }
+
+.asset-finance-forecast-rows {
+  display: grid;
+  gap: 7px;
+}
+
+.asset-finance-forecast-rows span {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 4px 8px;
+  align-items: center;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid rgba(129, 180, 255, 0.11);
+  border-radius: 11px;
+  background: rgba(7, 20, 38, 0.36);
+}
+
+.asset-finance-forecast-rows b,
+.asset-finance-forecast-rows strong,
+.asset-finance-forecast-rows small,
+.asset-finance-forecast-rows em {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-finance-forecast-rows b {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.asset-finance-forecast-rows strong {
+  color: var(--text);
+  font-size: 0.86rem;
+}
+
+.asset-finance-forecast-rows small {
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-align: right;
+}
+
+.asset-finance-forecast-rows small.up { color: var(--green); }
+.asset-finance-forecast-rows small.down { color: var(--red); }
+.asset-finance-forecast-rows small.flat { color: var(--blue); }
+
+.asset-finance-forecast-rows em {
+  grid-column: 2 / -1;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-style: normal;
+}
+
+.asset-finance-forecast-assumption {
+  padding: 9px 10px;
+  border-left: 3px solid rgba(245, 189, 85, 0.76);
+  border-radius: 10px;
+  background: rgba(245, 189, 85, 0.07);
+}
+
+.asset-finance-driver-notes section {
+  display: grid;
+  gap: 6px;
+  padding: 12px 13px;
+  border-left: 3px solid rgba(245, 189, 85, 0.8);
+  border-radius: 12px;
+  background: rgba(245, 189, 85, 0.07);
+}
+
+.asset-finance-driver-notes b {
+  color: var(--text);
+  font-size: 0.84rem;
+}
+
+.asset-finance-driver-notes p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.65;
+}
+
+.asset-finance-decision-card {
+  border-color: rgba(245, 189, 85, 0.24);
+}
+
+.asset-finance-decision-brief {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+  padding: 13px 14px;
+  border: 1px solid rgba(245, 189, 85, 0.18);
+  border-radius: 14px;
+  background: rgba(245, 189, 85, 0.08);
+}
+
+.asset-finance-decision-brief strong {
+  color: var(--gold);
+  font-size: 1rem;
+}
+
+.asset-finance-decision-brief p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.asset-finance-decision-venue {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 13px;
+  border: 1px solid rgba(129, 180, 255, 0.13);
+  border-radius: 14px;
+  background: rgba(7, 20, 38, 0.3);
+}
+
+.asset-finance-decision-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+}
+
+.asset-finance-decision-section-head h5 {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.98rem;
+}
+
+.asset-finance-decision-section-head span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: var(--blue);
+  background: rgba(69, 166, 255, 0.1);
+  font-size: 0.72rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.asset-finance-decision-section-head.is-compact {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(129, 180, 255, 0.12);
+}
+
+.asset-finance-decision-venue .asset-finance-market-brief {
+  margin-bottom: 0;
+}
+
+.asset-finance-decision-venue .asset-finance-market-list {
+  align-content: start;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.asset-finance-zone-section.is-metals .asset-finance-decision-venue .asset-finance-market-list {
+  max-height: 328px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 6px;
+  scrollbar-color: rgba(129, 180, 255, 0.48) rgba(7, 20, 38, 0.38);
+  scrollbar-width: thin;
+}
+
+.asset-finance-zone-section.is-metals .asset-finance-decision-venue .asset-finance-market-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.asset-finance-zone-section.is-metals .asset-finance-decision-venue .asset-finance-market-list::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgba(7, 20, 38, 0.46);
+}
+
+.asset-finance-zone-section.is-metals .asset-finance-decision-venue .asset-finance-market-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(129, 180, 255, 0.5);
+}
+
+.asset-finance-decision-venue .asset-finance-market-list span {
+  padding: 11px;
+  border-radius: 12px;
+}
+
+.asset-finance-decision-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.asset-finance-zone-section.is-metals .asset-finance-decision-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.asset-finance-decision-grid section {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+  min-height: 128px;
+  padding: 13px;
+  border: 1px solid rgba(129, 180, 255, 0.13);
+  border-radius: 14px;
+  background: rgba(18, 32, 53, 0.66);
+}
+
+.asset-finance-decision-grid small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.asset-finance-decision-grid strong {
+  color: var(--gold);
+  font-size: 1rem;
+}
+
+.asset-finance-decision-grid p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.asset-finance-decision-paths {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.asset-finance-decision-paths section {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid rgba(129, 180, 255, 0.13);
+  border-radius: 14px;
+  background: rgba(18, 32, 53, 0.62);
+}
+
+.asset-finance-decision-paths section.is-up {
+  border-color: rgba(50, 213, 155, 0.24);
+}
+
+.asset-finance-decision-paths section.is-down {
+  border-color: rgba(255, 95, 122, 0.24);
+}
+
+.asset-finance-decision-paths small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.asset-finance-decision-paths strong {
+  color: var(--text);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.asset-finance-decision-paths p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.asset-finance-decision-checklist {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.asset-finance-decision-checklist span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid rgba(129, 180, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(7, 20, 38, 0.34);
+}
+
+.asset-finance-decision-checklist b,
+.asset-finance-decision-checklist strong,
+.asset-finance-decision-checklist small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-finance-decision-checklist b {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.asset-finance-decision-checklist strong {
+  color: var(--gold);
+  font-size: 0.86rem;
+}
+
+.asset-finance-decision-checklist small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.asset-finance-trend-card {
+  grid-column: 1 / -1;
+  border-color: rgba(245, 189, 85, 0.24);
+}
+
+.asset-finance-metals-dashboard-card {
+  display: grid;
+  gap: 14px;
+}
+
+.asset-finance-trend-shell {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.asset-finance-trend-shell.is-embedded {
+  margin-top: 2px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(245, 189, 85, 0.18);
+}
+
+.asset-finance-trend-subhead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.asset-finance-trend-subhead div {
+  display: grid;
+  gap: 4px;
+}
+
+.asset-finance-trend-subhead small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.asset-finance-trend-subhead strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.asset-finance-trend-subhead span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: var(--blue);
+  background: rgba(69, 166, 255, 0.1);
+  font-size: 0.74rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.asset-finance-trend-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.asset-finance-trend-controls > div {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.asset-finance-trend-toggle {
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid rgba(129, 180, 255, 0.16);
+  border-radius: 999px;
+  color: var(--muted);
+  background: rgba(18, 32, 53, 0.72);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 900;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.asset-finance-trend-toggle:hover,
+.asset-finance-trend-toggle:focus-visible,
+.asset-finance-trend-toggle.is-active {
+  border-color: rgba(245, 189, 85, 0.56);
+  color: var(--text);
+  background: rgba(245, 189, 85, 0.15);
+}
+
+.asset-finance-trend-toggle:disabled,
+.asset-finance-trend-toggle.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+  border-color: rgba(129, 180, 255, 0.1);
+  color: rgba(160, 182, 215, 0.62);
+  background: rgba(18, 32, 53, 0.42);
+}
+
+.asset-finance-trend-toggle:disabled:hover,
+.asset-finance-trend-toggle.is-disabled:hover {
+  transform: none;
+}
+
+.asset-finance-trend-stage {
+  position: relative;
+  overflow-x: auto;
+  padding: 12px;
+  border: 1px solid rgba(129, 180, 255, 0.14);
+  border-radius: 16px;
+  background: rgba(7, 20, 38, 0.52);
+}
+
+.asset-finance-trend-stage svg {
+  display: block;
+  width: 100%;
+  min-width: 760px;
+  height: auto;
+}
+
+.asset-finance-trend-bg {
+  fill: rgba(18, 32, 53, 0.34);
+}
+
+.asset-finance-trend-grid {
+  stroke: rgba(129, 180, 255, 0.13);
+  stroke-width: 1;
+}
+
+.asset-finance-trend-axis,
+.asset-finance-trend-date {
+  fill: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.asset-finance-trend-line {
+  fill: none;
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.asset-finance-trend-dot {
+  stroke: rgba(7, 20, 38, 0.96);
+  stroke-width: 2.2;
+}
+
+.asset-finance-trend-line.is-gold { stroke: #f5bd55; }
+.asset-finance-trend-line.is-silver { stroke: #d8e5f2; }
+.asset-finance-trend-line.is-platinum { stroke: #75d2ff; }
+.asset-finance-trend-line.is-palladium { stroke: #b58cff; }
+.asset-finance-trend-dot.is-gold { fill: #f5bd55; }
+.asset-finance-trend-dot.is-silver { fill: #d8e5f2; }
+.asset-finance-trend-dot.is-platinum { fill: #75d2ff; }
+.asset-finance-trend-dot.is-palladium { fill: #b58cff; }
+
+.asset-finance-trend-crosshair,
+.asset-finance-trend-crosshair-dot {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.asset-finance-trend-crosshair {
+  stroke: rgba(245, 189, 85, 0.72);
+  stroke-width: 1.2;
+  stroke-dasharray: 4 5;
+}
+
+.asset-finance-trend-crosshair-dot {
+  fill: var(--gold);
+  stroke: rgba(7, 20, 38, 0.95);
+  stroke-width: 2;
+}
+
+.asset-finance-trend-crosshair.is-visible,
+.asset-finance-trend-crosshair-dot.is-visible {
+  opacity: 1;
+}
+
+.asset-finance-trend-hover-zone {
+  fill: transparent;
+  cursor: crosshair;
+  pointer-events: all;
+}
+
+.asset-finance-trend-tooltip {
+  position: absolute;
+  z-index: 8;
+  display: grid;
+  gap: 8px;
+  min-width: 230px;
+  max-width: min(330px, calc(100% - 24px));
+  padding: 12px 13px;
+  border: 1px solid rgba(245, 189, 85, 0.28);
+  border-radius: 12px;
+  color: var(--text);
+  background: rgba(6, 13, 25, 0.96);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34);
+  pointer-events: none;
+}
+
+.asset-finance-trend-tooltip[hidden] {
+  display: none;
+}
+
+.asset-finance-trend-tooltip > strong {
+  color: var(--gold);
+  font-size: 0.86rem;
+}
+
+.asset-finance-trend-tooltip span {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  gap: 6px 8px;
+  align-items: center;
+  padding-top: 7px;
+  border-top: 1px solid rgba(129, 180, 255, 0.12);
+}
+
+.asset-finance-trend-tooltip i {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.asset-finance-trend-tooltip i.is-gold { background: #f5bd55; }
+.asset-finance-trend-tooltip i.is-silver { background: #d8e5f2; }
+.asset-finance-trend-tooltip i.is-platinum { background: #75d2ff; }
+.asset-finance-trend-tooltip i.is-palladium { background: #b58cff; }
+
+.asset-finance-trend-tooltip b,
+.asset-finance-trend-tooltip strong,
+.asset-finance-trend-tooltip small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-finance-trend-tooltip b {
+  color: var(--text);
+  font-size: 0.78rem;
+}
+
+.asset-finance-trend-tooltip strong {
+  font-size: 0.78rem;
+}
+
+.asset-finance-trend-tooltip strong.up { color: var(--green); }
+.asset-finance-trend-tooltip strong.down { color: var(--red); }
+.asset-finance-trend-tooltip strong.flat { color: var(--blue); }
+
+.asset-finance-trend-tooltip small {
+  grid-column: 2 / -1;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.asset-finance-trend-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.asset-finance-trend-legend span {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  gap: 6px 9px;
+  align-items: center;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid rgba(129, 180, 255, 0.13);
+  border-radius: 14px;
+  background: rgba(18, 32, 53, 0.64);
+}
+
+.asset-finance-trend-legend i {
+  width: 18px;
+  height: 4px;
+  border-radius: 999px;
+}
+
+.asset-finance-trend-legend i.is-gold { background: #f5bd55; }
+.asset-finance-trend-legend i.is-silver { background: #d8e5f2; }
+.asset-finance-trend-legend i.is-platinum { background: #75d2ff; }
+.asset-finance-trend-legend i.is-palladium { background: #b58cff; }
+
+.asset-finance-trend-legend b,
+.asset-finance-trend-legend strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.84rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-finance-trend-legend strong.up { color: var(--green); }
+.asset-finance-trend-legend strong.down { color: var(--red); }
+.asset-finance-trend-legend strong.flat { color: var(--blue); }
+
+.asset-finance-trend-legend small {
+  grid-column: 2 / -1;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-finance-mini-grid span,
+.asset-finance-yield-grid span,
+.asset-finance-yield-grid .asset-finance-sync-stat {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(129, 180, 255, 0.13);
+  border-radius: 14px;
+  background: rgba(18, 32, 53, 0.66);
+}
+
+.asset-finance-mini-grid small,
+.asset-finance-yield-grid small,
+.asset-finance-yield-grid em {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-finance-mini-grid strong,
+.asset-finance-yield-grid strong {
+  color: var(--text);
+  font-size: 1.02rem;
+}
+
+.asset-finance-price-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.asset-finance-price-line strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-finance-price-line b {
+  color: var(--gold);
+  font-size: 0.68rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.asset-finance-mini-grid em {
+  font-size: 0.76rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.asset-finance-table-wrap {
+  max-height: 430px;
+  overflow: auto;
+}
+
+.asset-finance-etf-select {
+  display: inline;
+  padding: 0;
+  border: 0;
+  color: var(--gold);
+  background: transparent;
+  font: inherit;
+  font-weight: 900;
+  line-height: 1.35;
+  text-align: left;
+  cursor: pointer;
+}
+
+.asset-finance-etf-select:hover,
+.asset-finance-etf-select:focus-visible {
+  color: #ffdb7a;
+  outline: none;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.asset-finance-etf-select.is-active {
+  color: var(--green);
+}
+
+.asset-finance-metal-etf-sync-card .global-market-table tr.is-active td,
+.asset-finance-bond-online-card .global-market-table tr.is-active td {
+  background: rgba(69, 166, 255, 0.08);
+}
+
+.asset-finance-etf-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.asset-finance-etf-summary span,
+.asset-finance-sync-context span {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 12px 13px;
+  border: 1px solid rgba(129, 180, 255, 0.13);
+  border-radius: 14px;
+  background: rgba(18, 32, 53, 0.62);
+}
+
+.asset-finance-etf-summary small,
+.asset-finance-sync-context small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
+.asset-finance-etf-summary b,
+.asset-finance-sync-context b {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-finance-etf-summary b.up { color: var(--green); }
+.asset-finance-etf-summary b.down { color: var(--red); }
+.asset-finance-etf-summary b.flat { color: var(--blue); }
+
+.asset-finance-etf-brief {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  margin: 0 0 12px;
+  padding: 12px 13px;
+  border: 1px solid rgba(245, 189, 85, 0.18);
+  border-left: 3px solid rgba(245, 189, 85, 0.82);
+  border-radius: 12px;
+  background: rgba(245, 189, 85, 0.07);
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.72;
+}
+
+.asset-finance-etf-brief b {
+  color: var(--gold);
+  font-size: 0.84rem;
+  white-space: nowrap;
+}
+
+.asset-finance-etf-brief span {
+  min-width: 0;
+  color: var(--text);
+}
+
+.asset-finance-etf-brief.is-up {
+  border-color: rgba(50, 213, 155, 0.2);
+  border-left-color: rgba(50, 213, 155, 0.82);
+  background: rgba(50, 213, 155, 0.07);
+}
+
+.asset-finance-etf-brief.is-up b { color: var(--green); }
+
+.asset-finance-etf-brief.is-down {
+  border-color: rgba(255, 95, 122, 0.2);
+  border-left-color: rgba(255, 95, 122, 0.78);
+  background: rgba(255, 95, 122, 0.07);
+}
+
+.asset-finance-etf-brief.is-down b { color: var(--red); }
+
+.asset-finance-bond-research-card {
+  border-color: rgba(69, 214, 170, 0.18);
+}
+
+.asset-finance-bond-decision-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 2fr);
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid rgba(69, 214, 170, 0.16);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(8, 40, 48, 0.58), rgba(17, 31, 52, 0.78));
+}
+
+.asset-finance-bond-decision-overview.is-up {
+  border-color: rgba(50, 213, 155, 0.24);
+}
+
+.asset-finance-bond-decision-overview.is-down {
+  border-color: rgba(255, 95, 122, 0.22);
+  background: linear-gradient(135deg, rgba(58, 20, 34, 0.36), rgba(17, 31, 52, 0.78));
+}
+
+.asset-finance-bond-decision-main {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 4px;
+}
+
+.asset-finance-bond-decision-main small,
+.asset-finance-bond-decision-metrics small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.asset-finance-bond-decision-main h5 {
+  margin: 0;
+  color: var(--green);
+  font-size: 1.15rem;
+}
+
+.asset-finance-bond-decision-main p {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 760;
+  line-height: 1.65;
+}
+
+.asset-finance-bond-decision-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.asset-finance-bond-decision-tags span {
+  padding: 5px 8px;
+  border: 1px solid rgba(129, 180, 255, 0.16);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.asset-finance-bond-decision-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.asset-finance-bond-decision-metrics span {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid rgba(129, 180, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(18, 32, 53, 0.58);
+}
+
+.asset-finance-bond-decision-metrics b {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.asset-finance-bond-decision-metrics em {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-style: normal;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-finance-bond-decision-metrics .is-up b {
+  color: var(--green);
+}
+
+.asset-finance-bond-decision-metrics .is-down b {
+  color: var(--red);
+}
+
+.asset-finance-bond-radar-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.asset-finance-bond-research-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(220px, 0.65fr);
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 14px;
+  border: 1px solid rgba(69, 214, 170, 0.16);
+  border-left: 3px solid rgba(69, 214, 170, 0.84);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(5, 38, 45, 0.48), rgba(18, 32, 53, 0.66));
+}
+
+.asset-finance-bond-research-hero.is-up {
+  border-color: rgba(50, 213, 155, 0.24);
+  border-left-color: rgba(50, 213, 155, 0.88);
+}
+
+.asset-finance-bond-research-hero.is-down {
+  border-color: rgba(255, 95, 122, 0.22);
+  border-left-color: rgba(255, 95, 122, 0.82);
+  background: linear-gradient(135deg, rgba(58, 20, 34, 0.34), rgba(18, 32, 53, 0.68));
+}
+
+.asset-finance-bond-research-hero section,
+.asset-finance-bond-research-hero aside,
+.asset-finance-bond-research-hero aside span {
+  display: grid;
+  min-width: 0;
+}
+
+.asset-finance-bond-research-hero section {
+  gap: 8px;
+}
+
+.asset-finance-bond-research-hero section small {
+  color: var(--blue);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.asset-finance-bond-research-hero h5 {
+  margin: 0;
+  color: var(--green);
+  font-size: 1.18rem;
+}
+
+.asset-finance-bond-research-hero ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.asset-finance-bond-research-hero li {
+  position: relative;
+  padding-left: 14px;
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 760;
+  line-height: 1.62;
+}
+
+.asset-finance-bond-research-hero li::before {
+  content: "";
+  position: absolute;
+  top: 0.72em;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(69, 214, 170, 0.9);
+}
+
+.asset-finance-bond-research-hero aside {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.asset-finance-bond-research-hero aside span {
+  align-content: center;
+  gap: 4px;
+  padding: 11px 12px;
+  border: 1px solid rgba(129, 180, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(7, 20, 38, 0.34);
+}
+
+.asset-finance-bond-research-hero aside small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.asset-finance-bond-research-hero aside b {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.98rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-finance-bond-market-analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.asset-finance-bond-market-analysis-grid > section {
+  display: grid;
+  gap: 11px;
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid rgba(69, 214, 170, 0.16);
+  border-top: 3px solid rgba(69, 214, 170, 0.82);
+  border-radius: 14px;
+  background: rgba(5, 38, 45, 0.38);
+}
+
+.asset-finance-bond-market-analysis-grid > section.is-up {
+  border-color: rgba(50, 213, 155, 0.22);
+  border-top-color: rgba(50, 213, 155, 0.86);
+  background: rgba(50, 213, 155, 0.06);
+}
+
+.asset-finance-bond-market-analysis-grid > section.is-down {
+  border-color: rgba(255, 95, 122, 0.2);
+  border-top-color: rgba(255, 95, 122, 0.82);
+  background: rgba(255, 95, 122, 0.06);
+}
+
+.asset-finance-bond-market-analysis-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.asset-finance-bond-market-analysis-head span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.asset-finance-bond-market-analysis-head small {
+  color: var(--blue);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.asset-finance-bond-market-analysis-head h5 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+.asset-finance-bond-market-analysis-head em {
+  flex: 0 1 260px;
+  padding: 6px 9px;
+  border: 1px solid rgba(69, 166, 255, 0.18);
+  border-radius: 999px;
+  color: var(--blue);
+  background: rgba(69, 166, 255, 0.08);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1.45;
+  text-align: right;
+}
+
+.asset-finance-bond-market-analysis-grid p {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 760;
+  line-height: 1.65;
+}
+
+.asset-finance-bond-market-analysis-grid ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0 0 0 17px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 730;
+  line-height: 1.65;
+}
+
+.asset-finance-bond-research-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.asset-finance-bond-research-grid section {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(129, 180, 255, 0.13);
+  border-radius: 14px;
+  background: rgba(18, 32, 53, 0.62);
+}
+
+.asset-finance-bond-research-grid section.is-up {
+  border-color: rgba(50, 213, 155, 0.2);
+  background: rgba(50, 213, 155, 0.06);
+}
+
+.asset-finance-bond-research-grid section.is-down {
+  border-color: rgba(255, 95, 122, 0.2);
+  background: rgba(255, 95, 122, 0.06);
+}
+
+.asset-finance-bond-research-grid small {
+  color: var(--blue);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.asset-finance-bond-research-grid h5 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.asset-finance-bond-research-grid ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0 0 0 17px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.65;
+}
+
+.asset-finance-bond-region-role,
+.asset-finance-bond-region-ai {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 750;
+  line-height: 1.65;
+}
+
+.asset-finance-bond-region-ai {
+  padding: 11px 12px;
+  border: 1px solid rgba(69, 214, 170, 0.16);
+  border-left: 3px solid rgba(69, 214, 170, 0.78);
+  border-radius: 12px;
+  background: rgba(5, 38, 45, 0.3);
+  color: var(--text);
+}
+
+.asset-finance-bond-region-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.asset-finance-bond-region-metrics span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(129, 180, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(7, 20, 38, 0.32);
+}
+
+.asset-finance-bond-region-metrics small,
+.asset-finance-bond-region-metrics em {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-style: normal;
+  font-weight: 850;
+  line-height: 1.45;
+}
+
+.asset-finance-bond-region-metrics b {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.88rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-finance-bond-region-metrics b.up { color: var(--green); }
+.asset-finance-bond-region-metrics b.down { color: var(--red); }
+.asset-finance-bond-region-metrics b.flat { color: var(--blue); }
+
+.asset-finance-bond-section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 0 10px;
+}
+
+.asset-finance-bond-section-head.is-tight {
+  margin-top: 0;
+}
+
+.asset-finance-bond-section-head span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.asset-finance-bond-section-head small {
+  color: var(--blue);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.asset-finance-bond-section-head b {
+  color: var(--text);
+}
+
+.asset-finance-bond-section-head em {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-style: normal;
+  font-weight: 800;
+  text-align: right;
+}
+
+.asset-finance-bond-playbook-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.asset-finance-bond-signal-grid,
+.asset-finance-bond-bucket-grid {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.asset-finance-bond-signal-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.asset-finance-bond-bucket-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.asset-finance-bond-etf-selected {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.asset-finance-bond-etf-selected span {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 12px 13px;
+  border: 1px solid rgba(69, 166, 255, 0.16);
+  border-radius: 14px;
+  background: rgba(9, 27, 52, 0.36);
+}
+
+.asset-finance-bond-etf-selected small,
+.asset-finance-bond-etf-selected em {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.asset-finance-bond-etf-selected b {
+  color: var(--text);
+  font-size: 0.96rem;
+}
+
+.asset-finance-bond-etf-selected b.up { color: var(--green); }
+.asset-finance-bond-etf-selected b.down { color: var(--red); }
+.asset-finance-bond-etf-selected b.flat { color: var(--blue); }
+
+.asset-finance-bond-playbook-grid section,
+.asset-finance-bond-signal-grid section,
+.asset-finance-bond-bucket-card {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid rgba(129, 180, 255, 0.13);
+  border-radius: 14px;
+  background: rgba(18, 32, 53, 0.58);
+}
+
+.asset-finance-bond-bucket-card {
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+}
+
+.asset-finance-bond-bucket-card:hover,
+.asset-finance-bond-bucket-card:focus-visible {
+  border-color: rgba(69, 166, 255, 0.42);
+  background: rgba(9, 47, 82, 0.42);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.asset-finance-bond-bucket-card.is-active {
+  border-color: rgba(69, 166, 255, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(69, 166, 255, 0.2);
+  background: rgba(16, 57, 92, 0.52);
+}
+
+.asset-finance-bond-playbook-grid section.is-up,
+.asset-finance-bond-signal-grid section.is-up,
+.asset-finance-bond-bucket-card.is-up {
+  border-color: rgba(50, 213, 155, 0.2);
+  background: rgba(50, 213, 155, 0.06);
+}
+
+.asset-finance-bond-playbook-grid section.is-down,
+.asset-finance-bond-signal-grid section.is-down,
+.asset-finance-bond-bucket-card.is-down {
+  border-color: rgba(255, 95, 122, 0.2);
+  background: rgba(255, 95, 122, 0.06);
+}
+
+.asset-finance-bond-playbook-grid small,
+.asset-finance-bond-playbook-grid p,
+.asset-finance-bond-signal-grid small,
+.asset-finance-bond-signal-grid p,
+.asset-finance-bond-bucket-grid small,
+.asset-finance-bond-bucket-grid p,
+.asset-finance-bond-map-list small,
+.asset-finance-bond-rating-list small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.62;
+}
+
+.asset-finance-bond-playbook-grid small,
+.asset-finance-bond-signal-grid small,
+.asset-finance-bond-bucket-grid small {
+  color: var(--blue);
+  font-weight: 900;
+}
+
+.asset-finance-bond-playbook-grid b,
+.asset-finance-bond-signal-grid b,
+.asset-finance-bond-bucket-grid b {
+  color: var(--text);
+  font-size: 0.94rem;
+}
+
+.asset-finance-bond-playbook-grid p,
+.asset-finance-bond-signal-grid p,
+.asset-finance-bond-bucket-grid p {
+  margin: 0;
+}
+
+.asset-finance-bond-etf-current-list {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin: 0 0 12px;
+  padding: 12px 13px;
+  border: 1px solid rgba(69, 214, 170, 0.16);
+  border-radius: 14px;
+  background: rgba(5, 38, 45, 0.26);
+}
+
+.asset-finance-bond-etf-current-list b {
+  color: var(--green);
+  font-size: 0.84rem;
+}
+
+.asset-finance-bond-etf-current-list span {
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.55;
+  text-align: right;
+}
+
+.asset-finance-bond-etf-table-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin: 0 0 10px;
+  min-width: 0;
+}
+
+.asset-finance-bond-etf-table-head span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.asset-finance-bond-etf-table-head small {
+  color: var(--blue);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.asset-finance-bond-etf-table-head b {
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.asset-finance-bond-etf-table-head em {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1.5;
+  text-align: right;
+}
+
+.asset-finance-bond-playbook-lenses {
+  display: grid;
+  gap: 7px;
+}
+
+.asset-finance-bond-playbook-lenses span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid rgba(129, 180, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(7, 20, 38, 0.3);
+}
+
+.asset-finance-bond-playbook-lenses strong {
+  color: var(--blue);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.asset-finance-bond-playbook-lenses em {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-style: normal;
+  font-weight: 720;
+  line-height: 1.58;
+}
+
+.asset-finance-bond-detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.asset-finance-bond-detail-layout > section {
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid rgba(69, 214, 170, 0.13);
+  border-radius: 14px;
+  background: rgba(5, 38, 45, 0.34);
+}
+
+.asset-finance-bond-map-list,
+.asset-finance-bond-rating-list {
+  display: grid;
+  gap: 8px;
+}
+
+.asset-finance-bond-map-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.asset-finance-bond-map-list span,
+.asset-finance-bond-rating-list span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 11px;
+  border: 1px solid rgba(129, 180, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(7, 20, 38, 0.36);
+}
+
+.asset-finance-bond-map-list b,
+.asset-finance-bond-rating-list b {
+  color: var(--gold);
+  font-size: 0.88rem;
+}
+
+.asset-finance-bond-map-list strong,
+.asset-finance-bond-rating-list strong {
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
+.asset-finance-bond-check-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.asset-finance-bond-check-grid span {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px 13px;
+  border: 1px solid rgba(69, 214, 170, 0.14);
+  border-radius: 14px;
+  background: rgba(5, 38, 45, 0.46);
+}
+
+.asset-finance-bond-check-grid b {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.asset-finance-bond-check-grid small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.65;
+}
+
+.asset-finance-volume-chart {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0 0 14px;
+  padding: 13px;
+  border: 1px solid rgba(129, 180, 255, 0.13);
+  border-radius: 14px;
+  background: rgba(7, 20, 38, 0.34);
+}
+
+.asset-finance-volume-chart-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.asset-finance-volume-chart-head span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.asset-finance-volume-chart-head small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.asset-finance-volume-chart-head b {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.95rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-finance-volume-chart-head em {
+  color: var(--gold);
+  font-size: 0.74rem;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1.45;
+  text-align: right;
+}
+
+.asset-finance-volume-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 220px;
+}
+
+.asset-finance-volume-bg {
+  fill: rgba(18, 32, 53, 0.56);
+  stroke: rgba(129, 180, 255, 0.11);
+}
+
+.asset-finance-volume-grid {
+  stroke: rgba(129, 180, 255, 0.14);
+  stroke-dasharray: 4 6;
+}
+
+.asset-finance-volume-axis,
+.asset-finance-volume-date {
+  fill: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.asset-finance-volume-area {
+  fill: rgba(69, 166, 255, 0.12);
+}
+
+.asset-finance-volume-line {
+  fill: none;
+  stroke: var(--blue);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.asset-finance-volume-bar {
+  opacity: 0.82;
+  rx: 2;
+}
+
+.asset-finance-volume-bar.is-up {
+  fill: rgba(50, 213, 155, 0.72);
+}
+
+.asset-finance-volume-bar.is-down {
+  fill: rgba(255, 95, 122, 0.68);
+}
+
+.asset-finance-volume-crosshair {
+  opacity: 0;
+  pointer-events: none;
+  stroke: rgba(216, 229, 242, 0.62);
+  stroke-dasharray: 4 5;
+  stroke-width: 1.2;
+  transition: opacity 0.12s ease;
+}
+
+.asset-finance-volume-crosshair.is-visible {
+  opacity: 1;
+}
+
+.asset-finance-volume-crosshair-dot {
+  opacity: 0;
+  pointer-events: none;
+  fill: var(--gold);
+  stroke: rgba(7, 20, 38, 0.92);
+  stroke-width: 2;
+  transition: opacity 0.12s ease;
+}
+
+.asset-finance-volume-crosshair-dot.is-visible {
+  opacity: 1;
+}
+
+.asset-finance-volume-hover-zone {
+  fill: transparent;
+  cursor: crosshair;
+}
+
+.asset-finance-volume-tooltip {
+  position: absolute;
+  z-index: 4;
+  display: grid;
+  gap: 7px;
+  min-width: 164px;
+  padding: 10px 11px;
+  border: 1px solid rgba(129, 180, 255, 0.22);
+  border-radius: 12px;
+  background: rgba(7, 20, 38, 0.94);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+  color: var(--text);
+  pointer-events: none;
+}
+
+.asset-finance-volume-tooltip[hidden] {
+  display: none;
+}
+
+.asset-finance-volume-tooltip strong {
+  color: var(--gold);
+  font-size: 0.8rem;
+}
+
+.asset-finance-volume-tooltip span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+}
+
+.asset-finance-volume-tooltip b {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.asset-finance-volume-tooltip em {
+  color: var(--text);
+  font-size: 0.76rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.asset-finance-volume-tooltip em.up { color: var(--green); }
+.asset-finance-volume-tooltip em.down { color: var(--red); }
+.asset-finance-volume-tooltip em.flat { color: var(--blue); }
+
+.asset-finance-single-ai {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid rgba(129, 180, 255, 0.14);
+  border-left: 3px solid rgba(69, 166, 255, 0.82);
+  border-radius: 14px;
+  background: rgba(18, 32, 53, 0.64);
+}
+
+.asset-finance-single-ai.is-up {
+  border-color: rgba(50, 213, 155, 0.22);
+  border-left-color: rgba(50, 213, 155, 0.84);
+  background: rgba(50, 213, 155, 0.07);
+}
+
+.asset-finance-single-ai.is-down {
+  border-color: rgba(255, 95, 122, 0.22);
+  border-left-color: rgba(255, 95, 122, 0.82);
+  background: rgba(255, 95, 122, 0.07);
+}
+
+.asset-finance-single-ai-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}
+
+.asset-finance-single-ai-head span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.asset-finance-single-ai-head small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.asset-finance-single-ai-head b {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-finance-single-ai-head em {
+  color: var(--gold);
+  font-size: 0.74rem;
+  font-style: normal;
+  font-weight: 900;
+  line-height: 1.45;
+  text-align: right;
+}
+
+.asset-finance-single-ai-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.asset-finance-single-ai-grid span {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid rgba(129, 180, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(7, 20, 38, 0.34);
+}
+
+.asset-finance-single-ai-grid small,
+.asset-finance-single-ai-grid em,
+.asset-finance-single-ai p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-style: normal;
+  line-height: 1.58;
+}
+
+.asset-finance-single-ai-grid b {
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.asset-finance-single-ai-grid b.up { color: var(--green); }
+.asset-finance-single-ai-grid b.down { color: var(--red); }
+.asset-finance-single-ai-grid b.flat { color: var(--blue); }
+
+.asset-finance-single-ai p {
+  color: var(--text);
+  font-size: 0.86rem;
+}
+
+.asset-finance-single-ai p b {
+  color: var(--blue);
+}
+
+.asset-finance-bond-single-ai {
+  border-color: rgba(69, 214, 170, 0.2);
+  border-left-color: rgba(69, 214, 170, 0.84);
+  background: rgba(5, 38, 45, 0.34);
+}
+
+.asset-finance-bond-single-ai .asset-finance-single-ai-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.asset-finance-bond-dashboard-ai {
+  margin: 12px 0;
+}
+
+.asset-finance-bond-dashboard-ai .asset-finance-single-ai-head b {
+  white-space: normal;
+}
+
+.asset-finance-bond-dashboard-ai .asset-finance-single-ai-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.asset-finance-bond-ai-sections {
+  display: grid;
+  gap: 10px;
+}
+
+.asset-finance-bond-ai-section {
+  display: grid;
+  gap: 8px;
+  padding: 12px 13px;
+  border: 1px solid rgba(129, 180, 255, 0.12);
+  border-left: 3px solid rgba(69, 166, 255, 0.72);
+  border-radius: 12px;
+  background: rgba(7, 20, 38, 0.28);
+}
+
+.asset-finance-bond-ai-section.is-up {
+  border-left-color: rgba(50, 213, 155, 0.82);
+}
+
+.asset-finance-bond-ai-section.is-down {
+  border-left-color: rgba(255, 95, 122, 0.82);
+}
+
+.asset-finance-bond-ai-section h5 {
+  margin: 0;
+  color: var(--blue);
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.asset-finance-bond-ai-section ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.asset-finance-bond-ai-section li {
+  position: relative;
+  padding-left: 14px;
+  color: var(--text);
+  font-size: 0.84rem;
+  line-height: 1.62;
+}
+
+.asset-finance-bond-ai-section li::before {
+  content: "";
+  position: absolute;
+  top: 0.72em;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(69, 166, 255, 0.86);
+}
+
+.asset-finance-bond-ai-section.is-up li::before {
+  background: rgba(50, 213, 155, 0.9);
+}
+
+.asset-finance-bond-ai-section.is-down li::before {
+  background: rgba(255, 95, 122, 0.88);
+}
+
+.asset-finance-bond-single-summary {
+  display: grid;
+  grid-template-columns: minmax(140px, auto) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 13px 14px;
+  border: 1px solid rgba(69, 214, 170, 0.18);
+  border-left: 3px solid rgba(69, 214, 170, 0.84);
+  border-radius: 14px;
+  background: rgba(69, 214, 170, 0.08);
+}
+
+.asset-finance-bond-single-summary.is-down {
+  border-color: rgba(255, 95, 122, 0.2);
+  border-left-color: rgba(255, 95, 122, 0.82);
+  background: rgba(255, 95, 122, 0.07);
+}
+
+.asset-finance-bond-single-summary span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.asset-finance-bond-single-summary small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.asset-finance-bond-single-summary b {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.asset-finance-bond-single-summary p {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.65;
+}
+
+.asset-finance-bond-single-brief {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.asset-finance-bond-single-brief span {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px 13px;
+  border: 1px solid rgba(69, 214, 170, 0.16);
+  border-radius: 12px;
+  background: rgba(5, 38, 45, 0.28);
+}
+
+.asset-finance-bond-single-brief b {
+  color: var(--green);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.asset-finance-bond-single-brief small {
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.6;
+}
+
+.asset-finance-bond-single-etf-lens {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.asset-finance-bond-single-etf-lens span {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid rgba(69, 166, 255, 0.15);
+  border-left: 3px solid rgba(69, 166, 255, 0.72);
+  border-radius: 12px;
+  background: rgba(9, 27, 52, 0.36);
+}
+
+.asset-finance-bond-single-etf-lens b {
+  color: var(--blue);
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.asset-finance-bond-single-etf-lens small {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  line-height: 1.58;
+}
+
+.asset-finance-bond-single-content-grid,
+.asset-finance-bond-single-evidence {
+  display: grid;
+  gap: 10px;
+}
+
+.asset-finance-bond-single-content-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.asset-finance-bond-single-evidence {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.asset-finance-bond-single-subhead {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  min-width: 0;
+  padding-top: 4px;
+}
+
+.asset-finance-bond-single-subhead b {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 900;
+}

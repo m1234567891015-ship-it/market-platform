@@ -1,0 +1,257 @@
+{
+  "page_count": 21,
+  "pages": [
+    {
+      "console_error_count": 0,
+      "console_warning_count": 0,
+      "counts": {
+        "canvas": 0,
+        "canvas_nonblank": 0,
+        "cards": 14,
+        "table_rows": 45
+      },
+      "file": "bonds.html",
+      "screenshot": "screenshots/bonds.html.png"
+    },
+    {
+      "console_error_count": 0,
+      "console_warning_count": 0,
+      "counts": {
+        "canvas": 0,
+        "canvas_nonblank": 0,
+        "cards": 24,
+        "table_rows": 6
+      },
+      "file": "derivatives-ai.html",
+      "screenshot": "screenshots/derivatives-ai.html.png"
+    },
+    {
+      "console_error_count": 0,
+      "console_warning_count": 0,
+      "counts": {
+        "canvas": 0,
+        "canvas_nonblank": 0,
+        "cards": 24,
+        "table_rows": 6
+      },
+      "file": "derivatives-analytics.html",
+      "screenshot": "screenshots/derivatives-analytics.html.png"
+    },
+    {
+      "console_error_count": 0,
+      "console_warning_count": 0,
+      "counts": {
+        "canvas": 0,
+        "canvas_nonblank": 0,
+        "cards": 32,
+        "table_rows": 0
+      },
+      "file": "derivatives-assets.html",
+      "screenshot": "screenshots/derivatives-assets.html.png"
+    },
+    {
+      "console_error_count": 0,
+      "console_warning_count": 0,
+      "counts": {
+        "canvas": 0,
+        "canvas_nonblank": 0,
+        "cards": 6,
+        "table_rows": 13
+      },
+      "file": "derivatives-status.html",
+      "screenshot": "screenshots/derivatives-status.html.png"
+    },
+    {
+      "console_error_count": 0,
+      "console_warning_count": 0,
+      "counts": {
+        "canvas": 0,
+        "canvas_nonblank": 0,
+        "cards": 22,
+        "table_rows": 58
+      },
+      "file": "futures.html",
+      "screenshot": "screenshots/futures.html.png"
+    },
+    {
+      "console_error_count": 0,
+      "console_warning_count": 0,
+      "counts": {
+        "canvas": 0,
+        "canvas_nonblank": 0,
+        "cards": 47,
+        "table_rows": 0
+      },
+      "file": "index.html",
+      "screenshot": "screenshots/index.html.png"
+    },
+    {
+      "console_error_count": 0,
+      "console_warning_count": 0,
+      "counts": {
+        "canvas": 0,
+        "canvas_nonblank": 0,
+        "cards": 10,
+        "table_rows": 34
+      },
+      "file": "international-finance.html",
+      "screenshot": "screenshots/international-finance.html.png"
+    },
+    {
+      "console_error_count": 0,
+      "console_warning_count": 0,
+      "counts": {
+        "canvas": 0,
+        "canvas_nonblank": 0,
+        "cards": 24,
+        "table_rows": 0
+      },
+      "file": "market-overview.html",
+      "screenshot": "screenshots/market-overview.html.png"
+    },
+    {
+      "console_error_count": 0,
+      "console_warning_count": 0,
+      "counts": {
+        "canvas": 0,
+        "canvas_nonblank": 0,
+        "cards": 24,
+        "table_rows": 0
+      },
+      "file": "news.html",
+      "screenshot": "screenshots/news.html.png"
+    },
+    {
+      "console_error_count": 0,
+      "console_warning_count": 0,
+      "counts": {
+        "canvas": 0,
+        "canvas_nonblank": 0,
+        "cards": 28,
+        "table_rows": 116
+      },
+      "file": "options.html",
+      "screenshot": "screenshots/options.html.png"
+    },
+    {
+      "console_error_count": 0,
+      "console_warning_count": 0,
+      "counts": {
+        "canvas": 0,
+        "canvas_nonblank": 0,
+        "cards": 8,
+        "table_rows": 34
+      },
+      "file": "precious-metals.html",
+      "screenshot": "screenshots/precious-metals.html.png"
+    },
+    {
+      "console_error_count": 0,
+      "console_warning_count": 0,
+      "counts": {
+        "canvas": 0,
+        "canvas_nonblank": 0,
+        "cards": 4,
+        "table_rows": 0
+      },
+      "file": "tw-Optional-stocks.html",
+      "screenshot": "screenshots/tw-Optional-stocks.html.png"
+    },
+    {
+      "console_error_count": 0,
+      "console_warning_count": 0,
+      "counts": {
+        "canvas": 0,
+        "canvas_nonblank": 0,
+        "cards": 11,
+        "table_rows": 33
+      },
+      "file": "tw-etf.html",
+      "screenshot": "screenshots/tw-etf.html.png"
+    },
+    {
+      "console_error_count": 0,
+      "console_warning_count": 0,
+      "counts": {
+        "canvas": 0,
+        "canvas_nonblank": 0,
+        "cards": 5,
+        "table_rows": 0
+      },
+      "file": "tw-stock-search.html",
+      "screenshot": "screenshots/tw-stock-search.html.png"
+    },
+    {
+      "console_error_count": 0,
+      "console_warning_count": 0,
+      "counts": {
+        "canvas": 0,
+        "canvas_nonblank": 0,
+        "cards": 23,
+        "table_rows": 0
+      },
+      "file": "tw-stocks.html",
+      "screenshot": "screenshots/tw-stocks.html.png"
+    },
+    {
+      "console_error_count": 0,
+      "console_warning_count": 0,
+      "counts": {
+        "canvas": 0,
+        "canvas_nonblank": 0,
+        "cards": 24,
+        "table_rows": 38
+      },
+      "file": "us-etf.html",
+      "screenshot": "screenshots/us-etf.html.png"
+    },
+    {
+      "console_error_count": 0,
+      "console_warning_count": 0,
+      "counts": {
+        "canvas": 0,
+        "canvas_nonblank": 0,
+        "cards": 27,
+        "table_rows": 0
+      },
+      "file": "us-market-overview.html",
+      "screenshot": "screenshots/us-market-overview.html.png"
+    },
+    {
+      "console_error_count": 0,
+      "console_warning_count": 0,
+      "counts": {
+        "canvas": 0,
+        "canvas_nonblank": 0,
+        "cards": 4,
+        "table_rows": 0
+      },
+      "file": "us-stock-search.html",
+      "screenshot": "screenshots/us-stock-search.html.png"
+    },
+    {
+      "console_error_count": 0,
+      "console_warning_count": 0,
+      "counts": {
+        "canvas": 0,
+        "canvas_nonblank": 0,
+        "cards": 17,
+        "table_rows": 9
+      },
+      "file": "us-stocks.html",
+      "screenshot": "screenshots/us-stocks.html.png"
+    },
+    {
+      "console_error_count": 0,
+      "console_warning_count": 0,
+      "counts": {
+        "canvas": 0,
+        "canvas_nonblank": 0,
+        "cards": 6,
+        "table_rows": 0
+      },
+      "file": "us-watchlist.html",
+      "screenshot": "screenshots/us-watchlist.html.png"
+    }
+  ]
+}

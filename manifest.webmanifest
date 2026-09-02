@@ -1,0 +1,59 @@
+{
+  "name": "台股脈動 Market Pulse",
+  "short_name": "台股脈動",
+  "description": "台股指數、族群輪動、個股分析與自選組合的行動投資儀表板。",
+  "lang": "zh-Hant",
+  "start_url": "/index.html?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#071426",
+  "theme_color": "#071426",
+  "icons": [
+    {
+      "src": "/assets/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "台股盤勢",
+      "url": "/market-overview.html",
+      "icons": [{ "src": "/assets/app-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "台股指數",
+      "url": "/tw-stocks.html",
+      "icons": [{ "src": "/assets/app-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "台股 ETF",
+      "url": "/tw-etf.html",
+      "icons": [{ "src": "/assets/app-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "個股搜尋",
+      "url": "/tw-stock-search.html",
+      "icons": [{ "src": "/assets/app-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "自選股",
+      "url": "/tw-Optional-stocks.html",
+      "icons": [{ "src": "/assets/app-icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

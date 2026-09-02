@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#071426">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="台股脈動">
+  <title>台股脈動 | 自選股</title>
+  <link rel="manifest" href="manifest.webmanifest?v=pwa-20260615-1">
+  <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/app-icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="split-01.css">
+<link rel="stylesheet" href="split-02.css">
+<link rel="stylesheet" href="split-03.css">
+<link rel="stylesheet" href="split-04.css">
+<link rel="stylesheet" href="split-05.css">
+<link rel="stylesheet" href="split-06.css">
+<link rel="stylesheet" href="split-07.css">
+<link rel="stylesheet" href="styles.css?v=pwa-release-20260615-1">
+</head>
+<body data-page="watchlist">
+  <div class="page-shell">
+    <header class="site-header">
+      <nav class="navbar">
+        <a class="brand" href="index.html">
+          <span class="brand-mark">MP</span>
+          <span>台股脈動</span>
+        </a>
+        <div class="nav-links">
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="subpage-hero">
+        <p class="eyebrow">Watchlist</p>
+        <h1>建立你的自選股清單</h1>
+        <p class="hero-text">從個股搜尋頁的個股詳情加入自選股，集中查看最新價格、漲跌幅、AI 分析與模擬投資損益。</p>
+      </section>
+
+      <section class="section">
+        <article class="panel-card">
+          <div class="card-title-row">
+            <div>
+              <p class="panel-kicker">My stocks</p>
+              <h3>我的自選股</h3>
+            </div>
+            <div class="watchlist-heading-actions">
+              <button id="watchlist-analysis-refresh" class="watchlist-analysis-refresh" type="button">更新 AI 分析</button>
+              <span id="watchlist-count" class="chip chip-gold">0 檔</span>
+            </div>
+          </div>
+          <p id="watchlist-status" class="source-note">請至個股搜尋頁，在個股詳情中加入自選股。</p>
+          <div id="watchlist-ai-summary" class="watchlist-ai-summary"></div>
+          <div id="watchlist-grid" class="watchlist-grid"></div>
+        </article>
+      </section>
+
+      <section class="section">
+        <article class="panel-card portfolio-simulator-card">
+          <div class="card-title-row">
+            <div>
+              <p class="panel-kicker">Portfolio simulator</p>
+              <h3>自選組合模擬投資損益</h3>
+            </div>
+            <button id="portfolio-simulator-reset" class="portfolio-reset" type="button">重設模擬</button>
+          </div>
+          <p class="source-note">輸入模擬進場價、股數與停損停利條件，評估成本後淨損益、單一權重、組合停損、VaR 與 VIX 總體風險。交易成本為估算值，實際仍需依券商與商品規則校正。</p>
+          <div id="portfolio-simulator-summary" class="portfolio-simulator-summary"></div>
+          <div id="portfolio-simulator-table" class="portfolio-simulator-table"></div>
+          <p class="portfolio-disclaimer">模擬結果與進出場訊號僅供風險規劃及研究參考，不構成投資建議或獲利保證。</p>
+        </article>
+      </section>
+    </main>
+  </div>
+
+<script src="market-pulse-esm-loader.js?v=td02-full-esm-20260901-1"></script>
+</body>
+</html>

@@ -1,0 +1,310 @@
+{
+  "data": {
+    "aiScoreFormula": {
+      "confidenceScore": "Count of available evidence layers plus chain/candle depth bonus.",
+      "marketScore": "Options: PCR, Volume PCR, Max Pain gap, OI wall; Futures: price change. All scores clamped 0-100.",
+      "riskScore": "Options: PCR imbalance, Volume PCR imbalance, Max Pain gap and OI wall break; Futures: downside momentum and OI availability.",
+      "sourcePendingPenalty": "Missing evidence lowers confidence and raises data-risk messaging; no fake data is generated."
+    },
+    "basis": {
+      "endpoint": "/api/basis?future=TX&spot=TAIEX",
+      "formula": "basis = futurePrice - spotPrice; basisPct = basis / spotPrice * 100"
+    },
+    "coverage": {
+      "futures": {
+        "connected": 8,
+        "items": [
+          {
+            "dataStatus": "TAIFEX 資料已接入",
+            "group": "國內指數期貨",
+            "name": "臺股期貨 TX 未平倉",
+            "status": "connected",
+            "symbol": "TX"
+          },
+          {
+            "dataStatus": "TAIFEX 資料已接入",
+            "group": "國內指數期貨",
+            "name": "小型臺指期貨 MTX 未平倉",
+            "status": "connected",
+            "symbol": "MTX"
+          },
+          {
+            "dataStatus": "TAIFEX 資料已接入",
+            "group": "國內指數期貨",
+            "name": "微型臺指期貨 TMF 未平倉",
+            "status": "connected",
+            "symbol": "TMF"
+          },
+          {
+            "dataStatus": "TAIFEX 資料已接入",
+            "group": "國內類股期貨",
+            "name": "電子期貨 TE 未平倉",
+            "status": "connected",
+            "symbol": "TE"
+          },
+          {
+            "dataStatus": "TAIFEX 資料已接入",
+            "group": "國內類股期貨",
+            "name": "金融期貨 TF 未平倉",
+            "status": "connected",
+            "symbol": "TF"
+          },
+          {
+            "dataStatus": "TAIFEX 資料已接入",
+            "group": "國內指數期貨",
+            "name": "櫃買期貨 SOF",
+            "status": "connected",
+            "symbol": "SOF"
+          },
+          {
+            "dataStatus": "TAIFEX OpenAPI 標的清單 + 每日行情彙總已接入。",
+            "group": "國內股票期貨",
+            "name": "股票期貨",
+            "status": "connected",
+            "symbol": "STF"
+          },
+          {
+            "dataStatus": "TAIFEX OpenAPI 標的清單 + 每日行情彙總已接入。",
+            "group": "國內ETF期貨",
+            "name": "ETF 期貨",
+            "status": "connected",
+            "symbol": "ETF-F"
+          }
+        ],
+        "sourcePending": 0,
+        "total": 8
+      },
+      "options": {
+        "connected": 3,
+        "items": [
+          {
+            "dataStatus": "TAIFEX 資料已接入",
+            "group": "國內指數選擇權",
+            "name": "臺指選擇權 TXO",
+            "status": "connected",
+            "symbol": "TXO"
+          },
+          {
+            "dataStatus": "TAIFEX OpenAPI 標的清單 + 每日行情彙總已接入。",
+            "group": "國內股票選擇權",
+            "name": "股票選擇權",
+            "status": "connected",
+            "symbol": "STO"
+          },
+          {
+            "dataStatus": "TAIFEX OpenAPI 標的清單 + 每日行情彙總已接入。",
+            "group": "國內ETF選擇權",
+            "name": "ETF 選擇權",
+            "status": "connected",
+            "symbol": "ETO"
+          }
+        ],
+        "sourcePending": 0,
+        "total": 3
+      }
+    },
+    "futures": [
+      {
+        "dataProvider": "taifex_futures_open_interest",
+        "dataSource": "TAIFEX 官方期貨日報",
+        "exchange": "TAIFEX",
+        "group": "國內指數期貨",
+        "market": "台灣",
+        "metricLabel": "未平倉量",
+        "name": "臺股期貨 TX 未平倉",
+        "referenceSource": "TAIFEX 期貨契約規格",
+        "region": "台灣",
+        "sourceUrl": "https://www.taifex.com.tw/cht/3/futDailyMarketReport",
+        "symbol": "TX",
+        "taifexCommodity": "TX",
+        "type": "台灣股指期貨",
+        "v1Status": "connected"
+      },
+      {
+        "dataProvider": "taifex_futures_open_interest",
+        "dataSource": "TAIFEX 官方期貨日報",
+        "exchange": "TAIFEX",
+        "group": "國內指數期貨",
+        "market": "台灣",
+        "metricLabel": "未平倉量",
+        "name": "小型臺指期貨 MTX 未平倉",
+        "referenceSource": "TAIFEX 期貨契約規格",
+        "region": "台灣",
+        "sourceUrl": "https://www.taifex.com.tw/cht/3/futDailyMarketReport",
+        "symbol": "MTX",
+        "taifexCommodity": "MTX",
+        "type": "台灣股指期貨",
+        "v1Status": "connected"
+      },
+      {
+        "dataProvider": "taifex_futures_open_interest",
+        "dataSource": "TAIFEX 官方期貨日報",
+        "exchange": "TAIFEX",
+        "group": "國內指數期貨",
+        "market": "台灣",
+        "metricLabel": "未平倉量",
+        "name": "微型臺指期貨 TMF 未平倉",
+        "referenceSource": "TAIFEX 期貨契約規格",
+        "region": "台灣",
+        "sourceUrl": "https://www.taifex.com.tw/cht/3/futDailyMarketReport",
+        "symbol": "TMF",
+        "taifexCommodity": "TMF",
+        "type": "台灣股指期貨",
+        "v1Status": "connected"
+      },
+      {
+        "dataProvider": "taifex_futures_open_interest",
+        "dataSource": "TAIFEX 官方期貨日報",
+        "exchange": "TAIFEX",
+        "group": "國內類股期貨",
+        "market": "台灣",
+        "metricLabel": "未平倉量",
+        "name": "電子期貨 TE 未平倉",
+        "referenceSource": "TAIFEX 期貨契約規格",
+        "region": "台灣",
+        "sourceUrl": "https://www.taifex.com.tw/cht/3/futDailyMarketReport",
+        "symbol": "TE",
+        "taifexCommodity": "TE",
+        "type": "台灣類股期貨",
+        "v1Status": "connected"
+      },
+      {
+        "dataProvider": "taifex_futures_open_interest",
+        "dataSource": "TAIFEX 官方期貨日報",
+        "exchange": "TAIFEX",
+        "group": "國內類股期貨",
+        "market": "台灣",
+        "metricLabel": "未平倉量",
+        "name": "金融期貨 TF 未平倉",
+        "referenceSource": "TAIFEX 期貨契約規格",
+        "region": "台灣",
+        "sourceUrl": "https://www.taifex.com.tw/cht/3/futDailyMarketReport",
+        "symbol": "TF",
+        "taifexCommodity": "TF",
+        "type": "台灣類股期貨",
+        "v1Status": "connected"
+      },
+      {
+        "dataProvider": "taifex_futures_open_interest",
+        "dataSource": "TAIFEX 官方期貨日報",
+        "exchange": "TAIFEX",
+        "group": "國內指數期貨",
+        "market": "台灣",
+        "metricLabel": "未平倉量",
+        "name": "櫃買期貨 SOF",
+        "referenceSource": "TAIFEX 期貨契約規格",
+        "region": "台灣",
+        "sourceUrl": "https://www.taifex.com.tw/cht/3/futDailyMarketReport",
+        "symbol": "SOF",
+        "taifexCommodity": "SOF",
+        "type": "台灣櫃買指數期貨",
+        "v1Status": "connected"
+      },
+      {
+        "dataProvider": "taifex_futures_open_interest",
+        "dataSource": "TAIFEX 官方期貨日報",
+        "dataStatus": "TAIFEX OpenAPI 標的清單 + 每日行情彙總已接入。",
+        "exchange": "TAIFEX",
+        "group": "國內股票期貨",
+        "market": "台灣",
+        "metricLabel": "未平倉量",
+        "name": "股票期貨",
+        "referenceSource": "TAIFEX 期貨契約規格",
+        "region": "台灣",
+        "sourceUrl": "https://www.taifex.com.tw/cht/3/futDailyMarketReport",
+        "symbol": "STF",
+        "taifexCommodity": "STF",
+        "type": "股票期貨",
+        "v1Status": "connected"
+      },
+      {
+        "dataProvider": "taifex_futures_open_interest",
+        "dataSource": "TAIFEX 官方期貨日報",
+        "dataStatus": "TAIFEX OpenAPI 標的清單 + 每日行情彙總已接入。",
+        "exchange": "TAIFEX",
+        "group": "國內ETF期貨",
+        "market": "台灣",
+        "metricLabel": "未平倉量",
+        "name": "ETF 期貨",
+        "referenceSource": "TAIFEX 期貨契約規格",
+        "region": "台灣",
+        "sourceUrl": "https://www.taifex.com.tw/cht/3/futDailyMarketReport",
+        "symbol": "ETF-F",
+        "taifexCommodity": "ETF",
+        "type": "ETF期貨",
+        "v1Status": "connected"
+      }
+    ],
+    "institutionImport": {
+      "currentProductRows": 0,
+      "endpoint": "/api/institution/import",
+      "formats": [
+        "JSON rows",
+        "CSV"
+      ],
+      "optionalFields": [
+        "long_contracts",
+        "short_contracts",
+        "net_contracts"
+      ],
+      "requiredFields": [
+        "institution",
+        "product_code",
+        "trade_date"
+      ]
+    },
+    "options": [
+      {
+        "dataProvider": "taifex_option_product_status",
+        "dataSource": "TAIFEX 官方選擇權日報",
+        "exchange": "TAIFEX",
+        "group": "國內指數選擇權",
+        "market": "台灣",
+        "metricLabel": "未平倉量",
+        "name": "臺指選擇權 TXO",
+        "referenceSource": "TAIFEX 選擇權契約規格",
+        "region": "台灣",
+        "sourceUrl": "https://www.taifex.com.tw/cht/3/optDailyMarketReport",
+        "symbol": "TXO",
+        "type": "台灣指數選擇權",
+        "v1Status": "connected"
+      },
+      {
+        "dataProvider": "taifex_option_product_status",
+        "dataSource": "TAIFEX 官方選擇權日報",
+        "dataStatus": "TAIFEX OpenAPI 標的清單 + 每日行情彙總已接入。",
+        "exchange": "TAIFEX",
+        "group": "國內股票選擇權",
+        "market": "台灣",
+        "metricLabel": "未平倉量",
+        "name": "股票選擇權",
+        "referenceSource": "TAIFEX 選擇權契約規格",
+        "region": "台灣",
+        "sourceUrl": "https://www.taifex.com.tw/cht/3/optDailyMarketReport",
+        "symbol": "STO",
+        "type": "股票選擇權",
+        "v1Status": "connected"
+      },
+      {
+        "dataProvider": "taifex_option_product_status",
+        "dataSource": "TAIFEX 官方選擇權日報",
+        "dataStatus": "TAIFEX OpenAPI 標的清單 + 每日行情彙總已接入。",
+        "exchange": "TAIFEX",
+        "group": "國內ETF選擇權",
+        "market": "台灣",
+        "metricLabel": "未平倉量",
+        "name": "ETF 選擇權",
+        "referenceSource": "TAIFEX 選擇權契約規格",
+        "region": "台灣",
+        "sourceUrl": "https://www.taifex.com.tw/cht/3/optDailyMarketReport",
+        "symbol": "ETO",
+        "type": "ETF選擇權",
+        "v1Status": "connected"
+      }
+    ],
+    "scope": "domestic_derivatives",
+    "version": "V1.0"
+  },
+  "success": true,
+  "updated_at": "<DYNAMIC>"
+}
