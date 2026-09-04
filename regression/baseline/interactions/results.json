@@ -69,9 +69,18 @@
       "console_error_count": 0,
       "steps": [
         {
-          "after_snapshot": {},
+          "after_snapshot": {
+            "#derivatives-strategy-detail[0]": {
+              "className": "derivatives-strategy-detail",
+              "count": 1,
+              "disabled": false,
+              "html": "<div class=\"derivatives-strategy-unavailable\"><h4 class=\"derivatives-strategy-detail-title\">Long Strangle · 策略分析暫不可用</h4><p>策略分析暫不可用：有效到期日或 DTE 缺失／已過期。不產生策略組合或損益判斷。</p></div>",
+              "text": "Long Strangle · 策略分析暫不可用策略分析暫不可用：有效到期日或 DTE 缺失／已過期。不產生策略組合或損益判斷。",
+              "value": null
+            }
+          },
           "failures": [],
-          "id": "derivatives-analytics__render",
+          "id": "derivatives-analytics__strategy-select",
           "ok": true,
           "tier": "P0"
         }

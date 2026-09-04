@@ -227,6 +227,7 @@ from cache import (
     finish_cache_flight,
     finish_taifex_options_chain_flight,
     read_memory_cache,
+    read_stale_memory_cache,
     save_disk_cache,
     write_memory_cache,
 )
@@ -3728,7 +3729,17 @@ def fetch_taifex_txo_option_chain(
                 app.build_taifex_txo_option_payload(rows, target.strftime("%Y-%m-%d"), expiry, product["symbol"], spot_snapshot)
             )
             write_memory_cache("taifex_options_chain", cache_key, payload, OPTIONS_CHAIN_CACHE_SECONDS)
+            save_disk_cache()
             return {**payload, "cached": False}
+        stale_payload, stale_at = read_stale_memory_cache("taifex_options_chain", cache_key, 24 * 60 * 60)
+        if isinstance(stale_payload, dict) and stale_payload.get("chain") and stale_payload.get("tradeDate"):
+            LOGGER.warning("TAIFEX %s source unavailable; serving verified stale chain tradeDate=%s stored_at=%s", product["symbol"], stale_payload.get("tradeDate"), stale_at)
+            return {
+                **app.supplement_taifex_option_payload_with_yahoo_oi(stale_payload),
+                "cached": True,
+                "stale": True,
+                "staleAt": stale_at,
+            }
         return {
             "underlying": product["symbol"],
             "name": product["name"],

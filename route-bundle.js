@@ -3693,7 +3693,6 @@ function renderUsMarketDetailTo(rootId, item) {
       <div><span>月高 / 月低</span><strong>${detail.monthHigh} / ${detail.monthLow}</strong></div>
     </div>
     <p class="card-copy">${escapeHtml(detail.trend)}</p>
-    ${detail.dataStatus ? `<p class="source-note">${escapeHtml(detail.dataStatus)}</p>` : ""}
     <section class="technical-chart-card">
       <div class="card-title-row">
         <div>
@@ -18102,6 +18101,145 @@ function renderDerivativesAssetSnapshotGrid(futuresPayload, optionsPayload) {
 async function initDerivativesAnalyticsPage() {
   const root = document.getElementById("derivatives-analytics-root");
   if (!root) return;
+  const derivativesNumeric = (value) => {
+    const parsed = parseMarketNumber(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const derivativesSignalLabel = (value, positiveLabel, negativeLabel, neutralLabel) => {
+    if (!Number.isFinite(value)) return "資料不足";
+    if (value > 0) return positiveLabel;
+    if (value < 0) return negativeLabel;
+    return neutralLabel;
+  };
+  const buildDerivativesMarketStateModel = (futuresPayload, chain, pcr, basisResult, institutionResult, analysis, futureAnalysis) => {
+    const futuresItem = findAssetHubItem(futuresPayload, "TX") || {};
+    const spot = derivativesNumeric(chain?.spot?.value);
+    const maxPain = derivativesNumeric(chain?.summary?.maxPain);
+    const oiPcr = derivativesNumeric(chain?.summary?.putCallRatio ?? pcr?.putCallRatio);
+    const volumePcr = derivativesNumeric(chain?.summary?.volumePutCallRatio ?? pcr?.volumePutCallRatio);
+    const basis = derivativesNumeric(basisResult?.data?.basis);
+    const institutionNet = derivativesNumeric(institutionResult?.data?.summary?.netContracts);
+    const futuresPrice = derivativesNumeric(futuresItem.close || futuresItem.last || futuresItem.settlement);
+    const futuresPct = derivativesNumeric(futuresItem.pct);
+    const riskScore = [analysis?.riskScore, futureAnalysis?.riskScore]
+      .map(derivativesNumeric)
+      .find(Number.isFinite) ?? null;
+    const maxPainGap = Number.isFinite(spot) && Number.isFinite(maxPain) ? spot - maxPain : null;
+    const maxPainGapPct = Number.isFinite(maxPainGap) && spot ? maxPainGap / spot : null;
+    const coreDataReady = [futuresPrice, spot, maxPain, oiPcr, volumePcr].every(Number.isFinite);
+
+    let directionScore = 0;
+    if (Number.isFinite(oiPcr)) directionScore += oiPcr >= 1.25 ? -2 : oiPcr <= 0.75 ? 2 : 0;
+    if (Number.isFinite(volumePcr)) directionScore += volumePcr >= 1.1 ? -1 : volumePcr <= 0.9 ? 1 : 0;
+    if (Number.isFinite(basis)) directionScore += basis > 0 ? 1 : basis < 0 ? -1 : 0;
+    if (Number.isFinite(institutionNet)) directionScore += institutionNet > 0 ? 1 : institutionNet < 0 ? -1 : 0;
+    if (Number.isFinite(futuresPct)) directionScore += futuresPct > 0.5 ? 1 : futuresPct < -0.5 ? -1 : 0;
+    if (Number.isFinite(maxPainGapPct)) directionScore += maxPainGapPct > 0.01 ? 1 : maxPainGapPct < -0.01 ? -1 : 0;
+
+    const marketState = !coreDataReady
+      ? "資料不足"
+      : directionScore >= 3
+        ? "偏多"
+        : directionScore >= 1
+          ? "震盪偏多"
+          : directionScore <= -3
+            ? "偏空"
+            : directionScore <= -1
+              ? "震盪偏空"
+              : "震盪";
+    const riskLabel = Number.isFinite(riskScore)
+      ? riskScore >= 72 ? "高風險" : riskScore >= 55 ? "中高風險" : riskScore >= 40 ? "中風險" : "低風險"
+      : "資料不足";
+    const reasons = [];
+    if (Number.isFinite(oiPcr)) reasons.push(oiPcr >= 1.25 ? "OI PCR 偏高，避險需求增加" : oiPcr <= 0.75 ? "OI PCR 偏低，Call OI 相對集中" : "OI PCR 接近多空平衡");
+    if (Number.isFinite(basis)) reasons.push(basis < 0 ? "期貨呈現逆價差" : basis > 0 ? "期貨呈現正價差" : "期貨與現貨接近");
+    if (Number.isFinite(institutionNet)) reasons.push(institutionNet < 0 ? "法人淨部位偏空" : institutionNet > 0 ? "法人淨部位偏多" : "法人淨部位接近中性");
+    if (Number.isFinite(maxPainGapPct) && Math.abs(maxPainGapPct) <= 0.01) reasons.push("現貨接近 Max Pain");
+    if (Number.isFinite(futuresPct) && Math.abs(futuresPct) > 0.5) reasons.push(futuresPct < 0 ? "TX 期貨價格偏弱" : "TX 期貨價格偏強");
+    const explanation = !coreDataReady
+      ? "目前缺少足夠的期貨 / 選擇權資料，暫不產生方向性判斷。"
+      : `綜合判斷：${reasons.slice(0, 3).join("、")}，目前較符合${marketState}結構。`;
+    return {
+      marketState,
+      riskScore,
+      riskLabel,
+      explanation,
+      futuresPrice,
+      futuresPct,
+      basis,
+      oiPcr,
+      volumePcr,
+      maxPain,
+      institutionNet,
+    };
+  };
+  const renderDerivativesMarketStateSummary = (model) => {
+    const value = (number, formatter = (item) => formatAssetOptionNumber(item)) => Number.isFinite(number) ? formatter(number) : "--";
+    const signedWhole = (number) => Number.isFinite(number) ? `${number >= 0 ? "+" : ""}${Math.round(number).toLocaleString("en-US")}` : "--";
+    const riskValue = Number.isFinite(model.riskScore) ? `${Math.round(model.riskScore)} / 100` : "--";
+    return `
+      <section class="section">
+        <article class="panel-card derivatives-market-state-summary" id="derivatives-analytics-market-state" aria-labelledby="derivatives-market-state-title">
+          <div class="derivatives-market-state-header">
+            <div>
+              <p class="panel-kicker">Market state summary</p>
+              <h2 id="derivatives-market-state-title">衍生品市場狀態</h2>
+            </div>
+            <div class="derivatives-market-state-badges">
+              <strong class="derivatives-market-state-value">${model.marketState}</strong>
+              <span class="derivatives-market-state-risk">${model.riskLabel}</span>
+            </div>
+          </div>
+          <div class="derivatives-market-state-metrics">
+            <span class="derivatives-market-state-metric"><b>${value(model.futuresPrice, (item) => formatAssetOptionWhole(item))}</b><small>TX Futures · ${derivativesSignalLabel(model.futuresPct, "偏強", "偏弱", "中性")}</small></span>
+            <span class="derivatives-market-state-metric"><b>${value(model.basis, (item) => `${item >= 0 ? "+" : ""}${item.toFixed(0)}`)}</b><small>Basis · ${derivativesSignalLabel(model.basis, "正價差", "逆價差", "接近現貨")}</small></span>
+            <span class="derivatives-market-state-metric"><b>${value(model.oiPcr)}</b><small>OI PCR · ${Number.isFinite(model.oiPcr) ? model.oiPcr >= 1.25 ? "防守增加" : model.oiPcr <= 0.75 ? "多方集中" : "中性" : "資料不足"}</small></span>
+            <span class="derivatives-market-state-metric"><b>${value(model.volumePcr)}</b><small>Volume PCR · ${Number.isFinite(model.volumePcr) ? model.volumePcr >= 1.1 ? "偏空交易" : model.volumePcr <= 0.9 ? "偏多交易" : "中性" : "資料不足"}</small></span>
+            <span class="derivatives-market-state-metric"><b>${value(model.maxPain, (item) => formatAssetOptionWhole(item))}</b><small>Max Pain · ${Number.isFinite(model.maxPain) ? "到期中性參考" : "資料不足"}</small></span>
+            <span class="derivatives-market-state-metric"><b>${signedWhole(model.institutionNet)}</b><small>Institution · ${derivativesSignalLabel(model.institutionNet, "偏多", "偏空", "中性")}</small></span>
+            <span class="derivatives-market-state-metric derivatives-market-state-metric-risk"><b>${riskValue}</b><small>Risk Score · ${model.riskLabel}</small></span>
+          </div>
+          <p class="derivatives-market-state-explanation">${model.explanation}</p>
+        </article>
+      </section>
+    `;
+  };
+  const strategyNumber = (value) => Number.isFinite(value) ? value.toFixed(2) : "--";
+  const strategyMoney = (value, label = "") => label || (Number.isFinite(value) ? value.toFixed(2) : "--");
+  const renderStrategyChart = (model, currentSpot) => {
+    const points = initDerivativesAnalyticsPage.strategyEngine.chartPoints(model, currentSpot);
+    if (!points.length) return `<div class="derivatives-strategy-chart-unavailable">Exact Expiration Payoff: Model Dependent / Not Available</div>`;
+    const upper = points[points.length - 1].price || 1;
+    const maxAbs = Math.max(...points.map((point) => Math.abs(point.payoff)), 1);
+    const toX = (price) => (price / upper) * 700 + 10;
+    const toY = (value) => 130 - (value / maxAbs) * 96;
+    const polyline = points.map((point) => `${toX(point.price).toFixed(1)},${toY(point.payoff).toFixed(1)}`).join(" ");
+    const strikeLines = model.legs.filter((leg, index, legs) => legs.findIndex((item) => item.strike === leg.strike) === index)
+      .map((leg) => `<line x1="${toX(leg.strike).toFixed(1)}" x2="${toX(leg.strike).toFixed(1)}" y1="28" y2="226" class="derivatives-strategy-chart-strike"/><text x="${toX(leg.strike).toFixed(1)}" y="244" text-anchor="middle">${strategyNumber(leg.strike)}</text>`).join("");
+    const breakEvenLines = (model.metrics.breakEven || []).map((value) => `<line x1="${toX(value).toFixed(1)}" x2="${toX(value).toFixed(1)}" y1="28" y2="226" class="derivatives-strategy-chart-be"/>`).join("");
+    const spotX = toX(currentSpot);
+    return `<svg class="derivatives-strategy-chart" viewBox="0 0 720 260" role="img" aria-label="Strategy payoff chart"><line x1="10" x2="710" y1="130" y2="130" class="derivatives-strategy-chart-axis"/><line x1="${spotX.toFixed(1)}" x2="${spotX.toFixed(1)}" y1="20" y2="226" class="derivatives-strategy-chart-spot"/>${strikeLines}${breakEvenLines}<polyline points="${polyline}" class="derivatives-strategy-chart-line"/><text x="14" y="18">Profit</text><text x="14" y="224">Loss</text><text x="${Math.min(700, Math.max(20, spotX)).toFixed(1)}" y="18" text-anchor="middle">Spot ${strategyNumber(currentSpot)}</text></svg>`;
+  };
+  const renderStrategyDetail = (model, currentSpot) => {
+    if (!model || !model.available) return `<div class="derivatives-strategy-unavailable"><h4 class="derivatives-strategy-detail-title">${model?.name || "Strategy"} · 策略分析暫不可用</h4><p>策略分析暫不可用：${model?.reason || "缺少必要資料"}。不產生策略組合或損益判斷。</p></div>`;
+    const metrics = model.metrics;
+    const legs = model.legs.map((leg) => `<tr class="derivatives-strategy-leg"><td>${leg.side}</td><td>${leg.optionType === "call" ? "Call" : "Put"}</td><td>${strategyNumber(leg.strike)}</td><td>${escapeHtml(leg.expiry)}</td><td>${strategyNumber(leg.premium)}</td><td>${leg.quantity}</td></tr>`).join("");
+    const maxProfit = strategyMoney(metrics.maxProfit, metrics.maxProfitLabel);
+    const maxLoss = strategyMoney(metrics.maxLoss, metrics.maxLossLabel);
+    const dteText = model.calendar ? `Near DTE ${model.nearDte} / Far DTE ${model.farDte}` : `DTE ${initDerivativesAnalyticsPage.strategyEngine.daysTo(model.legs[0].expiry)}`;
+    return `<div class="derivatives-strategy-detail-title-row"><div><span class="chip chip-cyan">${model.label} · ${model.score}/100</span><h4 class="derivatives-strategy-detail-title">${model.name} · ${model.zh}</h4><p>${model.formula}</p></div><span class="derivatives-strategy-regime">${model.regime.direction} · ${model.regime.volatility}</span></div><div class="derivatives-strategy-leg-table-wrap"><table class="derivatives-strategy-leg-table"><thead><tr><th>Side</th><th>Type</th><th>Strike</th><th>Expiry</th><th>Premium</th><th>Qty/Ratio</th></tr></thead><tbody>${legs}</tbody></table></div><div class="derivatives-strategy-metrics"><span><b>${strategyNumber(metrics.netPremium)}</b><small>${metrics.netLabel}</small></span><span><b>${maxProfit}</b><small>Max Profit</small></span><span><b>${maxLoss}</b><small>Max Loss</small></span><span><b>${metrics.breakEven.length ? metrics.breakEven.map(strategyNumber).join(", ") : "--"}</b><small>Break-even</small></span><span><b>${metrics.riskReward}</b><small>Risk / Reward</small></span><span><b>${dteText}</b><small>Expiry / DTE</small></span></div><p class="derivatives-strategy-zones"><strong>Profit / Loss Zone：</strong>${metrics.zones}</p>${renderStrategyChart(model, currentSpot)}<div class="derivatives-strategy-score"><strong>Compatibility Score Breakdown</strong><span>Direction Fit ${model.breakdown.directionFit}</span><span>Volatility Fit ${model.breakdown.volatilityFit}</span><span>IV Fit ${model.breakdown.ivFit} · Historical IV Context = Unavailable</span><span>Price Structure Fit ${model.breakdown.priceStructureFit}</span><span>Time Fit ${model.breakdown.timeFit}</span><span>Liquidity Fit ${model.breakdown.liquidityFit}</span><span>Risk Penalty ${model.breakdown.riskPenalty}</span></div><p class="derivatives-strategy-warning">${model.warning}</p><p class="derivatives-strategy-invalidation"><strong>Invalidation：</strong>${model.invalidation}</p></div>`;
+  };
+  const renderOptionsStrategyAnalyzer = (models, currentSpot) => {
+    const available = models.filter((model) => model.available && Number.isFinite(model.score)).sort((a, b) => b.score - a.score);
+    const top = available.slice(0, 3);
+    const lowest = models.filter((model) => !model.available || Number.isFinite(model.score)).sort((a, b) => (a.score ?? -1) - (b.score ?? -1))[0];
+    const selected = models[0];
+    const ranking = top.length ? top.map((model, index) => `<li><b>#${index + 1} ${model.name}</b><span>${model.score}/100 · ${model.label}</span></li>`).join("") : `<li><b>資料不足</b><span>目前不產生排名或策略建議</span></li>`;
+    const lowestText = lowest ? (lowest.available ? `${lowest.name} · ${lowest.score}/100 · ${lowest.label}` : `${lowest.name} · 暫不可用：${lowest.reason}`) : "資料不足";
+    const options = initDerivativesAnalyticsPage.strategyEngine.contracts.map((contract) => `<option value="${contract.id}">${contract.name} · ${contract.zh}</option>`).join("");
+    const catalog = initDerivativesAnalyticsPage.strategyEngine.contracts.map((contract) => `<li><b>${contract.name}</b><span>${contract.formula}</span></li>`).join("");
+    return `<section class="section" id="derivatives-strategy-analyzer"><article class="panel-card derivatives-strategy-analyzer-card"><div class="card-title-row"><div><p class="panel-kicker">Options strategy analyzer</p><h2>期權策略分析器</h2><p class="chart-subtitle">以目前 TXO 實際選擇權鏈建立固定 13 種策略；不補造履約價、權利金或 IV。</p></div><span class="chip chip-blue">13 Strategies</span></div><div class="derivatives-strategy-regime-grid"><span><b>${models[0].regime.direction}</b><small>Direction</small></span><span><b>${models[0].regime.volatility}</b><small>Volatility</small></span><span><b>${models[0].regime.ivState}</b><small>IV State</small></span><span><b>Unavailable</b><small>Historical IV Context</small></span></div><div class="derivatives-strategy-ranking-grid"><div><h3>Top 3 Compatibility</h3><ol>${ranking}</ol></div><div><h3>Lowest Compatibility / Reason</h3><p>${lowestText}</p><small>分數是相容性排序，不是獲利保證。</small></div></div><label class="derivatives-strategy-select-label" for="derivatives-strategy-select">選擇策略檢視實際腿與到期損益</label><select id="derivatives-strategy-select" data-strategy-select>${options}</select><div id="derivatives-strategy-detail" class="derivatives-strategy-detail">${renderStrategyDetail(selected, currentSpot)}</div><details class="derivatives-strategy-catalog"><summary>13 strategy contracts</summary><ul>${catalog}</ul></details><p class="derivatives-strategy-disclaimer">策略分析僅供研究與情境比較，不構成投資、交易、避險或保證獲利建議。最大損益與損益兩平點依實際成交權利金、履約價、到期日、結算規則、手續費、滑價、保證金、指派與流動性而變動；短期權策略可能有重大尾部風險，請勿視為獲利保證。</p></article></section>`;
+  };
   root.innerHTML = '<section class="subpage-hero"><p class="eyebrow">Derivatives analytics</p><h1>期權分析工具載入中</h1><p class="hero-text">正在取得市場選擇權鏈、PCR、OI、最大痛點、AI 分析與市場新聞。</p></section>';
   const [assetPayloads, chainResult, pcrResult, institutionResult, basisResult, optionResult, futureResult, newsResult] = await Promise.all([
     loadDerivativesAssetHubPayloads({ includePublicOptionChain: true }),
@@ -18122,17 +18260,36 @@ async function initDerivativesAnalyticsPage() {
   const maxPain = summary.maxPain;
   const spot = Number(chain.spot?.value);
   const gap = Number.isFinite(spot) && Number.isFinite(Number(maxPain)) ? spot - Number(maxPain) : null;
+  const optionAnalysis = optionResult.data || chain.analysis || optionsPayload.taiwanOptionChain?.analysis || {};
+  const marketStateModel = buildDerivativesMarketStateModel(
+    futuresPayload,
+    chain,
+    pcr,
+    basisResult,
+    institutionResult,
+    optionAnalysis,
+    futureResult.data || {},
+  );
   const txoChain = {
     ...(optionsPayload.taiwanOptionChain || {}),
     ...chain,
     analysis: optionResult.data || chain.analysis || optionsPayload.taiwanOptionChain?.analysis || {},
   };
+  const strategyModels = initDerivativesAnalyticsPage.strategyEngine.analyze({
+    chain,
+    spot,
+    direction: marketStateModel.marketState,
+    futuresPct: marketStateModel.futuresPct,
+    volumePcr: marketStateModel.volumePcr,
+    maxPainGapPct: Number.isFinite(gap) && spot ? gap / spot : null,
+  });
   root.innerHTML = `
     <section class="subpage-hero">
       <p class="eyebrow">Derivatives analytics</p>
-      <h1>期權分析與 AI 中心</h1>
+      <h1>衍生品市場狀態</h1>
       <p class="hero-text">整合 TXO 的 PCR、未平倉分布、最大痛點、期現貨價差、法人籌碼與 AI 風險情境；原 derivatives-ai.html 內容已合併到此頁。</p>
     </section>
+    ${renderDerivativesMarketStateSummary(marketStateModel)}
     ${renderAssetHubSchemaPanel([futuresPayload, optionsPayload])}
     ${renderDerivativesAssetSnapshotGrid(futuresPayload, optionsPayload)}
     <section class="section">
@@ -18144,6 +18301,7 @@ async function initDerivativesAnalyticsPage() {
         ${renderInstitutionPositionCard(institutionResult)}
       </div>
     </section>
+    ${renderOptionsStrategyAnalyzer(strategyModels, spot)}
     <section class="section">
       <div class="asset-hub-layout asset-hub-futures-layout">
         ${renderAssetHubTaiwanFuturesCard(futuresPayload)}
@@ -18176,7 +18334,259 @@ async function initDerivativesAnalyticsPage() {
     <section class="section"><article class="panel-card"><div class="card-title-row"><div><p class="panel-kicker">Market news</p><h3>期權市場新聞</h3></div><span class="chip chip-blue">公開來源</span></div>${renderDerivativeNewsItems(newsResult.data?.items || [], newsResult.error)}</article></section>
     <section class="section"><article class="panel-card"><p class="stock-theory-note">${escapeHtml(analysis.disclaimer || "分析工具僅供研究參考，不保證獲利。")}</p></article></section>
   `;
+  const strategySelect = root.querySelector("[data-strategy-select]");
+  const strategyDetail = root.querySelector("#derivatives-strategy-detail");
+  if (strategySelect && strategyDetail) strategySelect.addEventListener("change", () => {
+    const selectedModel = strategyModels.find((model) => model.id === strategySelect.value);
+    strategyDetail.innerHTML = renderStrategyDetail(selectedModel, spot);
+  });
 }
+initDerivativesAnalyticsPage.strategyEngine = (() => {
+  const CONTRACTS = [
+    { id: "long-straddle", name: "Long Straddle", zh: "買進跨式", family: "volatility", bias: "neutral", vol: "expansion", formula: "BUY 1 Call + BUY 1 Put；同履約價、同到期日" },
+    { id: "long-strangle", name: "Long Strangle", zh: "買進勒式", family: "volatility", bias: "neutral", vol: "expansion", formula: "BUY 1 OTM Call + BUY 1 OTM Put；同到期日" },
+    { id: "short-straddle", name: "Short Straddle", zh: "賣出跨式", family: "volatility", bias: "neutral", vol: "compression", formula: "SELL 1 Call + SELL 1 Put；同履約價、同到期日" },
+    { id: "short-strangle", name: "Short Strangle", zh: "賣出勒式", family: "volatility", bias: "neutral", vol: "compression", formula: "SELL 1 OTM Call + SELL 1 OTM Put；同到期日" },
+    { id: "bull-call-spread", name: "Bull Call Spread", zh: "牛市 Call 價差", family: "spread", bias: "bullish", vol: "stable", formula: "BUY 1 lower-strike Call + SELL 1 higher-strike Call" },
+    { id: "bear-call-spread", name: "Bear Call Spread", zh: "熊市 Call 價差", family: "spread", bias: "bearish", vol: "stable", formula: "SELL 1 lower-strike Call + BUY 1 higher-strike Call" },
+    { id: "bull-put-spread", name: "Bull Put Spread", zh: "牛市 Put 價差", family: "spread", bias: "bullish", vol: "stable", formula: "BUY 1 lower-strike Put + SELL 1 higher-strike Put" },
+    { id: "bear-put-spread", name: "Bear Put Spread", zh: "熊市 Put 價差", family: "spread", bias: "bearish", vol: "stable", formula: "SELL 1 lower-strike Put + BUY 1 higher-strike Put" },
+    { id: "long-condor", name: "Long Condor", zh: "多頭禿鷹", family: "range", bias: "neutral", vol: "compression", formula: "BUY K1 Call + SELL K2 Call + SELL K3 Call + BUY K4 Call；K1<K2<K3<K4" },
+    { id: "short-condor", name: "Short Condor", zh: "空頭禿鷹", family: "range", bias: "neutral", vol: "expansion", formula: "SELL K1 Call + BUY K2 Call + BUY K3 Call + SELL K4 Call；K1<K2<K3<K4" },
+    { id: "call-butterfly", name: "Call Butterfly", zh: "Call 蝴蝶", family: "butterfly", bias: "neutral", vol: "compression", formula: "BUY 1 K1 Call + SELL 2 K2 Call + BUY 1 K3 Call；K1<K2<K3" },
+    { id: "put-butterfly", name: "Put Butterfly", zh: "Put 蝴蝶", family: "butterfly", bias: "neutral", vol: "compression", formula: "BUY 1 K1 Put + SELL 2 K2 Put + BUY 1 K3 Put；K1<K2<K3" },
+    { id: "calendar-spread", name: "Calendar Spread", zh: "日曆價差", family: "calendar", bias: "neutral", vol: "compression", formula: "SELL near 1 Call/Put + BUY far 1 Call/Put；同一或最接近履約價" },
+  ];
+  const finite = (value) => typeof value === "number" && Number.isFinite(value);
+  const numeric = (value) => {
+    if (value === null || value === undefined || value === "") return null;
+    const parsed = Number(value);
+    return finite(parsed) ? parsed : null;
+  };
+  const uniqueSorted = (values) => [...new Set(values.filter(finite).map((value) => Number(value.toFixed(8))))].sort((a, b) => a - b);
+  const todayUtc = () => { const now = new Date(); return Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()); };
+  const dateValue = (value) => {
+    const text = String(value || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
+    const parsed = Date.parse(`${text}T00:00:00Z`);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const daysTo = (value) => { const parsed = dateValue(value); return parsed === null ? null : Math.ceil((parsed - todayUtc()) / 86400000); };
+  const quotePremium = (quote) => {
+    if (!quote || typeof quote !== "object") return null;
+    for (const field of ["last", "settlement", "lastPrice"]) {
+      const value = numeric(quote[field]);
+      if (finite(value) && value > 0) return value;
+    }
+    const bid = numeric(quote.bid);
+    const ask = numeric(quote.ask);
+    return finite(bid) && finite(ask) && bid >= 0 && ask >= bid && ask > 0 ? (bid + ask) / 2 : null;
+  };
+  const liquidity = (quote) => {
+    const volume = numeric(quote?.volume);
+    const openInterest = numeric(quote?.openInterest);
+    return finite(volume) && finite(openInterest) ? { verified: true, volume, openInterest } : { verified: false, volume, openInterest };
+  };
+  const expiryFrom = (market) => String(market?.chain?.selectedExpiryDate || market?.selectedExpiryDate || "").trim();
+  const baseFailure = (market) => {
+    const chain = market?.chain;
+    if (!chain || !Array.isArray(chain.chain) || chain.chain.length === 0) return "選擇權鏈資料缺失";
+    if (!dateValue(expiryFrom(market)) || (daysTo(expiryFrom(market)) ?? -1) <= 0) return "有效到期日或 DTE 缺失／已過期";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(chain.tradeDate || ""))) return "行情日期未驗證";
+    const age = Math.floor((todayUtc() - dateValue(chain.tradeDate)) / 86400000);
+    if (age > 7) return "行情資料過舊";
+    if (!chain.source || !chain.source.primary) return "行情來源未驗證";
+    if (!finite(numeric(market.spot))) return "現貨資料缺失";
+    return "";
+  };
+  const groups = (market) => (Array.isArray(market?.chain?.chain) ? market.chain.chain : [])
+    .map((group) => ({ ...group, strike: numeric(group?.strike) }))
+    .filter((group) => finite(group.strike) && group.strike > 0)
+    .sort((a, b) => a.strike - b.strike);
+  const legFrom = (group, optionType, side, quantity, expiry) => {
+    const quote = group?.[optionType];
+    const premium = quotePremium(quote);
+    if (!quote || !finite(premium) || premium <= 0) return { failure: `${optionType === "call" ? "Call" : "Put"} 權利金缺失` };
+    const quoteLiquidity = liquidity(quote);
+    if (!quoteLiquidity.verified) return { failure: `${optionType === "call" ? "Call" : "Put"} 流動性資料未驗證` };
+    return { leg: { side, optionType, strike: group.strike, premium, quantity, expiry, volume: quoteLiquidity.volume, openInterest: quoteLiquidity.openInterest } };
+  };
+  const adjacent = (available, spot, optionType) => {
+    const candidates = available.filter((group) => quotePremium(group?.[optionType]) !== null);
+    if (candidates.length < 2) return null;
+    return candidates.slice(0, -1).map((group, index) => [group, candidates[index + 1]])
+      .sort((a, b) => Math.abs((a[0].strike + a[1].strike) / 2 - spot) - Math.abs((b[0].strike + b[1].strike) / 2 - spot))[0];
+  };
+  const windowed = (available, count, spot, optionType) => {
+    const candidates = available.filter((group) => quotePremium(group?.[optionType]) !== null);
+    if (candidates.length < count) return null;
+    const windows = [];
+    for (let index = 0; index <= candidates.length - count; index += 1) {
+      const window = candidates.slice(index, index + count);
+      windows.push({ window, distance: Math.abs((window[0].strike + window[window.length - 1].strike) / 2 - spot) });
+    }
+    return windows.sort((a, b) => a.distance - b.distance)[0]?.window || null;
+  };
+  const straddleGroups = (available, spot) => available.filter((group) => quotePremium(group.call) !== null && quotePremium(group.put) !== null)
+    .sort((a, b) => Math.abs(a.strike - spot) - Math.abs(b.strike - spot))[0] || null;
+  const strangleGroups = (available, spot) => {
+    const puts = available.filter((group) => group.strike < spot && quotePremium(group.put) !== null).sort((a, b) => b.strike - a.strike);
+    const calls = available.filter((group) => group.strike > spot && quotePremium(group.call) !== null).sort((a, b) => a.strike - b.strike);
+    return puts[0] && calls[0] ? { put: puts[0], call: calls[0] } : null;
+  };
+  const makeLegs = (contract, market) => {
+    const base = baseFailure(market);
+    if (base) return { failure: base };
+    const available = groups(market);
+    const spot = numeric(market.spot);
+    const expiry = expiryFrom(market);
+    const add = (target, group, type, side, quantity = 1) => {
+      const result = legFrom(group, type, side, quantity, expiry);
+      if (result.failure) return result.failure;
+      target.push(result.leg);
+      return "";
+    };
+    const legs = [];
+    if (contract.id === "long-straddle" || contract.id === "short-straddle") {
+      const group = straddleGroups(available, spot);
+      if (!group) return { failure: "缺少同履約價的 Call／Put 有效報價" };
+      const side = contract.id.startsWith("long") ? "BUY" : "SELL";
+      const failure = add(legs, group, "call", side) || add(legs, group, "put", side);
+      return failure ? { failure } : { legs };
+    }
+    if (contract.id === "long-strangle" || contract.id === "short-strangle") {
+      const pair = strangleGroups(available, spot);
+      if (!pair) return { failure: "缺少現貨兩側的 OTM Call／Put 有效報價" };
+      const side = contract.id.startsWith("long") ? "BUY" : "SELL";
+      const failure = add(legs, pair.put, "put", side) || add(legs, pair.call, "call", side);
+      return failure ? { failure } : { legs };
+    }
+    if (["bull-call-spread", "bear-call-spread", "bull-put-spread", "bear-put-spread"].includes(contract.id)) {
+      const type = contract.id.includes("call") ? "call" : "put";
+      const pair = adjacent(available, spot, type);
+      if (!pair) return { failure: `缺少兩個有效 ${type === "call" ? "Call" : "Put"} 履約價` };
+      const sides = contract.id === "bull-call-spread" ? ["BUY", "SELL"] : contract.id === "bear-call-spread" ? ["SELL", "BUY"] : contract.id === "bull-put-spread" ? ["BUY", "SELL"] : ["SELL", "BUY"];
+      const failure = add(legs, pair[0], type, sides[0]) || add(legs, pair[1], type, sides[1]);
+      return failure ? { failure } : { legs };
+    }
+    if (contract.id === "long-condor" || contract.id === "short-condor") {
+      const selected = windowed(available, 4, spot, "call");
+      if (!selected) return { failure: "缺少四個連續有效 Call 履約價" };
+      const sides = contract.id === "long-condor" ? ["BUY", "SELL", "SELL", "BUY"] : ["SELL", "BUY", "BUY", "SELL"];
+      for (let index = 0; index < selected.length; index += 1) {
+        const failure = add(legs, selected[index], "call", sides[index]);
+        if (failure) return { failure };
+      }
+      return { legs };
+    }
+    if (contract.id === "call-butterfly" || contract.id === "put-butterfly") {
+      const type = contract.id.startsWith("call") ? "call" : "put";
+      const selected = windowed(available, 3, spot, type);
+      if (!selected) return { failure: `缺少三個有效 ${type === "call" ? "Call" : "Put"} 履約價` };
+      const failures = [add(legs, selected[0], type, "BUY"), add(legs, selected[1], type, "SELL", 2), add(legs, selected[2], type, "BUY")];
+      const failure = failures.find(Boolean);
+      return failure ? { failure } : { legs };
+    }
+    if (contract.id === "calendar-spread") {
+      const expiryChains = Array.isArray(market.expiryChains) ? market.expiryChains : [];
+      const near = expiryChains.filter((item) => (daysTo(item?.expiryDate) ?? -1) > 0).sort((a, b) => daysTo(a.expiryDate) - daysTo(b.expiryDate))[0];
+      const far = expiryChains.filter((item) => (daysTo(item?.expiryDate) ?? -1) > (daysTo(near?.expiryDate) ?? 0)).sort((a, b) => daysTo(a.expiryDate) - daysTo(b.expiryDate))[0];
+      if (!near || !far || !Array.isArray(near.chain) || !Array.isArray(far.chain)) return { failure: "缺少近月／遠月的實際雙到期日鏈" };
+      const nearGroups = near.chain.map((item) => ({ ...item, strike: numeric(item?.strike) })).filter((item) => finite(item.strike));
+      const farGroups = far.chain.map((item) => ({ ...item, strike: numeric(item?.strike) })).filter((item) => finite(item.strike));
+      const candidates = [];
+      for (const nearGroup of nearGroups) for (const farGroup of farGroups) {
+        const type = quotePremium(nearGroup.call) !== null && quotePremium(farGroup.call) !== null ? "call" : quotePremium(nearGroup.put) !== null && quotePremium(farGroup.put) !== null ? "put" : null;
+        if (type && Math.abs(nearGroup.strike - farGroup.strike) <= Math.max(nearGroup.strike * 0.01, 1)) candidates.push({ nearGroup, farGroup, type, distance: Math.abs(nearGroup.strike - spot) + Math.abs(nearGroup.strike - farGroup.strike) });
+      }
+      const selected = candidates.sort((a, b) => a.distance - b.distance)[0];
+      if (!selected) return { failure: "近月／遠月缺少相同或最接近履約價的有效報價" };
+      const nearResult = legFrom(selected.nearGroup, selected.type, "SELL", 1, near.expiryDate);
+      const farResult = legFrom(selected.farGroup, selected.type, "BUY", 1, far.expiryDate);
+      if (nearResult.failure || farResult.failure) return { failure: nearResult.failure || farResult.failure };
+      return { legs: [nearResult.leg, farResult.leg], calendar: true, nearDte: daysTo(near.expiryDate), farDte: daysTo(far.expiryDate) };
+    }
+    return { failure: "策略合約未定義" };
+  };
+  const intrinsic = (leg, price) => leg.optionType === "call" ? Math.max(price - leg.strike, 0) : Math.max(leg.strike - price, 0);
+  const payoff = (legs, price) => {
+    if (!Array.isArray(legs) || !finite(price) || legs.length === 0) return null;
+    return legs.reduce((total, leg) => {
+      const qty = numeric(leg.quantity); const premium = numeric(leg.premium); const strike = numeric(leg.strike);
+      if (!finite(qty) || qty <= 0 || !finite(premium) || premium <= 0 || !finite(strike)) return NaN;
+      const value = intrinsic({ ...leg, strike }, price);
+      return total + (leg.side === "BUY" ? qty * (value - premium) : qty * (premium - value));
+    }, 0);
+  };
+  const netPremium = (legs) => legs.reduce((total, leg) => total + (leg.side === "BUY" ? 1 : -1) * leg.quantity * leg.premium, 0);
+  const metrics = (legs, calendar = false) => {
+    const debitCredit = netPremium(legs);
+    if (calendar) return { netPremium: debitCredit, netLabel: debitCredit >= 0 ? "Net Debit" : "Net Credit", exactPayoffAvailable: false, maxProfit: null, maxLoss: null, maxProfitLabel: "Model Dependent / Not Available", maxLossLabel: "Model Dependent / Not Available", breakEven: [], zones: "Model Dependent / Not Available", riskReward: "Model Dependent / Not Available" };
+    const strikes = uniqueSorted(legs.map((leg) => numeric(leg.strike)));
+    const upper = Math.max(strikes[strikes.length - 1] * 4, strikes[strikes.length - 1] + Math.abs(debitCredit) * 4 + 1);
+    const points = uniqueSorted([0, ...strikes, upper]);
+    const values = points.map((point) => payoff(legs, point));
+    const callSlope = legs.reduce((total, leg) => total + (leg.optionType === "call" ? (leg.side === "BUY" ? leg.quantity : -leg.quantity) : 0), 0);
+    const breakEven = [];
+    for (let index = 0; index < points.length; index += 1) {
+      if (Math.abs(values[index]) < 1e-8) breakEven.push(points[index]);
+      if (index === points.length - 1) continue;
+      if (values[index] * values[index + 1] < 0) breakEven.push(points[index] + ((0 - values[index]) * (points[index + 1] - points[index])) / (values[index + 1] - values[index]));
+    }
+    const uniqueBe = uniqueSorted(breakEven);
+    const profitUnbounded = callSlope > 0; const lossUnbounded = callSlope < 0;
+    const maxProfit = profitUnbounded ? null : Math.max(...values); const maxLoss = lossUnbounded ? null : Math.min(...values);
+    return { netPremium: debitCredit, netLabel: debitCredit >= 0 ? "Net Debit" : "Net Credit", exactPayoffAvailable: true, maxProfit, maxLoss, maxProfitLabel: profitUnbounded ? "Unlimited upside" : "", maxLossLabel: lossUnbounded ? "Theoretical unlimited" : "", breakEven: uniqueBe, zones: uniqueBe.length ? `損益臨界點 ${uniqueBe.map((value) => value.toFixed(2)).join(", ")}` : "目前模型範圍內無損益臨界點", riskReward: finite(maxProfit) && finite(maxLoss) && maxLoss < 0 ? (maxProfit / Math.abs(maxLoss)).toFixed(2) : "N/A" };
+  };
+  const regime = (market) => {
+    const rawDirection = market?.direction || market?.marketStateModel?.marketState || "";
+    const directionMap = { 偏多: "Bullish", 震盪偏多: "Slight Bullish", 震盪: "Neutral", 震盪偏空: "Slight Bearish", 偏空: "Bearish" };
+    const direction = directionMap[rawDirection] || (["Bullish", "Slight Bullish", "Neutral", "Slight Bearish", "Bearish"].includes(rawDirection) ? rawDirection : "Uncertain");
+    const explicitVolatility = ["Expansion", "Stable", "Compression", "Unknown"].includes(market?.volatility) ? market.volatility : "";
+    const futuresPct = numeric(market?.futuresPct); const volumePcr = numeric(market?.volumePcr); const maxPainGapPct = numeric(market?.maxPainGapPct);
+    const volatility = explicitVolatility || (!finite(futuresPct) && !finite(volumePcr) && !finite(maxPainGapPct) ? "Unknown" : Math.abs(futuresPct || 0) >= 1 || Math.abs((volumePcr || 1) - 1) >= 0.15 ? "Expansion" : finite(maxPainGapPct) && Math.abs(maxPainGapPct) <= 0.01 && Math.abs(futuresPct || 0) <= 0.3 && volumePcr >= 0.9 && volumePcr <= 1.1 ? "Compression" : "Stable");
+    const ivState = ["Low", "Normal", "High", "Extreme"].includes(market?.ivState) ? market.ivState : "Unavailable";
+    return { direction, volatility, ivState };
+  };
+  const directionFit = (contract, direction) => {
+    if (contract.bias === "bullish") return direction === "Bullish" ? 20 : direction === "Slight Bullish" ? 16 : direction === "Neutral" ? 10 : direction === "Uncertain" ? 8 : 3;
+    if (contract.bias === "bearish") return direction === "Bearish" ? 20 : direction === "Slight Bearish" ? 16 : direction === "Neutral" ? 10 : direction === "Uncertain" ? 8 : 3;
+    return direction === "Neutral" ? 18 : direction === "Uncertain" ? 10 : 12;
+  };
+  const volatilityFit = (contract, volatility) => {
+    if (volatility === "Unknown") return 4;
+    if (contract.vol === "expansion") return volatility === "Expansion" ? 20 : volatility === "Stable" ? 12 : 4;
+    if (contract.vol === "compression") return volatility === "Compression" ? 20 : volatility === "Stable" ? 13 : 4;
+    return volatility === "Stable" ? 16 : 10;
+  };
+  const riskPenalty = (contract) => ["short-straddle", "short-strangle"].includes(contract.id) ? -18 : contract.id === "short-condor" ? -5 : ["long-straddle", "long-strangle"].includes(contract.id) ? -3 : -2;
+  const scoreModel = (contract, model, marketRegime, market) => {
+    const liquidityFit = model.legs.every((leg) => leg.volume >= 0 && leg.openInterest >= 0) ? 10 : 0;
+    const dte = daysTo(model.legs[0].expiry); const timeFit = dte > 30 ? 10 : dte > 14 ? 8 : dte > 7 ? 5 : 3;
+    const breakdown = { directionFit: directionFit(contract, marketRegime.direction), volatilityFit: volatilityFit(contract, marketRegime.volatility), ivFit: marketRegime.ivState === "Unavailable" ? 0 : marketRegime.ivState === "Normal" ? 10 : marketRegime.ivState === "Low" ? 12 : 7, priceStructureFit: finite(numeric(market.spot)) ? 18 : 0, timeFit, liquidityFit, riskPenalty: riskPenalty(contract) };
+    const score = Math.max(0, Math.min(100, Object.values(breakdown).reduce((sum, value) => sum + value, 0)));
+    const label = score >= 80 ? "高相容" : score >= 60 ? "相容" : score >= 40 ? "中性" : score >= 20 ? "低相容" : "不相容";
+    return { score, label, breakdown };
+  };
+  const analyze = (market = {}) => {
+    const currentRegime = regime(market);
+    return CONTRACTS.map((contract) => {
+      const selection = makeLegs(contract, market);
+      if (selection.failure) return { ...contract, available: false, reason: selection.failure, score: null, label: "不相容", regime: currentRegime };
+      const contractMetrics = metrics(selection.legs, selection.calendar);
+      const scored = scoreModel(contract, { legs: selection.legs }, currentRegime, market);
+      const warning = ["short-straddle", "short-strangle"].includes(contract.id) ? "高尾部風險；跳空、保證金、指派／結算風險需另行確認。Margin Requirement = Unavailable。" : "不代表獲利保證；到期前價格、波動率與流動性變化可能使結果失效。";
+      const invalidation = contract.bias === "bullish" ? "現貨跌破選定結構的關鍵支撐或多頭方向假設失效。" : contract.bias === "bearish" ? "現貨突破選定結構的關鍵壓力或空頭方向假設失效。" : contract.vol === "expansion" ? "實現波動率未擴張、權利金時間價值流失或突破假設失效。" : "現貨大幅脫離結構區間、波動率／期限結構改變或流動性惡化。";
+      return { ...contract, available: true, legs: selection.legs, calendar: Boolean(selection.calendar), nearDte: selection.nearDte, farDte: selection.farDte, metrics: contractMetrics, score: scored.score, label: scored.label, breakdown: scored.breakdown, regime: currentRegime, warning, invalidation };
+    });
+  };
+  const chartPoints = (model, spot) => {
+    if (!model?.available || model.calendar) return [];
+    const strikes = model.legs.map((leg) => leg.strike); const maxStrike = Math.max(...strikes, spot || 0); const upper = Math.max(maxStrike * 1.25, (spot || 0) * 1.25, maxStrike + 1);
+    return Array.from({ length: 25 }, (_, index) => { const price = upper * index / 24; return { price, payoff: payoff(model.legs, price) }; });
+  };
+  return { contracts: CONTRACTS, analyze, payoff, metrics, chartPoints, daysTo };
+})();
 function renderDerivativeAiReport(title, analysis = {}, error = "", id = "") {
   const idAttr = id ? ` id="${escapeHtml(id)}"` : "";
   if (error) return `<article class="panel-card"${idAttr}><h3>${escapeHtml(title)}</h3><p class="stock-detail-empty">AI 分析資料暫不可用：${escapeHtml(error)}</p></article>`;
@@ -18239,7 +18649,7 @@ function renderDerivativeAiArchitectureCard(futuresPayload, optionsPayload) {
 }
 async function initDerivativesAiPage() {
   const rollback = new URLSearchParams(window.location.search).get("td02-esm") === "off";
-  window.location.replace(`derivatives-analytics.html${rollback ? "?td02-esm=off" : ""}#derivatives-ai-section`);
+  window.location.replace(`derivatives-analytics.html${rollback ? "?td02-esm=off" : ""}#derivatives-analytics-market-state`);
 }
 
 /* shadow-input:js/page-tw.js */
@@ -22683,3 +23093,4 @@ if (!["search", "watchlist", "global-market", "tw-etf", "us-etf", "us-stock-sear
 
 
 // ─────────────────────────────────────────────────────────────────────────────
+

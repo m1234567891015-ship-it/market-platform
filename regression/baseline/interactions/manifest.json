@@ -97,12 +97,12 @@
               "class_name": null,
               "kind": "url_matches",
               "n": null,
-              "pattern": "**/derivatives-analytics.html#derivatives-ai-section",
+              "pattern": "**/derivatives-analytics.html#derivatives-analytics-market-state",
               "target": null
             }
           ],
           "id": "derivatives-ai__redirect",
-          "note": "頁面載入(load)→window.location.replace 導向 derivatives-analytics.html#derivatives-ai-section(app.js:33518-33520)",
+          "note": "頁面載入(load)→window.location.replace 導向衍生品市場狀態與策略分析區(app.js:33518-33520)",
           "pre_fill": null,
           "selector": "body",
           "tier": "P0",
@@ -117,11 +117,11 @@
     },
     "derivatives-analytics.html": {
       "known_issues": [],
-      "render_only": true,
+      "render_only": false,
       "step_count": 1,
       "steps": [
         {
-          "action": null,
+          "action": "select",
           "action_index": 0,
           "action_value": null,
           "asserts": [
@@ -131,18 +131,39 @@
               "n": 1,
               "pattern": null,
               "target": "#derivatives-analytics-root .panel-card"
+            },
+            {
+              "class_name": null,
+              "kind": "min_count",
+              "n": 1,
+              "pattern": null,
+              "target": "#derivatives-analytics-market-state .derivatives-market-state-value"
+            },
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#derivatives-strategy-detail"
+            },
+            {
+              "class_name": null,
+              "kind": "min_count",
+              "n": 1,
+              "pattern": null,
+              "target": "#derivatives-strategy-detail .derivatives-strategy-detail-title"
             }
           ],
-          "id": "derivatives-analytics__render",
-          "note": "頁面載入→8個平行API請求組出TXO選擇權鏈/PCR/法人籌碼/基差等卡片(app.js:33377-33420)",
+          "id": "derivatives-analytics__strategy-select",
+          "note": "頁面載入完成後切換第2個策略→驗證13策略選擇器與實際腿／fail-closed明細渲染",
           "pre_fill": null,
-          "selector": "#derivatives-analytics-root",
+          "selector": "[data-strategy-select]",
           "tier": "P0",
           "wait_for": {
             "class_name": null,
             "kind": "stable",
             "pattern": null,
-            "target": null
+            "target": "#derivatives-strategy-detail"
           }
         }
       ]

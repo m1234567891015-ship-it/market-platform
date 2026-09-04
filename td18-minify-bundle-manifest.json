@@ -24,19 +24,19 @@
       "name": "common-runtime",
       "output": "common-runtime.min.js",
       "sourceMap": "common-runtime.min.js.map",
-      "bytes": 288477,
-      "sha256": "f62786856e5e6825a179d3d9d4da7ce5e57523ab885fa4b1b900c63f3315b2a2",
-      "sourceMapBytes": 750830,
-      "sourceMapSha256": "0c5a36b9575d2880c2fc00bcfb44d0e5567e5d151668683adf82f6d8c757f127"
+      "bytes": 288560,
+      "sha256": "dd486020f131cac59b01e14c0608d82b0b542bd3f1e2ea108872b5bd69ca35ec",
+      "sourceMapBytes": 751031,
+      "sourceMapSha256": "139d24d5d0cd9d184be83e759b8a309c638d3fc56c9fc52cac0fb14a4ac3fd6f"
     },
     {
       "name": "route-bundle",
       "output": "route-bundle.min.js",
       "sourceMap": "route-bundle.min.js.map",
-      "bytes": 892732,
-      "sha256": "c68e354b0cbb8e14965e0978b086d35d7af668d52ec92fa66678f05075cce21f",
-      "sourceMapBytes": 1904595,
-      "sourceMapSha256": "5656d2b2057c7359a693a08576b50f2aea9d134604e22f7091630b39f78eed88"
+      "bytes": 920477,
+      "sha256": "21e9b1eadccffc10e4c32b65edae07fb41919f36e458591566941ffe897a49c7",
+      "sourceMapBytes": 1970889,
+      "sourceMapSha256": "090a1579590417288a558c0122b911f60956fe93d099b7ee96059bcae3dfe254"
     },
     {
       "name": "derivatives-status-addon",
@@ -44,8 +44,8 @@
       "sourceMap": "derivatives-status-addon.min.js.map",
       "bytes": 3683,
       "sha256": "cc28f886e1bbddf29810a1d7e7c96e21b996b96857502fa2eda1441a3d5ed2dc",
-      "sourceMapBytes": 6457,
-      "sourceMapSha256": "f7b741a0f696c33eaacfd0f16858095b5e77814724dc5035003e17ec2aed81a8"
+      "sourceMapBytes": 6455,
+      "sourceMapSha256": "fede71c3a0a3e035b5566d75210ee04209330179a6f808f008745a06a1ca4d1f"
     }
   ],
   "rollout": {

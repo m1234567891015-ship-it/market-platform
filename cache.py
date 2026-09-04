@@ -267,6 +267,19 @@ def read_memory_cache(bucket: str, key: str, ttl_seconds: int | float) -> Any | 
     return None
 
 
+def read_stale_memory_cache(bucket: str, key: str, max_age_seconds: int | float) -> tuple[Any | None, float | None]:
+    """Return a locally persisted payload only when its age is explicitly bounded."""
+    with cache_lock:
+        cached = cache_data.get(bucket, {}).get(key)
+    if not isinstance(cached, dict):
+        return None, None
+    stored_at = float(cached.get("stored_at") or 0)
+    age = time.time() - stored_at
+    if stored_at <= 0 or age < 0 or age > max_age_seconds:
+        return None, None
+    return cached.get("payload"), stored_at
+
+
 def write_memory_cache(bucket: str, key: str, payload: Any, ttl_seconds: int | float | None = None) -> None:
     with cache_lock:
         cache_data.setdefault(bucket, {})[key] = {"stored_at": time.time(), "payload": payload}
@@ -519,6 +532,9 @@ def load_disk_cache() -> bool:
         cache_data["all_stocks"] = payload.get("all_stocks", [])
         cache_data["market_date"] = payload.get("market_date")
         cache_data["cached_at"] = payload.get("cached_at")
+        persisted_options = payload.get("taifex_options_chain")
+        if isinstance(persisted_options, dict):
+            cache_data["taifex_options_chain"] = persisted_options
         treasury_rows = deserialize_treasury_yield_curve_cache(payload.get("treasury_yield_curve_rows"))
         if treasury_rows:
             cache_data["treasury_yield_curve_rows"] = treasury_rows
@@ -535,6 +551,7 @@ def build_disk_cache_snapshot() -> dict[str, Any]:
             "all_stocks": copy.deepcopy(cache_data["all_stocks"]),
             "market_date": cache_data["market_date"],
             "cached_at": cache_data["cached_at"],
+            "taifex_options_chain": copy.deepcopy(cache_data.get("taifex_options_chain") or {}),
             "treasury_yield_curve_rows": serialize_treasury_yield_curve_cache(treasury_rows),
         }
 

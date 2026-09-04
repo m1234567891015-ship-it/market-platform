@@ -8,9 +8,10 @@
 `interaction_inventory.md` 各頁表格,標記 tier="P2" 的列;待後續工單以 `--interactions-full`
 方式補上,新增時比照本檔案格式即可,不需改動 interaction_check.py 引擎。
 
-render_only=True 的頁面(derivatives-analytics / derivatives-status / derivatives-assets)
+render_only=True 的頁面(derivatives-status / derivatives-assets)
 沒有真正的互動控制項,PageSpec 的每個 Step.action 為 None,只在頁面載入穩定後跑 asserts
-(裁決紀錄第2點:渲染型 P0,斷言主要資料區塊載入後非空)。
+(裁決紀錄第2點:渲染型 P0,斷言主要資料區塊載入後非空)。derivatives-analytics
+另有策略選擇器,因此以 P0 select 路徑驗證明細切換與 fail-closed 狀態。
 """
 from __future__ import annotations
 
@@ -1237,17 +1238,22 @@ DERIVATIVES_ASSETS = PageSpec(
 
 DERIVATIVES_ANALYTICS = PageSpec(
     file="derivatives-analytics.html",
-    render_only=True,
+    render_only=False,
     steps=(
         Step(
-            id="derivatives-analytics__render",
+            id="derivatives-analytics__strategy-select",
             tier="P0",
-            selector="#derivatives-analytics-root",
-            action=None,
-            # 裁決紀錄第2點:本頁零互動控制項(8個平行API請求後即完成,無任何
-            # addEventListener),改用渲染型P0:斷言主要資料區塊載入後非空。
-            asserts=(a_min_count("#derivatives-analytics-root .panel-card", 1),),
-            note="頁面載入→8個平行API請求組出TXO選擇權鏈/PCR/法人籌碼/基差等卡片(app.js:33377-33420)",
+            selector="[data-strategy-select]",
+            action="select",
+            action_value=None,
+            wait_for=wait_stable("#derivatives-strategy-detail"),
+            asserts=(
+                a_min_count("#derivatives-analytics-root .panel-card", 1),
+                a_min_count("#derivatives-analytics-market-state .derivatives-market-state-value", 1),
+                a_content_changed("#derivatives-strategy-detail"),
+                a_min_count("#derivatives-strategy-detail .derivatives-strategy-detail-title", 1),
+            ),
+            note="頁面載入完成後切換第2個策略→驗證13策略選擇器與實際腿／fail-closed明細渲染",
         ),
     ),
 )
@@ -1283,8 +1289,8 @@ DERIVATIVES_AI = PageSpec(
             # 純轉址頁:initDerivativesAiPage() 執行 window.location.replace(...),
             # 頁面載入後應已完整導航到目的地(HTML <meta refresh> 亦同時存在,
             # 兩者競速執行同一目的地,見 TD-15 佐證清單#5)。
-            asserts=(a_url_matches("**/derivatives-analytics.html#derivatives-ai-section"),),
-            note="頁面載入(load)→window.location.replace 導向 derivatives-analytics.html#derivatives-ai-section(app.js:33518-33520)",
+            asserts=(a_url_matches("**/derivatives-analytics.html#derivatives-analytics-market-state"),),
+            note="頁面載入(load)→window.location.replace 導向衍生品市場狀態與策略分析區(app.js:33518-33520)",
         ),
     ),
 )

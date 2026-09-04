@@ -307,7 +307,7 @@ const DERIVATIVE_ASSET_NAME_MAP = {
     sourceName: "AI analysis",
     sourceHref: "derivatives-assets.html#asset-options",
     targetName: "derivatives-analytics.html",
-    targetHref: "derivatives-analytics.html#derivatives-ai-section",
+    targetHref: "derivatives-analytics.html#derivatives-analytics-market-state",
     rows: [
       ["台灣選擇權 AI 盤勢摘要", "台灣選擇權 AI 盤勢摘要"],
       ["TXO 選擇權資料架構", "TXO 選擇權資料架構"],

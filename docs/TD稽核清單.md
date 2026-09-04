@@ -38,6 +38,8 @@ TD-15 目前狀態（2026-09-01）：REMAIN-01～07 已完成全量 review closu
 | TD-23 | 低 | 架構 | `app.py:117` 的 `DERIVATIVES_STORE.initialize()` 在 module import 時無條件執行,任何 import `app.py` 的程式(含驗證腳本、測試)都會在當前目錄產生 schema-only SQLite(TD-RELEASE-v2 F-03 驗收時發現,記帳補登,本輪已修復) | app.py:115-117(`BASE_DIR = Path(__file__).resolve().parent`;`DERIVATIVES_STORE = DerivativesStore(...)`;初始化已移至明確啟動/第一個 API request) | import `app.py` 不再寫入 SQLite；主程式啟動明確初始化，WSGI `app:app` 由第一個 API request lazy initialize，測試可替換為 tempfile store 後正常運作 | 已修復：移除 module-level initialize，新增啟動與 request lifecycle 初始化，並加入 import 無副作用回歸測試 | 已修復 | 23 |
 | TD-24 | 低 | 測試/交付 | clean-package 驗證流程中執行 test_derivatives_platform.py 會產生 `__pycache__`(21 個 `.pyc`)並改動 `twse-cache.json`,屬測試執行的既有副作用,非 `verify_release_integrity.py`/`build_portable_package.py` 寫入。導致乾淨交付包在驗證後無法完全回滾至原始狀態(F-03 修復後,對交付包做逐檔 SHA-256 前後比對時發現,記帳補登,本輪已修復) | test_derivatives_platform.py（module-level TemporaryDirectory 指定 `MARKET_PULSE_CACHE_FILE`）；verify_release_integrity.py（子測試程序指定 `PYTHONDONTWRITEBYTECODE=1` 與暫存 cache） | 測試不再寫入交付目錄的 cache；clean-package 驗證後無新增 `.pyc`、無 DB side effect，並以 cache hash 確認 `twse-cache.json` 未變更 | 已修復：測試 cache tempfile、release integrity cache hash/side-effect assertions | 已修復 | 24 |
 
+| TD-25 | 高 | 可用性/資料正確性 | TAIFEX 選擇權鏈僅使用進程記憶體 TTL 快取；外部來源暫時不可用或服務重啟後沒有持久、可驗證的最近鏈資料與恢復策略 | `fetchers.py::fetch_taifex_txo_option_chain`、`cache.py::taifex_options_chain` | API 會回傳 `source_unavailable`/空鏈，導致指令30/31的市場狀態與策略分析無法呈現；若直接塞靜態或估算值會造成資料正確性風險 | 建立具來源 URL、交易日、抓取時間、內容完整性驗證的持久選擇權鏈快取；來源失敗時僅在通過新鮮度/完整性門檻時使用，並於 UI 明示快取時間與來源；加入重試/恢復與觀測記錄，不使用假資料 | 1-2天 | 25 |
+
 ## 總覽
 
 | 指標 | 數值 | 說明 |
@@ -197,7 +199,7 @@ TD-15 目前狀態（2026-09-01）：REMAIN-01～07 已完成全量 review closu
 
 | 狀態 | TD 項目 | 現況判定 |
 |---|---|---|
-| ✅ 已完成/實質解決 | TD-01、TD-04～TD-09、TD-11～TD-14、TD-16、TD-17、TD-20～TD-24 | 已有程式碼、測試或交付驗證證據；TD-02/TD-14 的 classic-script/CSS split 不代表已完成 bundling，bundling 另列 TD-18。 |
+| ✅ 已完成/實質解決 | TD-01、TD-04～TD-09、TD-11～TD-14、TD-16、TD-17、TD-20～TD-25 | 已有程式碼、測試或交付驗證證據；TD-02/TD-14 的 classic-script/CSS split 不代表已完成 bundling，bundling 另列 TD-18。 |
 | 🟡 部分完成 | TD-03、TD-10、TD-15 | 短期護欄或第一輪已完成，長期共享狀態、完整 top-10 coverage、TD-15 第二輪仍未完成。 |
 | ⚪ 延後/未立案 | TD-18、TD-19 | 分別是前端打包效能評估/導入，以及 schema required-key allowlist；本週期未實作。 |
 
