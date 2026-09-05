@@ -26,13 +26,13 @@
   "bridgeSymbols": 895,
   "output": {
     "file": "market-pulse-esm.min.js",
-    "bytes": 1542320,
-    "sha256": "6808ca1f1c1b758ef8a64a2c56cdb21614b46f8f58ed550d464c236e7641241f"
+    "bytes": 1543076,
+    "sha256": "09a12776ead9f04c59e0cec8af46ae5cc5d3c7568679203a2c5dd9fd8cd23d28"
   },
   "sourceMap": {
     "file": "market-pulse-esm.min.js.map",
-    "bytes": 2820335,
-    "sha256": "382d40f7d7d1da819cbdfca7c3e019edef1306bd7682025f17cc236d09f731cc"
+    "bytes": 2821832,
+    "sha256": "86700d574f5979ffe5682915c1612ddd2cb36418412a858f5e0c8ed0c9775730"
   },
   "classicFallback": [
     "common-runtime.min.js",

@@ -4534,6 +4534,13 @@ function renderAssetHubBonds(payload) {
   `;
 }
 function createAssetHubPlaceholder(category, title, kicker) {
+  const sourceByCategory = {
+    futures: "TAIFEX 官方期貨日報",
+    options: "TAIFEX / CBOE / Yahoo Finance",
+    "precious-metals": "Yahoo Finance / LBMA",
+    bonds: "U.S. Treasury / Yahoo Finance",
+  };
+  const source = sourceByCategory[category] || "公開來源同步中";
   return {
     category,
     title,
@@ -4544,10 +4551,10 @@ function createAssetHubPlaceholder(category, title, kicker) {
     summary: { count: 0, advancers: 0, decliners: 0, avgPct: "--", strongest: "--" },
     validation: {
       verifiedCount: 0,
-      primary: "Yahoo Finance 線上資料",
+      primary: source,
       reference: "來源同步中",
     },
-    source: "Yahoo Finance 線上資料",
+    source,
     updatedAt: "--",
   };
 }
@@ -5703,7 +5710,10 @@ function renderDerivativesAssetSnapshotGrid(futuresPayload, optionsPayload) {
 }
 async function initDerivativesAnalyticsPage() {
   const root = document.getElementById("derivatives-analytics-root");
-  if (!root) return;
+  if (!root) {
+    console.error("Derivatives analytics initialization aborted: #derivatives-analytics-root not found");
+    return;
+  }
   const derivativesNumeric = (value) => {
     const parsed = parseMarketNumber(value);
     return Number.isFinite(parsed) ? parsed : null;
@@ -5854,6 +5864,18 @@ async function initDerivativesAnalyticsPage() {
     fetchDerivativesApi("/api/ai-analysis?target=TX", 30000),
     fetchDerivativesApi("/api/news?category=derivatives&symbol=%5EVIX&limit=6", 20000),
   ]);
+  const apiFailures = [
+    ["futures", assetPayloads.errors.futures],
+    ["options", assetPayloads.errors.options],
+    ["chain", chainResult.error],
+    ["pcr", pcrResult.error],
+    ["institution", institutionResult.error],
+    ["basis", basisResult.error],
+    ["options-ai", optionResult.error],
+    ["futures-ai", futureResult.error],
+    ["news", newsResult.error],
+  ].filter(([, error]) => error);
+  if (apiFailures.length) console.warn("Derivatives analytics API subsets unavailable:", apiFailures.map(([name, error]) => `${name}: ${error}`).join("; "));
   const futuresPayload = assetPayloads.futuresPayload;
   const optionsPayload = assetPayloads.optionsPayload;
   const chain = chainResult.data || {};
