@@ -8,6 +8,7 @@ const serviceWorker = fs.readFileSync("service-worker.js", "utf8");
 const moduleSource = fs.readFileSync("js/page-global-market-assethub.js", "utf8");
 const main = fs.readFileSync("js/main.js", "utf8");
 const shared = fs.readFileSync("js/render-shared.js", "utf8");
+const api = fs.readFileSync("js/api.js", "utf8");
 const bundled = fs.readFileSync("market-pulse-esm.min.js", "utf8");
 const manifest = JSON.parse(fs.readFileSync("docs/TD02_FULL_ESM_build_manifest_2026-09-01.json", "utf8"));
 
@@ -38,6 +39,11 @@ assert(serviceWorker.includes("key !== RUNTIME_CACHE"), "service-worker does not
 assert(serviceWorker.includes("return cached || revalidate"), "service-worker runtime cache strategy changed unexpectedly");
 assert(!serviceWorker.includes("20260901-td02-full-esm-1"), "service-worker still pins the retired cache generation");
 assert(serviceWorker.includes("CACHEABLE_STATIC_EXTENSIONS = [\".js\", \".css\", \".svg\", \".png\", \".webmanifest\"]"), "service-worker still caches HTML documents");
+assert(serviceWorker.includes('url.pathname.startsWith("/api/")'), "service-worker API bypass was removed");
+assert(shared.includes('response.headers.get("content-type")'), "derivatives API content-type validation is missing");
+assert(shared.includes("await response.text()"), "derivatives API body validation is missing");
+assert(shared.includes("INVALID_RESPONSE"), "derivatives API invalid-response contract is missing");
+assert(api.includes('controlledError.code = timedOut ? "TIMEOUT" : "CANCELLED";'), "fetch timeout/abort normalization is missing");
 assert(main.includes('page === "derivatives-analytics"'), "main page dispatch missing");
 assert(main.includes("initDerivativesAnalyticsPage();"), "initializer invocation missing");
 for (const endpoint of [
@@ -50,7 +56,7 @@ for (const endpoint of [
 ]) assert(moduleSource.includes(endpoint), `endpoint missing: ${endpoint}`);
 assert(moduleSource.includes('futures: "TAIFEX 官方期貨日報"'), "futures placeholder source is not TAIFEX");
 assert(moduleSource.includes("Derivatives analytics API subsets unavailable"), "API diagnostics missing");
-assert(shared.includes("return { data: null, error:"), "API client fail-closed contract missing");
+assert(shared.includes("data: null") && shared.includes("errorCode: code"), "API client fail-closed contract missing");
 assert(moduleSource.includes("const futuresPayload = assetPayloads.futuresPayload"), "futures success payload binding missing");
 assert(moduleSource.includes("chainResult.error ?"), "partial chain failure rendering missing");
 assert(moduleSource.includes("不產生策略組合或損益判斷"), "strategy fail-closed copy missing");

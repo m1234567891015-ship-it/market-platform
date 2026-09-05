@@ -1239,16 +1239,51 @@ function renderCombinedIndicatorPanel({ title, top, height, width, pad, xAt, val
     </g>
   `;
 }
-async function fetchDerivativesApi(url, timeoutMs = 30000) {
+async function fetchDerivativesApi(url, timeoutMs = 30000, signal = undefined) {
+  const failure = (code, message, status = null) => {
+    const suffix = status === null ? "" : ` (HTTP ${status})`;
+    return {
+      data: null,
+      error: `${code}${suffix}: ${message}`,
+      errorCode: code,
+      status,
+    };
+  };
   try {
-    const response = await fetchWithTimeout(url, { cache: "no-store" }, timeoutMs);
-    const payload = await response.json();
-    if (!response.ok || payload.success === false) {
-      return { data: null, error: payload?.error?.message || `HTTP ${response.status}` };
+    const response = await fetchWithTimeout(url, { cache: "no-store", signal }, timeoutMs);
+    const contentType = String(response.headers.get("content-type") || "").toLowerCase();
+    const body = await response.text();
+    if (!response.ok) {
+      let message = "資料暫不可用";
+      if (contentType.includes("json") && body.trim()) {
+        try {
+          const errorPayload = JSON.parse(body);
+          message = errorPayload?.error?.message || message;
+        } catch {}
+      }
+      return failure(response.status === 503 ? "SERVICE_UNAVAILABLE" : "HTTP_ERROR", message, response.status);
     }
-    return { data: payload.data, error: "" };
+    if (!contentType.includes("json")) return failure("INVALID_RESPONSE", "回應格式不是 JSON", response.status);
+    if (!body.trim()) return failure("EMPTY", "回應內容為空", response.status);
+    let payload;
+    try {
+      payload = JSON.parse(body);
+    } catch {
+      return failure("INVALID_RESPONSE", "回應不是有效 JSON", response.status);
+    }
+    if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+      return failure("INVALID_RESPONSE", "回應結構無效", response.status);
+    }
+    if (payload.success === false) {
+      const code = payload.error?.code || payload.error_code || "PROVIDER_UNAVAILABLE";
+      return failure(code, payload.error?.message || "資料暫不可用", response.status);
+    }
+    if (!("data" in payload)) return failure("INVALID_RESPONSE", "缺少 canonical data 欄位", response.status);
+    return { data: payload.data, error: "", errorCode: "", status: response.status };
   } catch (error) {
-    return { data: null, error: error?.message || String(error) };
+    if (error?.code === "CANCELLED") return failure("CANCELLED", "要求已取消");
+    if (error?.code === "TIMEOUT" || error?.name === "AbortError") return failure("TIMEOUT", "資料要求逾時");
+    return failure("NETWORK_ERROR", "網路要求失敗");
   }
 }
 function twEtfWeightText(value) {

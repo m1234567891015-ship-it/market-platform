@@ -4533,7 +4533,7 @@ function renderAssetHubBonds(payload) {
     </section>
   `;
 }
-function createAssetHubPlaceholder(category, title, kicker) {
+function createAssetHubPlaceholder(category, title, kicker, error = "") {
   const sourceByCategory = {
     futures: "TAIFEX 官方期貨日報",
     options: "TAIFEX / CBOE / Yahoo Finance",
@@ -4556,6 +4556,8 @@ function createAssetHubPlaceholder(category, title, kicker) {
     },
     source,
     updatedAt: "--",
+    status: error ? "unavailable" : "pending",
+    error,
   };
 }
 function getDerivativeOverviewItems(payload, preferredSymbols = [], limit = 6) {
@@ -5655,8 +5657,8 @@ async function loadDerivativesAssetHubPayloads(options = {}) {
     fetchDerivativesApi("/api/futures?limit=12", 120000),
     fetchDerivativesApi("/api/options?limit=12", 120000),
   ]);
-  const futuresPayload = futuresResult.data || createAssetHubPlaceholder("futures", "期貨", "Futures");
-  const optionsPayload = optionsResult.data || createAssetHubPlaceholder("options", "選擇權", "Options");
+  const futuresPayload = futuresResult.data || createAssetHubPlaceholder("futures", "期貨", "Futures", futuresResult.error);
+  const optionsPayload = optionsResult.data || createAssetHubPlaceholder("options", "選擇權", "Options", optionsResult.error);
   if (includePublicOptionChain && !optionsPayload.optionChain) {
     try {
       const response = await fetchWithTimeout("/api/us-market/options-chain/SPY", { cache: "no-store" }, 16000);
@@ -5678,6 +5680,10 @@ async function loadDerivativesAssetHubPayloads(options = {}) {
 function renderDerivativePayloadSnapshot(payload, title, href) {
   const summary = payload?.summary || {};
   const validation = payload?.validation || {};
+  const escapeText = escapeHtml;
+  const unavailable = payload?.status === "unavailable";
+  const count = unavailable ? "--" : summary.count ?? 0;
+  const direction = unavailable ? "-- / --" : `${summary.advancers ?? 0} / ${summary.decliners ?? 0}`;
   return `
     <article class="panel-card asset-hub-summary-card">
       <div class="card-title-row">
@@ -5688,13 +5694,13 @@ function renderDerivativePayloadSnapshot(payload, title, href) {
         <a class="global-refresh" href="${safeUrl(href || "derivatives-assets.html")}">開啟來源頁</a>
       </div>
       <div class="asset-hub-stat-grid">
-        <span><b>${summary.count ?? 0}</b><small>有效資料</small></span>
-        <span><b>${summary.advancers ?? 0} / ${summary.decliners ?? 0}</b><small>上漲 / 下跌</small></span>
+        <span><b>${count}</b><small>${unavailable ? "資料暫不可用" : "有效資料"}</small></span>
+        <span><b>${direction}</b><small>上漲 / 下跌</small></span>
         <span><b>${escapeHtml(summary.avgPct || "--")}</b><small>平均漲跌幅</small></span>
         <span><b>${escapeHtml(summary.strongest || "--")}</b><small>最強標的</small></span>
       </div>
       ${renderAssetHubRegionChips(payload)}
-      <p class="asset-hub-insight">驗證 ${Number(validation.verifiedCount) || 0} 筆、限制 ${Number(validation.limitedCount) || 0} 筆、失敗 ${Number(validation.failedCount) || 0} 筆；主來源：${escapeHtml(validation.primary || payload?.source || "--")}。</p>
+      <p class="asset-hub-insight">${unavailable ? `資料暫不可用：${escapeText(payload.error || "transport failure")}` : `驗證 ${Number(validation.verifiedCount) || 0} 筆、限制 ${Number(validation.limitedCount) || 0} 筆、失敗 ${Number(validation.failedCount) || 0} 筆；主來源：${escapeHtml(validation.primary || payload?.source || "--")}。`}</p>
     </article>
   `;
 }
