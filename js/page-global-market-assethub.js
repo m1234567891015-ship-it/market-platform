@@ -5618,6 +5618,12 @@ function renderDerivativeBasisCard(result = {}) {
   if (result.error && !data.future) {
     return `<article class="panel-card asset-option-sentiment"><p class="panel-kicker">Basis</p><h4>期現貨價差</h4><p class="stock-detail-empty">期現貨價差暫不可用：${escapeHtml(result.error)}</p></article>`;
   }
+  const formatBasisNumber = (value) => {
+    if (value === null || value === undefined || String(value).trim() === "") return "--";
+    const number = Number(value);
+    if (!Number.isFinite(number)) return "--";
+    return number.toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+  };
   const basis = Number(data.basis);
   const basisPct = Number(data.basisPct);
   return `
@@ -5625,7 +5631,7 @@ function renderDerivativeBasisCard(result = {}) {
       <p class="panel-kicker">Basis</p>
       <h4>期現貨價差</h4>
       <strong>${Number.isFinite(basis) ? `${basis >= 0 ? "+" : ""}${basis.toFixed(0)}` : "--"}</strong>
-      <span>期貨 ${formatAssetOptionNumber(data.futurePrice)} / 現貨 ${formatAssetOptionNumber(data.spotPrice)}</span>
+      <span>期貨 ${formatBasisNumber(data.futurePrice)} / 現貨 ${formatBasisNumber(data.spotPrice)}</span>
       <small>${Number.isFinite(basisPct) ? `價差率 ${basisPct >= 0 ? "+" : ""}${basisPct.toFixed(2)}%` : escapeHtml(data.message || "期貨或現貨資料暫不可用。")}</small>
     </article>
   `;

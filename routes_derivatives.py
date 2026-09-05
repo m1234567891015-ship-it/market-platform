@@ -70,7 +70,7 @@ from builders import (
     normalize_taiwan_option_underlying,
 )
 from derivatives.ai import build_unavailable_ai_analysis as build_derivatives_unavailable_ai_analysis
-from derivatives.analytics import build_basis_payload
+from derivatives.analytics import build_basis_payload, positive_number
 from derivatives.catalog import TAIWAN_FUTURES_V1, TAIWAN_OPTIONS_V1, apply_taifex_defaults, v1_product_status
 from derivatives.institution import (
     build_institution_payload_from_rows,
@@ -386,20 +386,34 @@ def api_basis():
     if not spec:
         return jsonify(app.api_error_payload("INVALID_SYMBOL", "期貨商品代碼不存在")), 404
     try:
-        future_item = build_global_market_item(spec)
-        spot_snapshot = fetch_taiex_spot_snapshot()
+        try:
+            future_item = build_global_market_item(spec)
+        except Exception as exc:  # noqa: BLE001
+            app.LOGGER.warning("Basis future source failed for symbol=%s: %s", future_symbol, exc)
+            future_item = {"symbol": future_symbol, "error": "期貨資料來源暫不可用"}
+        try:
+            spot_snapshot = fetch_taiex_spot_snapshot() or {}
+        except Exception as exc:  # noqa: BLE001
+            app.LOGGER.warning("Basis spot source failed for symbol=%s: %s", spot_symbol, exc)
+            spot_snapshot = {"source": "Yahoo Finance", "error": "台灣加權指數現貨資料來源暫不可用"}
+        if not isinstance(future_item, dict):
+            future_item = {"symbol": future_symbol, "error": "期貨資料來源回應格式無效"}
+        if not isinstance(spot_snapshot, dict):
+            spot_snapshot = {"source": "Yahoo Finance", "error": "台灣加權指數現貨資料來源回應格式無效"}
         history = []
         future_series = future_item.get("series") or []
-        spot_value = parse_float(str(spot_snapshot.get("value") or ""))
+        spot_value = positive_number(spot_snapshot.get("value"), spot_snapshot.get("close"))
         for row in future_series[-20:]:
-            future_close = parse_float(str(row.get("close") or ""))
+            if not isinstance(row, dict):
+                continue
+            future_close = positive_number(row.get("close"))
             basis = future_close - spot_value if future_close is not None and spot_value is not None else None
             history.append({
                 "date": row.get("date") or row.get("time"),
                 "futurePrice": future_close,
                 "spotPrice": spot_value,
                 "basis": basis,
-                "basisPct": (basis / spot_value * 100) if basis is not None and spot_value else None,
+                "basisPct": (basis / spot_value * 100) if basis is not None and spot_value is not None else None,
             })
         payload = build_basis_payload(future_item, spot_snapshot, history)
         return jsonify(app.api_success_payload(payload))

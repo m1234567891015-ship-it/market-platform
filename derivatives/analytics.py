@@ -22,6 +22,15 @@ def number(value: Any) -> float | None:
         return None
 
 
+def positive_number(*values: Any) -> float | None:
+    """Return the first finite, positive market value without zero defaults."""
+    for value in values:
+        parsed = number(value)
+        if parsed is not None and isfinite(parsed) and parsed > 0:
+            return parsed
+    return None
+
+
 def score_label(score: float) -> str:
     if score >= 72:
         return "高"
@@ -165,10 +174,10 @@ def enrich_futures_ai_decision(analysis: dict[str, Any], item: dict[str, Any], c
 
 
 def build_basis_payload(future: dict[str, Any], spot_snapshot: dict[str, Any], history: list[dict[str, Any]] | None = None) -> dict[str, Any]:
-    future_price = number(future.get("close") or future.get("last") or future.get("settlement"))
-    spot = number(spot_snapshot.get("value") or spot_snapshot.get("close"))
+    future_price = positive_number(future.get("close"), future.get("last"), future.get("settlement"))
+    spot = positive_number(spot_snapshot.get("value"), spot_snapshot.get("close"))
     basis = future_price - spot if future_price is not None and spot is not None else None
-    basis_pct = (basis / spot * 100) if basis is not None and spot else None
+    basis_pct = (basis / spot * 100) if basis is not None and spot is not None else None
     return {
         "future": future.get("symbol"),
         "spot": "TAIEX",

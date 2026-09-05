@@ -37,6 +37,7 @@ import routes_global_market
 import routes_twse
 import security
 from derivatives_store import DerivativesStore
+from derivatives.analytics import build_basis_payload
 
 
 FUTURES_ITEM = {
@@ -1227,6 +1228,54 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertEqual(basis["spot"], "TAIEX")
         self.assertEqual(basis["basis"], 100)
         self.assertIn("basisPct", basis)
+
+    def test_derivatives_fanout_provider_failure_is_explicit_item_error(self):
+        with patch.object(builders, "build_global_market_item", side_effect=RuntimeError("fixture provider failure")):
+            futures = builders.build_global_market_payload("futures", limit=1)
+        self.assertEqual(len(futures["items"]), 1)
+        self.assertIn("error", futures["items"][0])
+        self.assertEqual(futures["items"][0]["status"], "source_pending")
+        self.assertEqual(futures["items"][0]["series"], [])
+        self.assertNotIn("close", futures["items"][0])
+
+        with patch.object(builders, "build_global_market_item", side_effect=RuntimeError("fixture provider failure")), \
+                patch.object(builders, "fetch_txo_option_chain", return_value=OPTIONS_CHAIN):
+            options = builders.build_global_market_payload("options", limit=1)
+        self.assertEqual(len(options["items"]), 1)
+        self.assertIn("error", options["items"][0])
+        self.assertEqual(options["items"][0]["status"], "source_pending")
+        self.assertEqual(options["items"][0]["series"], [])
+        self.assertNotIn("close", options["items"][0])
+
+    def test_basis_fail_closed_matrix(self):
+        cases = [
+            ("A_valid", FUTURES_ITEM, {"value": 20900}, 100, 100 / 20900 * 100),
+            ("B_null_spot", FUTURES_ITEM, {"value": None}, None, None),
+            ("C_failed_spot", FUTURES_ITEM, {"value": None, "error": "provider failure"}, None, None),
+            ("D_missing_future", {"symbol": "TX"}, {"value": 20900}, None, None),
+            ("E_zero_spot", FUTURES_ITEM, {"value": 0}, None, None),
+            ("F_invalid_spot", FUTURES_ITEM, {"value": "NaN"}, None, None),
+        ]
+        for name, future, spot, expected_basis, expected_pct in cases:
+            with self.subTest(name=name):
+                result = build_basis_payload(future, spot)
+                self.assertEqual(result["basis"], expected_basis)
+                if expected_pct is None:
+                    self.assertIsNone(result["basisPct"])
+                    self.assertEqual(result["status"], "source_pending")
+                else:
+                    self.assertAlmostEqual(result["basisPct"], expected_pct)
+                    self.assertEqual(result["status"], "available")
+
+    @patch.object(routes_derivatives, "fetch_taiex_spot_snapshot", side_effect=RuntimeError("fixture spot provider failure"))
+    @patch.object(routes_derivatives, "build_global_market_item", return_value=FUTURES_ITEM)
+    def test_basis_spot_provider_failure_returns_canonical_unavailable(self, _item, _spot):
+        basis = self.assert_success(self.client.get("/api/basis?future=TX&spot=TAIEX"))
+        self.assertIsNone(basis["spotPrice"])
+        self.assertIsNone(basis["basis"])
+        self.assertIsNone(basis["basisPct"])
+        self.assertEqual(basis["status"], "source_pending")
+        self.assertIn("暫不可用", basis["message"])
 
     @patch.object(fetchers, "fetch_taifex_txo_option_chain", return_value=OPTIONS_CHAIN)
     def test_ai_decision_fields(self, _chain):

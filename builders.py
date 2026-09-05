@@ -6538,9 +6538,35 @@ def build_global_market_payload(
     # form-query semaphore), so a wider pool here mainly cuts wall-clock wait time.
     max_workers = min(6 if category == "options" else 8, len(selected_specs))
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(build_global_market_item, item) for item in selected_specs]
+        futures = {
+            executor.submit(build_global_market_item, item): item
+            for item in selected_specs
+        }
         for future in as_completed(futures):
-            items.append(future.result())
+            item_spec = futures[future]
+            try:
+                items.append(future.result())
+            except Exception as exc:  # noqa: BLE001
+                if category not in {"futures", "options"}:
+                    raise
+                symbol = str(item_spec.get("symbol") or "").strip()
+                app.LOGGER.exception("Global %s item fan-out failed for symbol=%s", category, symbol, exc_info=exc)
+                items.append({
+                    "symbol": symbol,
+                    "name": item_spec.get("name") or symbol,
+                    "type": item_spec.get("type") or "市場商品",
+                    "group": item_spec.get("group") or item_spec.get("type") or "市場商品",
+                    "region": item_spec.get("region") or "全球 / 其他",
+                    "market": item_spec.get("market") or item_spec.get("region") or "全球 / 其他",
+                    "exchange": item_spec.get("exchange") or "",
+                    "source": item_spec.get("dataSource") or "Yahoo Finance",
+                    "dataSource": item_spec.get("dataSource") or "Yahoo Finance",
+                    "sourceUrl": item_spec.get("sourceUrl") or "",
+                    "status": "source_pending",
+                    "error": PUBLIC_MARKET_ITEM_ERROR_MESSAGE,
+                    "dataStatus": "單一商品資料來源失敗，保留商品識別並停止填入行情數值。",
+                    "series": [],
+                })
 
     item_order = {item["symbol"]: index for index, item in enumerate(selected_specs)}
     items.sort(key=lambda item: item_order.get(item.get("symbol"), 999))
