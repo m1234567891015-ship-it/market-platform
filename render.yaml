@@ -7,15 +7,11 @@ services:
     startCommand: gunicorn --workers 1 --threads 4 --timeout 180 --bind 0.0.0.0:$PORT app:app
     healthCheckPath: /api/health
     autoDeploy: true
-    disk:
-      name: market-pulse-data
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: MARKET_PULSE_CACHE_FILE
-        value: /var/data/twse-cache.json
+        value: /tmp/market-pulse-cache.json
       - key: DERIVATIVES_DB_PATH
-        value: /var/data/derivatives-platform.sqlite3
+        value: /tmp/derivatives-platform.sqlite3
       - key: MARKET_PULSE_ENV
         value: production
       - key: PYTHONUNBUFFERED
