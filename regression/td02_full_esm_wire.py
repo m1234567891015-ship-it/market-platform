@@ -5,10 +5,12 @@ so existing line endings and unrelated working-copy changes remain untouched.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "td02-full-esm-20260901-1"
+MANIFEST = ROOT / "docs" / "TD02_FULL_ESM_build_manifest_2026-09-01.json"
+VERSION = json.loads(MANIFEST.read_text(encoding="utf-8"))["version"]
 LOADER = f'<script src="market-pulse-esm-loader.js?v={VERSION}"></script>'.encode()
 
 

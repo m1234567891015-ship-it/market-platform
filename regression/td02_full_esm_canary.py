@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BASELINE = json.loads((ROOT / "regression" / "baseline" / "frontend_manifest.json").read_text(encoding="utf-8"))
 BASELINE_BY_FILE = {item["file"]: item for item in BASELINE["pages"]}
 PAGES = sorted(path.name for path in ROOT.glob("*.html"))
-VERSION = "td02-full-esm-20260901-1"
+VERSION = json.loads((ROOT / "docs" / "TD02_FULL_ESM_build_manifest_2026-09-01.json").read_text(encoding="utf-8"))["version"]
 
 
 class CanaryFailure(AssertionError):

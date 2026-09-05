@@ -47,6 +47,7 @@ batch B0 commit for the corresponding `security_guardrail_check.py` change.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -74,9 +75,17 @@ IMMUTABLE_ASSET_VERSIONS = {
     "route-bundle.min.js.map": "td18-minify-20260901-1",
     "derivatives-status-addon.min.js": "td18-minify-20260901-1",
     "derivatives-status-addon.min.js.map": "td18-minify-20260901-1",
-    "market-pulse-esm.min.js": "td02-full-esm-20260901-1",
-    "market-pulse-esm.min.js.map": "td02-full-esm-20260901-1",
 }
+try:
+    _esm_manifest = json.loads((BASE_DIR / "docs" / "TD02_FULL_ESM_build_manifest_2026-09-01.json").read_text(encoding="utf-8"))
+    _esm_version = _esm_manifest.get("version")
+except (OSError, TypeError, ValueError, json.JSONDecodeError):
+    _esm_version = None
+if isinstance(_esm_version, str) and _esm_version.startswith("td02-full-esm-"):
+    IMMUTABLE_ASSET_VERSIONS.update({
+        "market-pulse-esm.min.js": _esm_version,
+        "market-pulse-esm.min.js.map": _esm_version,
+    })
 
 bp = Blueprint("system", __name__)
 

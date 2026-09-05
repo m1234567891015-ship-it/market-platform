@@ -22,7 +22,8 @@ ROOT = REGRESSION_DIR.parent
 LOCKFILE = REGRESSION_DIR / "td18_shadow_build.lock.json"
 MINIFY_LOCKFILE = REGRESSION_DIR / "td18_minify_build.lock.json"
 MINIFY_ASSET_VERSION = "td18-minify-20260901-1"
-FULL_ESM_ASSET_VERSION = "td02-full-esm-20260901-1"
+FULL_ESM_MANIFEST = ROOT / "docs" / "TD02_FULL_ESM_build_manifest_2026-09-01.json"
+FULL_ESM_ASSET_VERSION = json.loads(FULL_ESM_MANIFEST.read_text(encoding="utf-8"))["version"]
 BUILDER = REGRESSION_DIR / "td18_shadow_build.js"
 BASELINE_SYMBOLS = REGRESSION_DIR / "baseline" / "frontend" / "global_symbols.json"
 
@@ -330,7 +331,7 @@ def verify_effective_headers_and_assets(pages: dict[str, PageAssets], full_esm: 
             cache_control == "public, max-age=31536000, immutable",
             f"versioned minified asset cache policy drifted: {cache_control!r}",
         )
-    expected_cache_version = "market-pulse-swr-20260901-td02-full-esm-1" if full_esm else "market-pulse-swr-20260901-td18-minify-1"
+    expected_cache_version = f"market-pulse-swr-{FULL_ESM_ASSET_VERSION}" if full_esm else "market-pulse-swr-20260901-td18-minify-1"
     require(
         f'CACHE_VERSION = "{expected_cache_version}"' in (ROOT / "service-worker.js").read_text(encoding="utf-8"),
         "Service Worker CACHE_VERSION does not match the active frontend asset set",
@@ -339,7 +340,7 @@ def verify_effective_headers_and_assets(pages: dict[str, PageAssets], full_esm: 
         "csp": "script-src self; frame-ancestors none",
         "local_asset_404": 0,
         "immutable_cache": "public, max-age=31536000, immutable",
-        "service_worker_cache_version": "market-pulse-swr-20260901-td02-full-esm-1" if full_esm else "market-pulse-swr-20260901-td18-minify-1",
+        "service_worker_cache_version": expected_cache_version,
     }
 
 

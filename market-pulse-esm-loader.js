@@ -1,6 +1,10 @@
 /* TD-02 full-site ESM loader with an explicit classic rollback path. */
 (function () {
-  const moduleSource = "market-pulse-esm.min.js?v=td02-full-esm-20260901-1";
+  const loaderUrl = document.currentScript?.src
+    ? new URL(document.currentScript.src, document.baseURI)
+    : null;
+  const runtimeVersion = loaderUrl?.searchParams.get("v") || "unversioned";
+  const moduleSource = `market-pulse-esm.min.js?v=${encodeURIComponent(runtimeVersion)}`;
   const commonFallback = "common-runtime.min.js?v=td18-minify-20260901-1";
   const routeFallback = "route-bundle.min.js?v=td18-minify-20260901-1";
   const statusFallback = "derivatives-status-addon.min.js?v=td18-minify-20260901-1";

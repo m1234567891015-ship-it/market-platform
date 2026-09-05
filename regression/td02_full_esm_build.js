@@ -14,9 +14,9 @@ const { minify } = require("terser");
 const ROOT = path.resolve(__dirname, "..");
 const OUTPUT = path.join(ROOT, "market-pulse-esm.min.js");
 const SOURCE_MAP = path.join(ROOT, "market-pulse-esm.min.js.map");
-const VERSION = "td02-full-esm-20260901-1";
 const LOCK = JSON.parse(fs.readFileSync(path.join(__dirname, "td18_minify_build.lock.json"), "utf8"));
 const BASELINE = JSON.parse(fs.readFileSync(path.join(ROOT, "regression", "baseline", "frontend", "global_symbols.json"), "utf8"));
+const VERSION_PREFIX = "td02-full-esm";
 
 function sha256(buffer) {
   return crypto.createHash("sha256").update(buffer).digest("hex");
@@ -26,6 +26,59 @@ function sourceInputs() {
   return LOCK.bundles
     .filter((bundle) => bundle.name !== "derivatives-status-addon")
     .flatMap((bundle) => bundle.inputs);
+}
+
+function runtimeVersion(files) {
+  const hash = crypto.createHash("sha256");
+  hash.update(JSON.stringify(LOCK));
+  const versionedFiles = {
+    ...files,
+    "market-pulse-esm-loader.js": fs.readFileSync(path.join(ROOT, "market-pulse-esm-loader.js"), "utf8"),
+    "service-worker.js": fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8"),
+  };
+  for (const relative of Object.keys(versionedFiles).sort()) {
+    hash.update(`\0${relative}\0`);
+    hash.update(normalizeRuntimeVersion(relative, versionedFiles[relative]));
+  }
+  return `${VERSION_PREFIX}-${hash.digest("hex").slice(0, 16)}`;
+}
+
+function normalizeRuntimeVersion(relative, content) {
+  if (relative === "pwa.js") {
+    return content
+      .replace(/const VERSION = "[^"]+";/, 'const VERSION = "<runtime-version>";')
+      .replace(/service-worker\.js\?v=[^"]+/, "service-worker.js?v=<runtime-version>");
+  }
+  if (relative === "service-worker.js") {
+    return content.replace(/const CACHE_VERSION = "[^"]+";/, 'const CACHE_VERSION = "market-pulse-swr-<runtime-version>";');
+  }
+  return content;
+}
+
+function writeRuntimeVersion(version) {
+  const pwaPath = path.join(ROOT, "pwa.js");
+  const pwa = fs.readFileSync(pwaPath, "utf8")
+    .replace(/const VERSION = "[^"]+";/, `const VERSION = "${version}";`)
+    .replace(/service-worker\.js\?v=[^"]+/, `service-worker.js?v=${version}`);
+  fs.writeFileSync(pwaPath, pwa, "utf8");
+
+  const serviceWorkerPath = path.join(ROOT, "service-worker.js");
+  const serviceWorker = fs.readFileSync(serviceWorkerPath, "utf8")
+    .replace(/const CACHE_VERSION = "[^"]+";/, `const CACHE_VERSION = "market-pulse-swr-${version}";`);
+  fs.writeFileSync(serviceWorkerPath, serviceWorker, "utf8");
+}
+
+function updateHtmlVersions(version) {
+  const pages = fs.readdirSync(ROOT).filter((name) => name.endsWith(".html")).sort();
+  if (pages.length !== 21) throw new Error(`expected 21 HTML pages, found ${pages.length}`);
+  const pattern = /(market-pulse-esm-loader\.js\?v=)[^"']+/g;
+  for (const name of pages) {
+    const file = path.join(ROOT, name);
+    const before = fs.readFileSync(file, "utf8");
+    const matches = before.match(pattern) || [];
+    if (matches.length !== 1) throw new Error(`${name}: expected one ESM loader reference, found ${matches.length}`);
+    fs.writeFileSync(file, before.replace(pattern, `$1${version}`), "utf8");
+  }
 }
 
 function readSources() {
@@ -53,8 +106,17 @@ function bridgeSource() {
 }
 
 async function main() {
+  const initialFiles = readSources();
+  initialFiles["__td02_esm_bridge__.js"] = bridgeSource();
+  const VERSION = runtimeVersion(initialFiles);
+  if (process.argv.includes("--print-version")) {
+    process.stdout.write(VERSION + "\n");
+    return;
+  }
+  writeRuntimeVersion(VERSION);
   const files = readSources();
   files["__td02_esm_bridge__.js"] = bridgeSource();
+  if (runtimeVersion(files) !== VERSION) throw new Error("runtime version is not stable after generated version propagation");
   const result = await minify(files, {
     module: true,
     compress: LOCK.options.compress,
@@ -71,6 +133,7 @@ async function main() {
   const map = Buffer.from(result.map + "\n", "utf8");
   fs.writeFileSync(OUTPUT, output);
   fs.writeFileSync(SOURCE_MAP, map);
+  updateHtmlVersions(VERSION);
   const manifest = {
     schemaVersion: 1,
     batch: "TD02-FULL-ESM-PHASE-3-4",
