@@ -1,18 +1,42 @@
 (() => {
-  const VERSION = "td02-full-esm-ae1a3626406da622";
+  const VERSION = "td02-full-esm-d8ed112bf37ba078";
   const STORAGE_KEY = "market-pulse-static-version";
-  const SERVICE_WORKER_URL = "service-worker.js?v=td02-full-esm-ae1a3626406da622";
+  const SERVICE_WORKER_URL = "service-worker.js?v=td02-full-esm-d8ed112bf37ba078";
+  const APP_SCOPE_PATH = "/";
+  const APP_SERVICE_WORKER_PATH = "/service-worker.js";
+  const APP_CACHE_PREFIX = "market-pulse-swr-";
+
+  function isAppWorker(worker) {
+    if (!worker?.scriptURL) return false;
+    try {
+      const scriptUrl = new URL(worker.scriptURL, window.location.href);
+      return scriptUrl.origin === window.location.origin && scriptUrl.pathname === APP_SERVICE_WORKER_PATH;
+    } catch {
+      return false;
+    }
+  }
+
+  function isAppRegistration(registration) {
+    if (!registration?.scope) return false;
+    try {
+      const scopeUrl = new URL(registration.scope, window.location.href);
+      if (scopeUrl.origin !== window.location.origin || scopeUrl.pathname !== APP_SCOPE_PATH) return false;
+      return [registration.active, registration.waiting, registration.installing].some(isAppWorker);
+    } catch {
+      return false;
+    }
+  }
 
   async function unregisterServiceWorkers() {
     if (!("serviceWorker" in navigator)) return;
     const registrations = await navigator.serviceWorker.getRegistrations();
-    await Promise.all(registrations.map((registration) => registration.unregister()));
+    await Promise.all(registrations.filter(isAppRegistration).map((registration) => registration.unregister()));
   }
 
   async function clearBrowserCaches() {
     if (!("caches" in window)) return;
     const keys = await caches.keys();
-    await Promise.all(keys.map((key) => caches.delete(key)));
+    await Promise.all(keys.filter((key) => key.startsWith(APP_CACHE_PREFIX)).map((key) => caches.delete(key)));
   }
 
   async function registerServiceWorker() {
@@ -62,12 +86,15 @@
     localStorage.setItem(STORAGE_KEY, VERSION);
   }
 
-  document.addEventListener("DOMContentLoaded", () => {
+  function bootstrapPwa() {
     const controls = createControls();
     updateNetworkState(controls);
     window.addEventListener("online", () => updateNetworkState(controls));
     window.addEventListener("offline", () => updateNetworkState(controls));
     syncRuntimeVersion()
       .catch((error) => console.warn(`PWA runtime sync ${VERSION} failed`, error));
-  });
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bootstrapPwa, { once: true });
+  else bootstrapPwa();
 })();

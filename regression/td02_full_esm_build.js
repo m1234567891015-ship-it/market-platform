@@ -44,6 +44,9 @@ function runtimeVersion(files) {
 }
 
 function normalizeRuntimeVersion(relative, content) {
+  if (relative === "market-pulse-esm-loader.js") {
+    return content.replace(/const CURRENT_BUILD_VERSION = "[^"]+";/, 'const CURRENT_BUILD_VERSION = "<runtime-version>";');
+  }
   if (relative === "pwa.js") {
     return content
       .replace(/const VERSION = "[^"]+";/, 'const VERSION = "<runtime-version>";')
@@ -56,6 +59,11 @@ function normalizeRuntimeVersion(relative, content) {
 }
 
 function writeRuntimeVersion(version) {
+  const loaderPath = path.join(ROOT, "market-pulse-esm-loader.js");
+  const loader = fs.readFileSync(loaderPath, "utf8")
+    .replace(/const CURRENT_BUILD_VERSION = "[^"]+";/, `const CURRENT_BUILD_VERSION = "${version}";`);
+  fs.writeFileSync(loaderPath, loader, "utf8");
+
   const pwaPath = path.join(ROOT, "pwa.js");
   const pwa = fs.readFileSync(pwaPath, "utf8")
     .replace(/const VERSION = "[^"]+";/, `const VERSION = "${version}";`)
