@@ -1,4 +1,5 @@
 import json
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -15,6 +16,21 @@ class DerivativesAnalyticsRuntimeDispatchTests(unittest.TestCase):
             browser = playwright.chromium.launch(headless=True)
             context = browser.new_context()
             requests = []
+
+            html_response = context.request.get(f"{server.base_url}/derivatives-analytics.html")
+            self.assertEqual(html_response.status, 200)
+            html = html_response.text()
+            version = re.search(r"market-pulse-esm-loader\.js\?v=([^\"']+)", html).group(1)
+            manifest = json.loads((Path(__file__).resolve().parents[1] / "docs" / "TD02_FULL_ESM_build_manifest_2026-09-01.json").read_text(encoding="utf-8"))
+            self.assertEqual(version, manifest["version"])
+            self.assertNotIn("td02-full-esm-20260901-1", html)
+            self.assertIn("no-store", html_response.headers.get("cache-control", ""))
+            loader_response = context.request.get(f"{server.base_url}/market-pulse-esm-loader.js?v={version}")
+            self.assertEqual(loader_response.status, 200)
+            self.assertIn("encodeURIComponent(runtimeVersion)", loader_response.text())
+            bundle_response = context.request.get(f"{server.base_url}/market-pulse-esm.min.js?v={version}")
+            self.assertEqual(bundle_response.status, 200)
+            self.assertIn("immutable", bundle_response.headers.get("cache-control", ""))
 
             def fulfill_api(route):
                 url = route.request.url

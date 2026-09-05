@@ -31,6 +31,7 @@ assert(serviceWorker.includes("self.clients.claim()"), "service-worker activate 
 assert(serviceWorker.includes("key !== RUNTIME_CACHE"), "service-worker does not remove obsolete cache generations");
 assert(serviceWorker.includes("return cached || revalidate"), "service-worker runtime cache strategy changed unexpectedly");
 assert(!serviceWorker.includes("20260901-td02-full-esm-1"), "service-worker still pins the retired cache generation");
+assert(serviceWorker.includes("CACHEABLE_STATIC_EXTENSIONS = [\".js\", \".css\", \".svg\", \".png\", \".webmanifest\"]"), "service-worker still caches HTML documents");
 assert(main.includes('page === "derivatives-analytics"'), "main page dispatch missing");
 assert(main.includes("initDerivativesAnalyticsPage();"), "initializer invocation missing");
 for (const endpoint of [

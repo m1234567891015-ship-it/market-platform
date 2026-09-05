@@ -1,12 +1,14 @@
-const CACHE_VERSION = "market-pulse-swr-td02-full-esm-d93e9aa848418258";
+const CACHE_VERSION = "market-pulse-swr-td02-full-esm-ae1a3626406da622";
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
-// TD-09: stale-while-revalidate for static assets only. /api/* (live TWSE/
+// TD-09: stale-while-revalidate for static assets only. HTML documents are
+// intentionally network-delivered so an old document shell cannot pin a
+// previous runtime generation across a deployment. /api/* (live TWSE/
 // TAIFEX/Yahoo market data) and cross-origin requests (Google Fonts, etc.)
 // always bypass the cache and go straight to the network - this list is an
 // allowlist by design (fails closed to network passthrough for anything not
 // explicitly recognized as a static asset), not a denylist of /api/.
-const CACHEABLE_STATIC_EXTENSIONS = [".html", ".js", ".css", ".svg", ".png", ".webmanifest"];
+const CACHEABLE_STATIC_EXTENSIONS = [".js", ".css", ".svg", ".png", ".webmanifest"];
 
 function isCacheableStaticRequest(request) {
   const url = new URL(request.url);

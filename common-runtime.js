@@ -1,8 +1,8 @@
 /* shadow-input:pwa.js */
 (() => {
-  const VERSION = "20260901-td02-full-esm-1";
+  const VERSION = "td02-full-esm-ae1a3626406da622";
   const STORAGE_KEY = "market-pulse-static-version";
-  const SERVICE_WORKER_URL = "service-worker.js?v=td02-full-esm-20260901-1";
+  const SERVICE_WORKER_URL = "service-worker.js?v=td02-full-esm-ae1a3626406da622";
 
   async function unregisterServiceWorkers() {
     if (!("serviceWorker" in navigator)) return;
@@ -383,7 +383,7 @@ const DERIVATIVE_ASSET_NAME_MAP = {
     sourceName: "AI analysis",
     sourceHref: "derivatives-assets.html#asset-options",
     targetName: "derivatives-analytics.html",
-    targetHref: "derivatives-analytics.html#derivatives-ai-section",
+    targetHref: "derivatives-analytics.html#derivatives-analytics-market-state",
     rows: [
       ["台灣選擇權 AI 盤勢摘要", "台灣選擇權 AI 盤勢摘要"],
       ["TXO 選擇權資料架構", "TXO 選擇權資料架構"],
