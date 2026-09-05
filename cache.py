@@ -125,6 +125,10 @@ cache_data: dict[str, Any] = {
     "market_date": None,
     "cached_at": None,
     "last_error": None,
+    "provider_status": {
+        "tpex": {"status": "never_loaded", "lastSuccessAt": None, "lastAttemptAt": None, "lastError": None},
+        "twse": {"status": "never_loaded", "lastSuccessAt": None, "lastAttemptAt": None, "lastError": None},
+    },
     "stock_details": {},
     "sector_charts": {},
     "global_markets": {},
@@ -667,18 +671,36 @@ def _renew_background_updater_lease(
 def _run_background_refresh_tasks() -> None:
     import app  # deferred: refresh_tpex_cache hasn't moved out of app.py yet (TD-01 slice 2c)
 
+    attempt_at = time.time()
+    with cache_lock:
+        cache_data["provider_status"]["tpex"]["lastAttemptAt"] = attempt_at
     try:
         app.refresh_tpex_cache()
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("Background TPEx cache refresh failed")
+    except Exception as exc:  # noqa: BLE001
+        error_kind = type(exc).__name__.lower()
+        provider_status = "timeout" if "timeout" in error_kind else "network_error"
+        LOGGER.warning("Background provider refresh failed provider=tpex operation=cache_refresh category=%s", provider_status)
         with cache_lock:
             cache_data["last_error"] = PUBLIC_CACHE_ERROR_MESSAGE
+            cache_data["provider_status"]["tpex"].update({"status": provider_status, "lastError": provider_status})
+    else:
+        with cache_lock:
+            cache_data["provider_status"]["tpex"].update({"status": "available", "lastSuccessAt": time.time(), "lastError": None})
+
+    with cache_lock:
+        cache_data["provider_status"]["twse"]["lastAttemptAt"] = time.time()
     try:
         refresh_cache()
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("Background TWSE cache refresh failed")
+    except Exception as exc:  # noqa: BLE001
+        error_kind = type(exc).__name__.lower()
+        provider_status = "timeout" if "timeout" in error_kind else "network_error"
+        LOGGER.warning("Background provider refresh failed provider=twse operation=cache_refresh category=%s", provider_status)
         with cache_lock:
             cache_data["last_error"] = PUBLIC_CACHE_ERROR_MESSAGE
+            cache_data["provider_status"]["twse"].update({"status": provider_status, "lastError": provider_status})
+    else:
+        with cache_lock:
+            cache_data["provider_status"]["twse"].update({"status": "available", "lastSuccessAt": time.time(), "lastError": None})
 
 
 def run_background_update_cycle() -> bool:

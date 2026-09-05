@@ -84,11 +84,18 @@ bp = Blueprint("system", __name__)
 @bp.route("/api/health")
 def api_health():
     with cache_lock:
+        providers = cache_data.get("provider_status") or {}
+        tpex_status = (providers.get("tpex") or {}).get("status")
+        twse_status = (providers.get("twse") or {}).get("status")
+        readiness = "warming" if not cache_data["site_data"] else ("degraded" if twse_status in {"timeout", "network_error", "parse_error"} else ("partial" if tpex_status in {"timeout", "network_error", "parse_error"} else "ready"))
+        overall_status = "ok" if readiness == "ready" else readiness
         return jsonify(
             {
-                "status": "ok" if cache_data["site_data"] else "warming",
+                "status": overall_status,
+                "readiness": readiness,
                 "cachedAt": cache_data["cached_at"],
                 "lastError": cache_data["last_error"],
+                "providers": providers,
             }
         )
 
