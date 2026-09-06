@@ -10,8 +10,10 @@
     "build:cloudflare-static": "python scripts/build-cloudflare-static.py",
     "verify:cloudflare-static": "python scripts/verify-cloudflare-dist.py",
     "test:cloudflare-hybrid": "python regression/test_cloudflare_hybrid_local.py",
+    "test:cloudflare-pages": "python regression/test_cloudflare_pages_local.py",
     "cloudflare:dev": "wrangler dev --config cloudflare/wrangler.jsonc --local",
-    "cloudflare:dry-run": "wrangler deploy --config cloudflare/wrangler.jsonc --dry-run --outdir .tmp/cloudflare-worker-bundle"
+    "cloudflare:dry-run": "wrangler deploy --config cloudflare/wrangler.jsonc --dry-run --outdir .tmp/cloudflare-worker-bundle",
+    "pages:dev": "wrangler pages dev dist/cloudflare-static --ip 127.0.0.1"
   },
   "devDependencies": {
     "terser": "5.51.2",

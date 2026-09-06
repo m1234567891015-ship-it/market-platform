@@ -14,6 +14,7 @@ from market_config import ASSET_STATIC_FILES, JS_MODULE_STATIC_FILES, PAGE_ROUTE
 
 DIST_ROOT = REPO_ROOT / "dist" / "cloudflare-static"
 MANIFEST_NAME = "cloudflare-dist-manifest.json"
+ROUTES_NAME = "_routes.json"
 
 # Files deliberately added to the existing frontend allowlists for the PWA and
 # Static Assets runtime. Runtime data such as twse-cache.json is never copied.
@@ -83,6 +84,11 @@ def build_dist(output_root: Path = DIST_ROOT) -> dict:
     }
     (output_root / MANIFEST_NAME).write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    (output_root / ROUTES_NAME).write_text(
+        json.dumps({"version": 1, "include": ["/api/*"], "exclude": []}, indent=2) + "\n",
         encoding="utf-8",
         newline="\n",
     )

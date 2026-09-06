@@ -19,6 +19,7 @@ _BUILDER = importlib.util.module_from_spec(_BUILDER_SPEC)
 _BUILDER_SPEC.loader.exec_module(_BUILDER)
 DIST_ROOT = _BUILDER.DIST_ROOT
 MANIFEST_NAME = _BUILDER.MANIFEST_NAME
+ROUTES_NAME = _BUILDER.ROUTES_NAME
 from market_config import PAGE_ROUTES
 
 FORBIDDEN_NAMES = {".git", "node_modules", "__pycache__", "reports", "backups"}
@@ -64,7 +65,7 @@ def verify_dist(dist_root: Path = DIST_ROOT) -> dict:
     entries = manifest.get("files", [])
     actual_assets = []
     for path in sorted(dist_root.rglob("*")):
-        if path.is_file() and path.name not in {MANIFEST_NAME, "_headers"}:
+        if path.is_file() and path.name not in {MANIFEST_NAME, "_headers", ROUTES_NAME}:
             actual_assets.append(path.relative_to(dist_root).as_posix())
     actual_assets.sort()
     listed_assets = sorted(item.get("path", "") for item in entries)
@@ -109,12 +110,26 @@ def verify_dist(dist_root: Path = DIST_ROOT) -> dict:
             if marker not in header_text:
                 errors.append(f"missing required static header marker: {marker}")
 
+    routes_path = dist_root / ROUTES_NAME
+    if not routes_path.is_file():
+        errors.append("missing Pages routes configuration: dist/_routes.json")
+    else:
+        try:
+            routes_config = json.loads(routes_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            errors.append(f"invalid Pages routes configuration: {exc}")
+        else:
+            expected_routes = {"version": 1, "include": ["/api/*"], "exclude": []}
+            if routes_config != expected_routes:
+                errors.append(f"unexpected Pages routes configuration: {routes_config!r}")
+
     return {
         "ok": not errors,
         "errors": errors,
         "html_page_count": len(actual_pages),
         "asset_file_count": len(actual_assets),
         "dist_file_count": len(all_files),
+        "pages_routes": {"version": 1, "include": ["/api/*"], "exclude": []} if (dist_root / ROUTES_NAME).is_file() else None,
         "manifest_sha256": file_sha256(manifest_path),
     }
 
