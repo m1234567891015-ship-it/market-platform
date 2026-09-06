@@ -1652,6 +1652,19 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         max_pain = app.calculate_taifex_max_pain(chain)
         self.assertEqual(max_pain["strike"], 21000)
 
+    def test_taifex_txo_fixture_preserves_missing_volume_and_open_interest(self):
+        fixture = Path("tests/fixtures/taifex_txo_sample.html").read_text(encoding="utf-8")
+        missing_values = fixture.replace(
+            "<td>600</td><td>1000</td>",
+            "<td></td><td></td>",
+            1,
+        )
+        rows = app.parse_taifex_txo_option_rows(missing_values, spot_price=21050)
+        self.assertIsNone(rows[0]["volume"])
+        self.assertIsNone(rows[0]["openInterest"])
+        self.assertEqual(rows[1]["volume"], 540)
+        self.assertEqual(rows[1]["openInterest"], 1100)
+
     def test_taifex_option_payload_skips_expired_default_expiry(self):
         today = datetime.now(app.TZ).date()
         expired_date = (today - timedelta(days=1)).isoformat()
@@ -1826,6 +1839,33 @@ class DerivativesPlatformApiTests(unittest.TestCase):
             connection.close()
         self.assertEqual(snapshot_count, 1, cls_path)
         self.assertEqual(ai_count, 1)
+
+    def test_store_deduplicates_option_quotes_and_runtime_markers(self):
+        chain = {
+            **OPTIONS_CHAIN,
+            "underlying": "TXO_QUOTE_DEDUPE",
+            "chain": [{
+                "strike": 21000,
+                "call": {"last": 10, "bid": 9, "ask": 11, "volume": 1, "openInterest": 2, "impliedVolatility": 0.2},
+                "put": {"last": 12, "bid": 11, "ask": 13, "volume": 3, "openInterest": 4, "impliedVolatility": 0.3},
+            }],
+        }
+        app.DERIVATIVES_STORE.record_option_chain(chain, "2026-06-20T12:00:00+08:00")
+        app.DERIVATIVES_STORE.record_option_chain({**chain, "cached": True}, "2026-06-20T12:01:00+08:00")
+        connection = sqlite3.connect(self._test_db_path)
+        try:
+            snapshot_count = connection.execute(
+                "SELECT COUNT(*) FROM option_chain_snapshot WHERE underlying = ? AND trade_date = ?",
+                ("TXO_QUOTE_DEDUPE", "2026-06-20"),
+            ).fetchone()[0]
+            quote_count = connection.execute(
+                "SELECT COUNT(*) FROM options_quote WHERE contract_key LIKE ? AND trade_time = ?",
+                ("TXO_QUOTE_DEDUPE:%", "2026-06-20"),
+            ).fetchone()[0]
+        finally:
+            connection.close()
+        self.assertEqual(snapshot_count, 1)
+        self.assertEqual(quote_count, 2)
 
     def test_store_uses_wal_and_prune_allowlist(self):
         connection = app.DERIVATIVES_STORE._connect()

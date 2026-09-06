@@ -1,7 +1,7 @@
 (() => {
-  const VERSION = "td02-full-esm-01868ab7f51ba4dc";
+  const VERSION = "td02-full-esm-bb87d6defc46aa05";
   const STORAGE_KEY = "market-pulse-static-version";
-  const SERVICE_WORKER_URL = "service-worker.js?v=td02-full-esm-01868ab7f51ba4dc";
+  const SERVICE_WORKER_URL = "service-worker.js?v=td02-full-esm-bb87d6defc46aa05";
   const APP_SCOPE_PATH = "/";
   const APP_SERVICE_WORKER_PATH = "/service-worker.js";
   const APP_CACHE_PREFIX = "market-pulse-swr-";

@@ -5624,8 +5624,13 @@ function renderDerivativeBasisCard(result = {}) {
     if (!Number.isFinite(number)) return "--";
     return number.toLocaleString("en-US", { maximumFractionDigits: 2, minimumFractionDigits: 2 });
   };
-  const basis = Number(data.basis);
-  const basisPct = Number(data.basisPct);
+  const finiteBasisValue = (value) => {
+    if (value === null || value === undefined || String(value).trim() === "") return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  };
+  const basis = finiteBasisValue(data.basis);
+  const basisPct = finiteBasisValue(data.basisPct);
   return `
     <article class="panel-card asset-option-sentiment">
       <p class="panel-kicker">Basis</p>

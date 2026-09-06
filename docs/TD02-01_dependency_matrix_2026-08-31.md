@@ -5,8 +5,8 @@
 
 ## 1. 盤點結論
 
-- 21 頁目前 production script order 有 1 種：`common-runtime.js → route-bundle.js`；`derivatives-status.html` 另加 addon。
-- classic fallback 輸入順序共 18 個檔案，global symbol owner 共 895 個，與 baseline SHA-256 `694e4c8d1c4244befbf37e59cb482575b101bdca1f047497e417cc6b612d519e` 對齊。
+- 21 頁目前 production script order 有 1 種：`market-pulse-esm-loader.js`。
+- classic fallback 輸入順序共 17 個檔案，global symbol owner 共 895 個，與 baseline SHA-256 `694e4c8d1c4244befbf37e59cb482575b101bdca1f047497e417cc6b612d519e` 對齊。
 - 目前偵測到 69 條跨 slice dependency edges、468 個跨 slice symbol references。
 - 需要 TD02-02 處理的互相依賴元件：2 組；TD02-01 不接線、不定義正式 bridge API。
 
@@ -25,24 +25,24 @@
 
 | classic source | candidate module | bundle | fallback order | owned globals | route pages | immediate cross-slice refs | dependency targets |
 |---|---|---|---:|---:|---|---|---|
-| `pwa.js` | `runtime/pwa` | `common-runtime` | 1 | 0 | shared/all pages | — | — |
-| `js/state.js` | `runtime/state` | `common-runtime` | 2 | 152 | shared/all pages | — | — |
-| `js/core.js` | `runtime/core` | `common-runtime` | 3 | 26 | shared/all pages | nativeInnerHtmlDescriptor | js/state.js |
-| `js/api.js` | `runtime/api` | `common-runtime` | 4 | 1 | shared/all pages | — | — |
-| `js/shared-calc.js` | `runtime/shared-calc` | `common-runtime` | 5 | 72 | shared/all pages | — | js/core.js, js/state.js |
-| `js/render-shared.js` | `runtime/render-shared` | `common-runtime` | 6 | 46 | shared/all pages | — | js/api.js, js/core.js, js/shared-calc.js, js/state.js |
-| `js/charts.js` | `runtime/charts` | `common-runtime` | 7 | 9 | shared/all pages | — | js/core.js, js/render-shared.js, js/shared-calc.js, js/state.js |
-| `js/stock-detail.js` | `route/stock-detail` | `common-runtime` | 8 | 10 | shared/all pages | — | js/api.js, js/charts.js, js/core.js, js/render-shared.js, js/shared-calc.js, js/state.js |
-| `js/page-home.js` | `route/page-home` | `route-bundle` | 9 | 33 | index.html, market-overview.html, news.html | — | js/api.js, js/charts.js, js/core.js, js/render-shared.js, js/state.js |
-| `js/page-us.js` | `route/page-us` | `route-bundle` | 10 | 65 | us-etf.html, us-stock-search.html, us-watchlist.html | — | js/api.js, js/charts.js, js/core.js, js/render-shared.js, js/shared-calc.js, js/state.js, js/stock-detail.js |
-| `js/page-global-market-futures.js` | `route/global-market-futures` | `route-bundle` | 11 | 92 | futures.html, us-market-overview.html, us-stocks.html | — | js/api.js, js/charts.js, js/core.js, js/page-global-market-assethub.js, js/page-global-market-options.js, js/render-shared.js, js/shared-calc.js, js/state.js |
-| `js/page-global-market-options.js` | `route/global-market-options` | `route-bundle` | 12 | 131 | options.html | — | js/api.js, js/charts.js, js/core.js, js/page-global-market-assethub.js, js/page-global-market-futures.js, js/render-shared.js, js/state.js |
-| `js/page-global-market-assethub.js` | `route/global-market-assethub` | `route-bundle` | 13 | 145 | bonds.html, derivatives-ai.html, derivatives-analytics.html, derivatives-assets.html, international-finance.html, precious-metals.html | — | js/api.js, js/core.js, js/page-global-market-futures.js, js/page-global-market-options.js, js/render-shared.js, js/shared-calc.js, js/state.js |
-| `js/page-tw.js` | `route/page-tw` | `route-bundle` | 14 | 111 | tw-etf.html, tw-Optional-stocks.html, tw-stock-search.html, tw-stocks.html | — | js/api.js, js/charts.js, js/core.js, js/main.js, js/render-shared.js, js/shared-calc.js, js/state.js, js/stock-detail.js |
-| `js/legacy-unclassified.js` | `route/legacy-unclassified` | `route-bundle` | 15 | 0 | shared/all pages | — | — |
-| `js/main.js` | `runtime/bootstrap` | `route-bundle` | 16 | 2 | shared/all pages | initSearchPage, initWatchlistPage, initGlobalMarketPage, loadYahooSectorCategory | js/api.js, js/core.js, js/page-global-market-assethub.js, js/page-global-market-options.js, js/page-home.js, js/page-tw.js, js/page-us.js, js/state.js |
 | `app.js` | `compat/app-shell` | `route-bundle` | 17 | 0 | shared/all pages | — | — |
 | `derivatives-ui.js` | `route/derivatives-status-addon` | `derivatives-status-addon` | 18 | 0 | derivatives-status.html | — | js/core.js, js/state.js |
+| `js/api.js` | `runtime/api` | `common-runtime` | 4 | 1 | shared/all pages | — | — |
+| `js/charts.js` | `runtime/charts` | `common-runtime` | 7 | 9 | shared/all pages | — | js/core.js, js/render-shared.js, js/shared-calc.js, js/state.js |
+| `js/core.js` | `runtime/core` | `common-runtime` | 3 | 26 | shared/all pages | nativeInnerHtmlDescriptor | js/state.js |
+| `js/legacy-unclassified.js` | `route/legacy-unclassified` | `route-bundle` | 15 | 0 | shared/all pages | — | — |
+| `js/main.js` | `runtime/bootstrap` | `route-bundle` | 16 | 2 | shared/all pages | initSearchPage, initWatchlistPage, initGlobalMarketPage, loadYahooSectorCategory | js/api.js, js/core.js, js/page-global-market-assethub.js, js/page-global-market-options.js, js/page-home.js, js/page-tw.js, js/page-us.js, js/state.js |
+| `js/page-global-market-assethub.js` | `route/global-market-assethub` | `route-bundle` | 13 | 145 | bonds.html, derivatives-ai.html, derivatives-analytics.html, derivatives-assets.html, international-finance.html, precious-metals.html | — | js/api.js, js/core.js, js/page-global-market-futures.js, js/page-global-market-options.js, js/render-shared.js, js/shared-calc.js, js/state.js |
+| `js/page-global-market-futures.js` | `route/global-market-futures` | `route-bundle` | 11 | 92 | futures.html, us-market-overview.html, us-stocks.html | — | js/api.js, js/charts.js, js/core.js, js/page-global-market-assethub.js, js/page-global-market-options.js, js/render-shared.js, js/shared-calc.js, js/state.js |
+| `js/page-global-market-options.js` | `route/global-market-options` | `route-bundle` | 12 | 131 | options.html | — | js/api.js, js/charts.js, js/core.js, js/page-global-market-assethub.js, js/page-global-market-futures.js, js/render-shared.js, js/state.js |
+| `js/page-home.js` | `route/page-home` | `route-bundle` | 9 | 33 | index.html, market-overview.html, news.html | — | js/api.js, js/charts.js, js/core.js, js/render-shared.js, js/state.js |
+| `js/page-tw.js` | `route/page-tw` | `route-bundle` | 14 | 111 | tw-etf.html, tw-Optional-stocks.html, tw-stock-search.html, tw-stocks.html | — | js/api.js, js/charts.js, js/core.js, js/main.js, js/render-shared.js, js/shared-calc.js, js/state.js, js/stock-detail.js |
+| `js/page-us.js` | `route/page-us` | `route-bundle` | 10 | 65 | us-etf.html, us-stock-search.html, us-watchlist.html | — | js/api.js, js/charts.js, js/core.js, js/render-shared.js, js/shared-calc.js, js/state.js, js/stock-detail.js |
+| `js/render-shared.js` | `runtime/render-shared` | `common-runtime` | 6 | 46 | shared/all pages | — | js/api.js, js/core.js, js/shared-calc.js, js/state.js |
+| `js/shared-calc.js` | `runtime/shared-calc` | `common-runtime` | 5 | 72 | shared/all pages | — | js/core.js, js/state.js |
+| `js/state.js` | `runtime/state` | `common-runtime` | 2 | 152 | shared/all pages | — | — |
+| `js/stock-detail.js` | `route/stock-detail` | `common-runtime` | 8 | 10 | shared/all pages | — | js/api.js, js/charts.js, js/core.js, js/render-shared.js, js/shared-calc.js, js/state.js |
+| `pwa.js` | `runtime/pwa` | `common-runtime` | 1 | 0 | shared/all pages | — | — |
 
 ## 4. 跨 slice dependency edges
 
@@ -161,7 +161,13 @@
 
 ## 9. 重現指令
 
+權威 generator：`regression/td02_01_dependency_matrix.py`。權威輸入是 `regression/td18_shadow_build.lock.json`、`regression/baseline/frontend/global_symbols.json`、根目錄 21 個 HTML 與 lockfile 指定的 classic source slices；輸出是本文件與同名 JSON。
+
+generator 先建立一份 normalized matrix，再由同一份 model 產生 JSON 與 Markdown；generation timestamp、absolute machine/temp paths 與其他環境 metadata 不進入 canonical evidence。generated files 不得手動編輯。
+
 ```text
 python regression/td02_01_dependency_matrix.py --write
 python regression/td02_01_dependency_matrix.py --check
+python -m unittest regression.test_td02_01_dependency_matrix
+sha256sum docs/TD02-01_dependency_matrix_2026-08-31.json docs/TD02-01_dependency_matrix_2026-08-31.md
 ```

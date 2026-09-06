@@ -807,10 +807,10 @@ def select_taifex_daily_market_row(rows: list[dict[str, Any]], symbol: str) -> d
         close_value = parse_taifex_market_number(row.get("Last")) or parse_taifex_market_number(row.get("SettlementPrice"))
         if close_value is None:
             continue
-        volume_value = parse_taifex_market_number(row.get("Volume")) or 0
+        volume_value = parse_taifex_market_number(row.get("Volume"))
         settlement_value = parse_taifex_market_number(row.get("SettlementPrice"))
         open_interest = parse_taifex_market_number(row.get("OpenInterest"))
-        score = volume_value
+        score = volume_value if volume_value is not None else 0
         if settlement_value is not None:
             score += 1_000_000_000
         if open_interest is not None:
@@ -828,7 +828,7 @@ def normalize_taifex_daily_market_row(row: dict[str, Any]) -> dict[str, Any] | N
     open_value = parse_taifex_market_number(row.get("Open")) or close_value
     high_value = parse_taifex_market_number(row.get("High")) or max(open_value, close_value)
     low_value = parse_taifex_market_number(row.get("Low")) or min(open_value, close_value)
-    volume_value = parse_taifex_market_number(row.get("Volume")) or 0
+    volume_value = parse_taifex_market_number(row.get("Volume"))
     open_interest = parse_taifex_market_number(row.get("OpenInterest"))
     settlement = parse_taifex_market_number(row.get("SettlementPrice"))
     return {
@@ -933,7 +933,7 @@ def parse_taifex_futures_download_candles(
         high_value = parse_taifex_market_number(row[4])
         low_value = parse_taifex_market_number(row[5])
         close_value = parse_taifex_market_number(row[6])
-        volume_value = parse_taifex_market_number(row[9]) or 0
+        volume_value = parse_taifex_market_number(row[9])
         if not date_text or None in {open_value, high_value, low_value, close_value}:
             continue
         candle = {
@@ -951,8 +951,9 @@ def parse_taifex_futures_download_candles(
             "source": "TAIFEX 期貨每日行情下載",
         }
         previous = selected_by_date.get(date_text)
-        if previous is None or volume_value > previous[0]:
-            selected_by_date[date_text] = (volume_value, candle)
+        volume_score = volume_value if volume_value is not None else -1
+        if previous is None or volume_score > previous[0]:
+            selected_by_date[date_text] = (volume_score, candle)
     return [
         item[1]
         for item in sorted(selected_by_date.values(), key=lambda pair: str(pair[1].get("time") or ""))

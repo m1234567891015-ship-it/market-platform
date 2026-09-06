@@ -1,4 +1,5 @@
 const fs = require("node:fs");
+const crypto = require("node:crypto");
 const { execFileSync } = require("node:child_process");
 
 const page = fs.readFileSync("derivatives-analytics.html", "utf8");
@@ -16,11 +17,17 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+function sha256(file) {
+  return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+}
+
 assert(page.includes('<body data-page="derivatives-analytics">'), "page identity missing");
 const pageVersion = page.match(/market-pulse-esm-loader\.js\?v=([^"']+)/)?.[1];
 assert(pageVersion && pageVersion === manifest.version, "page loader version is not the build version");
 const computedVersion = execFileSync(process.execPath, ["regression/td02_full_esm_build.js", "--print-version"], { encoding: "utf8" }).trim();
 assert(computedVersion === manifest.version, "build version is not reproducible from runtime inputs");
+assert(sha256("market-pulse-esm.min.js") === manifest.output.sha256, "ESM bundle hash is not the manifest hash");
+assert(sha256("market-pulse-esm.min.js.map") === manifest.sourceMap.sha256, "ESM source map hash is not the manifest hash");
 assert(loader.includes(`const CURRENT_BUILD_VERSION = "${manifest.version}";`), "loader does not carry the generated current build version");
 assert(loader.includes("document.currentScript"), "loader does not derive runtime version from its own URL");
 assert(loader.includes("encodeURIComponent(runtimeVersion)"), "loader does not forward runtime version to bundle");

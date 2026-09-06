@@ -30,6 +30,17 @@ JSON_OUTPUT = ROOT / "docs" / "TD02-01_dependency_matrix_2026-08-31.json"
 MARKDOWN_OUTPUT = ROOT / "docs" / "TD02-01_dependency_matrix_2026-08-31.md"
 SNAPSHOT_DATE = "2026-08-31"
 
+PRODUCTION_SCRIPT_NORMALIZATION = {
+    "common-runtime.js": "common-runtime.js",
+    "common-runtime.min.js": "common-runtime.js",
+    "route-bundle.js": "route-bundle.js",
+    "route-bundle.min.js": "route-bundle.js",
+    "derivatives-status-addon.js": "derivatives-status-addon.js",
+    "derivatives-status-addon.min.js": "derivatives-status-addon.js",
+    "market-pulse-esm-loader.js": "market-pulse-esm-loader.js",
+}
+PRODUCTION_SCRIPT_SOURCES = set(PRODUCTION_SCRIPT_NORMALIZATION.values())
+
 sys.path.insert(0, str(ROOT))
 from security_guardrail_check import (  # noqa: E402
     IDENTIFIER_RE,
@@ -80,7 +91,9 @@ class PageParser(HTMLParser):
             source = values["src"].split("?", 1)[0]
             # The dependency matrix models the logical production boundary;
             # minified and unminified artifacts share the same locked inputs.
-            self.scripts.append(source.replace(".min.js", ".js"))
+            normalized = PRODUCTION_SCRIPT_NORMALIZATION.get(source)
+            if normalized:
+                self.scripts.append(normalized)
 
 
 def sha256(path: Path) -> str:
@@ -91,8 +104,9 @@ def load_json(path: Path) -> dict | list:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def locked_inputs() -> tuple[list[str], dict[str, str], dict[str, list[str]]]:
-    lock = load_json(LOCKFILE)
+def locked_inputs(project_root: Path = ROOT) -> tuple[list[str], dict[str, str], dict[str, list[str]]]:
+    lockfile = project_root / "regression" / "td18_shadow_build.lock.json"
+    lock = load_json(lockfile)
     assert isinstance(lock, dict)
     bundle_by_input: dict[str, str] = {}
     bundle_inputs: dict[str, list[str]] = {}
@@ -105,9 +119,9 @@ def locked_inputs() -> tuple[list[str], dict[str, str], dict[str, list[str]]]:
     return ordered, bundle_by_input, bundle_inputs
 
 
-def read_pages() -> list[dict]:
+def read_pages(project_root: Path = ROOT) -> list[dict]:
     pages = []
-    for html_file in sorted(ROOT.glob("*.html")):
+    for html_file in sorted(project_root.glob("*.html"), key=lambda path: path.name.casefold()):
         parser = PageParser()
         parser.feed(html_file.read_text(encoding="utf-8-sig"))
         pages.append(
@@ -116,7 +130,7 @@ def read_pages() -> list[dict]:
                 "data_page": parser.body_attrs.get("data-page", ""),
                 "market_category": parser.body_attrs.get("data-market-category", ""),
                 "production_script_order": [
-                    source for source in parser.scripts if source in {"common-runtime.js", "route-bundle.js", "derivatives-status-addon.js"}
+                    source for source in parser.scripts if source in PRODUCTION_SCRIPT_SOURCES
                 ],
             }
         )
@@ -308,15 +322,18 @@ def strongly_connected_components(nodes: Iterable[str], edges: dict[str, set[str
     return sorted(components, key=lambda component: component[0])
 
 
-def build_matrix() -> dict:
-    ordered_inputs, bundle_by_input, bundle_inputs = locked_inputs()
-    pages = read_pages()
+def build_matrix(project_root: Path = ROOT) -> dict:
+    project_root = project_root.resolve()
+    lockfile = project_root / "regression" / "td18_shadow_build.lock.json"
+    baseline_path = project_root / "regression" / "baseline" / "frontend" / "global_symbols.json"
+    ordered_inputs, bundle_by_input, bundle_inputs = locked_inputs(project_root)
+    pages = read_pages(project_root)
     source_paths = [relative for relative in ordered_inputs if relative in SOURCE_CANDIDATES]
     sources = {
-        relative: (ROOT / relative).read_text(encoding="utf-8-sig")
+        relative: (project_root / relative).read_text(encoding="utf-8-sig")
         for relative in source_paths
     }
-    baseline = set(load_json(BASELINE))
+    baseline = set(load_json(baseline_path))
     declarations = {
         relative: js_top_level_declared_names(source)
         for relative, source in sources.items()
@@ -337,7 +354,7 @@ def build_matrix() -> dict:
     all_symbols = set(symbol_owner)
     source_rows = []
     edge_symbols: dict[tuple[str, str], set[str]] = defaultdict(set)
-    for relative in source_paths:
+    for relative in sorted(source_paths):
         candidate, kind = SOURCE_CANDIDATES[relative]
         owned = declarations.get(relative, set())
         refs = cross_slice_refs(sources[relative], owned, all_symbols)
@@ -429,15 +446,15 @@ def build_matrix() -> dict:
         "evidence": {
             "html_page_count": len(pages),
             "global_symbol_count": len(baseline),
-            "global_symbol_baseline": str(BASELINE.relative_to(ROOT)).replace("\\", "/"),
-            "global_symbol_baseline_sha256": sha256(BASELINE),
-            "td18_lockfile": str(LOCKFILE.relative_to(ROOT)).replace("\\", "/"),
+            "global_symbol_baseline": str(baseline_path.relative_to(project_root)).replace("\\", "/"),
+            "global_symbol_baseline_sha256": sha256(baseline_path),
+            "td18_lockfile": str(lockfile.relative_to(project_root)).replace("\\", "/"),
             "td18_input_order": ordered_inputs,
             "classic_fallback_order": [relative for relative in ordered_inputs if relative != "derivatives-ui.js"],
             "status_addon_order": [relative for relative in ordered_inputs if relative != "derivatives-ui.js"] + ["derivatives-ui.js"],
             "td18_bundle_inputs": bundle_inputs,
             "production_script_orders": production_order_rows,
-            "source_hashes": {relative: sha256(ROOT / relative) for relative in source_paths},
+            "source_hashes": {relative: sha256(project_root / relative) for relative in sorted(source_paths)},
         },
         "pages": pages,
         "modules": source_rows,
@@ -469,11 +486,34 @@ def build_matrix() -> dict:
         },
         "review_notes": {
             "scanner_limit": "Source-level references are deterministic lexical candidates with local function bindings removed; TD02-02 must review each bridge edge before naming imports or exports.",
-            "current_production_boundary": "All ordinary pages execute common-runtime.js then route-bundle.js; derivatives-status.html appends derivatives-status-addon.js.",
+            "current_production_boundary": production_boundary_note(production_order_rows),
             "legacy_unclassified": "js/legacy-unclassified.js remains an empty compatibility slot in the current source set; no symbol was deleted by TD02-01.",
             "app_shell": "app.js remains an empty compatibility shell and is still listed in the classic fallback order.",
         },
+        "reproducibility": {
+            "generator": "regression/td02_01_dependency_matrix.py",
+            "authoritative_inputs": [
+                "regression/td18_shadow_build.lock.json",
+                "regression/baseline/frontend/global_symbols.json",
+                "top-level HTML files",
+                "locked classic source slices",
+            ],
+            "generated_outputs": [
+                "docs/TD02-01_dependency_matrix_2026-08-31.json",
+                "docs/TD02-01_dependency_matrix_2026-08-31.md",
+            ],
+            "encoding": "UTF-8",
+            "newline": "LF",
+            "timestamps_excluded": True,
+            "absolute_paths_excluded": True,
+            "generated_files_must_not_be_hand_edited": True,
+        },
     }
+
+
+def production_boundary_note(production_orders: list[list[str]]) -> str:
+    rendered = [" → ".join(order) if order else "(no recognized production script)" for order in production_orders]
+    return "Observed production script order(s): " + "; ".join(rendered) + "."
 
 
 def render_markdown(matrix: dict) -> str:
@@ -487,8 +527,11 @@ def render_markdown(matrix: dict) -> str:
         "",
         "## 1. 盤點結論",
         "",
-        f"- 21 頁目前 production script order 有 {len(evidence['production_script_orders'])} 種：`{' → '.join(evidence['production_script_orders'][0])}`；`derivatives-status.html` 另加 addon。",
-        f"- classic fallback 輸入順序共 {len(evidence['td18_input_order'])} 個檔案，global symbol owner 共 {evidence['global_symbol_count']} 個，與 baseline SHA-256 `{evidence['global_symbol_baseline_sha256']}` 對齊。",
+        f"- {evidence['html_page_count']} 頁目前 production script order 有 {len(evidence['production_script_orders'])} 種：" + "; ".join(
+            f"`{' → '.join(order)}`" if order else "`(no recognized production script)`"
+            for order in evidence["production_script_orders"]
+        ) + "。",
+        f"- classic fallback 輸入順序共 {len(evidence['classic_fallback_order'])} 個檔案，global symbol owner 共 {evidence['global_symbol_count']} 個，與 baseline SHA-256 `{evidence['global_symbol_baseline_sha256']}` 對齊。",
         f"- 目前偵測到 {len(matrix['dependency_edges'])} 條跨 slice dependency edges、{sum(len(edge['symbols']) for edge in matrix['dependency_edges'])} 個跨 slice symbol references。",
         f"- 需要 TD02-02 處理的互相依賴元件：{len(matrix['cycles_requiring_bridge_or_deferred_import'])} 組；TD02-01 不接線、不定義正式 bridge API。",
         "",
@@ -578,13 +621,112 @@ def render_markdown(matrix: dict) -> str:
         "",
         "## 9. 重現指令",
         "",
+        "權威 generator：`regression/td02_01_dependency_matrix.py`。權威輸入是 `regression/td18_shadow_build.lock.json`、`regression/baseline/frontend/global_symbols.json`、根目錄 21 個 HTML 與 lockfile 指定的 classic source slices；輸出是本文件與同名 JSON。",
+        "",
+        "generator 先建立一份 normalized matrix，再由同一份 model 產生 JSON 與 Markdown；generation timestamp、absolute machine/temp paths 與其他環境 metadata 不進入 canonical evidence。generated files 不得手動編輯。",
+        "",
         "```text",
         "python regression/td02_01_dependency_matrix.py --write",
         "python regression/td02_01_dependency_matrix.py --check",
+        "python -m unittest regression.test_td02_01_dependency_matrix",
+        "sha256sum docs/TD02-01_dependency_matrix_2026-08-31.json docs/TD02-01_dependency_matrix_2026-08-31.md",
         "```",
         "",
     ]
     return "\n".join(lines)
+
+
+def canonical_json(matrix: dict) -> bytes:
+    return (json.dumps(matrix, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
+
+
+def _markdown_section(markdown: str, heading: str) -> str:
+    start = markdown.index(heading) + len(heading)
+    end = markdown.find("\n## ", start)
+    return markdown[start:] if end < 0 else markdown[start:end]
+
+
+def _markdown_table_rows(section: str) -> list[list[str]]:
+    rows = []
+    for line in section.splitlines():
+        if not line.startswith("|") or line.startswith("|---"):
+            continue
+        rows.append([cell.strip() for cell in line.strip("|").split("|")])
+    return rows[1:]
+
+
+def _backtick_value(cell: str) -> str:
+    match = re.search(r"`([^`]+)`", cell)
+    return match.group(1) if match else cell.strip()
+
+
+def markdown_parity_errors(matrix: dict, markdown: str) -> list[str]:
+    module_rows = _markdown_table_rows(_markdown_section(markdown, "## 3. Slice → candidate module → bridge"))
+    expected_modules = []
+    for row in matrix["modules"]:
+        expected_modules.append(
+            (
+                row["source"],
+                row["candidate_module"],
+                row["bundle"],
+                str(row["fallback_order"]),
+                str(row["owned_symbol_count"]),
+                tuple(row["pages"] or ["shared/all pages"]),
+                tuple(symbol for item in row["top_level_immediate_references"] for symbol in item["symbols"]),
+                tuple(item["source"] for item in row["dependency_targets"]),
+            )
+        )
+    actual_modules = []
+    for cells in module_rows:
+        if len(cells) != 8:
+            continue
+        actual_modules.append(
+            (
+                _backtick_value(cells[0]),
+                _backtick_value(cells[1]),
+                _backtick_value(cells[2]),
+                cells[3],
+                cells[4],
+                tuple(cells[5].split(", ")) if cells[5] != "shared/all pages" else ("shared/all pages",),
+                tuple(cells[6].split(", ")) if cells[6] != "—" else (),
+                tuple(cells[7].split(", ")) if cells[7] != "—" else (),
+            )
+        )
+
+    edge_rows = _markdown_table_rows(_markdown_section(markdown, "## 4. 跨 slice dependency edges"))
+    expected_edges = [
+        (edge["from_source"], edge["to_source"], tuple(edge["symbols"]))
+        for edge in matrix["dependency_edges"]
+    ]
+    actual_edges = []
+    for cells in edge_rows:
+        if len(cells) != 3:
+            continue
+        actual_edges.append((
+            _backtick_value(cells[0]),
+            _backtick_value(cells[1]),
+            tuple(re.findall(r"`([^`]+)`", cells[2])),
+        ))
+
+    errors = []
+    if actual_modules != expected_modules:
+        errors.append(f"module rows differ (json={len(expected_modules)}, markdown={len(actual_modules)})")
+    if actual_edges != expected_edges:
+        errors.append(f"dependency edge rows differ (json={len(expected_edges)}, markdown={len(actual_edges)})")
+    return errors
+
+
+def validate_json_markdown_parity(matrix: dict, markdown: str) -> None:
+    errors = markdown_parity_errors(matrix, markdown)
+    if errors:
+        raise ValueError("JSON/Markdown semantic parity failed: " + "; ".join(errors))
+
+
+def canonical_artifacts(matrix: dict) -> tuple[bytes, bytes]:
+    rendered_json = canonical_json(matrix)
+    rendered_markdown = render_markdown(matrix)
+    validate_json_markdown_parity(matrix, rendered_markdown)
+    return rendered_json, rendered_markdown.encode("utf-8")
 
 
 def main() -> int:
@@ -595,26 +737,25 @@ def main() -> int:
     if args.write and args.check:
         parser.error("use only one of --write or --check")
     matrix = build_matrix()
-    rendered_json = json.dumps(matrix, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
-    rendered_markdown = render_markdown(matrix)
+    rendered_json, rendered_markdown_bytes = canonical_artifacts(matrix)
     if args.write:
-        JSON_OUTPUT.write_text(rendered_json, encoding="utf-8")
-        MARKDOWN_OUTPUT.write_text(rendered_markdown, encoding="utf-8")
+        JSON_OUTPUT.write_bytes(rendered_json)
+        MARKDOWN_OUTPUT.write_bytes(rendered_markdown_bytes)
         print(f"wrote {JSON_OUTPUT.relative_to(ROOT)}")
         print(f"wrote {MARKDOWN_OUTPUT.relative_to(ROOT)}")
         return 0
     if args.check:
         mismatches = []
-        if not JSON_OUTPUT.exists() or JSON_OUTPUT.read_text(encoding="utf-8") != rendered_json:
+        if not JSON_OUTPUT.exists() or JSON_OUTPUT.read_bytes() != rendered_json:
             mismatches.append(str(JSON_OUTPUT.relative_to(ROOT)))
-        if not MARKDOWN_OUTPUT.exists() or MARKDOWN_OUTPUT.read_text(encoding="utf-8") != rendered_markdown:
+        if not MARKDOWN_OUTPUT.exists() or MARKDOWN_OUTPUT.read_bytes() != rendered_markdown_bytes:
             mismatches.append(str(MARKDOWN_OUTPUT.relative_to(ROOT)))
         if mismatches:
             print("TD02_01_MATRIX_NOT_REPRODUCIBLE: " + ", ".join(mismatches))
             return 1
         print(f"TD02_01_MATRIX_OK: pages=21 symbols={len(matrix['symbols'])} edges={len(matrix['dependency_edges'])}")
         return 0
-    print(rendered_json, end="")
+    print(rendered_json.decode("utf-8"), end="")
     return 0
 
 

@@ -242,11 +242,22 @@ class DerivativesStore:
             self._initialized = True
 
     @staticmethod
-    def _same_json(left: str | None, right: dict[str, Any]) -> bool:
+    def _canonical_option_chain(data: dict[str, Any]) -> dict[str, Any]:
+        """Remove fetch-runtime markers before comparing/persisting a snapshot."""
+        canonical = dict(data)
+        for key in ("cached", "stale", "staleAt"):
+            canonical.pop(key, None)
+        return canonical
+
+    @classmethod
+    def _same_json(cls, left: str | None, right: dict[str, Any]) -> bool:
         if not left:
             return False
         try:
-            return json.loads(left) == right
+            stored = json.loads(left)
+            if not isinstance(stored, dict):
+                return False
+            return cls._canonical_option_chain(stored) == cls._canonical_option_chain(right)
         except (TypeError, json.JSONDecodeError):
             return False
 
@@ -362,9 +373,14 @@ class DerivativesStore:
         summary = data.get("summary") or {}
         trade_date = str(data.get("tradeDate") or created_at)
         source = data.get("source") or {}
-        payload_json = json.dumps(data, ensure_ascii=False, sort_keys=True)
+        canonical_data = self._canonical_option_chain(data)
+        payload_json = json.dumps(canonical_data, ensure_ascii=False, sort_keys=True)
         touched_contracts: set[str] = set()
         with self._connection() as connection:
+            # Serialize the read/check/write sequence across app processes.
+            # The existing identity intentionally permits conflicting payloads,
+            # so a database-wide UNIQUE constraint cannot replace this guard.
+            connection.execute("BEGIN IMMEDIATE")
             connection.execute(
                 """
                 INSERT INTO options_product(symbol, underlying, name, exchange_name, updated_at)
@@ -373,17 +389,16 @@ class DerivativesStore:
                 """,
                 (underlying, underlying, str(data.get("name") or underlying), str(data.get("exchange") or "TAIFEX"), created_at),
             )
-            latest_snapshot = connection.execute(
+            existing_snapshots = connection.execute(
                 """
                 SELECT payload_json
                 FROM option_chain_snapshot
                 WHERE underlying = ? AND expiry_date = ? AND trade_date = ?
                 ORDER BY id DESC
-                LIMIT 1
                 """,
                 (underlying, expiry, trade_date),
-            ).fetchone()
-            if latest_snapshot and self._same_json(latest_snapshot[0], data):
+            ).fetchall()
+            if any(self._same_json(row[0], canonical_data) for row in existing_snapshots):
                 return
             connection.execute(
                 """
@@ -411,17 +426,27 @@ class DerivativesStore:
                         """,
                         (contract_key, underlying, underlying, expiry, strike, option_type),
                     )
-                    connection.execute(
-                        """
-                        INSERT INTO options_quote(contract_key, last_price, bid, ask, volume, open_interest, implied_volatility, trade_time)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                        """,
-                        (
-                            contract_key, _number(quote.get("last") or quote.get("settlement")), _number(quote.get("bid")),
-                            _number(quote.get("ask")), _number(quote.get("volume")), _number(quote.get("openInterest")),
-                            _number(quote.get("impliedVolatility")), trade_date,
-                        ),
+                    quote_values = (
+                        contract_key, _number(quote.get("last") or quote.get("settlement")), _number(quote.get("bid")),
+                        _number(quote.get("ask")), _number(quote.get("volume")), _number(quote.get("openInterest")),
+                        _number(quote.get("impliedVolatility")), trade_date,
                     )
+                    existing_quotes = connection.execute(
+                        """
+                        SELECT last_price, bid, ask, volume, open_interest, implied_volatility
+                        FROM options_quote
+                        WHERE contract_key = ? AND trade_time = ?
+                        """,
+                        (contract_key, trade_date),
+                    ).fetchall()
+                    if not any(existing_quote == quote_values[1:7] for existing_quote in existing_quotes):
+                        connection.execute(
+                            """
+                            INSERT INTO options_quote(contract_key, last_price, bid, ask, volume, open_interest, implied_volatility, trade_time)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            quote_values,
+                        )
             self._prune_to_limit(
                 connection,
                 "option_chain_snapshot",
@@ -569,15 +594,35 @@ class DerivativesStore:
 
     def record_news(self, category: str, items: Iterable[dict[str, Any]]) -> None:
         with self._connection() as connection:
+            # Prevent equivalent concurrent GET refreshes from inserting the
+            # same bounded-cache event more than once.
+            connection.execute("BEGIN IMMEDIATE")
             for item in items:
                 title = str(item.get("title") or "").strip()
                 if not title:
                     continue
+                values = (
+                    title,
+                    str(item.get("source") or ""),
+                    str(item.get("link") or item.get("url") or ""),
+                    str(item.get("summary") or ""),
+                    str(item.get("publishedAt") or ""),
+                    category,
+                )
+                existing = connection.execute(
+                    """
+                    SELECT 1
+                    FROM market_news
+                    WHERE title = ? AND source = ? AND url = ? AND summary = ?
+                      AND published_at = ? AND category = ?
+                    LIMIT 1
+                    """,
+                    values,
+                ).fetchone()
+                if existing:
+                    continue
                 connection.execute(
                     "INSERT INTO market_news(title, source, url, summary, published_at, category) VALUES (?, ?, ?, ?, ?, ?)",
-                    (
-                        title, str(item.get("source") or ""), str(item.get("link") or item.get("url") or ""),
-                        str(item.get("summary") or ""), str(item.get("publishedAt") or ""), category,
-                    ),
+                    values,
                 )
             self._prune_to_limit(connection, "market_news", "category", category, self.MARKET_NEWS_RETENTION)

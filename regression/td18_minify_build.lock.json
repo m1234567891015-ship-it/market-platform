@@ -3,7 +3,7 @@
   "nodeVersion": "24.18.0",
   "builder": {
     "name": "td18-minify-terser",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "terserVersion": "5.51.2",
     "sourceMapVersion": 3
   },

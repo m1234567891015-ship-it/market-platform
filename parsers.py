@@ -667,10 +667,10 @@ def parse_taifex_txo_option_rows(
             "settlement": settlement,
             "change": parse_taifex_number(cells[index_map["change"]] if index_map["change"] < len(cells) else ""),
             "changePct": parse_taifex_number(cells[index_map["change_pct"]] if index_map["change_pct"] < len(cells) else ""),
-            "volume": parse_taifex_number(cells[index_map["volume"]] if index_map["volume"] < len(cells) else "") or 0,
-            "openInterest": parse_taifex_number(cells[index_map["open_interest"]] if index_map["open_interest"] < len(cells) else "") or 0,
-            "afterHoursVolume": parse_taifex_number(cells[index_map["after_hours_volume"]] if index_map["after_hours_volume"] is not None and index_map["after_hours_volume"] < len(cells) else "") or 0,
-            "regularVolume": parse_taifex_number(cells[index_map["regular_volume"]] if index_map["regular_volume"] is not None and index_map["regular_volume"] < len(cells) else "") or 0,
+            "volume": parse_taifex_number(cells[index_map["volume"]] if index_map["volume"] < len(cells) else ""),
+            "openInterest": parse_taifex_number(cells[index_map["open_interest"]] if index_map["open_interest"] < len(cells) else ""),
+            "afterHoursVolume": parse_taifex_number(cells[index_map["after_hours_volume"]] if index_map["after_hours_volume"] is not None and index_map["after_hours_volume"] < len(cells) else ""),
+            "regularVolume": parse_taifex_number(cells[index_map["regular_volume"]] if index_map["regular_volume"] is not None and index_map["regular_volume"] < len(cells) else ""),
             "bid": bid,
             "ask": ask,
             "historicalHigh": parse_taifex_number(cells[index_map["historical_high"]] if index_map["historical_high"] < len(cells) else ""),
@@ -718,8 +718,8 @@ def parse_yahoo_txo_option_table(
             ask = parse_yahoo_tw_future_number(values[1])
             last = parse_yahoo_tw_future_number(values[2])
             change = parse_yahoo_tw_future_number(values[3])
-            open_interest = parse_yahoo_tw_future_number(values[4]) or 0
-            volume = parse_yahoo_tw_future_number(values[5]) or 0
+            open_interest = parse_yahoo_tw_future_number(values[4])
+            volume = parse_yahoo_tw_future_number(values[5])
             if not any(value is not None for value in (bid, ask, last, change)) and not open_interest and not volume:
                 continue
             mid_price = (bid + ask) / 2 if bid is not None and ask is not None and ask > 0 else None
