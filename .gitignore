@@ -46,5 +46,9 @@ Thumbs.db
 # ===== Node.js =====
 node_modules/
 
+# ===== Cloudflare local tooling =====
+cloudflare/.dev.vars
+.wrangler/
+
 # ===== Windows =====
 desktop.ini

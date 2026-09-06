@@ -1,0 +1,14 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "market-pulse-hybrid-local",
+  "main": "./src/worker.ts",
+  "compatibility_date": "2026-09-06",
+  "workers_dev": false,
+  "preview_urls": false,
+  "send_metrics": false,
+  "assets": {
+    "directory": "../dist/cloudflare-static",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
+  }
+}

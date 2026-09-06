@@ -6,9 +6,15 @@
     "node": ">=24.18.0"
   },
   "scripts": {
-    "build:minify": "node regression/td18_minify_build.js --out .tmp/td18-minify-build"
+    "build:minify": "node regression/td18_minify_build.js --out .tmp/td18-minify-build",
+    "build:cloudflare-static": "python scripts/build-cloudflare-static.py",
+    "verify:cloudflare-static": "python scripts/verify-cloudflare-dist.py",
+    "test:cloudflare-hybrid": "python regression/test_cloudflare_hybrid_local.py",
+    "cloudflare:dev": "wrangler dev --config cloudflare/wrangler.jsonc --local",
+    "cloudflare:dry-run": "wrangler deploy --config cloudflare/wrangler.jsonc --dry-run --outdir .tmp/cloudflare-worker-bundle"
   },
   "devDependencies": {
-    "terser": "5.51.2"
+    "terser": "5.51.2",
+    "wrangler": "4.79.0"
   }
 }

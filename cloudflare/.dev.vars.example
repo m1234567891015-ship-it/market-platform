@@ -1,0 +1,3 @@
+# Copy this file to cloudflare/.dev.vars for local-only Wrangler runs.
+# The Flask/Gunicorn-compatible backend remains the API origin in this topology.
+ORIGIN_API_BASE=http://127.0.0.1:5103
