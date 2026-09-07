@@ -144,7 +144,7 @@ def fetch_from_registry(
     cache_key = None
     if spec.cache_bucket and not force:
         cache_key = spec.cache_key(*resolved_cache_key_args) if spec.cache_key else url
-        cached = read_memory_cache(spec.cache_bucket, cache_key, spec.ttl_seconds or 0)
+        cached = read_memory_cache(spec.cache_bucket, cache_key, spec.ttl_seconds or 0, deadline=deadline)
         if cached is not None:
             return cached
 
@@ -173,7 +173,7 @@ def fetch_from_registry(
 
         result = spec.parser(payload) if spec.parser else payload
         if spec.cache_bucket and cache_key is not None:
-            write_memory_cache(spec.cache_bucket, cache_key, result, spec.ttl_seconds)
+            write_memory_cache(spec.cache_bucket, cache_key, result, spec.ttl_seconds, deadline=deadline)
         return result
 
     # Every registry source has a stable logical key, so concurrent request and

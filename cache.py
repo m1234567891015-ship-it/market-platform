@@ -254,34 +254,68 @@ def _cache_l2_namespace(bucket: str) -> str:
     return f"{CACHE_L2_NAMESPACE}:{bucket}"
 
 
-def read_memory_cache(bucket: str, key: str, ttl_seconds: int | float) -> Any | None:
+def _acquire_cache_lock(deadline: float | None = None) -> bool:
+    if deadline is None:
+        cache_lock.acquire()
+        return True
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        return False
+    return cache_lock.acquire(timeout=remaining)
+
+
+def read_memory_cache(
+    bucket: str,
+    key: str,
+    ttl_seconds: int | float,
+    *,
+    deadline: float | None = None,
+) -> Any | None:
     now = time.time()
-    with cache_lock:
+    if not _acquire_cache_lock(deadline):
+        return None
+    try:
         cached = cache_data.get(bucket, {}).get(key)
+    finally:
+        cache_lock.release()
     if cached and now - float(cached.get("stored_at") or 0) < ttl_seconds:
         return cached.get("payload")
-    if _cache_l2_enabled() and bucket in CACHE_L2_BUCKETS and ttl_seconds > 0:
+    if deadline is None and _cache_l2_enabled() and bucket in CACHE_L2_BUCKETS and ttl_seconds > 0:
         try:
             payload = _get_cache_l2_shared_adapter().cache_get(_cache_l2_namespace(bucket), key)
         except SharedStateError as exc:
             LOGGER.debug("Cache L2 read degraded to local miss bucket=%s error_type=%s", bucket, type(exc).__name__)
         else:
             if payload is not None:
-                with cache_lock:
+                if not _acquire_cache_lock(deadline):
+                    return None
+                try:
                     cache_data.setdefault(bucket, {})[key] = {
                         "stored_at": now,
                         "payload": copy.deepcopy(payload),
                     }
                     enforce_bucket_cap(bucket)
+                finally:
+                    cache_lock.release()
                 LOGGER.debug("Cache L2 hit bucket=%s", bucket)
                 return payload
     return None
 
 
-def read_stale_memory_cache(bucket: str, key: str, max_age_seconds: int | float) -> tuple[Any | None, float | None]:
+def read_stale_memory_cache(
+    bucket: str,
+    key: str,
+    max_age_seconds: int | float,
+    *,
+    deadline: float | None = None,
+) -> tuple[Any | None, float | None]:
     """Return a locally persisted payload only when its age is explicitly bounded."""
-    with cache_lock:
+    if not _acquire_cache_lock(deadline):
+        return None, None
+    try:
         cached = cache_data.get(bucket, {}).get(key)
+    finally:
+        cache_lock.release()
     if not isinstance(cached, dict):
         return None, None
     stored_at = float(cached.get("stored_at") or 0)
@@ -291,11 +325,29 @@ def read_stale_memory_cache(bucket: str, key: str, max_age_seconds: int | float)
     return cached.get("payload"), stored_at
 
 
-def write_memory_cache(bucket: str, key: str, payload: Any, ttl_seconds: int | float | None = None) -> None:
-    with cache_lock:
+def write_memory_cache(
+    bucket: str,
+    key: str,
+    payload: Any,
+    ttl_seconds: int | float | None = None,
+    *,
+    deadline: float | None = None,
+) -> None:
+    if not _acquire_cache_lock(deadline):
+        return
+    try:
         cache_data.setdefault(bucket, {})[key] = {"stored_at": time.time(), "payload": payload}
         enforce_bucket_cap(bucket)
-    if _cache_l2_enabled() and bucket in CACHE_L2_BUCKETS and ttl_seconds and ttl_seconds > 0:
+    finally:
+        cache_lock.release()
+    if (
+        deadline is None
+        and _cache_l2_enabled()
+        and bucket in CACHE_L2_BUCKETS
+        and ttl_seconds
+        and ttl_seconds > 0
+        and (deadline is None or (deadline - time.monotonic()) > 0)
+    ):
         try:
             _get_cache_l2_shared_adapter().cache_set(_cache_l2_namespace(bucket), key, payload, ttl_seconds)
         except (SharedStateError, TypeError, ValueError, OverflowError) as exc:
@@ -439,7 +491,7 @@ def run_cache_single_flight(
     """Run one process-local operation and return its result to bounded followers."""
     if provider_key:
         check_provider_cooldown(provider_key)
-    is_leader, handle = claim_cache_flight(key)
+    is_leader, handle = claim_cache_flight(key, deadline=deadline)
     if not is_leader:
         if not wait_for_cache_flight(handle, deadline=deadline, max_wait=None if deadline is None else max(0.0, deadline - time.monotonic())):
             raise ProviderFlightUnavailable(f"single-flight deadline expired: {key}")
@@ -512,14 +564,24 @@ def _claim_flight(
     local_flights: dict[str, CacheFlightHandle],
     local_lock: threading.Lock,
     lease_prefix: str,
+    deadline: float | None = None,
 ) -> tuple[bool, CacheFlightHandle]:
     """Claim a local flight and, when enabled, a cross-worker lease."""
-    with local_lock:
+    if deadline is None:
+        acquired = local_lock.acquire()
+    else:
+        remaining = deadline - time.monotonic()
+        acquired = remaining > 0 and local_lock.acquire(timeout=remaining)
+    if not acquired:
+        return False, CacheFlightHandle(threading.Event())
+    try:
         existing_handle = local_flights.get(key)
         if existing_handle is not None:
             return False, existing_handle
         handle = CacheFlightHandle(threading.Event())
         local_flights[key] = handle
+    finally:
+        local_lock.release()
 
     if _shared_single_flight_mode() != "redis":
         return True, handle
@@ -558,17 +620,17 @@ def _finish_flight(
             LOGGER.warning("Shared cache-flight release failed error_type=%s", type(exc).__name__)
 
 
-def claim_cache_flight(key: str) -> tuple[bool, CacheFlightHandle]:
+def claim_cache_flight(key: str, *, deadline: float | None = None) -> tuple[bool, CacheFlightHandle]:
     """Elect one request to refresh a cache key while concurrent requests wait."""
-    return _claim_flight(key, cache_flights, cache_flight_lock, "cache-flight")
+    return _claim_flight(key, cache_flights, cache_flight_lock, "cache-flight", deadline)
 
 
 def finish_cache_flight(key: str, handle: CacheFlightHandle) -> None:
     _finish_flight(key, handle, cache_flights, cache_flight_lock)
 
 
-def claim_taifex_options_chain_flight(key: str) -> tuple[bool, CacheFlightHandle]:
-    return _claim_flight(key, taifex_options_chain_inflight, taifex_options_chain_inflight_lock, "options-flight")
+def claim_taifex_options_chain_flight(key: str, *, deadline: float | None = None) -> tuple[bool, CacheFlightHandle]:
+    return _claim_flight(key, taifex_options_chain_inflight, taifex_options_chain_inflight_lock, "options-flight", deadline)
 
 
 def finish_taifex_options_chain_flight(key: str, handle: CacheFlightHandle) -> None:
@@ -680,9 +742,11 @@ def load_disk_cache() -> bool:
     return True
 
 
-def build_disk_cache_snapshot() -> dict[str, Any]:
+def build_disk_cache_snapshot(*, deadline: float | None = None) -> dict[str, Any]:
     """Capture one internally consistent cache generation before writing it to disk."""
-    with cache_lock:
+    if not _acquire_cache_lock(deadline):
+        raise TimeoutError("disk cache snapshot deadline exhausted")
+    try:
         treasury_rows = copy.deepcopy(cache_data.get("treasury_yield_curve_rows") or {})
         return {
             "cache_version": CACHE_VERSION,
@@ -693,11 +757,22 @@ def build_disk_cache_snapshot() -> dict[str, Any]:
             "taifex_options_chain": copy.deepcopy(cache_data.get("taifex_options_chain") or {}),
             "treasury_yield_curve_rows": serialize_treasury_yield_curve_cache(treasury_rows),
         }
+    finally:
+        cache_lock.release()
 
 
-def save_disk_cache(snapshot: dict[str, Any] | None = None) -> None:
+def save_disk_cache(snapshot: dict[str, Any] | None = None, *, deadline: float | None = None) -> None:
     # Serialize outside the shared cache lock. The snapshot is already a single generation.
-    payload = snapshot if snapshot is not None else build_disk_cache_snapshot()
+    # Synchronous filesystem writes have no portable cancellation primitive. A
+    # request-scoped caller therefore skips this optional persistence stage;
+    # background refreshes retain the existing deadline-free behavior.
+    if deadline is not None:
+        return
+    try:
+        payload = snapshot if snapshot is not None else build_disk_cache_snapshot()
+    except TimeoutError:
+        LOGGER.info("Disk cache save skipped after request deadline expired")
+        return
     CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
     temporary_file = CACHE_FILE.with_suffix(f"{CACHE_FILE.suffix}.tmp")
     try:

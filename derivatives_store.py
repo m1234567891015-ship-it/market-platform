@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -214,17 +215,20 @@ class DerivativesStore:
         self._initialized = False
         self._initialize_lock = threading.Lock()
 
-    def _connect(self) -> sqlite3.Connection:
+    def _connect(self, *, deadline: float | None = None) -> sqlite3.Connection:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        connection = sqlite3.connect(self.path, timeout=10)
+        timeout = 10.0 if deadline is None else min(10.0, max(0.001, deadline - time.monotonic()))
+        if deadline is not None and deadline - time.monotonic() <= 0:
+            raise TimeoutError("database deadline exhausted")
+        connection = sqlite3.connect(self.path, timeout=timeout)
         connection.execute("PRAGMA foreign_keys = ON")
         connection.execute("PRAGMA journal_mode = WAL")
         connection.execute("PRAGMA synchronous = NORMAL")
         return connection
 
     @contextmanager
-    def _connection(self) -> Iterator[sqlite3.Connection]:
-        connection = self._connect()
+    def _connection(self, *, deadline: float | None = None) -> Iterator[sqlite3.Connection]:
+        connection = self._connect(deadline=deadline)
         try:
             yield connection
             connection.commit()
@@ -365,7 +369,13 @@ class DerivativesStore:
                 self._prune_to_limit(connection, "futures_quote", "symbol", symbol, self.FUTURES_QUOTE_RETENTION)
                 self._prune_to_limit(connection, "open_interest", "symbol", symbol, self.OPEN_INTEREST_RETENTION)
 
-    def record_option_chain(self, data: dict[str, Any], created_at: str) -> None:
+    def record_option_chain(
+        self,
+        data: dict[str, Any],
+        created_at: str,
+        *,
+        deadline: float | None = None,
+    ) -> None:
         if data.get("error"):
             return
         underlying = str(data.get("underlying") or "TXO").upper()
@@ -376,7 +386,7 @@ class DerivativesStore:
         canonical_data = self._canonical_option_chain(data)
         payload_json = json.dumps(canonical_data, ensure_ascii=False, sort_keys=True)
         touched_contracts: set[str] = set()
-        with self._connection() as connection:
+        with self._connection(deadline=deadline) as connection:
             # Serialize the read/check/write sequence across app processes.
             # The existing identity intentionally permits conflicting payloads,
             # so a database-wide UNIQUE constraint cannot replace this guard.
@@ -543,8 +553,14 @@ class DerivativesStore:
                 )
         return inserted
 
-    def institutional_positions(self, product_code: str, limit: int = 40) -> list[dict[str, Any]]:
-        with self._connection() as connection:
+    def institutional_positions(
+        self,
+        product_code: str,
+        limit: int = 40,
+        *,
+        deadline: float | None = None,
+    ) -> list[dict[str, Any]]:
+        with self._connection(deadline=deadline) as connection:
             rows = connection.execute(
                 """
                 SELECT institution, product_code, long_contracts, short_contracts, net_contracts, trade_date

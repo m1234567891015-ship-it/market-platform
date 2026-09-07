@@ -46,6 +46,8 @@ from fetchers import (
     format_whole_number,
     parse_float,
     parse_taifex_open_interest_by_header,
+    remaining_budget,
+    OPTION_CHAIN_INTERNAL_RESPONSE_MARGIN_SECONDS,
 )
 from builders import (
     STOCK_HISTORY_RECENT_MONTHS,
@@ -491,15 +493,30 @@ def merge_option_side_with_intraday_oi(base: dict[str, Any] | None, supplement: 
     return merged
 
 
-def supplement_taifex_option_payload_with_yahoo_oi(payload: dict[str, Any]) -> dict[str, Any]:
+def supplement_taifex_option_payload_with_yahoo_oi(
+    payload: dict[str, Any],
+    *,
+    deadline: float | None = None,
+) -> dict[str, Any]:
     summary = payload.get("summary") or {}
     selected = str(payload.get("selectedExpiry") or "").strip()
     product = get_taiwan_option_product(str(payload.get("underlying") or "TXO"))
     if not product.get("yahooOpcm"):
         return payload
+    supplement_timeout = 12.0
+    if deadline is not None:
+        remaining = remaining_budget(deadline)
+        if remaining is None or remaining <= OPTION_CHAIN_INTERNAL_RESPONSE_MARGIN_SECONDS:
+            return payload
+        supplement_timeout = remaining - OPTION_CHAIN_INTERNAL_RESPONSE_MARGIN_SECONDS
     yahoo_url = build_yahoo_taiwan_option_url(product["symbol"], selected or None)
     try:
-        yahoo_payload = fetch_yahoo_txo_option_chain(selected or None, product["symbol"])
+        yahoo_payload = fetch_yahoo_txo_option_chain(
+            selected or None,
+            product["symbol"],
+            deadline=deadline,
+            timeout=supplement_timeout,
+        )
     except Exception as exc:  # noqa: BLE001
         LOGGER.info("Yahoo %s intraday OI supplement unavailable", product["symbol"], exc_info=exc)
         return payload

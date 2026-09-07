@@ -56,6 +56,7 @@ own test needed no changes (neither is one of this batch's 16 routes).
 from __future__ import annotations
 
 from datetime import datetime
+import sqlite3
 from typing import Any
 
 from flask import Blueprint, jsonify, request
@@ -91,12 +92,15 @@ from fetchers import (
     BASIS_BACKEND_BUDGET_SECONDS,
     FUTURES_BACKEND_BUDGET_SECONDS,
     INSTITUTION_BACKEND_BUDGET_SECONDS,
+    INSTITUTION_INTERNAL_RESPONSE_MARGIN_SECONDS,
     NEWS_BACKEND_BUDGET_SECONDS,
     OPTION_CHAIN_BACKEND_BUDGET_SECONDS,
+    OPTION_CHAIN_INTERNAL_RESPONSE_MARGIN_SECONDS,
     OPTIONS_BACKEND_BUDGET_SECONDS,
     PCR_BACKEND_BUDGET_SECONDS,
     deadline_after,
     parse_float,
+    remaining_budget,
 )
 from market_config import TAIFEX_FUTURES_DAILY_URL, TAIFEX_OPTIONS_DAILY_URL
 from parsers import TAIWAN_OPTION_PRODUCTS, find_derivative_spec, normalize_taiwan_option_source
@@ -357,8 +361,13 @@ def api_open_interest():
 def api_institutional_position():
     import app
 
+    deadline = deadline_after(INSTITUTION_BACKEND_BUDGET_SECONDS - INSTITUTION_INTERNAL_RESPONSE_MARGIN_SECONDS)
     product = str(request.args.get("product") or "TX").strip().upper()
-    rows = app.DERIVATIVES_STORE.institutional_positions(product)
+    try:
+        rows = app.DERIVATIVES_STORE.institutional_positions(product, deadline=deadline)
+    except (TimeoutError, sqlite3.OperationalError) as exc:
+        app.LOGGER.info("Institution SQLite lookup skipped after request deadline or lock timeout: %s", exc)
+        rows = []
     if rows:
         payload = build_institution_payload_from_rows(product, rows, TAIFEX_FUTURES_DAILY_URL)
     else:
@@ -367,7 +376,7 @@ def api_institutional_position():
         payload = build_institution_payload_live(
             product,
             source_url,
-            deadline=deadline_after(INSTITUTION_BACKEND_BUDGET_SECONDS),
+            deadline=deadline,
         ) or build_pending_institution_payload(product, TAIFEX_FUTURES_DAILY_URL)
     return jsonify(app.api_success_payload(payload))
 
@@ -530,6 +539,7 @@ def api_future_technical_candles(symbol: str):
 def api_options_chain():
     import app
 
+    deadline = deadline_after(OPTION_CHAIN_BACKEND_BUDGET_SECONDS - OPTION_CHAIN_INTERNAL_RESPONSE_MARGIN_SECONDS)
     underlying = normalize_taiwan_option_underlying(str(request.args.get("underlying") or "TXO"))
     expiry = str(request.args.get("expiry") or "").strip() or None
     date = str(request.args.get("date") or "").strip() or None
@@ -540,7 +550,7 @@ def api_options_chain():
             market_date=date,
             source=source,
             underlying=underlying,
-            deadline=deadline_after(OPTION_CHAIN_BACKEND_BUDGET_SECONDS),
+            deadline=deadline,
         )
     except ValueError:
         return jsonify(app.api_error_payload("INVALID_DATE", "日期格式需為 YYYYMMDD 或 YYYY-MM-DD")), 400
@@ -548,7 +558,15 @@ def api_options_chain():
         return app.api_exception_response("DATA_SOURCE_ERROR", app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc, 502)
     if data.get("error"):
         return jsonify(app.api_success_payload(build_derivatives_unavailable_option_chain(str(data.get("error")), TAIFEX_OPTIONS_DAILY_URL, underlying)))
-    app.DERIVATIVES_STORE.record_option_chain(data, datetime.now(app.TZ).isoformat())
+    if (remaining_budget(deadline) or 0) > OPTION_CHAIN_INTERNAL_RESPONSE_MARGIN_SECONDS:
+        try:
+            app.DERIVATIVES_STORE.record_option_chain(
+                data,
+                datetime.now(app.TZ).isoformat(),
+                deadline=deadline,
+            )
+        except (TimeoutError, sqlite3.OperationalError) as exc:
+            app.LOGGER.info("Option-chain persistence skipped after request deadline or lock timeout: %s", exc)
     return jsonify(app.api_success_payload(data))
 
 

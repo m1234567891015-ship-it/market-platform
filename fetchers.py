@@ -299,8 +299,10 @@ YAHOO_MAX_RETRY = 1
 FUTURES_BACKEND_BUDGET_SECONDS = 25.0
 OPTIONS_BACKEND_BUDGET_SECONDS = 40.0
 OPTION_CHAIN_BACKEND_BUDGET_SECONDS = 30.0
+OPTION_CHAIN_INTERNAL_RESPONSE_MARGIN_SECONDS = 0.25
 PCR_BACKEND_BUDGET_SECONDS = 20.0
 INSTITUTION_BACKEND_BUDGET_SECONDS = 10.0
+INSTITUTION_INTERNAL_RESPONSE_MARGIN_SECONDS = 0.25
 BASIS_BACKEND_BUDGET_SECONDS = 20.0
 AI_ANALYSIS_BACKEND_BUDGET_SECONDS = 35.0
 NEWS_BACKEND_BUDGET_SECONDS = 15.0
@@ -3868,15 +3870,12 @@ def fetch_taifex_txo_option_chain(
     import builders  # deferred: PUBLIC_TAIFEX_OPTION_CHAIN_ERROR_MESSAGE moved to builders.py in TD-01 slice 4 - separate deferred import from `app` above since this one name's home diverged from the rest of this function's app.X references
 
     product = app.get_taiwan_option_product(underlying)
-    chain_deadline = min(
-        deadline if deadline is not None else deadline_after(TAIFEX_OPTION_CHAIN_TOTAL_BUDGET_SECONDS),
-        deadline_after(TAIFEX_OPTION_CHAIN_TOTAL_BUDGET_SECONDS),
-    )
+    chain_deadline = deadline if deadline is not None else deadline_after(TAIFEX_OPTION_CHAIN_TOTAL_BUDGET_SECONDS)
     query_date = parse_taifex_query_date(market_date)
     cache_key = f"{product['symbol']}:{query_date}:{expiry or ''}"
-    cached_payload = read_memory_cache("taifex_options_chain", cache_key, OPTIONS_CHAIN_CACHE_SECONDS)
+    cached_payload = read_memory_cache("taifex_options_chain", cache_key, OPTIONS_CHAIN_CACHE_SECONDS, deadline=chain_deadline)
     if cached_payload is not None:
-        return {**app.supplement_taifex_option_payload_with_yahoo_oi(cached_payload), "cached": True}
+        return {**app.supplement_taifex_option_payload_with_yahoo_oi(cached_payload, deadline=chain_deadline), "cached": True}
 
     def unavailable_payload() -> dict[str, Any]:
         return {
@@ -3893,7 +3892,7 @@ def fetch_taifex_txo_option_chain(
             ],
         }
 
-    is_leader, leader_event = claim_taifex_options_chain_flight(cache_key)
+    is_leader, leader_event = claim_taifex_options_chain_flight(cache_key, deadline=chain_deadline)
 
     if not is_leader:
         leader_wait = remaining_budget(chain_deadline)
@@ -3902,9 +3901,9 @@ def fetch_taifex_txo_option_chain(
             deadline=chain_deadline,
             max_wait=max(0.0, leader_wait or 0.0),
         )
-        cached_payload = read_memory_cache("taifex_options_chain", cache_key, OPTIONS_CHAIN_CACHE_SECONDS)
+        cached_payload = read_memory_cache("taifex_options_chain", cache_key, OPTIONS_CHAIN_CACHE_SECONDS, deadline=chain_deadline)
         if cached_payload is not None:
-            return {**app.supplement_taifex_option_payload_with_yahoo_oi(cached_payload), "cached": True}
+            return {**app.supplement_taifex_option_payload_with_yahoo_oi(cached_payload, deadline=chain_deadline), "cached": True}
         # A follower never starts a second scan after its own wait expires or
         # after a leader fails; return the existing fail-closed contract.
         return unavailable_payload()
@@ -3941,16 +3940,17 @@ def fetch_taifex_txo_option_chain(
             if not rows:
                 continue
             payload = app.supplement_taifex_option_payload_with_yahoo_oi(
-                app.build_taifex_txo_option_payload(rows, target.strftime("%Y-%m-%d"), expiry, product["symbol"], spot_snapshot)
+                app.build_taifex_txo_option_payload(rows, target.strftime("%Y-%m-%d"), expiry, product["symbol"], spot_snapshot),
+                deadline=chain_deadline,
             )
-            write_memory_cache("taifex_options_chain", cache_key, payload, OPTIONS_CHAIN_CACHE_SECONDS)
-            save_disk_cache()
+            write_memory_cache("taifex_options_chain", cache_key, payload, OPTIONS_CHAIN_CACHE_SECONDS, deadline=chain_deadline)
+            save_disk_cache(deadline=chain_deadline)
             return {**payload, "cached": False}
-        stale_payload, stale_at = read_stale_memory_cache("taifex_options_chain", cache_key, 24 * 60 * 60)
+        stale_payload, stale_at = read_stale_memory_cache("taifex_options_chain", cache_key, 24 * 60 * 60, deadline=chain_deadline)
         if isinstance(stale_payload, dict) and stale_payload.get("chain") and stale_payload.get("tradeDate"):
             LOGGER.warning("TAIFEX %s source unavailable; serving verified stale chain tradeDate=%s stored_at=%s", product["symbol"], stale_payload.get("tradeDate"), stale_at)
             return {
-                **app.supplement_taifex_option_payload_with_yahoo_oi(stale_payload),
+                **app.supplement_taifex_option_payload_with_yahoo_oi(stale_payload, deadline=chain_deadline),
                 "cached": True,
                 "stale": True,
                 "staleAt": stale_at,
@@ -3968,13 +3968,13 @@ def fetch_taifex_openapi_list(
     *,
     deadline: float | None = None,
 ) -> list[dict[str, Any]]:
-    cached = read_memory_cache("taifex_openapi_list", url, cache_seconds)
+    cached = read_memory_cache("taifex_openapi_list", url, cache_seconds, deadline=deadline)
     if cached is not None:
         return cached
     rows = fetch_json(url, timeout=timeout, deadline=deadline)
     if not isinstance(rows, list):
         rows = []
-    write_memory_cache("taifex_openapi_list", url, rows, cache_seconds)
+    write_memory_cache("taifex_openapi_list", url, rows, cache_seconds, deadline=deadline)
     return rows
 
 
@@ -4025,6 +4025,7 @@ def fetch_yahoo_txo_option_chain(
     underlying: str | None = "TXO",
     *,
     deadline: float | None = None,
+    timeout: float = 12,
 ) -> dict[str, Any]:
     import app  # deferred: option-chain product config + HTML payload parser stay in app.py
 
@@ -4044,14 +4045,14 @@ def fetch_yahoo_txo_option_chain(
             ],
         }
     cache_key = f"{product['symbol']}:{expiry or ''}"
-    cached_payload = read_memory_cache("yahoo_tw_option_chain", cache_key, YAHOO_TW_OPTION_CACHE_SECONDS)
+    cached_payload = read_memory_cache("yahoo_tw_option_chain", cache_key, YAHOO_TW_OPTION_CACHE_SECONDS, deadline=deadline)
     if cached_payload is not None:
         return {**cached_payload, "cached": True}
     yahoo_url = app.build_yahoo_taiwan_option_url(product["symbol"], expiry)
-    html = fetch_text(yahoo_url, timeout=12, deadline=deadline)
+    html = fetch_text(yahoo_url, timeout=timeout, deadline=deadline)
     payload = app.parse_yahoo_txo_option_page(html, product["symbol"], expiry)
     if not payload.get("error"):
-        write_memory_cache("yahoo_tw_option_chain", cache_key, payload, YAHOO_TW_OPTION_CACHE_SECONDS)
+        write_memory_cache("yahoo_tw_option_chain", cache_key, payload, YAHOO_TW_OPTION_CACHE_SECONDS, deadline=deadline)
     return {**payload, "cached": False}
 
 
@@ -4063,10 +4064,7 @@ def fetch_txo_option_chain(
     *,
     deadline: float | None = None,
 ) -> dict[str, Any]:
-    chain_deadline = min(
-        deadline if deadline is not None else deadline_after(OPTION_CHAIN_BACKEND_BUDGET_SECONDS),
-        deadline_after(OPTION_CHAIN_BACKEND_BUDGET_SECONDS),
-    )
+    chain_deadline = deadline if deadline is not None else deadline_after(OPTION_CHAIN_BACKEND_BUDGET_SECONDS)
     return fetch_taiwan_option_chain(
         underlying=underlying,
         expiry=expiry,
