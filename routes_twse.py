@@ -67,7 +67,6 @@ from builders import (
     build_yahoo_class_quote_cards,
 )
 from cache import (
-    CACHE_FLIGHT_WAIT_SECONDS,
     cache_data,
     cache_lock,
     claim_cache_flight,
@@ -75,6 +74,7 @@ from cache import (
     finish_cache_flight,
     read_memory_cache,
     save_disk_cache,
+    wait_for_cache_flight,
     write_memory_cache,
 )
 from fetchers import (
@@ -762,7 +762,7 @@ def api_stock_detail(code: str):
     if detail is None:
         is_leader, flight = claim_cache_flight(f"stock-detail:{cache_key}")
         if not is_leader:
-            flight.wait(CACHE_FLIGHT_WAIT_SECONDS)
+            wait_for_cache_flight(flight)
             detail = read_memory_cache("stock_details", cache_key, CACHE_TTL_SECONDS["stock_detail"])
             if detail is None:
                 return jsonify(app.api_error_payload("CACHE_REFRESH_UNAVAILABLE", app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE)), 503

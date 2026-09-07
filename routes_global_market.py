@@ -75,12 +75,12 @@ from builders import (
     normalize_taiwan_option_underlying,
 )
 from cache import (
-    CACHE_FLIGHT_WAIT_SECONDS,
     cache_data,
     cache_lock,
     claim_cache_flight,
     finish_cache_flight,
     read_memory_cache,
+    wait_for_cache_flight,
     write_memory_cache,
 )
 from fetchers import (
@@ -154,7 +154,7 @@ def api_global_market(category: str):
 
     is_leader, flight = claim_cache_flight(f"global-market:{cache_key}")
     if not is_leader:
-        flight.wait(CACHE_FLIGHT_WAIT_SECONDS)
+        wait_for_cache_flight(flight)
         refreshed_payload = read_memory_cache("global_markets", cache_key, GLOBAL_MARKET_CACHE_SECONDS)
         if refreshed_payload:
             shared_payload = copy.deepcopy(refreshed_payload)
@@ -245,7 +245,7 @@ def api_us_market_etf_center():
 
     is_leader, flight = claim_cache_flight(f"us-etf-center:{cache_key}")
     if not is_leader:
-        flight.wait(CACHE_FLIGHT_WAIT_SECONDS)
+        wait_for_cache_flight(flight)
         refreshed_payload = read_memory_cache("us_etf_center", cache_key, US_ETF_CENTER_CACHE_SECONDS)
         if refreshed_payload:
             return jsonify({**copy.deepcopy(refreshed_payload), "cached": True})

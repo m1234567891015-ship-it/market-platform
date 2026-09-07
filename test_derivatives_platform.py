@@ -145,6 +145,8 @@ class DerivativesPlatformApiTests(unittest.TestCase):
 
     def setUp(self):
         self.client = app.app.test_client()
+        with cache.provider_cooldown_lock:
+            cache.provider_cooldowns.clear()
 
     def test_importing_app_does_not_create_database(self):
         with tempfile.TemporaryDirectory(prefix="market-pulse-import-check-") as tmp_name:
@@ -244,7 +246,7 @@ class DerivativesPlatformApiTests(unittest.TestCase):
     def test_taiwan_option_product_switch_routes(self):
         calls = []
 
-        def fake_chain(expiry=None, market_date=None, source="auto", underlying="TXO"):
+        def fake_chain(expiry=None, market_date=None, source="auto", underlying="TXO", **kwargs):
             calls.append((underlying, expiry, source, market_date))
             return {
                 **OPTIONS_CHAIN,

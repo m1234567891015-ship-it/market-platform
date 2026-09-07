@@ -49,6 +49,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from market_config import CACHE_BUCKET_MAX_ENTRIES, CACHE_TTL_SECONDS, EXCLUDED_SECTOR_SOURCE_NAMES
 from shared_state import (
@@ -71,8 +72,9 @@ PUBLIC_CACHE_ERROR_MESSAGE = "背景資料更新暫時無法完成，請稍後�
 cache_lock = threading.RLock()
 cache_refresh_lock = threading.Lock()
 cache_flight_lock = threading.Lock()
-cache_flights: dict[str, threading.Event] = {}
+cache_flights: dict[str, CacheFlightHandle] = {}
 CACHE_FLIGHT_WAIT_SECONDS = 120
+CACHE_FLIGHT_FOLLOWER_MAX_WAIT_SECONDS = 2.0
 SINGLE_FLIGHT_MODE = os.environ.get("MARKET_PULSE_SINGLE_FLIGHT_MODE", "local").strip().lower()
 SINGLE_FLIGHT_LEASE_TTL_SECONDS = CACHE_FLIGHT_WAIT_SECONDS
 SINGLE_FLIGHT_POLL_SECONDS = 0.25
@@ -116,8 +118,13 @@ PENNY_SECTOR_RECOMMENDATION_CACHE_SECONDS = CACHE_TTL_SECONDS["penny_sector_reco
 # /api/options/chain and /api/ai-analysis for the same underlying at once) so only one of them
 # runs the ~12-day TAIFEX scan; the rest wait for and reuse that real result instead of each
 # triggering their own redundant scan.
-taifex_options_chain_inflight: dict[str, threading.Event] = {}
+taifex_options_chain_inflight: dict[str, CacheFlightHandle] = {}
 taifex_options_chain_inflight_lock = threading.Lock()
+
+PROVIDER_FAILURE_COOLDOWN_SECONDS = 45.0
+PROVIDER_COOLDOWN_MAX_ENTRIES = 64
+provider_cooldown_lock = threading.Lock()
+provider_cooldowns: dict[str, float] = {}
 
 cache_data: dict[str, Any] = {
     "site_data": None,
@@ -309,6 +316,9 @@ class CacheFlightHandle:
         self.shared_adapter = shared_adapter
         self.lease_name = lease_name
         self.owner_token = owner_token
+        self.result: Any = None
+        self.error: BaseException | None = None
+        self.result_ready = False
 
     @property
     def uses_shared_lease(self) -> bool:
@@ -317,7 +327,7 @@ class CacheFlightHandle:
     def wait(self, timeout: float | None = None) -> bool:
         if not self.uses_shared_lease:
             return self.event.wait(timeout)
-        wait_seconds = CACHE_FLIGHT_WAIT_SECONDS if timeout is None else max(0.0, timeout)
+        wait_seconds = CACHE_FLIGHT_FOLLOWER_MAX_WAIT_SECONDS if timeout is None else max(0.0, timeout)
         deadline = time.monotonic() + wait_seconds
         while True:
             try:
@@ -330,6 +340,128 @@ class CacheFlightHandle:
             if remaining <= 0:
                 return False
             time.sleep(min(SINGLE_FLIGHT_POLL_SECONDS, remaining))
+
+
+class ProviderCooldownError(RuntimeError):
+    """A provider is in a short local failure cooldown; no data was fabricated."""
+
+
+class ProviderFlightUnavailable(RuntimeError):
+    """A follower could not obtain a result within its own bounded deadline."""
+
+
+def provider_key_for_url(url: str) -> str:
+    """Return a stable, provider-scoped identity without retaining arbitrary URLs."""
+    parsed = urlsplit(str(url or ""))
+    host = (parsed.hostname or "").strip().lower()
+    return f"host:{host}" if host else f"url:{str(url or '').strip()[:96]}"
+
+
+def _provider_failure_kind(error: BaseException | str) -> str | None:
+    if isinstance(error, str):
+        error_text = error.lower()
+        error_name = ""
+    else:
+        error_text = str(error).lower()
+        error_name = type(error).__name__.lower()
+    if "deadline exhausted before next attempt" in error_text:
+        return None
+    if "timeout" in error_name or "timeout" in error_text:
+        return "timeout"
+    if isinstance(error, OSError) or any(token in error_name for token in ("urlerror", "network", "connection")):
+        return "network_error"
+    return None
+
+
+def provider_cooldown_active(provider_key: str) -> bool:
+    key = str(provider_key or "").strip()
+    if not key:
+        return False
+    now = time.monotonic()
+    with provider_cooldown_lock:
+        expires_at = provider_cooldowns.get(key)
+        if expires_at is None:
+            return False
+        if expires_at <= now:
+            provider_cooldowns.pop(key, None)
+            return False
+        return True
+
+
+def check_provider_cooldown(provider_key: str) -> None:
+    if provider_cooldown_active(provider_key):
+        raise ProviderCooldownError(f"provider cooldown active: {provider_key}")
+
+
+def record_provider_failure(provider_key: str, error: BaseException | str) -> bool:
+    """Record only timeout/network failures in a bounded monotonic map."""
+    kind = _provider_failure_kind(error)
+    key = str(provider_key or "").strip()
+    if not kind or not key:
+        return False
+    now = time.monotonic()
+    with provider_cooldown_lock:
+        for expired_key, expires_at in list(provider_cooldowns.items()):
+            if expires_at <= now:
+                provider_cooldowns.pop(expired_key, None)
+        if key not in provider_cooldowns and len(provider_cooldowns) >= PROVIDER_COOLDOWN_MAX_ENTRIES:
+            oldest_key = min(provider_cooldowns, key=provider_cooldowns.get)
+            provider_cooldowns.pop(oldest_key, None)
+        provider_cooldowns[key] = now + PROVIDER_FAILURE_COOLDOWN_SECONDS
+    return True
+
+
+def clear_provider_cooldown(provider_key: str) -> None:
+    with provider_cooldown_lock:
+        provider_cooldowns.pop(str(provider_key or "").strip(), None)
+
+
+def wait_for_cache_flight(
+    handle: CacheFlightHandle,
+    *,
+    deadline: float | None = None,
+    max_wait: float | None = None,
+) -> bool:
+    """Wait only within the caller deadline and a short default ceiling."""
+    wait_limit = CACHE_FLIGHT_FOLLOWER_MAX_WAIT_SECONDS if max_wait is None else max(0.0, float(max_wait))
+    if deadline is not None:
+        wait_limit = min(wait_limit, max(0.0, deadline - time.monotonic()))
+    return handle.wait(wait_limit)
+
+
+def run_cache_single_flight(
+    key: str,
+    operation,
+    *,
+    deadline: float | None = None,
+    provider_key: str | None = None,
+) -> Any:
+    """Run one process-local operation and return its result to bounded followers."""
+    if provider_key:
+        check_provider_cooldown(provider_key)
+    is_leader, handle = claim_cache_flight(key)
+    if not is_leader:
+        if not wait_for_cache_flight(handle, deadline=deadline, max_wait=None if deadline is None else max(0.0, deadline - time.monotonic())):
+            raise ProviderFlightUnavailable(f"single-flight deadline expired: {key}")
+        if handle.error is not None:
+            raise handle.error
+        if not handle.result_ready:
+            raise ProviderFlightUnavailable(f"single-flight result unavailable: {key}")
+        return handle.result
+    try:
+        result = operation()
+        handle.result = result
+        handle.result_ready = True
+        if provider_key:
+            clear_provider_cooldown(provider_key)
+        return result
+    except BaseException as exc:
+        handle.error = exc
+        if provider_key:
+            record_provider_failure(provider_key, exc)
+        raise
+    finally:
+        finish_cache_flight(key, handle)
 
 
 def _shared_single_flight_mode() -> str:
@@ -377,43 +509,46 @@ def _get_single_flight_shared_adapter() -> SharedStateAdapter:
 
 def _claim_flight(
     key: str,
-    local_flights: dict[str, threading.Event],
+    local_flights: dict[str, CacheFlightHandle],
     local_lock: threading.Lock,
     lease_prefix: str,
 ) -> tuple[bool, CacheFlightHandle]:
     """Claim a local flight and, when enabled, a cross-worker lease."""
     with local_lock:
-        event = local_flights.get(key)
-        if event is not None:
-            return False, CacheFlightHandle(event)
-        event = threading.Event()
-        local_flights[key] = event
+        existing_handle = local_flights.get(key)
+        if existing_handle is not None:
+            return False, existing_handle
+        handle = CacheFlightHandle(threading.Event())
+        local_flights[key] = handle
 
     if _shared_single_flight_mode() != "redis":
-        return True, CacheFlightHandle(event)
+        return True, handle
 
     lease_name = f"{lease_prefix}:{key}"
     owner_token = f"{os.getpid()}:{threading.get_ident()}:{time.time_ns()}"
     try:
         adapter = _get_single_flight_shared_adapter()
         if adapter.acquire_lease(lease_name, owner_token, SINGLE_FLIGHT_LEASE_TTL_SECONDS):
-            return True, CacheFlightHandle(event, adapter, lease_name, owner_token)
+            handle.shared_adapter = adapter
+            handle.lease_name = lease_name
+            handle.owner_token = owner_token
+            return True, handle
         with local_lock:
             local_flights.pop(key, None)
         return False, CacheFlightHandle(threading.Event(), adapter, lease_name)
     except SharedStateError as exc:
         LOGGER.warning("Shared cache-flight claim degraded to local path error_type=%s", type(exc).__name__)
-        return True, CacheFlightHandle(event)
+        return True, handle
 
 
 def _finish_flight(
     key: str,
     handle: CacheFlightHandle,
-    local_flights: dict[str, threading.Event],
+    local_flights: dict[str, CacheFlightHandle],
     local_lock: threading.Lock,
 ) -> None:
     with local_lock:
-        if local_flights.get(key) is handle.event:
+        if local_flights.get(key) is handle:
             local_flights.pop(key, None)
             handle.event.set()
     if handle.uses_shared_lease and handle.owner_token:
@@ -576,7 +711,7 @@ def save_disk_cache(snapshot: dict[str, Any] | None = None) -> None:
             pass
 
 
-def refresh_cache() -> None:
+def _refresh_cache_impl() -> None:
     import app  # deferred: avoids a module-load-time app.py <-> cache.py import cycle
 
     with cache_lock:
@@ -596,6 +731,16 @@ def refresh_cache() -> None:
         cache_data["last_error"] = None
         cache_data["stock_details"] = {}
     save_disk_cache()
+
+
+def refresh_cache(*, deadline: float | None = None) -> bool:
+    """Refresh site data without holding a broad coordination lock over I/O."""
+    result = run_cache_single_flight(
+        "site-data-refresh",
+        _refresh_cache_impl,
+        deadline=deadline,
+    )
+    return result is not False
 
 
 def _background_updater_mode() -> str:
@@ -760,24 +905,26 @@ def ensure_cache() -> None:
     with cache_lock:
         has_site_data = cache_data["site_data"] is not None
     if not has_site_data:
-        with cache_refresh_lock:
+        def cold_refresh() -> bool:
             with cache_lock:
-                has_site_data = cache_data["site_data"] is not None
-            if has_site_data:
-                return
+                already_loaded = cache_data["site_data"] is not None
+            if already_loaded:
+                return True
             load_disk_cache()
             with cache_lock:
-                has_site_data = cache_data["site_data"] is not None
-            if has_site_data:
-                return
+                already_loaded = cache_data["site_data"] is not None
+            if already_loaded:
+                return True
             LOGGER.info("Cold cache refresh started")
-            try:
-                refresh_cache()
-            except Exception:
-                LOGGER.exception("Cold cache refresh failed")
-                raise
+            refresh_cache()
             LOGGER.info("Cold cache refresh finished")
-        return
+            return True
+
+        run_cache_single_flight("site-data-cold-refresh", cold_refresh)
+        with cache_lock:
+            has_site_data = cache_data["site_data"] is not None
+        if not has_site_data:
+            raise RuntimeError("冷快取同步未完成，請稍後再試")
 
 
 def start_background_updater() -> None:

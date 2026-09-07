@@ -39,15 +39,45 @@ from __future__ import annotations
 
 import inspect
 import json
+import time
 from dataclasses import dataclass
 from typing import Any, Callable, Literal
 from urllib.request import Request
 
 import market_config
-from cache import read_memory_cache, write_memory_cache
+from cache import (
+    check_provider_cooldown,
+    provider_key_for_url,
+    read_memory_cache,
+    run_cache_single_flight,
+    write_memory_cache,
+)
 from security import _urlopen_with_ssl_fallback
 
 DEFAULT_USER_AGENT = "market-pulse-fetcher/1.0"
+
+
+def deadline_after(total_seconds: float, now: float | None = None) -> float:
+    """Return a monotonic deadline for a bounded provider operation."""
+    return (time.monotonic() if now is None else now) + max(0.0, float(total_seconds))
+
+
+def remaining_budget(deadline: float | None, now: float | None = None) -> float | None:
+    """Return remaining seconds, or ``None`` when no deadline is active."""
+    if deadline is None:
+        return None
+    return float(deadline) - (time.monotonic() if now is None else now)
+
+
+def bounded_timeout(timeout: float | int, deadline: float | None = None) -> float:
+    """Bound one blocking HTTP call by its caller's overall deadline."""
+    requested = max(0.001, float(timeout))
+    remaining = remaining_budget(deadline)
+    if remaining is None:
+        return requested
+    if remaining <= 0:
+        raise TimeoutError("provider deadline exhausted before next attempt")
+    return min(requested, remaining)
 
 
 @dataclass(frozen=True)
@@ -87,6 +117,7 @@ def fetch_from_registry(
     cache_key_args: tuple | None = None,
     force: bool = False,
     timeout: int | None = None,
+    deadline: float | None = None,
     **params: Any,
 ) -> Any:
     """Resolve and execute the SourceSpec registered under *name*.
@@ -117,25 +148,44 @@ def fetch_from_registry(
         if cached is not None:
             return cached
 
-    req = Request(url, headers=headers, method="POST" if spec.method == "POST" else "GET")
-    with _urlopen_with_ssl_fallback(req, timeout if timeout is not None else spec.timeout) as response:
-        raw = response.read()
-        if spec.response_type == "binary":
-            payload: Any = raw
-        elif spec.response_type == "text":
-            if spec.decode == "sniff_cp950_big5":
-                content_type = str(response.headers.get("Content-Type") or "").lower()
-                encoding = "cp950" if ("ms950" in content_type or "big5" in content_type) else "utf-8"
-            else:
-                encoding = "utf-8"
-            payload = raw.decode(encoding, errors=spec.decode_errors)
-        else:
-            payload = json.loads(raw.decode("utf-8"))
+    provider_key = provider_key_for_url(url)
+    check_provider_cooldown(provider_key)
 
-    result = spec.parser(payload) if spec.parser else payload
-    if spec.cache_bucket and cache_key is not None:
-        write_memory_cache(spec.cache_bucket, cache_key, result, spec.ttl_seconds)
-    return result
+    def fetch_uncached() -> Any:
+        req = Request(url, headers=headers, method="POST" if spec.method == "POST" else "GET")
+        call_timeout = bounded_timeout(timeout if timeout is not None else spec.timeout, deadline)
+        try:
+            with _urlopen_with_ssl_fallback(req, call_timeout) as response:
+                raw = response.read()
+                if spec.response_type == "binary":
+                    payload: Any = raw
+                elif spec.response_type == "text":
+                    if spec.decode == "sniff_cp950_big5":
+                        content_type = str(response.headers.get("Content-Type") or "").lower()
+                        encoding = "cp950" if ("ms950" in content_type or "big5" in content_type) else "utf-8"
+                    else:
+                        encoding = "utf-8"
+                    payload = raw.decode(encoding, errors=spec.decode_errors)
+                else:
+                    payload = json.loads(raw.decode("utf-8"))
+        except (OSError, TimeoutError):
+            raise
+
+        result = spec.parser(payload) if spec.parser else payload
+        if spec.cache_bucket and cache_key is not None:
+            write_memory_cache(spec.cache_bucket, cache_key, result, spec.ttl_seconds)
+        return result
+
+    # Every registry source has a stable logical key, so concurrent request and
+    # background misses share one local provider call. The operation itself is
+    # still bounded by the leader's existing caller deadline.
+    flight_key = f"registry:{spec.name}:{cache_key or url}"
+    return run_cache_single_flight(
+        flight_key,
+        fetch_uncached,
+        deadline=deadline,
+        provider_key=provider_key,
+    )
 
 
 def _known_ttl_values() -> set[int]:

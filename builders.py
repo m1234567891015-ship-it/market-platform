@@ -219,7 +219,7 @@ import logging
 import math
 import re
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait
 from datetime import datetime, timedelta, timezone
 from html import unescape
 from typing import Any
@@ -228,7 +228,6 @@ from urllib.parse import quote, unquote, urlencode
 from urllib.request import Request
 
 from cache import (
-    CACHE_FLIGHT_WAIT_SECONDS,
     PENNY_SECTOR_RECOMMENDATION_CACHE_SECONDS,
     cache_data,
     cache_lock,
@@ -238,6 +237,7 @@ from cache import (
     penny_sector_recommendation_lock,
     read_memory_cache,
     sanitize_site_data,
+    wait_for_cache_flight,
     write_memory_cache,
 )
 from derivatives.analytics import enrich_futures_ai_decision, enrich_option_ai_decision
@@ -254,6 +254,7 @@ from fetchers import (
     build_tpex_openapi_url,
     build_yahoo_chart_series,
     collect_futures_until_deadline,
+    deadline_after,
     dataset_has_rows,
     detect_tone,
     extract_balanced_segment,
@@ -319,6 +320,10 @@ from fetchers import (
     parse_public_options_number,
     parse_roc_date,
     parse_taifex_market_number,
+    FUTURES_BACKEND_BUDGET_SECONDS,
+    OPTIONS_BACKEND_BUDGET_SECONDS,
+    YAHOO_MAX_RETRY,
+    remaining_budget,
     shift_month,
 )
 from parsers import (
@@ -887,7 +892,11 @@ def yahoo_future_quote_can_override_taifex(yahoo_quote: dict[str, Any] | None, s
     return yahoo_date >= snapshot_date - timedelta(days=1)
 
 
-def build_taifex_open_interest_item(spec: dict[str, Any]) -> dict[str, Any]:
+def build_taifex_open_interest_item(
+    spec: dict[str, Any],
+    *,
+    deadline: float | None = None,
+) -> dict[str, Any]:
     import app
 
     symbol = str(spec.get("symbol") or "").strip()
@@ -918,13 +927,13 @@ def build_taifex_open_interest_item(spec: dict[str, Any]) -> dict[str, Any]:
     }
     snapshot = None
     try:
-        snapshot = fetch_taifex_latest_futures_market_snapshot(commodity)
+        snapshot = fetch_taifex_latest_futures_market_snapshot(commodity, deadline=deadline)
     except Exception as exc:  # noqa: BLE001
         app.LOGGER.exception("TAIFEX futures daily market item fetch failed for symbol=%s", symbol, exc_info=exc)
         snapshot = None
     yahoo_quote = None
     try:
-        yahoo_quote = fetch_yahoo_taiwan_future_quote(symbol)
+        yahoo_quote = fetch_yahoo_taiwan_future_quote(symbol, deadline=deadline)
     except Exception as exc:  # noqa: BLE001
         app.LOGGER.warning("Yahoo Taiwan futures quote fetch failed for symbol=%s: %s", symbol, exc)
     if not snapshot and not yahoo_quote:
@@ -1026,7 +1035,11 @@ def build_taifex_open_interest_item(spec: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def build_txo_option_market_item(spec: dict[str, Any]) -> dict[str, Any]:
+def build_txo_option_market_item(
+    spec: dict[str, Any],
+    *,
+    deadline: float | None = None,
+) -> dict[str, Any]:
     import app
 
     symbol = normalize_taiwan_option_underlying(str(spec.get("taifexCommodity") or spec.get("symbol") or "TXO"))
@@ -1064,7 +1077,7 @@ def build_txo_option_market_item(spec: dict[str, Any]) -> dict[str, Any]:
         "optionChainUnavailableReason": spec.get("optionChainUnavailableReason") or "",
     }
     try:
-        chain = fetch_txo_option_chain(source="auto", underlying=symbol)
+        chain = fetch_txo_option_chain(source="auto", underlying=symbol, deadline=deadline)
     except Exception as exc:  # noqa: BLE001
         app.LOGGER.exception("%s option market item fetch failed", symbol, exc_info=exc)
         return {**base_item, "error": PUBLIC_TAIFEX_OPTION_CHAIN_ERROR_MESSAGE}
@@ -1441,11 +1454,16 @@ def build_futures_ai_analysis(item: dict[str, Any]) -> dict[str, Any]:
 TAIFEX_INSTITUTION_ITEM_LABEL_MAP = {"自營商": "自營商", "投信": "投信", "外資及陸資": "外資"}
 
 
-def build_institution_payload_live(product: str, source_url: str) -> dict[str, Any] | None:
+def build_institution_payload_live(
+    product: str,
+    source_url: str,
+    *,
+    deadline: float | None = None,
+) -> dict[str, Any] | None:
     import app
 
     try:
-        rows = fetch_taifex_institution_detail_rows(product)
+        rows = fetch_taifex_institution_detail_rows(product, deadline=deadline)
     except Exception as exc:  # noqa: BLE001
         app.LOGGER.warning("TAIFEX institution live fetch failed for %s: %s", product, exc)
         return None
@@ -3489,7 +3507,7 @@ def build_all_market_penny_sector_recommendations() -> dict[str, Any]:
 
     is_leader, flight = claim_cache_flight("penny-sector-recommendations")
     if not is_leader:
-        flight.wait(CACHE_FLIGHT_WAIT_SECONDS)
+        wait_for_cache_flight(flight)
         with penny_sector_recommendation_lock:
             cached_payload = penny_sector_recommendation_cache.get("payload")
         if cached_payload:
@@ -5338,7 +5356,11 @@ def build_taiwan_quote_fallback_item(spec: dict[str, Any], base_item: dict[str, 
     }
 
 
-def build_global_market_item(spec: dict[str, Any]) -> dict[str, Any]:
+def build_global_market_item(
+    spec: dict[str, Any],
+    *,
+    deadline: float | None = None,
+) -> dict[str, Any]:
     import app
 
     symbol = str(spec.get("symbol") or "").strip()
@@ -5376,9 +5398,9 @@ def build_global_market_item(spec: dict[str, Any]) -> dict[str, Any]:
         if is_source_pending_product(spec):
             return cache_global_market_item(item_cache_key, build_source_pending_market_item(item, spec))
         if spec.get("dataProvider") == "taifex_txo_open_interest":
-            return cache_global_market_item(item_cache_key, build_txo_option_market_item(spec))
+            return cache_global_market_item(item_cache_key, build_txo_option_market_item(spec, deadline=deadline))
         if spec.get("dataProvider") in {"taifex_tx_open_interest", "taifex_txo_open_interest", "taifex_futures_open_interest"}:
-            return cache_global_market_item(item_cache_key, build_taifex_open_interest_item(spec))
+            return cache_global_market_item(item_cache_key, build_taifex_open_interest_item(spec, deadline=deadline))
         if spec.get("dataProvider") == "us_treasury_yield_curve":
             return cache_global_market_item(item_cache_key, build_us_treasury_yield_curve_item(spec, item))
         if spec.get("dataProvider") == "fred_latest_observation":
@@ -5391,9 +5413,11 @@ def build_global_market_item(spec: dict[str, Any]) -> dict[str, Any]:
         candidates = list(dict.fromkeys(str(candidate or "").strip() for candidate in [symbol, *spec.get("fallbackSymbols", [])] if str(candidate or "").strip()))
         for candidate in candidates:
             selected_symbol = str(candidate or "").strip()
-            for attempt in range(2):
+            for attempt in range(YAHOO_MAX_RETRY + 1):
+                if deadline is not None and (remaining_budget(deadline) or 0) <= 0:
+                    break
                 try:
-                    chart = fetch_yahoo_symbol_chart(selected_symbol, "1y", "1d")
+                    chart = fetch_yahoo_symbol_chart(selected_symbol, "1y", "1d", deadline=deadline)
                     series = build_yahoo_chart_series(chart, volume_divisor=1)
                 except Exception as exc:  # noqa: BLE001
                     LOGGER.debug(
@@ -5407,8 +5431,14 @@ def build_global_market_item(spec: dict[str, Any]) -> dict[str, Any]:
                     series = []
                 if len(series) >= 2:
                     break
-                if attempt == 0:
-                    time.sleep(0.15)
+                if attempt < YAHOO_MAX_RETRY:
+                    remaining = remaining_budget(deadline)
+                    if remaining is not None:
+                        if remaining <= 0:
+                            break
+                        time.sleep(min(0.15, remaining))
+                    else:
+                        time.sleep(0.15)
             if len(series) >= 2:
                 break
         meta = (chart or {}).get("meta") or {}
@@ -6533,40 +6563,65 @@ def build_global_market_payload(
     catalog_items = [enrich_global_market_spec(item, category) for item in spec["items"]]
     selected_specs = catalog_items[:limit] if limit else catalog_items
     items: list[dict[str, Any]] = []
+    endpoint_budget = (
+        FUTURES_BACKEND_BUDGET_SECONDS if category == "futures"
+        else OPTIONS_BACKEND_BUDGET_SECONDS if category == "options"
+        else None
+    )
+    deadline = deadline_after(endpoint_budget) if endpoint_budget is not None else None
     # Item fetches are independent I/O-bound Yahoo Finance / TAIFEX lookups (each already
     # throttled at its own external-source layer where that source needs it, e.g. the TAIFEX
     # form-query semaphore), so a wider pool here mainly cuts wall-clock wait time.
     max_workers = min(6 if category == "options" else 8, len(selected_specs))
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(build_global_market_item, item): item
-            for item in selected_specs
-        }
-        for future in as_completed(futures):
+    executor_cls = app.DeadlineThreadPoolExecutor if deadline is not None else ThreadPoolExecutor
+    executor = executor_cls(max_workers=max_workers)
+    futures = {
+        executor.submit(build_global_market_item, item, deadline=deadline): item
+        for item in selected_specs
+    }
+
+    def append_failed_item(item_spec: dict[str, Any], exc: Exception | None = None) -> None:
+        if category not in {"futures", "options"}:
+            if exc is not None:
+                raise exc
+            return
+        symbol = str(item_spec.get("symbol") or "").strip()
+        if exc is not None:
+            app.LOGGER.exception("Global %s item fan-out failed for symbol=%s", category, symbol, exc_info=exc)
+        items.append({
+            "symbol": symbol,
+            "name": item_spec.get("name") or symbol,
+            "type": item_spec.get("type") or "市場商品",
+            "group": item_spec.get("group") or item_spec.get("type") or "市場商品",
+            "region": item_spec.get("region") or "全球 / 其他",
+            "market": item_spec.get("market") or item_spec.get("region") or "全球 / 其他",
+            "exchange": item_spec.get("exchange") or "",
+            "source": item_spec.get("dataSource") or "Yahoo Finance",
+            "dataSource": item_spec.get("dataSource") or "Yahoo Finance",
+            "sourceUrl": item_spec.get("sourceUrl") or "",
+            "status": "source_pending",
+            "error": PUBLIC_MARKET_ITEM_ERROR_MESSAGE,
+            "dataStatus": "單一商品資料來源失敗，保留商品識別並停止填入行情數值。",
+            "series": [],
+        })
+
+    try:
+        if deadline is None:
+            done, pending = wait(futures)
+        else:
+            done, pending = wait(futures, timeout=max(0.0, remaining_budget(deadline) or 0.0))
+        for future in done:
             item_spec = futures[future]
             try:
                 items.append(future.result())
             except Exception as exc:  # noqa: BLE001
-                if category not in {"futures", "options"}:
-                    raise
-                symbol = str(item_spec.get("symbol") or "").strip()
-                app.LOGGER.exception("Global %s item fan-out failed for symbol=%s", category, symbol, exc_info=exc)
-                items.append({
-                    "symbol": symbol,
-                    "name": item_spec.get("name") or symbol,
-                    "type": item_spec.get("type") or "市場商品",
-                    "group": item_spec.get("group") or item_spec.get("type") or "市場商品",
-                    "region": item_spec.get("region") or "全球 / 其他",
-                    "market": item_spec.get("market") or item_spec.get("region") or "全球 / 其他",
-                    "exchange": item_spec.get("exchange") or "",
-                    "source": item_spec.get("dataSource") or "Yahoo Finance",
-                    "dataSource": item_spec.get("dataSource") or "Yahoo Finance",
-                    "sourceUrl": item_spec.get("sourceUrl") or "",
-                    "status": "source_pending",
-                    "error": PUBLIC_MARKET_ITEM_ERROR_MESSAGE,
-                    "dataStatus": "單一商品資料來源失敗，保留商品識別並停止填入行情數值。",
-                    "series": [],
-                })
+                append_failed_item(item_spec, exc)
+        for future in pending:
+            item_spec = futures[future]
+            future.cancel()
+            append_failed_item(item_spec)
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)
 
     item_order = {item["symbol"]: index for index, item in enumerate(selected_specs)}
     items.sort(key=lambda item: item_order.get(item.get("symbol"), 999))
@@ -6642,7 +6697,11 @@ def build_global_market_payload(
             payload["futuresMarketBreakdown"] = summarize_futures_market_scopes(catalog_items, items)
     if category == "options":
         try:
-            payload["taiwanOptionChain"] = fetch_txo_option_chain(source=option_source, underlying=option_underlying)
+            payload["taiwanOptionChain"] = fetch_txo_option_chain(
+                source=option_source,
+                underlying=option_underlying,
+                deadline=deadline,
+            )
         except Exception as exc:  # noqa: BLE001
             product = get_taiwan_option_product(option_underlying)
             app.LOGGER.exception("%s option chain payload fetch failed", product["symbol"], exc_info=exc)

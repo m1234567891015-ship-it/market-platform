@@ -1127,22 +1127,22 @@
     "source_hashes": {
       "app.js": "97269b16b1451f3dac8b963a38208450ea8c75d72bbc114d6141885306b38f3a",
       "derivatives-ui.js": "b42fc8e15f6b6a9c6fef02be42f47f8e927c21040b47136389220bad427657d7",
-      "js/api.js": "83d359bd4c0241bfa91ad70a84cbe4eb6b68d47f71c5cf01d3c84524aab2ce3c",
+      "js/api.js": "d7e6a78561ea735f3ad3b710231f859b2cd3bd00b3f5818060c72324e3cd1d07",
       "js/charts.js": "3e99c92a566a13c971b53e5f1ff36ae539b64fb022aae936689746cfdbde9778",
       "js/core.js": "1e7f0db186037ff9dbc401403ba68fc1b06066d1a75943f0a56bf66f6cead446",
       "js/legacy-unclassified.js": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "js/main.js": "fca8270594ee527779d17c143a2b67af2e1b09096d2b7362809d704e17f92c4e",
-      "js/page-global-market-assethub.js": "bd0fee213b4c52564d9d350eb7a5960dc07d2548a3a4cb3a7ed835086597a4b4",
+      "js/page-global-market-assethub.js": "060814ef0c10769c92e8e3ea0ede13efd22f17557b87aa89f53ad64655b472be",
       "js/page-global-market-futures.js": "d99b7dd24bc95629aae2c6095205a8a6e1346ca9bee3be2f466ea2570bc41e62",
       "js/page-global-market-options.js": "f9a29f0e95ec59bc04c08f02f6157ea1587c98ad6fdc58a8ef30f5969cb0750d",
       "js/page-home.js": "d8daa0bc91723025fbc9b6552b84b2d39f0b3ede6d57cdea474861b2e67561ec",
       "js/page-tw.js": "18d2a1cd53b10cad242ce830f99e438f55e6124c6e19bfb8e6273b335c53fa6f",
       "js/page-us.js": "6622d036578855a453236f5268341e8dc1629855f5f2f1c72d445c27eabf309f",
-      "js/render-shared.js": "2b4454d71f8e9641aec64aa81ab45a91fe882153adaae4b056e76c47f648309b",
+      "js/render-shared.js": "1555d3f7d4eed3c720d1e502960dbbc1c50e169b1628b26966c3215823996a11",
       "js/shared-calc.js": "d2537b9c3a47aebe884848c99a671a3f85d63a6a1ab7cf0e017cc3111917a6c3",
       "js/state.js": "94f4bd58cf071615374090a6bd589542bd70cfabed2e4b2dd59a85624739e520",
       "js/stock-detail.js": "98ce9621186e99b00019949ac9ecc3ac09029242ae8b1a361735dd7fba06d5bf",
-      "pwa.js": "53ecfce06e11f6c72ad0741ce2a9051fcbcf25c5df3272139a314e3df2029b64"
+      "pwa.js": "06070f4011c29234bd58215c2ad81f2e058c54770bfd81c3fcc92b39adebc4ac"
     },
     "status_addon_order": [
       "pwa.js",
@@ -2360,7 +2360,14 @@
         }
       ],
       "source": "js/page-global-market-assethub.js",
-      "top_level_immediate_references": []
+      "top_level_immediate_references": [
+        {
+          "line": 5470,
+          "symbols": [
+            "fetchWithTimeout"
+          ]
+        }
+      ]
     },
     {
       "bundle": "route-bundle",
@@ -7349,7 +7356,7 @@
         "js/main.js"
       ],
       "kind": "function",
-      "line": 5470,
+      "line": 5484,
       "source": "js/page-global-market-assethub.js",
       "symbol": "initAssetHubPage"
     },
@@ -7359,7 +7366,7 @@
         "js/main.js"
       ],
       "kind": "function",
-      "line": 6292,
+      "line": 6320,
       "source": "js/page-global-market-assethub.js",
       "symbol": "initDerivativesAiPage"
     },
@@ -7369,7 +7376,7 @@
         "js/main.js"
       ],
       "kind": "function",
-      "line": 5728,
+      "line": 5749,
       "source": "js/page-global-market-assethub.js",
       "symbol": "initDerivativesAnalyticsPage"
     },
@@ -7385,7 +7392,7 @@
       "candidate_module": "route/global-market-assethub",
       "consumers": [],
       "kind": "function",
-      "line": 5665,
+      "line": 5676,
       "source": "js/page-global-market-assethub.js",
       "symbol": "loadDerivativesAssetHubPayloads"
     },
@@ -7826,7 +7833,7 @@
       "candidate_module": "route/global-market-assethub",
       "consumers": [],
       "kind": "function",
-      "line": 6250,
+      "line": 6278,
       "source": "js/page-global-market-assethub.js",
       "symbol": "renderDerivativeAiArchitectureCard"
     },
@@ -7834,7 +7841,7 @@
       "candidate_module": "route/global-market-assethub",
       "consumers": [],
       "kind": "function",
-      "line": 6232,
+      "line": 6260,
       "source": "js/page-global-market-assethub.js",
       "symbol": "renderDerivativeAiReport"
     },
@@ -7842,7 +7849,7 @@
       "candidate_module": "route/global-market-assethub",
       "consumers": [],
       "kind": "function",
-      "line": 5616,
+      "line": 5627,
       "source": "js/page-global-market-assethub.js",
       "symbol": "renderDerivativeBasisCard"
     },
@@ -7858,7 +7865,7 @@
       "candidate_module": "route/global-market-assethub",
       "consumers": [],
       "kind": "function",
-      "line": 5611,
+      "line": 5622,
       "source": "js/page-global-market-assethub.js",
       "symbol": "renderDerivativeNewsItems"
     },
@@ -7906,7 +7913,7 @@
       "candidate_module": "route/global-market-assethub",
       "consumers": [],
       "kind": "function",
-      "line": 5691,
+      "line": 5712,
       "source": "js/page-global-market-assethub.js",
       "symbol": "renderDerivativePayloadSnapshot"
     },
@@ -7914,7 +7921,7 @@
       "candidate_module": "route/global-market-assethub",
       "consumers": [],
       "kind": "function",
-      "line": 5582,
+      "line": 5593,
       "source": "js/page-global-market-assethub.js",
       "symbol": "renderDerivativePcrHistory"
     },
@@ -7922,7 +7929,7 @@
       "candidate_module": "route/global-market-assethub",
       "consumers": [],
       "kind": "function",
-      "line": 5718,
+      "line": 5739,
       "source": "js/page-global-market-assethub.js",
       "symbol": "renderDerivativesAssetSnapshotGrid"
     },
@@ -7948,7 +7955,7 @@
       "candidate_module": "route/global-market-assethub",
       "consumers": [],
       "kind": "function",
-      "line": 5644,
+      "line": 5655,
       "source": "js/page-global-market-assethub.js",
       "symbol": "renderInstitutionPositionCard"
     },
@@ -12020,7 +12027,7 @@
         "js/page-us.js"
       ],
       "kind": "function",
-      "line": 1289,
+      "line": 1299,
       "source": "js/render-shared.js",
       "symbol": "twEtfWeightText"
     },
@@ -14380,9 +14387,16 @@
     },
     {
       "candidate_module": "route/global-market-assethub",
-      "references": [],
+      "references": [
+        {
+          "line": 5470,
+          "symbols": [
+            "fetchWithTimeout"
+          ]
+        }
+      ],
       "source": "js/page-global-market-assethub.js",
-      "status": "no-cross-slice-immediate-reference"
+      "status": "bridge-or-import-required"
     },
     {
       "candidate_module": "route/global-market-futures",

@@ -218,7 +218,6 @@ from urllib.request import HTTPCookieProcessor, Request, build_opener
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from cache import (
-    CACHE_FLIGHT_WAIT_SECONDS,
     _yahoo_options_crumb,
     cache_data,
     cache_lock,
@@ -226,12 +225,22 @@ from cache import (
     claim_taifex_options_chain_flight,
     finish_cache_flight,
     finish_taifex_options_chain_flight,
+    provider_key_for_url,
     read_memory_cache,
     read_stale_memory_cache,
+    run_cache_single_flight,
     save_disk_cache,
+    wait_for_cache_flight,
     write_memory_cache,
 )
-from fetch_registry import SourceSpec, fetch_from_registry, register
+from fetch_registry import (
+    SourceSpec,
+    bounded_timeout,
+    deadline_after,
+    fetch_from_registry,
+    register,
+    remaining_budget,
+)
 from market_config import (
     CACHE_TTL_SECONDS,
     FRED_GRAPH_CSV_BASE,
@@ -281,6 +290,21 @@ YAHOO_TW_STOCK_RESOURCE_CACHE_SECONDS = CACHE_TTL_SECONDS["yahoo_tw_stock_resour
 YAHOO_TW_FUTURE_TECHNICAL_CANDLE_CACHE_SECONDS = CACHE_TTL_SECONDS["yahoo_tw_future_technical_candle"]
 
 TAIFEX_FORM_QUERY_CONCURRENCY = 2
+TWSE_MAX_DATE_ATTEMPTS = 3
+TWSE_TOTAL_BUDGET_SECONDS = 15.0
+TWSE_DATE_REQUEST_TIMEOUT_SECONDS = 5.0
+TAIFEX_OPTION_CHAIN_MAX_DATE_ATTEMPTS = 3
+TAIFEX_OPTION_CHAIN_TOTAL_BUDGET_SECONDS = 28.0
+YAHOO_MAX_RETRY = 1
+FUTURES_BACKEND_BUDGET_SECONDS = 25.0
+OPTIONS_BACKEND_BUDGET_SECONDS = 40.0
+OPTION_CHAIN_BACKEND_BUDGET_SECONDS = 30.0
+PCR_BACKEND_BUDGET_SECONDS = 20.0
+INSTITUTION_BACKEND_BUDGET_SECONDS = 10.0
+BASIS_BACKEND_BUDGET_SECONDS = 20.0
+AI_ANALYSIS_BACKEND_BUDGET_SECONDS = 35.0
+NEWS_BACKEND_BUDGET_SECONDS = 15.0
+REGISTRY_PROVIDER_BUDGET_SECONDS = 15.0
 TAIFEX_FUTURES_DAILY_OPENAPI_URL = "https://openapi.taifex.com.tw/v1/DailyMarketReportFut"
 TAIFEX_INSTITUTION_FUTURES_DETAIL_OPENAPI_URL = "https://openapi.taifex.com.tw/v1/MarketDataOfMajorInstitutionalTradersDetailsOfFuturesContractsBytheDate"
 TAIFEX_INSTITUTION_OPTIONS_DETAIL_OPENAPI_URL = "https://openapi.taifex.com.tw/v1/MarketDataOfMajorInstitutionalTradersDetailsOfOptionsContractsBytheDate"
@@ -307,6 +331,17 @@ TAIFEX_FUTURES_DAILY_TICK_CSV_BASE = "https://www.taifex.com.tw/file/taifex/Dail
 # to a small bounded number in flight (with a short pacing sleep per call) instead of being
 # fired without limit.
 taifex_open_interest_lock = threading.Semaphore(2)
+
+
+def acquire_taifex_request_slot(deadline: float | None = None) -> bool:
+    """Acquire the TAIFEX form-query slot without outliving a caller deadline."""
+    remaining = remaining_budget(deadline)
+    if remaining is not None:
+        if remaining <= 0:
+            return False
+        return taifex_open_interest_lock.acquire(timeout=remaining)
+    taifex_open_interest_lock.acquire()
+    return True
 
 YAHOO_OPTIONS_CHAIN_BASE = "https://query1.finance.yahoo.com/v7/finance/options"
 YAHOO_OPTIONS_CRUMB_URL = "https://query1.finance.yahoo.com/v1/test/getcrumb"
@@ -432,15 +467,32 @@ def dataset_has_rows(payload: dict[str, Any]) -> bool:
     return False
 
 
-def find_latest_dataset(builder, lookback_days: int = 10, validator=None) -> tuple[dict[str, Any], str]:
+def find_latest_dataset(
+    builder,
+    lookback_days: int = 10,
+    validator=None,
+    *,
+    deadline: float | None = None,
+    max_attempts: int = TWSE_MAX_DATE_ATTEMPTS,
+) -> tuple[dict[str, Any], str]:
     now = taipei_now().date()
     errors: list[str] = []
+    deadline = deadline if deadline is not None else deadline_after(TWSE_TOTAL_BUDGET_SECONDS)
+    attempt_limit = min(max(0, int(max_attempts)), TWSE_MAX_DATE_ATTEMPTS, lookback_days + 1)
+    attempts = 0
 
     for offset in range(lookback_days + 1):
         target_date = now - timedelta(days=offset)
         date_str = target_date.strftime("%Y%m%d")
+        if attempts >= attempt_limit or (remaining_budget(deadline) or 0) <= 0:
+            break
+        attempts += 1
         try:
-            payload = fetch_json(builder(date_str))
+            payload = fetch_json(
+                builder(date_str),
+                timeout=TWSE_DATE_REQUEST_TIMEOUT_SECONDS,
+                deadline=deadline,
+            )
         except (HTTPError, URLError, TimeoutError) as exc:
             LOGGER.warning("TWSE dataset fetch failed for date=%s", date_str, exc_info=exc)
             errors.append(date_str)
@@ -701,7 +753,7 @@ def yahoo_options_headers(accept: str = "application/json") -> dict[str, str]:
     }
 
 
-def get_yahoo_options_crumb(symbol: str) -> str:
+def get_yahoo_options_crumb(symbol: str, *, deadline: float | None = None) -> str:
     now = time.time()
     with cache_lock:
         cached_value = str(_yahoo_options_crumb.get("value") or "")
@@ -713,7 +765,7 @@ def get_yahoo_options_crumb(symbol: str) -> str:
     page_url = f"{YAHOO_OPTIONS_PAGE_BASE}/{page_symbol}/options/"
     page_req = Request(page_url, headers=yahoo_options_headers("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"))
     try:
-        with _yahoo_options_opener.open(page_req, timeout=20) as response:
+        with _yahoo_options_opener.open(page_req, timeout=bounded_timeout(20, deadline)) as response:
             response.read(2048)
     except HTTPError as exc:
         # Yahoo may return 404 for the options page while its public crumb
@@ -723,7 +775,7 @@ def get_yahoo_options_crumb(symbol: str) -> str:
             raise
 
     crumb_req = Request(YAHOO_OPTIONS_CRUMB_URL, headers=yahoo_options_headers("text/plain,*/*"))
-    with _yahoo_options_opener.open(crumb_req, timeout=20) as response:
+    with _yahoo_options_opener.open(crumb_req, timeout=bounded_timeout(20, deadline)) as response:
         crumb = response.read().decode("utf-8").strip()
     if not crumb:
         raise RuntimeError("Yahoo options crumb is empty.")
@@ -1837,7 +1889,30 @@ def should_cache_external_text(url: str) -> bool:
     return host in {"www.taifex.com.tw", "tw.stock.yahoo.com", "home.treasury.gov", "fred.stlouisfed.org", "tradingeconomics.com"}
 
 
-def fetch_json(url: str, timeout: int = 30) -> Any:
+def _read_provider_payload(
+    request: Request,
+    timeout: float,
+    *,
+    deadline: float | None = None,
+) -> tuple[bytes, str]:
+    provider_key = provider_key_for_url(request.full_url)
+    request_key = f"{request.get_method()}:{request.full_url}:{request.data!r}"
+
+    def read_uncached() -> tuple[bytes, str]:
+        with _urlopen_with_ssl_fallback(request, timeout) as response:
+            raw = response.read()
+            content_type = str(response.headers.get("Content-Type") or "").lower()
+        return raw, content_type
+
+    return run_cache_single_flight(
+        f"provider-fetch:{provider_key}:{request_key}",
+        read_uncached,
+        deadline=deadline,
+        provider_key=provider_key,
+    )
+
+
+def fetch_json(url: str, timeout: int = 30, *, deadline: float | None = None) -> Any:
     headers = {"User-Agent": USER_AGENT}
     if "twse.com.tw" in url:
         headers = {
@@ -1846,9 +1921,9 @@ def fetch_json(url: str, timeout: int = 30) -> Any:
             "Connection": "close",
         }
     req = Request(url, headers=headers)
-    with _urlopen_with_ssl_fallback(req, timeout) as response:
-        return json.loads(response.read().decode("utf-8"))
-def fetch_nasdaq_json(path: str, timeout: int = 12) -> Any:
+    raw, _content_type = _read_provider_payload(req, bounded_timeout(timeout, deadline), deadline=deadline)
+    return json.loads(raw.decode("utf-8"))
+def fetch_nasdaq_json(path: str, timeout: int = 12, *, deadline: float | None = None) -> Any:
     url = path if path.startswith("http") else f"{NASDAQ_API_BASE}{path}"
     req = Request(url, headers={
         "User-Agent": NASDAQ_USER_AGENT,
@@ -1856,11 +1931,18 @@ def fetch_nasdaq_json(path: str, timeout: int = 12) -> Any:
         "Origin": "https://www.nasdaq.com",
         "Referer": "https://www.nasdaq.com/",
     })
-    with _urlopen_with_ssl_fallback(req, timeout) as response:
-        return json.loads(response.read().decode("utf-8"))
+    raw, _content_type = _read_provider_payload(req, bounded_timeout(timeout, deadline), deadline=deadline)
+    return json.loads(raw.decode("utf-8"))
 
 
-def post_json(url: str, payload: dict[str, Any], timeout: int = 30, headers: dict[str, str] | None = None) -> Any:
+def post_json(
+    url: str,
+    payload: dict[str, Any],
+    timeout: int = 30,
+    headers: dict[str, str] | None = None,
+    *,
+    deadline: float | None = None,
+) -> Any:
     body = json.dumps(payload).encode("utf-8")
     request_headers = {
         "User-Agent": USER_AGENT,
@@ -1868,20 +1950,18 @@ def post_json(url: str, payload: dict[str, Any], timeout: int = 30, headers: dic
         **(headers or {}),
     }
     req = Request(url, data=body, headers=request_headers, method="POST")
-    with _urlopen_with_ssl_fallback(req, timeout) as response:
-        return json.loads(response.read().decode("utf-8"))
+    raw, _content_type = _read_provider_payload(req, bounded_timeout(timeout, deadline), deadline=deadline)
+    return json.loads(raw.decode("utf-8"))
 
 
-def fetch_text(url: str, timeout: int = 30) -> str:
+def fetch_text(url: str, timeout: int = 30, *, deadline: float | None = None) -> str:
     cache_key = f"GET:{url}"
     if should_cache_external_text(url):
         cached = read_memory_cache("external_text", cache_key, EXTERNAL_TEXT_CACHE_SECONDS)
         if cached is not None:
             return str(cached)
     req = Request(url, headers={"User-Agent": USER_AGENT})
-    with _urlopen_with_ssl_fallback(req, timeout) as response:
-        raw = response.read()
-        content_type = str(response.headers.get("Content-Type") or "").lower()
+    raw, content_type = _read_provider_payload(req, bounded_timeout(timeout, deadline), deadline=deadline)
     encoding = "cp950" if "ms950" in content_type or "big5" in content_type else "utf-8"
     text = raw.decode(encoding, errors="ignore")
     if should_cache_external_text(url):
@@ -1889,21 +1969,20 @@ def fetch_text(url: str, timeout: int = 30) -> str:
     return text
 
 
-def fetch_binary(url: str, timeout: int = 30) -> bytes:
+def fetch_binary(url: str, timeout: int = 30, *, deadline: float | None = None) -> bytes:
     cache_key = f"BIN:{url}"
     if should_cache_external_text(url):
         cached = read_memory_cache("external_text", cache_key, EXTERNAL_TEXT_CACHE_SECONDS)
         if cached is not None:
             return bytes(cached)
     req = Request(url, headers={"User-Agent": USER_AGENT})
-    with _urlopen_with_ssl_fallback(req, timeout) as response:
-        payload = response.read()
+    payload, _content_type = _read_provider_payload(req, bounded_timeout(timeout, deadline), deadline=deadline)
     if should_cache_external_text(url):
         write_memory_cache("external_text", cache_key, payload, EXTERNAL_TEXT_CACHE_SECONDS)
     return payload
 
 
-def fetch_form_text(url: str, fields: dict[str, str], timeout: int = 30) -> str:
+def fetch_form_text(url: str, fields: dict[str, str], timeout: int = 30, *, deadline: float | None = None) -> str:
     encoded_fields = urlencode(sorted((str(key), str(value)) for key, value in fields.items()))
     cache_key = f"FORM:{url}:{encoded_fields}"
     if should_cache_external_text(url):
@@ -1919,9 +1998,7 @@ def fetch_form_text(url: str, fields: dict[str, str], timeout: int = 30) -> str:
             "Content-Type": "application/x-www-form-urlencoded",
         },
     )
-    with _urlopen_with_ssl_fallback(req, timeout) as response:
-        raw = response.read()
-        content_type = str(response.headers.get("Content-Type") or "").lower()
+    raw, content_type = _read_provider_payload(req, bounded_timeout(timeout, deadline), deadline=deadline)
     encoding = "cp950" if "ms950" in content_type or "big5" in content_type else "utf-8"
     text = raw.decode(encoding, errors="ignore")
     if should_cache_external_text(url):
@@ -2143,16 +2220,29 @@ def fetch_twse_listed_industry_map(timeout: int = 12) -> dict[str, str]:
 register(SourceSpec(name="stock_institutions_payload", url=build_stock_institutions_url))
 
 
-def fetch_stock_institutions_payload_near(date_str: str, lookback_days: int = 7) -> tuple[dict[str, Any], str]:
+def fetch_stock_institutions_payload_near(
+    date_str: str,
+    lookback_days: int = 7,
+    *,
+    deadline: float | None = None,
+) -> tuple[dict[str, Any], str]:
     try:
         base_date = datetime.strptime(str(date_str), "%Y%m%d").date()
     except ValueError:
         base_date = taipei_now().date()
 
-    for offset in range(lookback_days + 1):
+    deadline = deadline if deadline is not None else deadline_after(TWSE_TOTAL_BUDGET_SECONDS)
+    for offset in range(min(lookback_days + 1, TWSE_MAX_DATE_ATTEMPTS)):
         target = (base_date - timedelta(days=offset)).strftime("%Y%m%d")
+        if (remaining_budget(deadline) or 0) <= 0:
+            break
         try:
-            payload = fetch_from_registry("stock_institutions_payload", target, timeout=15)
+            payload = fetch_from_registry(
+                "stock_institutions_payload",
+                target,
+                timeout=TWSE_DATE_REQUEST_TIMEOUT_SECONDS,
+                deadline=deadline,
+            )
         except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
             LOGGER.warning("TWSE T86 sector fund flow fetch failed for date=%s: %s", target, exc)
             continue
@@ -2721,14 +2811,28 @@ def fetch_yahoo_chart(
     range_name: str = "5d",
     interval: str = "1d",
     market: str = "TPEx",
+    *,
+    deadline: float | None = None,
 ) -> dict[str, Any] | None:
-    payload = fetch_from_registry("yahoo_chart", code, range_name, interval, market)
+    payload = fetch_from_registry("yahoo_chart", code, range_name, interval, market, deadline=deadline)
     results = ((payload or {}).get("chart") or {}).get("result") or []
     return results[0] if results else None
 
 
-def fetch_yahoo_symbol_chart(symbol: str, range_name: str = "2y", interval: str = "1d") -> dict[str, Any] | None:
-    payload = fetch_from_registry("yahoo_symbol_chart", symbol, range_name=range_name, interval=interval)
+def fetch_yahoo_symbol_chart(
+    symbol: str,
+    range_name: str = "2y",
+    interval: str = "1d",
+    *,
+    deadline: float | None = None,
+) -> dict[str, Any] | None:
+    payload = fetch_from_registry(
+        "yahoo_symbol_chart",
+        symbol,
+        range_name=range_name,
+        interval=interval,
+        deadline=deadline,
+    )
     results = ((payload or {}).get("chart") or {}).get("result") or []
     return results[0] if results else None
 
@@ -2935,7 +3039,7 @@ def fetch_international_market_indexes() -> list[dict[str, Any]]:
 
     is_leader, flight = claim_cache_flight("international-market-indexes")
     if not is_leader:
-        flight.wait(CACHE_FLIGHT_WAIT_SECONDS)
+        wait_for_cache_flight(flight)
         with cache_lock:
             refreshed = cache_data.get("international_market_indexes") or {}
             refreshed_payload = refreshed.get("payload") or []
@@ -2955,13 +3059,18 @@ def fetch_international_market_indexes() -> list[dict[str, Any]]:
         finish_cache_flight("international-market-indexes", flight)
 
 
-def fetch_taiex_spot_snapshot() -> dict[str, Any]:
-    return fetch_yahoo_spot_snapshot("^TWII", "台灣加權指數")
+def fetch_taiex_spot_snapshot(*, deadline: float | None = None) -> dict[str, Any]:
+    return fetch_yahoo_spot_snapshot("^TWII", "台灣加權指數", deadline=deadline)
 
 
-def fetch_yahoo_spot_snapshot(symbol: str, name: str) -> dict[str, Any]:
+def fetch_yahoo_spot_snapshot(
+    symbol: str,
+    name: str,
+    *,
+    deadline: float | None = None,
+) -> dict[str, Any]:
     try:
-        chart = fetch_yahoo_symbol_chart(symbol, "5d", "1d")
+        chart = fetch_yahoo_symbol_chart(symbol, "5d", "1d", deadline=deadline)
         series = build_yahoo_chart_series(chart, volume_divisor=1)
         meta = (chart or {}).get("meta") or {}
     except Exception as exc:  # noqa: BLE001
@@ -3143,8 +3252,13 @@ register(SourceSpec(
 ))
 
 
-def fetch_yahoo_us_symbol_news(symbol: str, limit: int = 6) -> list[dict[str, Any]]:
-    payload = fetch_from_registry("yahoo_us_symbol_news", symbol, limit=limit)
+def fetch_yahoo_us_symbol_news(
+    symbol: str,
+    limit: int = 6,
+    *,
+    deadline: float | None = None,
+) -> list[dict[str, Any]]:
+    payload = fetch_from_registry("yahoo_us_symbol_news", symbol, limit=limit, deadline=deadline)
     news = payload.get("news") if isinstance(payload, dict) else []
     results: list[dict[str, Any]] = []
     for item in news or []:
@@ -3164,15 +3278,26 @@ def fetch_yahoo_us_symbol_news(symbol: str, limit: int = 6) -> list[dict[str, An
     return results[:limit]
 
 
-def fetch_us_market_overview_news(limit: int = 8) -> list[dict[str, Any]]:
+def fetch_us_market_overview_news(
+    limit: int = 8,
+    *,
+    deadline: float | None = None,
+) -> list[dict[str, Any]]:
+    deadline = deadline if deadline is not None else deadline_after(NEWS_BACKEND_BUDGET_SECONDS)
     queries = ["SPY", "QQQ", "^GSPC", "^IXIC", "^VIX"]
     news_items: list[dict[str, Any]] = []
     seen: set[str] = set()
     with ThreadPoolExecutor(max_workers=min(len(queries), 5)) as executor:
-        futures = {executor.submit(fetch_yahoo_us_symbol_news, query, 4): query for query in queries}
+        futures = {
+            executor.submit(fetch_yahoo_us_symbol_news, query, 4, deadline=deadline): query
+            for query in queries
+        }
         for future in as_completed(futures):
             try:
-                items = future.result(timeout=10)
+                remaining = remaining_budget(deadline)
+                if remaining is not None and remaining <= 0:
+                    break
+                items = future.result(timeout=remaining if remaining is not None else 10)
             except Exception as exc:  # noqa: BLE001
                 LOGGER.exception("US market overview news fetch failed for %s", futures[future], exc_info=exc)
                 continue
@@ -3229,10 +3354,17 @@ def fetch_yahoo_us_market_search(query: str, limit: int = 20) -> list[dict[str, 
     return results
 
 
-def fetch_yahoo_options_payload(clean_symbol: str, expiration: str | None = None, retry: bool = True) -> dict[str, Any]:
+def fetch_yahoo_options_payload(
+    clean_symbol: str,
+    expiration: str | None = None,
+    retry: bool = True,
+    *,
+    deadline: float | None = None,
+) -> dict[str, Any]:
     import builders  # deferred: parse_cboe_expiration_request moved to builders.py in TD-01 slice 4 (was app.py-resident when this comment was originally written in slice 3 batch 5) - deferred to avoid a load-time fetchers.py<->builders.py cycle, same reasoning as every `import app` deferred-import elsewhere in this file, just targeting builders.py directly since that's this name's actual home now
 
-    crumb = get_yahoo_options_crumb(clean_symbol)
+    deadline = deadline if deadline is not None else deadline_after(REGISTRY_PROVIDER_BUDGET_SECONDS)
+    crumb = get_yahoo_options_crumb(clean_symbol, deadline=deadline)
     params = {"crumb": crumb}
     requested_expiration = builders.parse_cboe_expiration_request(expiration)
     if requested_expiration is not None:
@@ -3240,26 +3372,34 @@ def fetch_yahoo_options_payload(clean_symbol: str, expiration: str | None = None
     url = f"{YAHOO_OPTIONS_CHAIN_BASE}/{quote(clean_symbol, safe='')}?{urlencode(params)}"
     req = Request(url, headers=yahoo_options_headers("application/json, text/plain, */*"))
     try:
-        with _yahoo_options_opener.open(req, timeout=20) as response:
+        with _yahoo_options_opener.open(req, timeout=bounded_timeout(20, deadline)) as response:
             return json.loads(response.read().decode("utf-8"))
     except HTTPError as exc:
         if retry and exc.code in {401, 403}:
             with cache_lock:
                 _yahoo_options_crumb["value"] = ""
                 _yahoo_options_crumb["stored_at"] = 0.0
-            return fetch_yahoo_options_payload(clean_symbol, expiration, retry=False)
+            return fetch_yahoo_options_payload(clean_symbol, expiration, retry=False, deadline=deadline)
         raise
 
 
-def fetch_taiwan_option_spot_snapshot(underlying: str | None = None) -> dict[str, Any]:
+def fetch_taiwan_option_spot_snapshot(
+    underlying: str | None = None,
+    *,
+    deadline: float | None = None,
+) -> dict[str, Any]:
     import app  # deferred: get_taiwan_option_product is TAIFEX-domain config, stays in app.py
 
     product = app.get_taiwan_option_product(underlying)
     spot_symbol = str(product.get("spotSymbol") or "").strip()
     if spot_symbol:
         if spot_symbol == "^TWII":
-            return fetch_taiex_spot_snapshot()
-        return fetch_yahoo_spot_snapshot(spot_symbol, str(product.get("spotName") or product.get("name") or spot_symbol))
+            return fetch_taiex_spot_snapshot(deadline=deadline)
+        return fetch_yahoo_spot_snapshot(
+            spot_symbol,
+            str(product.get("spotName") or product.get("name") or spot_symbol),
+            deadline=deadline,
+        )
     return {
         "symbol": product["symbol"],
         "name": product.get("spotName") or product.get("name") or product["symbol"],
@@ -3271,8 +3411,12 @@ def fetch_taiwan_option_spot_snapshot(underlying: str | None = None) -> dict[str
 register(SourceSpec(name="taifex_latest_futures_market_snapshot", url=TAIFEX_FUTURES_DAILY_OPENAPI_URL, timeout=15))
 
 
-def fetch_taifex_latest_futures_market_snapshot(symbol: str) -> dict[str, Any] | None:
-    rows = fetch_from_registry("taifex_latest_futures_market_snapshot")
+def fetch_taifex_latest_futures_market_snapshot(
+    symbol: str,
+    *,
+    deadline: float | None = None,
+) -> dict[str, Any] | None:
+    rows = fetch_from_registry("taifex_latest_futures_market_snapshot", deadline=deadline)
     if not isinstance(rows, list):
         return None
     selected = select_taifex_daily_market_row(rows, symbol)
@@ -3294,6 +3438,8 @@ def fetch_taifex_futures_download_candles(
     max_observations: int = 30,
     contract_month: str = "",
     max_windows: int | None = None,
+    *,
+    deadline: float | None = None,
 ) -> list[dict[str, Any]]:
     clean_symbol = str(symbol or "").strip().upper()
     if not clean_symbol:
@@ -3318,13 +3464,21 @@ def fetch_taifex_futures_download_candles(
             "queryStartDate": start.strftime("%Y/%m/%d"),
             "queryEndDate": end.strftime("%Y/%m/%d"),
         }
-        with taifex_open_interest_lock:
+        if not acquire_taifex_request_slot(deadline):
+            return ""
+        try:
             try:
-                text = fetch_form_text(TAIFEX_FUTURES_DATA_DOWNLOAD_URL, fields, timeout=25)
+                text = fetch_form_text(TAIFEX_FUTURES_DATA_DOWNLOAD_URL, fields, timeout=25, deadline=deadline)
             except Exception:  # noqa: BLE001
                 LOGGER.warning("TAIFEX futures data download failed for %s", clean_symbol, exc_info=True)
                 text = ""
-            time.sleep(0.08)
+            remaining = remaining_budget(deadline)
+            if remaining is None:
+                time.sleep(0.08)
+            elif remaining > 0:
+                time.sleep(min(0.08, remaining))
+        finally:
+            taifex_open_interest_lock.release()
         return text
 
     # Windows are fetched in small concurrent batches (bounded by the same TAIFEX
@@ -3332,6 +3486,8 @@ def fetch_taifex_futures_download_candles(
     # while still checking the same early-stop condition between batches.
     for batch_start in range(0, len(window_ranges), TAIFEX_FORM_QUERY_CONCURRENCY):
         if len(combined) >= max_observations:
+            break
+        if deadline is not None and (remaining_budget(deadline) or 0) <= 0:
             break
         batch = window_ranges[batch_start : batch_start + TAIFEX_FORM_QUERY_CONCURRENCY]
         with ThreadPoolExecutor(max_workers=len(batch)) as executor:
@@ -3400,7 +3556,12 @@ def fetch_taifex_previous30_futures_tick_candles(symbol: str, max_observations: 
     return sorted(candles, key=lambda row: str(row.get("time") or ""))[-max_observations:]
 
 
-def fetch_taifex_daily_market_report_candles(symbol: str, max_observations: int = 12) -> list[dict[str, Any]]:
+def fetch_taifex_daily_market_report_candles(
+    symbol: str,
+    max_observations: int = 12,
+    *,
+    deadline: float | None = None,
+) -> list[dict[str, Any]]:
     clean_symbol = str(symbol or "").strip().upper()
     if not clean_symbol:
         return []
@@ -3408,12 +3569,16 @@ def fetch_taifex_daily_market_report_candles(symbol: str, max_observations: int 
     candles: list[dict[str, Any]] = []
     max_scan_days = max(20, int(max_observations * 2.2) + 8)
     for offset in range(max_scan_days):
+        if deadline is not None and (remaining_budget(deadline) or 0) <= 0:
+            break
         target = requested - timedelta(days=offset)
         if target.weekday() >= 5:
             continue
         date_for_form = target.strftime("%Y/%m/%d")
         date_for_row = target.strftime("%Y%m%d")
-        with taifex_open_interest_lock:
+        if not acquire_taifex_request_slot(deadline):
+            break
+        try:
             html = fetch_form_text(
                 TAIFEX_FUTURES_DAILY_URL,
                 {
@@ -3424,8 +3589,15 @@ def fetch_taifex_daily_market_report_candles(symbol: str, max_observations: int 
                     "queryDate": date_for_form,
                 },
                 timeout=15,
+                deadline=deadline,
             )
-            time.sleep(0.08)
+            remaining = remaining_budget(deadline)
+            if remaining is None:
+                time.sleep(0.08)
+            elif remaining > 0:
+                time.sleep(min(0.08, remaining))
+        finally:
+            taifex_open_interest_lock.release()
         selected = select_taifex_daily_market_row(parse_taifex_daily_market_html_rows(html, clean_symbol, date_for_row), clean_symbol)
         normalized = normalize_taifex_daily_market_row(selected or {})
         if not normalized:
@@ -3445,13 +3617,19 @@ def fetch_taifex_daily_market_report_candles(symbol: str, max_observations: int 
     return list(reversed(candles))
 
 
-def fetch_taifex_futures_price_candles(symbol: str, max_observations: int = 30) -> list[dict[str, Any]]:
+def fetch_taifex_futures_price_candles(
+    symbol: str,
+    max_observations: int = 30,
+    *,
+    deadline: float | None = None,
+) -> list[dict[str, Any]]:
     clean_symbol = str(symbol or "").strip().upper()
     if not clean_symbol:
         return []
+    deadline = deadline if deadline is not None else deadline_after(FUTURES_BACKEND_BUDGET_SECONDS)
     combined: dict[str, dict[str, Any]] = {}
     try:
-        for candle in fetch_taifex_futures_download_candles(clean_symbol, max_observations):
+        for candle in fetch_taifex_futures_download_candles(clean_symbol, max_observations, deadline=deadline):
             time_key = str(candle.get("time") or "")
             if time_key:
                 combined[time_key] = candle
@@ -3459,7 +3637,11 @@ def fetch_taifex_futures_price_candles(symbol: str, max_observations: int = 30) 
         LOGGER.warning("TAIFEX futures data download candles failed for %s", clean_symbol, exc_info=True)
     if len(combined) < 2:
         try:
-            report_candles = fetch_taifex_daily_market_report_candles(clean_symbol, min(max_observations, 12))
+            report_candles = fetch_taifex_daily_market_report_candles(
+                clean_symbol,
+                min(max_observations, 12),
+                deadline=deadline,
+            )
         except Exception:  # noqa: BLE001
             LOGGER.warning("TAIFEX daily market report candles failed for %s", clean_symbol, exc_info=True)
             report_candles = []
@@ -3679,33 +3861,64 @@ def fetch_taifex_txo_option_chain(
     expiry: str | None = None,
     market_date: str | None = None,
     underlying: str | None = "TXO",
+    *,
+    deadline: float | None = None,
 ) -> dict[str, Any]:
     import app  # deferred: option-chain response builders + TAIFEX product config stay in app.py
     import builders  # deferred: PUBLIC_TAIFEX_OPTION_CHAIN_ERROR_MESSAGE moved to builders.py in TD-01 slice 4 - separate deferred import from `app` above since this one name's home diverged from the rest of this function's app.X references
 
     product = app.get_taiwan_option_product(underlying)
+    chain_deadline = min(
+        deadline if deadline is not None else deadline_after(TAIFEX_OPTION_CHAIN_TOTAL_BUDGET_SECONDS),
+        deadline_after(TAIFEX_OPTION_CHAIN_TOTAL_BUDGET_SECONDS),
+    )
     query_date = parse_taifex_query_date(market_date)
     cache_key = f"{product['symbol']}:{query_date}:{expiry or ''}"
     cached_payload = read_memory_cache("taifex_options_chain", cache_key, OPTIONS_CHAIN_CACHE_SECONDS)
     if cached_payload is not None:
         return {**app.supplement_taifex_option_payload_with_yahoo_oi(cached_payload), "cached": True}
 
+    def unavailable_payload() -> dict[str, Any]:
+        return {
+            "underlying": product["symbol"],
+            "name": product["name"],
+            "shortName": product["shortName"],
+            "market": "台灣",
+            "exchange": "TAIFEX",
+            "error": builders.PUBLIC_TAIFEX_OPTION_CHAIN_ERROR_MESSAGE,
+            "source": {"primary": "TAIFEX 選擇權每日交易行情查詢", "primaryUrl": TAIFEX_OPTIONS_DAILY_URL, "mode": "taifex"},
+            "availableProducts": [
+                {"symbol": key, "name": item["name"], "shortName": item["shortName"]}
+                for key, item in app.TAIWAN_OPTION_PRODUCTS.items()
+            ],
+        }
+
     is_leader, leader_event = claim_taifex_options_chain_flight(cache_key)
 
     if not is_leader:
-        leader_event.wait(timeout=CACHE_FLIGHT_WAIT_SECONDS)
+        leader_wait = remaining_budget(chain_deadline)
+        wait_for_cache_flight(
+            leader_event,
+            deadline=chain_deadline,
+            max_wait=max(0.0, leader_wait or 0.0),
+        )
         cached_payload = read_memory_cache("taifex_options_chain", cache_key, OPTIONS_CHAIN_CACHE_SECONDS)
         if cached_payload is not None:
             return {**app.supplement_taifex_option_payload_with_yahoo_oi(cached_payload), "cached": True}
-        # The leader's scan didn't leave a usable cache entry (e.g. no data for any
-        # scanned date) -- fall through and run our own scan rather than giving up.
+        # A follower never starts a second scan after its own wait expires or
+        # after a leader fails; return the existing fail-closed contract.
+        return unavailable_payload()
 
     try:
         requested = datetime.strptime(query_date, "%Y%m%d")
+        attempts = 0
         for offset in range(12):
             target = requested - timedelta(days=offset)
             if target.weekday() >= 5:
                 continue
+            if attempts >= TAIFEX_OPTION_CHAIN_MAX_DATE_ATTEMPTS or (remaining_budget(chain_deadline) or 0) <= 0:
+                break
+            attempts += 1
             date_text = target.strftime("%Y/%m/%d")
             try:
                 html = fetch_form_text(
@@ -3718,8 +3931,9 @@ def fetch_taifex_txo_option_chain(
                         "queryDate": date_text,
                     },
                     timeout=18,
+                    deadline=chain_deadline,
                 )
-                spot_snapshot = fetch_taiwan_option_spot_snapshot(product["symbol"])
+                spot_snapshot = fetch_taiwan_option_spot_snapshot(product["symbol"], deadline=chain_deadline)
                 rows = app.parse_taifex_txo_option_rows(html, spot_snapshot.get("value"), product["symbol"])
             except Exception as exc:  # noqa: BLE001
                 LOGGER.exception("TAIFEX %s option chain fetch failed for date=%s", product["symbol"], date_text, exc_info=exc)
@@ -3741,46 +3955,44 @@ def fetch_taifex_txo_option_chain(
                 "stale": True,
                 "staleAt": stale_at,
             }
-        return {
-            "underlying": product["symbol"],
-            "name": product["name"],
-            "shortName": product["shortName"],
-            "market": "台灣",
-            "exchange": "TAIFEX",
-            "error": builders.PUBLIC_TAIFEX_OPTION_CHAIN_ERROR_MESSAGE,
-            "source": {"primary": "TAIFEX 選擇權每日交易行情查詢", "primaryUrl": TAIFEX_OPTIONS_DAILY_URL, "mode": "taifex"},
-            "availableProducts": [
-                {"symbol": key, "name": item["name"], "shortName": item["shortName"]}
-                for key, item in app.TAIWAN_OPTION_PRODUCTS.items()
-            ],
-        }
+        return unavailable_payload()
     finally:
         if is_leader:
             finish_taifex_options_chain_flight(cache_key, leader_event)
 
 
-def fetch_taifex_openapi_list(url: str, cache_seconds: int, timeout: int = 20) -> list[dict[str, Any]]:
+def fetch_taifex_openapi_list(
+    url: str,
+    cache_seconds: int,
+    timeout: int = 20,
+    *,
+    deadline: float | None = None,
+) -> list[dict[str, Any]]:
     cached = read_memory_cache("taifex_openapi_list", url, cache_seconds)
     if cached is not None:
         return cached
-    rows = fetch_json(url, timeout=timeout)
+    rows = fetch_json(url, timeout=timeout, deadline=deadline)
     if not isinstance(rows, list):
         rows = []
     write_memory_cache("taifex_openapi_list", url, rows, cache_seconds)
     return rows
 
 
-def fetch_taifex_institution_detail_rows(product: str) -> list[dict[str, Any]]:
+def fetch_taifex_institution_detail_rows(product: str, *, deadline: float | None = None) -> list[dict[str, Any]]:
     contract_name = PRODUCT_TO_TAIFEX_INSTITUTION_CONTRACT.get(product)
     if not contract_name:
         return []
     is_option = product in {"TXO", "STO", "ETO"}
     url = TAIFEX_INSTITUTION_OPTIONS_DETAIL_OPENAPI_URL if is_option else TAIFEX_INSTITUTION_FUTURES_DETAIL_OPENAPI_URL
-    rows = fetch_taifex_openapi_list(url, TAIFEX_INSTITUTION_DETAIL_CACHE_SECONDS)
+    rows = fetch_taifex_openapi_list(url, TAIFEX_INSTITUTION_DETAIL_CACHE_SECONDS, deadline=deadline)
     return [row for row in rows if str(row.get("ContractCode") or "").strip() == contract_name]
 
 
-def fetch_yahoo_taiwan_future_quotes(timeout: int = 10) -> dict[str, dict[str, Any]]:
+def fetch_yahoo_taiwan_future_quotes(
+    timeout: int = 10,
+    *,
+    deadline: float | None = None,
+) -> dict[str, dict[str, Any]]:
     import app  # deferred: parse_yahoo_taiwan_future_quotes is future-technical domain, stays in app.py
 
     now = time.time()
@@ -3789,21 +4001,31 @@ def fetch_yahoo_taiwan_future_quotes(timeout: int = 10) -> dict[str, dict[str, A
         cached_items = cached.get("items") if isinstance(cached, dict) else None
         if cached_items and now - float(cached.get("stored_at") or 0) < YAHOO_TW_FUTURE_CACHE_SECONDS:
             return copy.deepcopy(cached_items)
-    html = fetch_text(app.YAHOO_TW_FUTURE_UNCOVERED_URL, timeout=timeout)
+    html = fetch_text(app.YAHOO_TW_FUTURE_UNCOVERED_URL, timeout=timeout, deadline=deadline)
     quotes = app.parse_yahoo_taiwan_future_quotes(html)
     with cache_lock:
         cache_data["yahoo_tw_future_quotes"] = {"stored_at": now, "items": copy.deepcopy(quotes)}
     return quotes
 
 
-def fetch_yahoo_taiwan_future_quote(symbol: str, timeout: int = 10) -> dict[str, Any] | None:
+def fetch_yahoo_taiwan_future_quote(
+    symbol: str,
+    timeout: int = 10,
+    *,
+    deadline: float | None = None,
+) -> dict[str, Any] | None:
     clean_symbol = str(symbol or "").strip().upper()
     if not clean_symbol:
         return None
-    return fetch_yahoo_taiwan_future_quotes(timeout=timeout).get(clean_symbol)
+    return fetch_yahoo_taiwan_future_quotes(timeout=timeout, deadline=deadline).get(clean_symbol)
 
 
-def fetch_yahoo_txo_option_chain(expiry: str | None = None, underlying: str | None = "TXO") -> dict[str, Any]:
+def fetch_yahoo_txo_option_chain(
+    expiry: str | None = None,
+    underlying: str | None = "TXO",
+    *,
+    deadline: float | None = None,
+) -> dict[str, Any]:
     import app  # deferred: option-chain product config + HTML payload parser stay in app.py
 
     product = app.get_taiwan_option_product(underlying)
@@ -3826,7 +4048,7 @@ def fetch_yahoo_txo_option_chain(expiry: str | None = None, underlying: str | No
     if cached_payload is not None:
         return {**cached_payload, "cached": True}
     yahoo_url = app.build_yahoo_taiwan_option_url(product["symbol"], expiry)
-    html = fetch_text(yahoo_url, timeout=12)
+    html = fetch_text(yahoo_url, timeout=12, deadline=deadline)
     payload = app.parse_yahoo_txo_option_page(html, product["symbol"], expiry)
     if not payload.get("error"):
         write_memory_cache("yahoo_tw_option_chain", cache_key, payload, YAHOO_TW_OPTION_CACHE_SECONDS)
@@ -3838,8 +4060,20 @@ def fetch_txo_option_chain(
     market_date: str | None = None,
     source: str = "auto",
     underlying: str | None = "TXO",
+    *,
+    deadline: float | None = None,
 ) -> dict[str, Any]:
-    return fetch_taiwan_option_chain(underlying=underlying, expiry=expiry, market_date=market_date, source=source)
+    chain_deadline = min(
+        deadline if deadline is not None else deadline_after(OPTION_CHAIN_BACKEND_BUDGET_SECONDS),
+        deadline_after(OPTION_CHAIN_BACKEND_BUDGET_SECONDS),
+    )
+    return fetch_taiwan_option_chain(
+        underlying=underlying,
+        expiry=expiry,
+        market_date=market_date,
+        source=source,
+        deadline=chain_deadline,
+    )
 
 
 def fetch_taiwan_option_chain(
@@ -3847,18 +4081,25 @@ def fetch_taiwan_option_chain(
     expiry: str | None = None,
     market_date: str | None = None,
     source: str = "auto",
+    *,
+    deadline: float | None = None,
 ) -> dict[str, Any]:
     import app  # deferred: TAIFEX-domain product config/source-mode lookups stay in app.py
 
     product = app.get_taiwan_option_product(underlying)
     source_mode = app.normalize_taiwan_option_source(source)
     if source_mode == "yahoo":
-        return fetch_yahoo_txo_option_chain(expiry, product["symbol"])
-    official = fetch_taifex_txo_option_chain(expiry=expiry, market_date=market_date, underlying=product["symbol"])
+        return fetch_yahoo_txo_option_chain(expiry, product["symbol"], deadline=deadline)
+    official = fetch_taifex_txo_option_chain(
+        expiry=expiry,
+        market_date=market_date,
+        underlying=product["symbol"],
+        deadline=deadline,
+    )
     if source_mode == "taifex" or not official.get("error"):
         return official
     try:
-        fallback = fetch_yahoo_txo_option_chain(expiry, product["symbol"])
+        fallback = fetch_yahoo_txo_option_chain(expiry, product["symbol"], deadline=deadline)
     except Exception as exc:  # noqa: BLE001
         LOGGER.warning("Yahoo %s fallback failed after TAIFEX option-chain miss", product["symbol"], exc_info=exc)
         return official
@@ -4964,7 +5205,7 @@ def fetch_nasdaq_trader_us_listed_universe(force: bool = False) -> tuple[list[di
 
     is_leader, flight = claim_cache_flight("us-listed-universe")
     if not is_leader:
-        flight.wait(CACHE_FLIGHT_WAIT_SECONDS)
+        wait_for_cache_flight(flight)
         with cache_lock:
             refreshed = cache_data.get("us_listed_universe") or {}
             if refreshed.get("items"):

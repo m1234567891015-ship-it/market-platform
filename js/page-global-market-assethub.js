@@ -5467,6 +5467,20 @@ function renderAssetHubPage(payloads = []) {
   bindAssetHubPageControls();
   bindPublicOptionControls();
 }
+fetchWithTimeout.scheduleJsonRequest = function scheduleAssetHubJsonRequest(scheduler, url, timeoutMs, priority, allowHttpFailure = false) {
+  const load = async () => {
+    const response = await fetchWithTimeout(url, { cache: "no-store" }, timeoutMs);
+    if (!response.ok) {
+      if (allowHttpFailure) return null;
+      throw new Error(`HTTP ${response.status}`);
+    }
+    return response.json();
+  };
+  return scheduler.schedule(load, {
+    priority,
+    dedupeKey: `GET ${url}`,
+  });
+};
 async function initAssetHubPage() {
   const root = document.getElementById("asset-hub-root");
   if (!root) return;
@@ -5508,6 +5522,7 @@ async function initAssetHubPage() {
       <p class="hero-text">${escapeHtml(loadingCopy.text)}</p>
     </section>
   `;
+  const scheduler = fetchWithTimeout.createRequestScheduler(3);
   const categories = isBondsMode
     ? ["bonds"]
     : isMetalsMode
@@ -5519,11 +5534,7 @@ async function initAssetHubPage() {
     const endpoint = isFinanceMode
       ? `/api/global-market/${encodeURIComponent(category)}?limit=all`
       : `/api/${encodeURIComponent(category)}?limit=all`;
-    return fetchWithTimeout(endpoint, { cache: "no-store" }, 120000)
-      .then((response) => {
-        if (!response.ok) throw new Error(`${category} HTTP ${response.status}`);
-        return response.json();
-      })
+    return fetchWithTimeout.scheduleJsonRequest(scheduler, endpoint, 120000, 1)
       .then((responsePayload) => {
         if (!isFinanceMode && responsePayload?.success === false) {
           throw new Error(responsePayload?.error?.message || `${category} 資料暫不可用`);
@@ -5546,14 +5557,15 @@ async function initAssetHubPage() {
     const taiwanInstitutionSymbols = ["TX", "MTX", "TMF", "TE", "TF", "SOF", "XIF", "STF", "ETF-F"];
     const [institutionResult, newsResult] = await Promise.allSettled([
       Promise.allSettled(taiwanInstitutionSymbols.map(async (symbol) => {
-        const response = await fetchWithTimeout(`/api/institution?product=${encodeURIComponent(symbol)}`, { cache: "no-store" }, 20000);
-        if (!response.ok) throw new Error(`${symbol} institution HTTP ${response.status}`);
-        const responsePayload = await response.json();
+        const responsePayload = await fetchWithTimeout.scheduleJsonRequest(
+          scheduler,
+          `/api/institution?product=${encodeURIComponent(symbol)}`,
+          20000,
+          2,
+        );
         return [symbol, responsePayload?.data || {}];
       })).then((results) => Object.fromEntries(results.filter((result) => result.status === "fulfilled").map((result) => result.value))),
-      fetchWithTimeout("/api/news?category=derivatives&symbol=%5EVIX&limit=8", { cache: "no-store" }, 20000).then(async (response) => {
-        if (!response.ok) throw new Error(`news HTTP ${response.status}`);
-        const responsePayload = await response.json();
+      fetchWithTimeout.scheduleJsonRequest(scheduler, "/api/news?category=derivatives&symbol=%5EVIX&limit=8", 20000, 3).then((responsePayload) => {
         return responsePayload?.data?.items || [];
       }),
     ]);
@@ -5568,8 +5580,7 @@ async function initAssetHubPage() {
   const optionsPayload = payloads.find((payload) => payload.category === "options");
   renderAssetHubPage(payloads);
   if (optionsPayload) {
-    fetchWithTimeout("/api/us-market/options-chain/SPY", { cache: "no-store" }, 16000)
-      .then((response) => response.ok ? response.json() : null)
+    fetchWithTimeout.scheduleJsonRequest(scheduler, "/api/us-market/options-chain/SPY", 16000, 3, true)
       .then((chain) => {
         if (chain) {
           optionsPayload.optionChain = chain;
@@ -5664,16 +5675,26 @@ function renderInstitutionPositionCard(result = {}) {
 }
 async function loadDerivativesAssetHubPayloads(options = {}) {
   const includePublicOptionChain = Boolean(options.includePublicOptionChain);
+  const scheduler = options.scheduler;
+  const request = (url, timeoutMs, priority) => fetchDerivativesApi(
+    url,
+    timeoutMs,
+    undefined,
+    scheduler ? { scheduler, priority, dedupeKey: `GET ${url}` } : {},
+  );
   const [futuresResult, optionsResult] = await Promise.all([
-    fetchDerivativesApi("/api/futures?limit=12", 120000),
-    fetchDerivativesApi("/api/options?limit=12", 120000),
+    request("/api/futures?limit=12", 120000, 1),
+    request("/api/options?limit=12", 120000, 1),
   ]);
   const futuresPayload = futuresResult.data || createAssetHubPlaceholder("futures", "期貨", "Futures", futuresResult.error);
   const optionsPayload = optionsResult.data || createAssetHubPlaceholder("options", "選擇權", "Options", optionsResult.error);
   if (includePublicOptionChain && !optionsPayload.optionChain) {
     try {
-      const response = await fetchWithTimeout("/api/us-market/options-chain/SPY", { cache: "no-store" }, 16000);
-      if (response.ok) optionsPayload.optionChain = await response.json();
+      const chain = scheduler
+        ? await fetchWithTimeout.scheduleJsonRequest(scheduler, "/api/us-market/options-chain/SPY", 16000, 3, true)
+        : await fetchWithTimeout("/api/us-market/options-chain/SPY", { cache: "no-store" }, 16000)
+          .then((response) => response.ok ? response.json() : null);
+      if (chain) optionsPayload.optionChain = chain;
     } catch (error) {
       console.warn("Failed to load SPY options chain for derivatives payload:", error);
     }
@@ -5871,15 +5892,22 @@ async function initDerivativesAnalyticsPage() {
     return `<section class="section" id="derivatives-strategy-analyzer"><article class="panel-card derivatives-strategy-analyzer-card"><div class="card-title-row"><div><p class="panel-kicker">Options strategy analyzer</p><h2>期權策略分析器</h2><p class="chart-subtitle">以目前 TXO 實際選擇權鏈建立固定 13 種策略；不補造履約價、權利金或 IV。</p></div><span class="chip chip-blue">13 Strategies</span></div><div class="derivatives-strategy-regime-grid"><span><b>${models[0].regime.direction}</b><small>Direction</small></span><span><b>${models[0].regime.volatility}</b><small>Volatility</small></span><span><b>${models[0].regime.ivState}</b><small>IV State</small></span><span><b>Unavailable</b><small>Historical IV Context</small></span></div><div class="derivatives-strategy-ranking-grid"><div><h3>Top 3 Compatibility</h3><ol>${ranking}</ol></div><div><h3>Lowest Compatibility / Reason</h3><p>${lowestText}</p><small>分數是相容性排序，不是獲利保證。</small></div></div><label class="derivatives-strategy-select-label" for="derivatives-strategy-select">選擇策略檢視實際腿與到期損益</label><select id="derivatives-strategy-select" data-strategy-select>${options}</select><div id="derivatives-strategy-detail" class="derivatives-strategy-detail">${renderStrategyDetail(selected, currentSpot)}</div><details class="derivatives-strategy-catalog"><summary>13 strategy contracts</summary><ul>${catalog}</ul></details><p class="derivatives-strategy-disclaimer">策略分析僅供研究與情境比較，不構成投資、交易、避險或保證獲利建議。最大損益與損益兩平點依實際成交權利金、履約價、到期日、結算規則、手續費、滑價、保證金、指派與流動性而變動；短期權策略可能有重大尾部風險，請勿視為獲利保證。</p></article></section>`;
   };
   root.innerHTML = '<section class="subpage-hero"><p class="eyebrow">Derivatives analytics</p><h1>期權分析工具載入中</h1><p class="hero-text">正在取得市場選擇權鏈、PCR、OI、最大痛點、AI 分析與市場新聞。</p></section>';
+  const scheduler = fetchWithTimeout.createRequestScheduler(3);
+  const request = (url, timeoutMs, priority) => fetchDerivativesApi(
+    url,
+    timeoutMs,
+    undefined,
+    { scheduler, priority, dedupeKey: `GET ${url}` },
+  );
   const [assetPayloads, chainResult, pcrResult, institutionResult, basisResult, optionResult, futureResult, newsResult] = await Promise.all([
-    loadDerivativesAssetHubPayloads({ includePublicOptionChain: true }),
-    fetchDerivativesApi("/api/options/chain?underlying=TXO&source=auto", 45000),
-    fetchDerivativesApi("/api/pcr?underlying=TXO&source=auto", 30000),
-    fetchDerivativesApi("/api/institution?product=TX", 12000),
-    fetchDerivativesApi("/api/basis?future=TX&spot=TAIEX", 30000),
-    fetchDerivativesApi("/api/ai-analysis?target=TXO&source=auto", 45000),
-    fetchDerivativesApi("/api/ai-analysis?target=TX", 30000),
-    fetchDerivativesApi("/api/news?category=derivatives&symbol=%5EVIX&limit=6", 20000),
+    loadDerivativesAssetHubPayloads({ includePublicOptionChain: true, scheduler }),
+    request("/api/options/chain?underlying=TXO&source=auto", 45000, 1),
+    request("/api/pcr?underlying=TXO&source=auto", 30000, 1),
+    request("/api/institution?product=TX", 12000, 2),
+    request("/api/basis?future=TX&spot=TAIEX", 30000, 2),
+    request("/api/ai-analysis?target=TXO&source=auto", 45000, 3),
+    request("/api/ai-analysis?target=TX", 30000, 3),
+    request("/api/news?category=derivatives&symbol=%5EVIX&limit=6", 20000, 3),
   ]);
   const apiFailures = [
     ["futures", assetPayloads.errors.futures],

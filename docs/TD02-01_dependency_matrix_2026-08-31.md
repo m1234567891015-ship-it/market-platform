@@ -32,7 +32,7 @@
 | `js/core.js` | `runtime/core` | `common-runtime` | 3 | 26 | shared/all pages | nativeInnerHtmlDescriptor | js/state.js |
 | `js/legacy-unclassified.js` | `route/legacy-unclassified` | `route-bundle` | 15 | 0 | shared/all pages | — | — |
 | `js/main.js` | `runtime/bootstrap` | `route-bundle` | 16 | 2 | shared/all pages | initSearchPage, initWatchlistPage, initGlobalMarketPage, loadYahooSectorCategory | js/api.js, js/core.js, js/page-global-market-assethub.js, js/page-global-market-options.js, js/page-home.js, js/page-tw.js, js/page-us.js, js/state.js |
-| `js/page-global-market-assethub.js` | `route/global-market-assethub` | `route-bundle` | 13 | 145 | bonds.html, derivatives-ai.html, derivatives-analytics.html, derivatives-assets.html, international-finance.html, precious-metals.html | — | js/api.js, js/core.js, js/page-global-market-futures.js, js/page-global-market-options.js, js/render-shared.js, js/shared-calc.js, js/state.js |
+| `js/page-global-market-assethub.js` | `route/global-market-assethub` | `route-bundle` | 13 | 145 | bonds.html, derivatives-ai.html, derivatives-analytics.html, derivatives-assets.html, international-finance.html, precious-metals.html | fetchWithTimeout | js/api.js, js/core.js, js/page-global-market-futures.js, js/page-global-market-options.js, js/render-shared.js, js/shared-calc.js, js/state.js |
 | `js/page-global-market-futures.js` | `route/global-market-futures` | `route-bundle` | 11 | 92 | futures.html, us-market-overview.html, us-stocks.html | — | js/api.js, js/charts.js, js/core.js, js/page-global-market-assethub.js, js/page-global-market-options.js, js/render-shared.js, js/shared-calc.js, js/state.js |
 | `js/page-global-market-options.js` | `route/global-market-options` | `route-bundle` | 12 | 131 | options.html | — | js/api.js, js/charts.js, js/core.js, js/page-global-market-assethub.js, js/page-global-market-futures.js, js/render-shared.js, js/state.js |
 | `js/page-home.js` | `route/page-home` | `route-bundle` | 9 | 33 | index.html, market-overview.html, news.html | — | js/api.js, js/charts.js, js/core.js, js/render-shared.js, js/state.js |
@@ -135,6 +135,7 @@
 | `js/main.js` | 89 | `initSearchPage` | ESM execution must import or bridge before evaluation |
 | `js/main.js` | 90 | `initWatchlistPage` | ESM execution must import or bridge before evaluation |
 | `js/main.js` | 91 | `initGlobalMarketPage`, `loadYahooSectorCategory` | ESM execution must import or bridge before evaluation |
+| `js/page-global-market-assethub.js` | 5470 | `fetchWithTimeout` | ESM execution must import or bridge before evaluation |
 
 ## 6. Dynamic window bridge
 

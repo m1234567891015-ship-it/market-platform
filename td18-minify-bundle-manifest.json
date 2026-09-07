@@ -23,15 +23,15 @@
       "name": "common-runtime",
       "output": "common-runtime.min.js",
       "sourceMap": "common-runtime.min.js.map",
-      "bytes": 290573,
-      "sha256": "311886ef60f75a201429f8699dfadeaf5304f7599c782292f99e414daaf7979f",
-      "sourceMapBytes": 757079,
-      "sourceMapSha256": "a6f0feb28e86ef8b9c835fb3fb2c2d12d7ee529372a2c5b30feace99fff71336",
+      "bytes": 292289,
+      "sha256": "429ddc0a6e9130525bee6153d70f0ca83db64b6a0bfe8f00b472bfd6ae30b114",
+      "sourceMapBytes": 763213,
+      "sourceMapSha256": "45699690e1b11f58b3ab0e35d12b8cf72074d726c04eb61859c6c99b5a5535eb",
       "inputs": [
         {
           "path": "pwa.js",
           "bytes": 3846,
-          "sha256": "b86b42828ad9c4600dfaa433ec8e13bf59beb76127d0a6e10c91157cfa3e62fc"
+          "sha256": "53ecfce06e11f6c72ad0741ce2a9051fcbcf25c5df3272139a314e3df2029b64"
         },
         {
           "path": "js/state.js",
@@ -45,8 +45,8 @@
         },
         {
           "path": "js/api.js",
-          "bytes": 1069,
-          "sha256": "83d359bd4c0241bfa91ad70a84cbe4eb6b68d47f71c5cf01d3c84524aab2ce3c"
+          "bytes": 4247,
+          "sha256": "d7e6a78561ea735f3ad3b710231f859b2cd3bd00b3f5818060c72324e3cd1d07"
         },
         {
           "path": "js/shared-calc.js",
@@ -55,8 +55,8 @@
         },
         {
           "path": "js/render-shared.js",
-          "bytes": 72046,
-          "sha256": "2b4454d71f8e9641aec64aa81ab45a91fe882153adaae4b056e76c47f648309b"
+          "bytes": 72398,
+          "sha256": "1555d3f7d4eed3c720d1e502960dbbc1c50e169b1628b26966c3215823996a11"
         },
         {
           "path": "js/charts.js",
@@ -74,10 +74,10 @@
       "name": "route-bundle",
       "output": "route-bundle.min.js",
       "sourceMap": "route-bundle.min.js.map",
-      "bytes": 921608,
-      "sha256": "9b6382d326ed82fc1e4f37a8ed0b00b9bb77a257ea317ffc6655936efe344dca",
-      "sourceMapBytes": 1974062,
-      "sourceMapSha256": "27251f4e64235e3fb0f0282ffc5bb5cc0e8ef543b33b6be0acfbff3b7e17c371",
+      "bytes": 921939,
+      "sha256": "232c234258c498451be41f7d1508a601e12e642461f86670eac5ce7a7468fae5",
+      "sourceMapBytes": 1975407,
+      "sourceMapSha256": "a10c342c47dabc02e37abca3aad562329d6d6077bfc9c35f43f17b1f83c69143",
       "inputs": [
         {
           "path": "js/page-home.js",
@@ -101,8 +101,8 @@
         },
         {
           "path": "js/page-global-market-assethub.js",
-          "bytes": 391265,
-          "sha256": "bd0fee213b4c52564d9d350eb7a5960dc07d2548a3a4cb3a7ed835086597a4b4"
+          "bytes": 392005,
+          "sha256": "060814ef0c10769c92e8e3ea0ede13efd22f17557b87aa89f53ad64655b472be"
         },
         {
           "path": "js/page-tw.js",
@@ -144,7 +144,7 @@
     }
   ],
   "rollout": {
-    "version": "td18-minify-5e25eb24db6b5c9c",
+    "version": "td18-minify-9942e617bbceeb34",
     "htmlPages": 21,
     "scriptOrder": [
       "common-runtime.min.js",

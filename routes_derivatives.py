@@ -87,6 +87,15 @@ from fetchers import (
     fetch_taifex_futures_technical_candles,
     fetch_txo_option_chain,
     fetch_yahoo_us_symbol_news,
+    AI_ANALYSIS_BACKEND_BUDGET_SECONDS,
+    BASIS_BACKEND_BUDGET_SECONDS,
+    FUTURES_BACKEND_BUDGET_SECONDS,
+    INSTITUTION_BACKEND_BUDGET_SECONDS,
+    NEWS_BACKEND_BUDGET_SECONDS,
+    OPTION_CHAIN_BACKEND_BUDGET_SECONDS,
+    OPTIONS_BACKEND_BUDGET_SECONDS,
+    PCR_BACKEND_BUDGET_SECONDS,
+    deadline_after,
     parse_float,
 )
 from market_config import TAIFEX_FUTURES_DAILY_URL, TAIFEX_OPTIONS_DAILY_URL
@@ -191,7 +200,7 @@ def api_future_detail(symbol: str):
     if not spec:
         return jsonify(app.api_error_payload("INVALID_SYMBOL", "商品代碼不存在")), 404
     try:
-        item = build_global_market_item(spec)
+        item = build_global_market_item(spec, deadline=deadline_after(FUTURES_BACKEND_BUDGET_SECONDS))
         if item.get("error"):
             return jsonify(app.api_error_payload("EMPTY_RESULT", str(item.get("error")))), 200
         return jsonify(app.api_success_payload(item))
@@ -209,10 +218,15 @@ def api_future_candles(symbol: str):
     spec = find_derivative_spec("futures", symbol)
     if not spec:
         return jsonify(app.api_error_payload("INVALID_SYMBOL", "商品代碼不存在")), 404
+    deadline = deadline_after(FUTURES_BACKEND_BUDGET_SECONDS)
     try:
         if spec.get("dataProvider") in {"taifex_tx_open_interest", "taifex_txo_open_interest", "taifex_futures_open_interest"}:
             commodity = str(spec.get("taifexCommodity") or spec.get("symbol") or symbol).strip().upper()
-            candles = fetch_taifex_futures_price_candles(commodity, max_observations=30)
+            candles = fetch_taifex_futures_price_candles(
+                commodity,
+                max_observations=30,
+                deadline=deadline,
+            )
             if interval not in {"day", "all"}:
                 candles = build_derivative_candles({"series": [
                     {
@@ -226,7 +240,7 @@ def api_future_candles(symbol: str):
                     for row in candles
                 ]}, interval)
             if not candles:
-                fallback_item = build_global_market_item(spec)
+                fallback_item = build_global_market_item(spec, deadline=deadline)
                 fallback_candles = build_derivative_candles(fallback_item, interval)
                 if fallback_candles:
                     return jsonify(app.api_success_payload({
@@ -237,7 +251,7 @@ def api_future_candles(symbol: str):
                     }))
                 return jsonify(app.api_error_payload("EMPTY_RESULT", "TAIFEX 官方 K 線資料暫時無法載入")), 200
             return jsonify(app.api_success_payload({"symbol": spec.get("symbol"), "interval": interval, "candles": candles, "source": "TAIFEX 官方期貨每日交易行情"}))
-        item = build_global_market_item(spec)
+        item = build_global_market_item(spec, deadline=deadline)
         candles = build_derivative_candles(item, interval)
         if not candles:
             return jsonify(app.api_error_payload("EMPTY_RESULT", str(item.get("error") or "查無 K 線資料"))), 200
@@ -256,7 +270,7 @@ def api_options():
         spec = find_derivative_spec("options", underlying)
         if not spec:
             return jsonify(app.api_error_payload("INVALID_SYMBOL", "商品代碼不存在")), 404
-        item = build_global_market_item(spec)
+        item = build_global_market_item(spec, deadline=deadline_after(OPTIONS_BACKEND_BUDGET_SECONDS))
         chain_status = "source_pending" if item.get("status") == "source_pending" or item.get("error") else "aggregate_connected"
         return jsonify(app.api_success_payload({
             "underlying": underlying,
@@ -300,7 +314,12 @@ def api_open_interest():
     source = normalize_taiwan_option_source(str(request.args.get("source") or request.args.get("optionSource") or "auto"))
     try:
         if symbol in TAIWAN_OPTION_PRODUCTS:
-            data = fetch_txo_option_chain(market_date=date, source=source, underlying=symbol)
+            data = fetch_txo_option_chain(
+                market_date=date,
+                source=source,
+                underlying=symbol,
+                deadline=deadline_after(OPTION_CHAIN_BACKEND_BUDGET_SECONDS),
+            )
             if data.get("error"):
                 return jsonify(app.api_error_payload("EMPTY_RESULT", str(data.get("error")))), 200
             summary = data.get("summary") or {}
@@ -316,7 +335,7 @@ def api_open_interest():
         spec = find_derivative_spec("futures", symbol)
         if not spec or not str(spec.get("dataProvider") or "").startswith("taifex_"):
             return jsonify(app.api_error_payload("INVALID_SYMBOL", "目前僅支援 TAIFEX 期貨或國內官方選擇權鏈")), 400
-        item = build_global_market_item(spec)
+        item = build_global_market_item(spec, deadline=deadline_after(FUTURES_BACKEND_BUDGET_SECONDS))
         if item.get("error"):
             return jsonify(app.api_error_payload("EMPTY_RESULT", str(item.get("error")))), 200
         return jsonify(app.api_success_payload({
@@ -345,7 +364,11 @@ def api_institutional_position():
     else:
         is_option = product in {"TXO", "STO", "ETO"}
         source_url = TAIFEX_INSTITUTION_OPTIONS_DETAIL_OPENAPI_URL if is_option else TAIFEX_INSTITUTION_FUTURES_DETAIL_OPENAPI_URL
-        payload = build_institution_payload_live(product, source_url) or build_pending_institution_payload(product, TAIFEX_FUTURES_DAILY_URL)
+        payload = build_institution_payload_live(
+            product,
+            source_url,
+            deadline=deadline_after(INSTITUTION_BACKEND_BUDGET_SECONDS),
+        ) or build_pending_institution_payload(product, TAIFEX_FUTURES_DAILY_URL)
     return jsonify(app.api_success_payload(payload))
 
 
@@ -387,12 +410,13 @@ def api_basis():
         return jsonify(app.api_error_payload("INVALID_SYMBOL", "期貨商品代碼不存在")), 404
     try:
         try:
-            future_item = build_global_market_item(spec)
+            basis_deadline = deadline_after(BASIS_BACKEND_BUDGET_SECONDS)
+            future_item = build_global_market_item(spec, deadline=basis_deadline)
         except Exception as exc:  # noqa: BLE001
             app.LOGGER.warning("Basis future source failed for symbol=%s: %s", future_symbol, exc)
             future_item = {"symbol": future_symbol, "error": "期貨資料來源暫不可用"}
         try:
-            spot_snapshot = fetch_taiex_spot_snapshot() or {}
+            spot_snapshot = fetch_taiex_spot_snapshot(deadline=basis_deadline) or {}
         except Exception as exc:  # noqa: BLE001
             app.LOGGER.warning("Basis spot source failed for symbol=%s: %s", spot_symbol, exc)
             spot_snapshot = {"source": "Yahoo Finance", "error": "台灣加權指數現貨資料來源暫不可用"}
@@ -429,7 +453,7 @@ def api_derivatives_news():
     symbol = str(request.args.get("symbol") or "^VIX").strip().upper()
     limit = derivative_request_limit(8, 20)
     try:
-        items = fetch_yahoo_us_symbol_news(symbol, limit)
+        items = fetch_yahoo_us_symbol_news(symbol, limit, deadline=deadline_after(NEWS_BACKEND_BUDGET_SECONDS))
         if not items:
             return jsonify(app.api_error_payload("EMPTY_RESULT", "目前查無市場新聞資料")), 200
         for item in items:
@@ -448,7 +472,12 @@ def api_derivatives_ai_analysis():
     source = normalize_taiwan_option_source(str(request.args.get("source") or request.args.get("optionSource") or "auto"))
     try:
         if target in TAIWAN_OPTION_PRODUCTS:
-            data = fetch_txo_option_chain(expiry=str(request.args.get("expiry") or "").strip() or None, source=source, underlying=target)
+            data = fetch_txo_option_chain(
+                expiry=str(request.args.get("expiry") or "").strip() or None,
+                source=source,
+                underlying=target,
+                deadline=deadline_after(AI_ANALYSIS_BACKEND_BUDGET_SECONDS),
+            )
             if data.get("error"):
                 analysis = build_derivatives_unavailable_ai_analysis(target, str(data.get("error")))
                 return jsonify(app.api_success_payload(analysis))
@@ -457,7 +486,7 @@ def api_derivatives_ai_analysis():
             spec = find_derivative_spec("futures", target)
             if not spec:
                 return jsonify(app.api_error_payload("INVALID_SYMBOL", "商品代碼不存在")), 404
-            item = build_global_market_item(spec)
+            item = build_global_market_item(spec, deadline=deadline_after(FUTURES_BACKEND_BUDGET_SECONDS))
             if item.get("error"):
                 analysis = build_derivatives_unavailable_ai_analysis(target, str(item.get("error")))
                 return jsonify(app.api_success_payload(analysis))
@@ -506,7 +535,13 @@ def api_options_chain():
     date = str(request.args.get("date") or "").strip() or None
     source = normalize_taiwan_option_source(str(request.args.get("source") or request.args.get("optionSource") or "auto"))
     try:
-        data = fetch_txo_option_chain(expiry=expiry, market_date=date, source=source, underlying=underlying)
+        data = fetch_txo_option_chain(
+            expiry=expiry,
+            market_date=date,
+            source=source,
+            underlying=underlying,
+            deadline=deadline_after(OPTION_CHAIN_BACKEND_BUDGET_SECONDS),
+        )
     except ValueError:
         return jsonify(app.api_error_payload("INVALID_DATE", "日期格式需為 YYYYMMDD 或 YYYY-MM-DD")), 400
     except Exception as exc:  # noqa: BLE001
@@ -525,7 +560,13 @@ def api_options_pcr():
     expiry = str(request.args.get("expiry") or "").strip() or None
     source = normalize_taiwan_option_source(str(request.args.get("source") or request.args.get("optionSource") or "auto"))
     try:
-        data = fetch_txo_option_chain(expiry=expiry, market_date=str(request.args.get("date") or "").strip() or None, source=source, underlying=underlying)
+        data = fetch_txo_option_chain(
+            expiry=expiry,
+            market_date=str(request.args.get("date") or "").strip() or None,
+            source=source,
+            underlying=underlying,
+            deadline=deadline_after(PCR_BACKEND_BUDGET_SECONDS),
+        )
     except ValueError:
         return jsonify(app.api_error_payload("INVALID_DATE", "日期格式需為 YYYYMMDD 或 YYYY-MM-DD")), 400
     except Exception as exc:  # noqa: BLE001
@@ -569,7 +610,13 @@ def api_options_maxpain():
     expiry = str(request.args.get("expiry") or "").strip() or None
     source = normalize_taiwan_option_source(str(request.args.get("source") or request.args.get("optionSource") or "auto"))
     try:
-        data = fetch_txo_option_chain(expiry=expiry, market_date=str(request.args.get("date") or "").strip() or None, source=source, underlying=underlying)
+        data = fetch_txo_option_chain(
+            expiry=expiry,
+            market_date=str(request.args.get("date") or "").strip() or None,
+            source=source,
+            underlying=underlying,
+            deadline=deadline_after(OPTION_CHAIN_BACKEND_BUDGET_SECONDS),
+        )
     except ValueError:
         return jsonify(app.api_error_payload("INVALID_DATE", "日期格式需為 YYYYMMDD 或 YYYY-MM-DD")), 400
     except Exception as exc:  # noqa: BLE001
