@@ -4,13 +4,16 @@ import copy
 import logging
 import os
 import re
+import secrets
+import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from flask import Flask, has_request_context, jsonify, request
+from flask import Flask, g, has_request_context, jsonify, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from derivatives_store import DerivativesStore
@@ -339,7 +342,98 @@ def api_exception_response(code: str, public_message: str, exc: Exception, statu
     return jsonify(api_error_payload(code, public_message)), status
 
 
+def _institution_observability_state(state: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    if state is not None:
+        return state
+    if not has_request_context():
+        return None
+    return getattr(g, "institution_observability", None)
+
+
+def _institution_observability_log_value(value: Any) -> str:
+    return re.sub(r"[^A-Za-z0-9_.:-]", "_", str(value))[:80]
+
+
+def institution_observability_start(product: str) -> None:
+    """Create request-local Institution lifecycle state without changing the API contract."""
+    g.institution_observability = {
+        "request_id": secrets.token_hex(6),
+        "started_monotonic": time.monotonic(),
+        "product": product,
+        "deadline": None,
+        "stage_starts": {},
+        "live_terminal": False,
+    }
+
+
+def institution_observability_set_deadline(deadline: float) -> None:
+    state = _institution_observability_state()
+    if state is not None:
+        state["deadline"] = deadline
+
+
+def institution_observability_live_terminal() -> bool:
+    state = _institution_observability_state()
+    return bool(state and state.get("live_terminal"))
+
+
+def institution_observability_log(event: str, *, state: dict[str, Any] | None = None, **fields: Any) -> None:
+    state = _institution_observability_state(state)
+    if state is None:
+        return
+    now = time.monotonic()
+    elapsed_ms = (now - state["started_monotonic"]) * 1000
+    values = {
+        "event": event,
+        "institution_request_id": state["request_id"],
+        "elapsed_ms": f"{elapsed_ms:.3f}",
+        "thread_name": threading.current_thread().name,
+        "thread_id": threading.get_ident(),
+    }
+    deadline = state.get("deadline")
+    if deadline is not None:
+        values["remaining_deadline_ms"] = f"{max(0.0, (deadline - now) * 1000):.3f}"
+    stage_key = event.removeprefix("institution.")
+    if event.endswith(".begin"):
+        state["stage_starts"][stage_key.removesuffix(".begin")] = now
+    elif event.endswith((".end", ".timeout", ".error")):
+        stage_name = stage_key.rsplit(".", 1)[0]
+        started = state["stage_starts"].pop(stage_name, None)
+        if started is not None:
+            values["stage_duration_ms"] = f"{(now - started) * 1000:.3f}"
+        if event.startswith("institution.live_fallback."):
+            state["live_terminal"] = True
+    for key, value in fields.items():
+        if value is not None:
+            values[key] = value
+    formatted = []
+    for key, value in values.items():
+        if isinstance(value, (int, float)) and key not in {"elapsed_ms", "remaining_deadline_ms", "stage_duration_ms"}:
+            rendered = str(value)
+        else:
+            rendered = _institution_observability_log_value(value)
+        formatted.append(f"{key}={rendered}")
+    LOGGER.info("%s", " ".join(formatted))
+
+
+def institution_observability_attach_close(response: Any) -> None:
+    state = _institution_observability_state()
+    if state is None:
+        return
+    response.call_on_close(
+        lambda: institution_observability_log("institution.response.close", state=state)
+    )
+
+
+def log_institution_after_request(response: Any):
+    state = _institution_observability_state()
+    if state is not None:
+        institution_observability_log("institution.after_request", status_code=response.status_code)
+    return response
+
+
 app.after_request(add_security_headers)
+app.after_request(log_institution_after_request)
 app.before_request(initialize_derivatives_store_for_request)
 app.before_request(enforce_api_rate_limit)
 app.register_blueprint(system_bp)

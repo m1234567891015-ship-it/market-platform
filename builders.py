@@ -1464,7 +1464,16 @@ def build_institution_payload_live(
 
     try:
         rows = fetch_taifex_institution_detail_rows(product, deadline=deadline)
+    except TimeoutError as exc:
+        app.institution_observability_log("institution.live_fallback.timeout", result_available=False)
+        app.LOGGER.warning("TAIFEX institution live fetch failed for %s: %s", product, exc)
+        return None
     except Exception as exc:  # noqa: BLE001
+        app.institution_observability_log(
+            "institution.live_fallback.error",
+            exception_class=type(exc).__name__,
+            result_available=False,
+        )
         app.LOGGER.warning("TAIFEX institution live fetch failed for %s: %s", product, exc)
         return None
     if not rows:

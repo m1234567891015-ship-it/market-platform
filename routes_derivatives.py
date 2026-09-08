@@ -361,27 +361,73 @@ def api_open_interest():
 def api_institutional_position():
     import app
 
-    deadline = deadline_after(INSTITUTION_BACKEND_BUDGET_SECONDS - INSTITUTION_INTERNAL_RESPONSE_MARGIN_SECONDS)
     product = str(request.args.get("product") or "TX").strip().upper()
+    app.institution_observability_start(product)
+    deadline = deadline_after(INSTITUTION_BACKEND_BUDGET_SECONDS - INSTITUTION_INTERNAL_RESPONSE_MARGIN_SECONDS)
+    app.institution_observability_set_deadline(deadline)
+    app.institution_observability_log("institution.request.enter", product=product)
     try:
-        rows = app.DERIVATIVES_STORE.institutional_positions(product, deadline=deadline)
-    except (TimeoutError, sqlite3.OperationalError) as exc:
-        app.LOGGER.info("Institution SQLite lookup skipped after request deadline or lock timeout: %s", exc)
-        rows = []
-    if rows:
-        payload = build_institution_payload_from_rows(product, rows, TAIFEX_FUTURES_DAILY_URL)
-    else:
-        is_option = product in {"TXO", "STO", "ETO"}
-        source_url = TAIFEX_INSTITUTION_OPTIONS_DETAIL_OPENAPI_URL if is_option else TAIFEX_INSTITUTION_FUTURES_DETAIL_OPENAPI_URL
-        if (remaining_budget(deadline) or 0) <= 0:
-            payload = build_pending_institution_payload(product, source_url)
+        app.institution_observability_log("institution.sqlite.begin")
+        try:
+            rows = app.DERIVATIVES_STORE.institutional_positions(product, deadline=deadline)
+        except (TimeoutError, sqlite3.OperationalError) as exc:
+            sqlite_error_text = str(exc).lower()
+            sqlite_event = (
+                "institution.sqlite.timeout"
+                if isinstance(exc, TimeoutError) or any(token in sqlite_error_text for token in ("interrupt", "locked", "busy"))
+                else "institution.sqlite.error"
+            )
+            app.institution_observability_log(sqlite_event)
+            app.LOGGER.info("Institution SQLite lookup skipped after request deadline or lock timeout: %s", exc)
+            rows = []
+        except Exception as exc:  # noqa: BLE001
+            app.institution_observability_log(
+                "institution.sqlite.error",
+                exception_class=type(exc).__name__,
+            )
+            raise
         else:
-            payload = build_institution_payload_live(
-                product,
-                source_url,
-                deadline=deadline,
-            ) or build_pending_institution_payload(product, TAIFEX_FUTURES_DAILY_URL)
-    return jsonify(app.api_success_payload(payload))
+            app.institution_observability_log("institution.sqlite.end", row_count=len(rows))
+        app.institution_observability_log("institution.cache_or_rows.result", rows_available=bool(rows), row_count=len(rows))
+        if rows:
+            payload = build_institution_payload_from_rows(product, rows, TAIFEX_FUTURES_DAILY_URL)
+        else:
+            is_option = product in {"TXO", "STO", "ETO"}
+            source_url = TAIFEX_INSTITUTION_OPTIONS_DETAIL_OPENAPI_URL if is_option else TAIFEX_INSTITUTION_FUTURES_DETAIL_OPENAPI_URL
+            if (remaining_budget(deadline) or 0) <= 0:
+                app.institution_observability_log("institution.pending.begin", reason="deadline_exhausted")
+                payload = build_pending_institution_payload(product, source_url)
+                app.institution_observability_log("institution.pending.end")
+            else:
+                app.institution_observability_log("institution.live_fallback.begin")
+                live_payload = build_institution_payload_live(
+                    product,
+                    source_url,
+                    deadline=deadline,
+                )
+                if not app.institution_observability_live_terminal():
+                    app.institution_observability_log(
+                        "institution.live_fallback.end",
+                        result_available=bool(live_payload),
+                    )
+                if live_payload:
+                    payload = live_payload
+                else:
+                    app.institution_observability_log("institution.pending.begin", reason="live_result_unavailable")
+                    payload = build_pending_institution_payload(product, TAIFEX_FUTURES_DAILY_URL)
+                    app.institution_observability_log("institution.pending.end")
+        app.institution_observability_log("institution.response.build.begin")
+        response = jsonify(app.api_success_payload(payload))
+        app.institution_observability_log("institution.response.build.end", response_status_code=response.status_code)
+        app.institution_observability_attach_close(response)
+        app.institution_observability_log("institution.route.return", response_status_code=response.status_code)
+        return response
+    except Exception as exc:  # noqa: BLE001
+        app.institution_observability_log(
+            "institution.request.exception",
+            exception_class=type(exc).__name__,
+        )
+        raise
 
 
 @bp.route("/api/institution/import", methods=["POST"])
