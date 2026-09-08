@@ -17,6 +17,7 @@ import http.client
 import logging
 import os
 import shlex
+import socket
 import ssl
 import sys
 import threading
@@ -340,6 +341,96 @@ _verified_ssl_context_lock = threading.Lock()
 INSTITUTION_PROVIDER_HOST = "openapi.taifex.com.tw"
 
 
+def _institution_deadline_remaining(deadline: object) -> float | None:
+    if deadline is None:
+        return None
+    return float(deadline) - time.monotonic()
+
+
+def _institution_getaddrinfo_with_deadline(
+    host: str,
+    port: int,
+    *,
+    timeout: object,
+    deadline: object,
+) -> list[tuple[object, ...]]:
+    """Resolve *host* without allowing DNS to outlive the request budget."""
+    remaining = _institution_deadline_remaining(deadline)
+    if remaining is None:
+        return socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM)
+    if remaining <= 0:
+        raise socket.timeout("timed out")
+    if timeout is not socket._GLOBAL_DEFAULT_TIMEOUT and timeout is not None:
+        remaining = min(remaining, max(0.001, float(timeout)))
+
+    result: dict[str, object] = {}
+    completed = threading.Event()
+
+    def resolve() -> None:
+        try:
+            result["addresses"] = socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM)
+        except BaseException as exc:
+            result["exception"] = exc
+        finally:
+            completed.set()
+
+    threading.Thread(target=resolve, name="institution-dns", daemon=True).start()
+    if not completed.wait(max(0.0, remaining)):
+        raise socket.timeout("timed out")
+    if "exception" in result:
+        raise result["exception"]  # type: ignore[misc]
+    return result.get("addresses", [])  # type: ignore[return-value]
+
+
+def _institution_create_connection_with_deadline(
+    address: tuple[str, int],
+    timeout: object = socket._GLOBAL_DEFAULT_TIMEOUT,
+    source_address: tuple[str, int] | None = None,
+    *,
+    all_errors: bool = False,
+    deadline: object,
+) -> socket.socket:
+    """Mirror socket.create_connection while enforcing one total deadline."""
+    host, port = address
+    addresses = _institution_getaddrinfo_with_deadline(
+        host,
+        port,
+        timeout=timeout,
+        deadline=deadline,
+    )
+    exceptions: list[OSError] = []
+    for af, socktype, proto, _canonname, sockaddr in addresses:
+        remaining = _institution_deadline_remaining(deadline)
+        if remaining is None:
+            remaining = float(timeout) if timeout is not socket._GLOBAL_DEFAULT_TIMEOUT else None
+        elif timeout is not socket._GLOBAL_DEFAULT_TIMEOUT and timeout is not None:
+            remaining = min(remaining, max(0.001, float(timeout)))
+        if remaining is not None and remaining <= 0:
+            raise socket.timeout("timed out")
+
+        sock = None
+        try:
+            sock = socket.socket(af, socktype, proto)
+            if remaining is not None:
+                sock.settimeout(remaining)
+            if source_address:
+                sock.bind(source_address)
+            sock.connect(sockaddr)
+            return sock
+        except OSError as exc:
+            if not all_errors:
+                exceptions.clear()
+            exceptions.append(exc)
+            if sock is not None:
+                sock.close()
+
+    if exceptions:
+        if not all_errors:
+            raise exceptions[0]
+        raise ExceptionGroup("create_connection failed", exceptions)
+    raise OSError("getaddrinfo returns an empty list")
+
+
 def initialize_verified_ssl_context() -> ssl.SSLContext:
     """Build the shared verified SSLContext once during application startup."""
     global _verified_ssl_context
@@ -550,7 +641,15 @@ class _InstitutionObservabilityHTTPSConnection(http.client.HTTPSConnection):
                     provider_host=INSTITUTION_PROVIDER_HOST,
                 )
                 try:
-                    result = original_create_connection(*connection_args, **connection_kwargs)
+                    deadline = state.get("deadline") if state is not None else None
+                    if deadline is None:
+                        result = original_create_connection(*connection_args, **connection_kwargs)
+                    else:
+                        result = _institution_create_connection_with_deadline(
+                            *connection_args,
+                            **connection_kwargs,
+                            deadline=deadline,
+                        )
                 except BaseException as exc:
                     _institution_provider_observe(
                         state,

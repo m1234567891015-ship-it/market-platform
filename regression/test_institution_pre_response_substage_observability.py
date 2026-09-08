@@ -28,10 +28,10 @@ OTHER_URL = "https://example.com/v1/InstitutionTest"
 
 class InstitutionPreResponseSubstageObservabilityTests(unittest.TestCase):
     @contextmanager
-    def _active_institution_context(self):
+    def _active_institution_context(self, deadline_seconds: float = 60.0):
         with app.app.test_request_context("/api/institution?product=TX"):
             app.institution_observability_start("TX")
-            app.institution_observability_set_deadline(time.monotonic() + 60.0)
+            app.institution_observability_set_deadline(time.monotonic() + deadline_seconds)
             yield
 
     @staticmethod
@@ -78,12 +78,15 @@ class InstitutionPreResponseSubstageObservabilityTests(unittest.TestCase):
         do_open.assert_not_called()
 
     def test_prs_03_dns_tcp_success_preserves_socket(self) -> None:
-        mock_socket = sentinel.socket
+        mock_socket = MagicMock()
         with self._active_institution_context(), \
-                patch.object(socket, "create_connection", return_value=mock_socket), \
+                patch.object(socket, "getaddrinfo", return_value=[
+                    (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("127.0.0.1", 443)),
+                ]), \
+                patch.object(socket, "socket", return_value=mock_socket), \
                 self.assertLogs("market_pulse", level="INFO") as records:
             connection = self._connection()
-            result = connection._create_connection("openapi.taifex.com.tw", 443, timeout=2.0)
+            result = connection._create_connection(("openapi.taifex.com.tw", 443), 2.0)
         self.assertIs(result, mock_socket)
         self.assertEqual(self._event_names(records), [
             "institution.provider.dns_tcp.begin",
@@ -92,12 +95,17 @@ class InstitutionPreResponseSubstageObservabilityTests(unittest.TestCase):
 
     def test_prs_04_dns_tcp_exception_preserves_same_exception(self) -> None:
         error = OSError("offline")
+        mock_socket = MagicMock()
+        mock_socket.connect.side_effect = error
         with self._active_institution_context(), \
-                patch.object(socket, "create_connection", side_effect=error), \
+                patch.object(socket, "getaddrinfo", return_value=[
+                    (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("127.0.0.1", 443)),
+                ]), \
+                patch.object(socket, "socket", return_value=mock_socket), \
                 self.assertLogs("market_pulse", level="INFO") as records:
             connection = self._connection()
             with self.assertRaises(OSError) as raised:
-                connection._create_connection("openapi.taifex.com.tw", 443, timeout=2.0)
+                connection._create_connection(("openapi.taifex.com.tw", 443), 2.0)
         self.assertIs(raised.exception, error)
         self.assertEqual(self._event_names(records), [
             "institution.provider.dns_tcp.begin",
@@ -261,10 +269,13 @@ class InstitutionPreResponseSubstageObservabilityTests(unittest.TestCase):
 
     def test_prs_17_provider_host_and_request_id_are_reused(self) -> None:
         with self._active_institution_context(), \
-                patch.object(socket, "create_connection", return_value=sentinel.socket), \
+                patch.object(socket, "getaddrinfo", return_value=[
+                    (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("127.0.0.1", 443)),
+                ]), \
+                patch.object(socket, "socket", return_value=MagicMock()), \
                 self.assertLogs("market_pulse", level="INFO") as records:
             connection = self._connection()
-            connection._create_connection("openapi.taifex.com.tw", 443)
+            connection._create_connection(("openapi.taifex.com.tw", 443), 2.0)
         lines = self._event_lines(records)
         self.assertTrue(lines)
         request_ids = {re.search(r"institution_request_id=([^ ]+)", line).group(1) for line in lines}
@@ -440,6 +451,84 @@ class InstitutionPreResponseSubstageObservabilityTests(unittest.TestCase):
         self.assertIs(result, created_context)
         import encodings.idna
         self.assertEqual("taiwan-market-pulse.onrender.com".encode("idna").decode("ascii"), "taiwan-market-pulse.onrender.com")
+
+    def test_prs_30_dns_tcp_second_address_uses_remaining_deadline(self) -> None:
+        first = MagicMock()
+        first.connect.side_effect = OSError("first address failed")
+        second = MagicMock()
+        addresses = [
+            (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("127.0.0.1", 443)),
+            (socket.AF_INET6, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("::1", 443, 0, 0)),
+        ]
+        with self._active_institution_context(deadline_seconds=0.05), \
+                patch.object(socket, "getaddrinfo", return_value=addresses), \
+                patch.object(socket, "socket", side_effect=[first, second]), \
+                self.assertLogs("market_pulse", level="INFO"):
+            connection = self._connection()
+            result = connection._create_connection(("openapi.taifex.com.tw", 443), 2.0)
+        self.assertIs(result, second)
+        self.assertEqual(first.connect.call_count, 1)
+        self.assertEqual(second.connect.call_count, 1)
+        self.assertLess(first.settimeout.call_args.args[0], 2.0)
+        self.assertLessEqual(second.settimeout.call_args.args[0], first.settimeout.call_args.args[0])
+
+    def test_prs_31_all_addresses_fail_within_total_deadline(self) -> None:
+        sockets = [MagicMock(), MagicMock()]
+        for fake_socket in sockets:
+            fake_socket.connect.side_effect = OSError("offline")
+        addresses = [
+            (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("127.0.0.1", 443)),
+            (socket.AF_INET6, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", ("::1", 443, 0, 0)),
+        ]
+        started = time.monotonic()
+        with self._active_institution_context(deadline_seconds=0.05), \
+                patch.object(socket, "getaddrinfo", return_value=addresses), \
+                patch.object(socket, "socket", side_effect=sockets), \
+                self.assertLogs("market_pulse", level="INFO"):
+            connection = self._connection()
+            with self.assertRaises(OSError):
+                connection._create_connection(("openapi.taifex.com.tw", 443), 2.0)
+        self.assertLess(time.monotonic() - started, 0.2)
+
+    def test_prs_32_exhausted_deadline_skips_dns_and_tcp(self) -> None:
+        with self._active_institution_context(deadline_seconds=-1.0), \
+                patch.object(socket, "getaddrinfo") as getaddrinfo, \
+                patch.object(socket, "socket") as socket_factory, \
+                self.assertLogs("market_pulse", level="INFO") as records:
+            connection = self._connection()
+            with self.assertRaises(TimeoutError):
+                connection._create_connection(("openapi.taifex.com.tw", 443), 2.0)
+        getaddrinfo.assert_not_called()
+        socket_factory.assert_not_called()
+        self.assertEqual(self._event_names(records), [
+            "institution.provider.dns_tcp.begin",
+            "institution.provider.dns_tcp.exception",
+        ])
+
+    def test_prs_33_dns_timeout_uses_existing_deadline(self) -> None:
+        def blocked_resolution(*_args, **_kwargs):
+            time.sleep(0.2)
+            return []
+
+        started = time.monotonic()
+        with self._active_institution_context(deadline_seconds=0.03), \
+                patch.object(socket, "getaddrinfo", side_effect=blocked_resolution), \
+                self.assertLogs("market_pulse", level="INFO"):
+            connection = self._connection()
+            with self.assertRaises(TimeoutError):
+                connection._create_connection(("openapi.taifex.com.tw", 443), 2.0)
+        self.assertLess(time.monotonic() - started, 0.15)
+
+    def test_prs_34_non_observed_connection_preserves_original_socket_path(self) -> None:
+        with patch.object(socket, "create_connection", return_value=sentinel.socket) as create_connection:
+            connection = security._InstitutionObservabilityHTTPSConnection(
+                "openapi.taifex.com.tw",
+                timeout=2.0,
+                context=ssl.create_default_context(),
+            )
+            result = connection._create_connection(("openapi.taifex.com.tw", 443), 2.0)
+        self.assertIs(result, sentinel.socket)
+        create_connection.assert_called_once_with(("openapi.taifex.com.tw", 443), 2.0)
 
 
 if __name__ == "__main__":
