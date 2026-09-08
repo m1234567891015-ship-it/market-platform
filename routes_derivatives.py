@@ -373,11 +373,14 @@ def api_institutional_position():
     else:
         is_option = product in {"TXO", "STO", "ETO"}
         source_url = TAIFEX_INSTITUTION_OPTIONS_DETAIL_OPENAPI_URL if is_option else TAIFEX_INSTITUTION_FUTURES_DETAIL_OPENAPI_URL
-        payload = build_institution_payload_live(
-            product,
-            source_url,
-            deadline=deadline,
-        ) or build_pending_institution_payload(product, TAIFEX_FUTURES_DAILY_URL)
+        if (remaining_budget(deadline) or 0) <= 0:
+            payload = build_pending_institution_payload(product, source_url)
+        else:
+            payload = build_institution_payload_live(
+                product,
+                source_url,
+                deadline=deadline,
+            ) or build_pending_institution_payload(product, TAIFEX_FUTURES_DAILY_URL)
     return jsonify(app.api_success_payload(payload))
 
 

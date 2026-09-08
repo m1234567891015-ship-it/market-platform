@@ -1896,6 +1896,7 @@ def _read_provider_payload(
     timeout: float,
     *,
     deadline: float | None = None,
+    deadline_cleanup: bool = False,
 ) -> tuple[bytes, str]:
     provider_key = provider_key_for_url(request.full_url)
     request_key = f"{request.get_method()}:{request.full_url}:{request.data!r}"
@@ -1906,15 +1907,24 @@ def _read_provider_payload(
             content_type = str(response.headers.get("Content-Type") or "").lower()
         return raw, content_type
 
+    cleanup_deadline = deadline
     return run_cache_single_flight(
         f"provider-fetch:{provider_key}:{request_key}",
         read_uncached,
         deadline=deadline,
         provider_key=provider_key,
+        deadline_cleanup=deadline_cleanup,
+        cleanup_deadline=cleanup_deadline,
     )
 
 
-def fetch_json(url: str, timeout: int = 30, *, deadline: float | None = None) -> Any:
+def fetch_json(
+    url: str,
+    timeout: int = 30,
+    *,
+    deadline: float | None = None,
+    deadline_cleanup: bool = False,
+) -> Any:
     headers = {"User-Agent": USER_AGENT}
     if "twse.com.tw" in url:
         headers = {
@@ -1923,7 +1933,12 @@ def fetch_json(url: str, timeout: int = 30, *, deadline: float | None = None) ->
             "Connection": "close",
         }
     req = Request(url, headers=headers)
-    raw, _content_type = _read_provider_payload(req, bounded_timeout(timeout, deadline), deadline=deadline)
+    raw, _content_type = _read_provider_payload(
+        req,
+        bounded_timeout(timeout, deadline),
+        deadline=deadline,
+        deadline_cleanup=deadline_cleanup,
+    )
     return json.loads(raw.decode("utf-8"))
 def fetch_nasdaq_json(path: str, timeout: int = 12, *, deadline: float | None = None) -> Any:
     url = path if path.startswith("http") else f"{NASDAQ_API_BASE}{path}"
@@ -3967,14 +3982,17 @@ def fetch_taifex_openapi_list(
     timeout: int = 20,
     *,
     deadline: float | None = None,
+    deadline_cleanup: bool = False,
 ) -> list[dict[str, Any]]:
     cached = read_memory_cache("taifex_openapi_list", url, cache_seconds, deadline=deadline)
     if cached is not None:
         return cached
-    rows = fetch_json(url, timeout=timeout, deadline=deadline)
+    rows = fetch_json(url, timeout=timeout, deadline=deadline, deadline_cleanup=deadline_cleanup)
     if not isinstance(rows, list):
         rows = []
-    write_memory_cache("taifex_openapi_list", url, rows, cache_seconds, deadline=deadline)
+    cache_write_deadline = deadline
+    if cache_write_deadline is None or (remaining_budget(cache_write_deadline) or 0) > 0:
+        write_memory_cache("taifex_openapi_list", url, rows, cache_seconds, deadline=cache_write_deadline)
     return rows
 
 
@@ -3984,7 +4002,12 @@ def fetch_taifex_institution_detail_rows(product: str, *, deadline: float | None
         return []
     is_option = product in {"TXO", "STO", "ETO"}
     url = TAIFEX_INSTITUTION_OPTIONS_DETAIL_OPENAPI_URL if is_option else TAIFEX_INSTITUTION_FUTURES_DETAIL_OPENAPI_URL
-    rows = fetch_taifex_openapi_list(url, TAIFEX_INSTITUTION_DETAIL_CACHE_SECONDS, deadline=deadline)
+    rows = fetch_taifex_openapi_list(
+        url,
+        TAIFEX_INSTITUTION_DETAIL_CACHE_SECONDS,
+        deadline=deadline,
+        deadline_cleanup=True,
+    )
     return [row for row in rows if str(row.get("ContractCode") or "").strip() == contract_name]
 
 

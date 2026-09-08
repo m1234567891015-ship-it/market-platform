@@ -79,6 +79,7 @@ class FullRequestDeadlineTests(unittest.TestCase):
         app.DERIVATIVES_STORE = store
         try:
             with patch.object(routes_derivatives, "deadline_after", side_effect=lambda seconds: seconds), \
+                    patch.object(routes_derivatives, "remaining_budget", return_value=1.0), \
                     patch.object(routes_derivatives, "build_institution_payload_live", return_value={"summary": {"status": "source_pending"}}) as live:
                 response = self.client.get("/api/institution?product=TX")
         finally:

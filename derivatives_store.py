@@ -215,24 +215,43 @@ class DerivativesStore:
         self._initialized = False
         self._initialize_lock = threading.Lock()
 
-    def _connect(self, *, deadline: float | None = None) -> sqlite3.Connection:
+    def _connect(
+        self,
+        *,
+        deadline: float | None = None,
+        interruptible: bool = False,
+    ) -> sqlite3.Connection:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         timeout = 10.0 if deadline is None else min(10.0, max(0.001, deadline - time.monotonic()))
         if deadline is not None and deadline - time.monotonic() <= 0:
             raise TimeoutError("database deadline exhausted")
         connection = sqlite3.connect(self.path, timeout=timeout)
+        if deadline is not None and interruptible:
+            connection.set_progress_handler(
+                lambda: 1 if time.monotonic() >= deadline else 0,
+                100,
+            )
         connection.execute("PRAGMA foreign_keys = ON")
         connection.execute("PRAGMA journal_mode = WAL")
         connection.execute("PRAGMA synchronous = NORMAL")
         return connection
 
     @contextmanager
-    def _connection(self, *, deadline: float | None = None) -> Iterator[sqlite3.Connection]:
-        connection = self._connect(deadline=deadline)
+    def _connection(
+        self,
+        *,
+        deadline: float | None = None,
+        read_only: bool = False,
+        interruptible: bool = False,
+    ) -> Iterator[sqlite3.Connection]:
+        connection = self._connect(deadline=deadline, interruptible=interruptible)
         try:
             yield connection
-            connection.commit()
+            if not read_only:
+                connection.commit()
         finally:
+            if deadline is not None and interruptible:
+                connection.set_progress_handler(None, 0)
             connection.close()
 
     def initialize(self) -> None:
@@ -560,8 +579,8 @@ class DerivativesStore:
         *,
         deadline: float | None = None,
     ) -> list[dict[str, Any]]:
-        with self._connection(deadline=deadline) as connection:
-            rows = connection.execute(
+        with self._connection(deadline=deadline, read_only=True, interruptible=True) as connection:
+            cursor = connection.execute(
                 """
                 SELECT institution, product_code, long_contracts, short_contracts, net_contracts, trade_date
                 FROM institutional_position
@@ -570,7 +589,11 @@ class DerivativesStore:
                 LIMIT ?
                 """,
                 (product_code.upper(), max(1, min(int(limit), 200))),
-            ).fetchall()
+            )
+            try:
+                rows = cursor.fetchall()
+            finally:
+                cursor.close()
         return [
             {
                 "institution": row[0],

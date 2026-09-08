@@ -425,12 +425,24 @@ def _provider_failure_kind(error: BaseException | str) -> str | None:
     return None
 
 
-def provider_cooldown_active(provider_key: str) -> bool:
+def _acquire_lock_with_deadline(lock: threading.Lock, deadline: float | None = None) -> bool:
+    if deadline is None:
+        lock.acquire()
+        return True
+    remaining = deadline - time.monotonic()
+    if remaining > 0:
+        return lock.acquire(timeout=remaining)
+    return lock.acquire(blocking=False)
+
+
+def provider_cooldown_active(provider_key: str, *, deadline: float | None = None) -> bool:
     key = str(provider_key or "").strip()
     if not key:
         return False
     now = time.monotonic()
-    with provider_cooldown_lock:
+    if not _acquire_lock_with_deadline(provider_cooldown_lock, deadline):
+        return False
+    try:
         expires_at = provider_cooldowns.get(key)
         if expires_at is None:
             return False
@@ -438,21 +450,30 @@ def provider_cooldown_active(provider_key: str) -> bool:
             provider_cooldowns.pop(key, None)
             return False
         return True
+    finally:
+        provider_cooldown_lock.release()
 
 
-def check_provider_cooldown(provider_key: str) -> None:
-    if provider_cooldown_active(provider_key):
+def check_provider_cooldown(provider_key: str, *, deadline: float | None = None) -> None:
+    if provider_cooldown_active(provider_key, deadline=deadline):
         raise ProviderCooldownError(f"provider cooldown active: {provider_key}")
 
 
-def record_provider_failure(provider_key: str, error: BaseException | str) -> bool:
+def record_provider_failure(
+    provider_key: str,
+    error: BaseException | str,
+    *,
+    deadline: float | None = None,
+) -> bool:
     """Record only timeout/network failures in a bounded monotonic map."""
     kind = _provider_failure_kind(error)
     key = str(provider_key or "").strip()
     if not kind or not key:
         return False
     now = time.monotonic()
-    with provider_cooldown_lock:
+    if not _acquire_lock_with_deadline(provider_cooldown_lock, deadline):
+        return False
+    try:
         for expired_key, expires_at in list(provider_cooldowns.items()):
             if expires_at <= now:
                 provider_cooldowns.pop(expired_key, None)
@@ -460,12 +481,18 @@ def record_provider_failure(provider_key: str, error: BaseException | str) -> bo
             oldest_key = min(provider_cooldowns, key=provider_cooldowns.get)
             provider_cooldowns.pop(oldest_key, None)
         provider_cooldowns[key] = now + PROVIDER_FAILURE_COOLDOWN_SECONDS
+    finally:
+        provider_cooldown_lock.release()
     return True
 
 
-def clear_provider_cooldown(provider_key: str) -> None:
-    with provider_cooldown_lock:
+def clear_provider_cooldown(provider_key: str, *, deadline: float | None = None) -> None:
+    if not _acquire_lock_with_deadline(provider_cooldown_lock, deadline):
+        return
+    try:
         provider_cooldowns.pop(str(provider_key or "").strip(), None)
+    finally:
+        provider_cooldown_lock.release()
 
 
 def wait_for_cache_flight(
@@ -487,10 +514,16 @@ def run_cache_single_flight(
     *,
     deadline: float | None = None,
     provider_key: str | None = None,
+    deadline_cleanup: bool = False,
+    cleanup_deadline: float | None = None,
 ) -> Any:
     """Run one process-local operation and return its result to bounded followers."""
+    if not deadline_cleanup:
+        cleanup_deadline = None
+    elif cleanup_deadline is None:
+        cleanup_deadline = deadline
     if provider_key:
-        check_provider_cooldown(provider_key)
+        check_provider_cooldown(provider_key, deadline=cleanup_deadline)
     is_leader, handle = claim_cache_flight(key, deadline=deadline)
     if not is_leader:
         if not wait_for_cache_flight(handle, deadline=deadline, max_wait=None if deadline is None else max(0.0, deadline - time.monotonic())):
@@ -505,15 +538,15 @@ def run_cache_single_flight(
         handle.result = result
         handle.result_ready = True
         if provider_key:
-            clear_provider_cooldown(provider_key)
+            clear_provider_cooldown(provider_key, deadline=cleanup_deadline)
         return result
     except BaseException as exc:
         handle.error = exc
         if provider_key:
-            record_provider_failure(provider_key, exc)
+            record_provider_failure(provider_key, exc, deadline=cleanup_deadline)
         raise
     finally:
-        finish_cache_flight(key, handle)
+        finish_cache_flight(key, handle, deadline=cleanup_deadline)
 
 
 def _shared_single_flight_mode() -> str:
@@ -576,6 +609,9 @@ def _claim_flight(
         return False, CacheFlightHandle(threading.Event())
     try:
         existing_handle = local_flights.get(key)
+        if existing_handle is not None and existing_handle.event.is_set():
+            local_flights.pop(key, None)
+            existing_handle = None
         if existing_handle is not None:
             return False, existing_handle
         handle = CacheFlightHandle(threading.Event())
@@ -608,11 +644,20 @@ def _finish_flight(
     handle: CacheFlightHandle,
     local_flights: dict[str, CacheFlightHandle],
     local_lock: threading.Lock,
+    deadline: float | None = None,
 ) -> None:
-    with local_lock:
+    if not _acquire_lock_with_deadline(local_lock, deadline):
+        # Wake bounded followers without waiting for a fresh cleanup budget.
+        # A later claimant removes this completed handle while holding the
+        # same lock, preserving single-flight correctness.
+        handle.event.set()
+        return
+    try:
         if local_flights.get(key) is handle:
             local_flights.pop(key, None)
             handle.event.set()
+    finally:
+        local_lock.release()
     if handle.uses_shared_lease and handle.owner_token:
         try:
             handle.shared_adapter.release_lease(handle.lease_name, handle.owner_token)
@@ -625,8 +670,8 @@ def claim_cache_flight(key: str, *, deadline: float | None = None) -> tuple[bool
     return _claim_flight(key, cache_flights, cache_flight_lock, "cache-flight", deadline)
 
 
-def finish_cache_flight(key: str, handle: CacheFlightHandle) -> None:
-    _finish_flight(key, handle, cache_flights, cache_flight_lock)
+def finish_cache_flight(key: str, handle: CacheFlightHandle, *, deadline: float | None = None) -> None:
+    _finish_flight(key, handle, cache_flights, cache_flight_lock, deadline)
 
 
 def claim_taifex_options_chain_flight(key: str, *, deadline: float | None = None) -> tuple[bool, CacheFlightHandle]:
