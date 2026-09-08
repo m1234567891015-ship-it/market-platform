@@ -260,6 +260,60 @@ class InstitutionPreResponseSubstageObservabilityTests(unittest.TestCase):
         self.assertEqual(len(request_ids), 1)
         self.assertTrue(all("provider_host=openapi.taifex.com.tw" in line for line in lines))
 
+    def test_prs_18_ssl_context_existing_emits_enter_return_only(self) -> None:
+        existing_context = sentinel.existing_context
+        with self._active_institution_context(), \
+                patch.object(security, "_verified_ssl_context", existing_context), \
+                self.assertLogs("market_pulse", level="INFO") as records:
+            result = security._get_verified_ssl_context()
+        self.assertIs(result, existing_context)
+        self.assertEqual(self._event_names(records), [
+            "institution.provider.ssl_context.enter",
+            "institution.provider.ssl_context.return",
+        ])
+
+    def test_prs_19_ssl_context_initialization_emits_full_lifecycle(self) -> None:
+        created_context = sentinel.created_context
+        with self._active_institution_context(), \
+                patch.object(security, "_verified_ssl_context", None), \
+                patch.object(security.certifi, "where", return_value="offline-ca.pem") as where, \
+                patch.object(security.ssl, "create_default_context", return_value=created_context) as create, \
+                self.assertLogs("market_pulse", level="INFO") as records:
+            result = security._get_verified_ssl_context()
+        self.assertIs(result, created_context)
+        where.assert_called_once_with()
+        create.assert_called_once_with(cafile="offline-ca.pem")
+        self.assertEqual(self._event_names(records), [
+            "institution.provider.ssl_context.enter",
+            "institution.provider.ssl_context.lock_acquired",
+            "institution.provider.ssl_context.create.begin",
+            "institution.provider.ssl_context.create.end",
+            "institution.provider.ssl_context.return",
+        ])
+
+    def test_prs_20_ssl_context_inactive_emits_no_lifecycle_events(self) -> None:
+        existing_context = sentinel.existing_context
+        with patch.object(security, "_verified_ssl_context", existing_context), \
+                patch.object(app.LOGGER, "info") as info:
+            result = security._get_verified_ssl_context()
+        self.assertIs(result, existing_context)
+        self.assertFalse(any("institution.provider.ssl_context" in str(call) for call in info.call_args_list))
+
+    def test_prs_21_ssl_context_create_exception_preserves_exception(self) -> None:
+        error = RuntimeError("offline context failure")
+        with self._active_institution_context(), \
+                patch.object(security, "_verified_ssl_context", None), \
+                patch.object(security.ssl, "create_default_context", side_effect=error), \
+                self.assertLogs("market_pulse", level="INFO") as records:
+            with self.assertRaises(RuntimeError) as raised:
+                security._get_verified_ssl_context()
+        self.assertIs(raised.exception, error)
+        self.assertEqual(self._event_names(records), [
+            "institution.provider.ssl_context.enter",
+            "institution.provider.ssl_context.lock_acquired",
+            "institution.provider.ssl_context.create.begin",
+        ])
+
 
 if __name__ == "__main__":
     unittest.main()

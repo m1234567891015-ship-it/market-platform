@@ -348,10 +348,41 @@ def _get_verified_ssl_context() -> ssl.SSLContext:
     instead of paying that cost on every single outbound API request.
     """
     global _verified_ssl_context
+    state = _active_institution_observability_state()
+    _institution_provider_observe(
+        state,
+        "institution.provider.ssl_context.enter",
+        provider="taifex",
+        provider_host=INSTITUTION_PROVIDER_HOST,
+    )
     if _verified_ssl_context is None:
         with _verified_ssl_context_lock:
+            _institution_provider_observe(
+                state,
+                "institution.provider.ssl_context.lock_acquired",
+                provider="taifex",
+                provider_host=INSTITUTION_PROVIDER_HOST,
+            )
             if _verified_ssl_context is None:
+                _institution_provider_observe(
+                    state,
+                    "institution.provider.ssl_context.create.begin",
+                    provider="taifex",
+                    provider_host=INSTITUTION_PROVIDER_HOST,
+                )
                 _verified_ssl_context = ssl.create_default_context(cafile=certifi.where())
+                _institution_provider_observe(
+                    state,
+                    "institution.provider.ssl_context.create.end",
+                    provider="taifex",
+                    provider_host=INSTITUTION_PROVIDER_HOST,
+                )
+    _institution_provider_observe(
+        state,
+        "institution.provider.ssl_context.return",
+        provider="taifex",
+        provider_host=INSTITUTION_PROVIDER_HOST,
+    )
     return _verified_ssl_context
 
 
