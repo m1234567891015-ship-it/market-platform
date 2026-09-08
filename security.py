@@ -349,6 +349,7 @@ def _get_verified_ssl_context() -> ssl.SSLContext:
     """
     global _verified_ssl_context
     state = _active_institution_observability_state()
+    _shared_ssl_context_observe("ssl_context.shared.enter", state=state)
     _institution_provider_observe(
         state,
         "institution.provider.ssl_context.enter",
@@ -356,27 +357,38 @@ def _get_verified_ssl_context() -> ssl.SSLContext:
         provider_host=INSTITUTION_PROVIDER_HOST,
     )
     if _verified_ssl_context is None:
-        with _verified_ssl_context_lock:
-            _institution_provider_observe(
-                state,
-                "institution.provider.ssl_context.lock_acquired",
-                provider="taifex",
-                provider_host=INSTITUTION_PROVIDER_HOST,
-            )
-            if _verified_ssl_context is None:
+        _shared_ssl_context_observe("ssl_context.shared.lock_wait.begin", state=state)
+        lock_acquired = False
+        try:
+            with _verified_ssl_context_lock:
+                lock_acquired = True
+                _shared_ssl_context_observe("ssl_context.shared.lock_acquired", state=state)
                 _institution_provider_observe(
                     state,
-                    "institution.provider.ssl_context.create.begin",
+                    "institution.provider.ssl_context.lock_acquired",
                     provider="taifex",
                     provider_host=INSTITUTION_PROVIDER_HOST,
                 )
-                _verified_ssl_context = ssl.create_default_context(cafile=certifi.where())
-                _institution_provider_observe(
-                    state,
-                    "institution.provider.ssl_context.create.end",
-                    provider="taifex",
-                    provider_host=INSTITUTION_PROVIDER_HOST,
-                )
+                if _verified_ssl_context is None:
+                    _shared_ssl_context_observe("ssl_context.shared.create.begin", state=state)
+                    _institution_provider_observe(
+                        state,
+                        "institution.provider.ssl_context.create.begin",
+                        provider="taifex",
+                        provider_host=INSTITUTION_PROVIDER_HOST,
+                    )
+                    _verified_ssl_context = ssl.create_default_context(cafile=certifi.where())
+                    _shared_ssl_context_observe("ssl_context.shared.create.end", state=state)
+                    _institution_provider_observe(
+                        state,
+                        "institution.provider.ssl_context.create.end",
+                        provider="taifex",
+                        provider_host=INSTITUTION_PROVIDER_HOST,
+                    )
+        finally:
+            if lock_acquired:
+                _shared_ssl_context_observe("ssl_context.shared.lock_released", state=state)
+    _shared_ssl_context_observe("ssl_context.shared.return", state=state)
     _institution_provider_observe(
         state,
         "institution.provider.ssl_context.return",
@@ -413,6 +425,39 @@ def _institution_provider_observe(
         institution_observability_log(event, state=state, **fields)
     except Exception:
         # Observability must never change the provider's return or exception semantics.
+        return
+
+
+def _shared_ssl_context_observe(
+    event: str,
+    *,
+    state: dict[str, object] | None,
+) -> None:
+    """Record shared SSL-context lifecycle without affecting SSL behavior."""
+    try:
+        from flask import has_request_context
+
+        thread_id = threading.get_ident()
+        thread_name = threading.current_thread().name
+        request_context = "true" if has_request_context() else "false"
+        fields = {
+            "thread_id": thread_id,
+            "thread_name": thread_name,
+            "request_context": request_context,
+        }
+        if state is not None:
+            from app import institution_observability_log
+
+            institution_observability_log(event, state=state, **fields)
+        else:
+            LOGGER.info(
+                "event=%s thread_id=%s thread_name=%s request_context=%s",
+                event,
+                thread_id,
+                thread_name,
+                request_context,
+            )
+    except Exception:
         return
 
 

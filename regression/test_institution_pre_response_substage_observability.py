@@ -40,6 +40,14 @@ class InstitutionPreResponseSubstageObservabilityTests(unittest.TestCase):
         return [re.search(r"event=([^ ]+)", line).group(1) for line in cls._event_lines(records)]
 
     @staticmethod
+    def _shared_event_lines(records) -> list[str]:
+        return [line for line in records.output if "event=ssl_context.shared." in line]
+
+    @classmethod
+    def _shared_event_names(cls, records) -> list[str]:
+        return [re.search(r"event=([^ ]+)", line).group(1) for line in cls._shared_event_lines(records)]
+
+    @staticmethod
     def _connection() -> security._InstitutionObservabilityHTTPSConnection:
         return security._InstitutionObservabilityHTTPSConnection(
             "openapi.taifex.com.tw",
@@ -267,6 +275,10 @@ class InstitutionPreResponseSubstageObservabilityTests(unittest.TestCase):
                 self.assertLogs("market_pulse", level="INFO") as records:
             result = security._get_verified_ssl_context()
         self.assertIs(result, existing_context)
+        self.assertEqual(self._shared_event_names(records), [
+            "ssl_context.shared.enter",
+            "ssl_context.shared.return",
+        ])
         self.assertEqual(self._event_names(records), [
             "institution.provider.ssl_context.enter",
             "institution.provider.ssl_context.return",
@@ -283,6 +295,18 @@ class InstitutionPreResponseSubstageObservabilityTests(unittest.TestCase):
         self.assertIs(result, created_context)
         where.assert_called_once_with()
         create.assert_called_once_with(cafile="offline-ca.pem")
+        self.assertEqual(self._shared_event_names(records), [
+            "ssl_context.shared.enter",
+            "ssl_context.shared.lock_wait.begin",
+            "ssl_context.shared.lock_acquired",
+            "ssl_context.shared.create.begin",
+            "ssl_context.shared.create.end",
+            "ssl_context.shared.lock_released",
+            "ssl_context.shared.return",
+        ])
+        self.assertTrue(all("thread_id=" in line and "thread_name=" in line for line in self._shared_event_lines(records)))
+        self.assertTrue(all("request_context=true" in line for line in self._shared_event_lines(records)))
+        self.assertTrue(all("institution_request_id=" in line for line in self._shared_event_lines(records)))
         self.assertEqual(self._event_names(records), [
             "institution.provider.ssl_context.enter",
             "institution.provider.ssl_context.lock_acquired",
@@ -298,6 +322,59 @@ class InstitutionPreResponseSubstageObservabilityTests(unittest.TestCase):
             result = security._get_verified_ssl_context()
         self.assertIs(result, existing_context)
         self.assertFalse(any("institution.provider.ssl_context" in str(call) for call in info.call_args_list))
+
+    def test_prs_22_ssl_context_background_emits_shared_lifecycle(self) -> None:
+        created_context = sentinel.background_context
+        with patch.object(security, "_verified_ssl_context", None), \
+                patch.object(security.certifi, "where", return_value="offline-ca.pem"), \
+                patch.object(security.ssl, "create_default_context", return_value=created_context), \
+                self.assertLogs("market_pulse", level="INFO") as records:
+            result = security._get_verified_ssl_context()
+        self.assertIs(result, created_context)
+        self.assertEqual(self._shared_event_names(records), [
+            "ssl_context.shared.enter",
+            "ssl_context.shared.lock_wait.begin",
+            "ssl_context.shared.lock_acquired",
+            "ssl_context.shared.create.begin",
+            "ssl_context.shared.create.end",
+            "ssl_context.shared.lock_released",
+            "ssl_context.shared.return",
+        ])
+        self.assertTrue(all("request_context=false" in line for line in self._shared_event_lines(records)))
+        self.assertTrue(all("thread_id=" in line and "thread_name=" in line for line in self._shared_event_lines(records)))
+
+    def test_prs_23_ssl_context_logging_failure_does_not_change_result(self) -> None:
+        created_context = sentinel.logging_failure_context
+        with self._active_institution_context(), \
+                patch.object(security, "_verified_ssl_context", None), \
+                patch.object(security.certifi, "where", return_value="offline-ca.pem"), \
+                patch.object(security.ssl, "create_default_context", return_value=created_context), \
+                patch.object(app.LOGGER, "info", side_effect=RuntimeError("logging failed")):
+            result = security._get_verified_ssl_context()
+        self.assertIs(result, created_context)
+
+    def test_prs_24_ssl_context_create_exception_releases_lock(self) -> None:
+        error = RuntimeError("offline context failure")
+        with self._active_institution_context(), \
+                patch.object(security, "_verified_ssl_context", None), \
+                patch.object(security.certifi, "where", return_value="offline-ca.pem"), \
+                patch.object(security.ssl, "create_default_context", side_effect=error), \
+                self.assertLogs("market_pulse", level="INFO") as records:
+            with self.assertRaises(RuntimeError) as raised:
+                security._get_verified_ssl_context()
+        self.assertIs(raised.exception, error)
+        self.assertEqual(self._shared_event_names(records), [
+            "ssl_context.shared.enter",
+            "ssl_context.shared.lock_wait.begin",
+            "ssl_context.shared.lock_acquired",
+            "ssl_context.shared.create.begin",
+            "ssl_context.shared.lock_released",
+        ])
+        self.assertEqual(self._event_names(records), [
+            "institution.provider.ssl_context.enter",
+            "institution.provider.ssl_context.lock_acquired",
+            "institution.provider.ssl_context.create.begin",
+        ])
 
     def test_prs_21_ssl_context_create_exception_preserves_exception(self) -> None:
         error = RuntimeError("offline context failure")
