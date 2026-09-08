@@ -5533,7 +5533,7 @@ async function initAssetHubPage() {
   const results = await Promise.allSettled(categories.map((category) => {
     const endpoint = isFinanceMode
       ? `/api/global-market/${encodeURIComponent(category)}?limit=all`
-      : `/api/${encodeURIComponent(category)}?limit=all`;
+      : `/api/${encodeURIComponent(category)}?limit=12`;
     return fetchWithTimeout.scheduleJsonRequest(scheduler, endpoint, 120000, 1)
       .then((responsePayload) => {
         if (!isFinanceMode && responsePayload?.success === false) {

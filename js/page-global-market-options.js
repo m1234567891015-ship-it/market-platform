@@ -3973,7 +3973,7 @@ async function initGlobalMarketPage(refresh = false) {
   try {
     const initialLimit = category === "us-stocks" && document.body.dataset.marketView === "overview"
       ? "all"
-      : ["precious-metals", "bonds", "futures", "options"].includes(category)
+      : ["precious-metals", "bonds", "futures"].includes(category)
       ? "all"
       : ["futures", "options"].includes(category)
         ? 12
