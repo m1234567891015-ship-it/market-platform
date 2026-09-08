@@ -396,7 +396,7 @@ def institution_observability_log(event: str, *, state: dict[str, Any] | None = 
     stage_key = event.removeprefix("institution.")
     if event.endswith(".begin"):
         state["stage_starts"][stage_key.removesuffix(".begin")] = now
-    elif event.endswith((".end", ".timeout", ".error")):
+    elif event.endswith((".end", ".timeout", ".error", ".opened", ".exception")):
         stage_name = stage_key.rsplit(".", 1)[0]
         started = state["stage_starts"].pop(stage_name, None)
         if started is not None:

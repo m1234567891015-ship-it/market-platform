@@ -49,6 +49,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from flask import g, has_request_context
 from urllib.parse import urlsplit
 
 from market_config import CACHE_BUCKET_MAX_ENTRIES, CACHE_TTL_SECONDS, EXCLUDED_SECTOR_SOURCE_NAMES
@@ -409,6 +410,14 @@ def provider_key_for_url(url: str) -> str:
     return f"host:{host}" if host else f"url:{str(url or '').strip()[:96]}"
 
 
+def _institution_provider_observe(event: str, **fields: Any) -> None:
+    if not has_request_context() or getattr(g, "institution_observability", None) is None:
+        return
+    import app
+
+    app.institution_observability_log(event, **fields)
+
+
 def _provider_failure_kind(error: BaseException | str) -> str | None:
     if isinstance(error, str):
         error_text = error.lower()
@@ -524,23 +533,81 @@ def run_cache_single_flight(
         cleanup_deadline = deadline
     if provider_key:
         check_provider_cooldown(provider_key, deadline=cleanup_deadline)
+    instrument_provider = provider_key == "host:openapi.taifex.com.tw"
+    if instrument_provider:
+        _institution_provider_observe(
+            "institution.provider.single_flight.claim.begin",
+            provider="taifex",
+            provider_host="openapi.taifex.com.tw",
+            provider_key=provider_key,
+        )
     is_leader, handle = claim_cache_flight(key, deadline=deadline)
+    if instrument_provider:
+        _institution_provider_observe(
+            "institution.provider.single_flight.role",
+            provider="taifex",
+            provider_host="openapi.taifex.com.tw",
+            provider_key=provider_key,
+            role="leader" if is_leader else "follower",
+        )
     if not is_leader:
-        if not wait_for_cache_flight(handle, deadline=deadline, max_wait=None if deadline is None else max(0.0, deadline - time.monotonic())):
+        if instrument_provider:
+            _institution_provider_observe(
+                "institution.provider.single_flight.wait.begin",
+                provider="taifex",
+                provider_host="openapi.taifex.com.tw",
+            )
+        wait_completed = wait_for_cache_flight(
+            handle,
+            deadline=deadline,
+            max_wait=None if deadline is None else max(0.0, deadline - time.monotonic()),
+        )
+        if not wait_completed:
+            if instrument_provider:
+                _institution_provider_observe(
+                    "institution.provider.single_flight.wait.timeout",
+                    provider="taifex",
+                    provider_host="openapi.taifex.com.tw",
+                )
             raise ProviderFlightUnavailable(f"single-flight deadline expired: {key}")
+        if instrument_provider:
+            _institution_provider_observe(
+                "institution.provider.single_flight.wait.end",
+                provider="taifex",
+                provider_host="openapi.taifex.com.tw",
+            )
         if handle.error is not None:
             raise handle.error
         if not handle.result_ready:
             raise ProviderFlightUnavailable(f"single-flight result unavailable: {key}")
         return handle.result
     try:
+        if instrument_provider:
+            _institution_provider_observe(
+                "institution.provider.operation.begin",
+                provider="taifex",
+                provider_host="openapi.taifex.com.tw",
+            )
         result = operation()
+        if instrument_provider:
+            _institution_provider_observe(
+                "institution.provider.operation.end",
+                provider="taifex",
+                provider_host="openapi.taifex.com.tw",
+            )
         handle.result = result
         handle.result_ready = True
         if provider_key:
             clear_provider_cooldown(provider_key, deadline=cleanup_deadline)
         return result
     except BaseException as exc:
+        if instrument_provider:
+            _institution_provider_observe(
+                "institution.provider.operation.error",
+                provider="taifex",
+                provider_host="openapi.taifex.com.tw",
+                exception_class=type(exc).__name__,
+            )
         handle.error = exc
         if provider_key:
             record_provider_failure(provider_key, exc, deadline=cleanup_deadline)

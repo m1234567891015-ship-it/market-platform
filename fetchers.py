@@ -1891,6 +1891,12 @@ def should_cache_external_text(url: str) -> bool:
     return host in {"www.taifex.com.tw", "tw.stock.yahoo.com", "home.treasury.gov", "fred.stlouisfed.org", "tradingeconomics.com"}
 
 
+def _institution_provider_observe(event: str, **fields: Any) -> None:
+    import app
+
+    app.institution_observability_log(event, **fields)
+
+
 def _read_provider_payload(
     request: Request,
     timeout: float,
@@ -1900,11 +1906,60 @@ def _read_provider_payload(
 ) -> tuple[bytes, str]:
     provider_key = provider_key_for_url(request.full_url)
     request_key = f"{request.get_method()}:{request.full_url}:{request.data!r}"
+    instrument_provider = (urlsplit(request.full_url).hostname or "").lower() == "openapi.taifex.com.tw"
 
     def read_uncached() -> tuple[bytes, str]:
-        with _urlopen_with_ssl_fallback(request, timeout) as response:
-            raw = response.read()
-            content_type = str(response.headers.get("Content-Type") or "").lower()
+        opened = False
+        if instrument_provider:
+            _institution_provider_observe(
+                "institution.provider.urlopen.begin",
+                provider="taifex",
+                provider_host="openapi.taifex.com.tw",
+                method="GET",
+                configured_timeout_ms=timeout * 1000,
+            )
+        try:
+            with _urlopen_with_ssl_fallback(request, timeout) as response:
+                opened = True
+                if instrument_provider:
+                    _institution_provider_observe(
+                        "institution.provider.urlopen.opened",
+                        provider="taifex",
+                        provider_host="openapi.taifex.com.tw",
+                    )
+                    _institution_provider_observe(
+                        "institution.provider.response_read.begin",
+                        provider="taifex",
+                        provider_host="openapi.taifex.com.tw",
+                    )
+                try:
+                    raw = response.read()
+                except BaseException as exc:
+                    if instrument_provider:
+                        _institution_provider_observe(
+                            "institution.provider.response_read.exception",
+                            provider="taifex",
+                            provider_host="openapi.taifex.com.tw",
+                            exception_class=type(exc).__name__,
+                        )
+                    raise
+                if instrument_provider:
+                    _institution_provider_observe(
+                        "institution.provider.response_read.end",
+                        provider="taifex",
+                        provider_host="openapi.taifex.com.tw",
+                        bytes_read=len(raw),
+                    )
+                content_type = str(response.headers.get("Content-Type") or "").lower()
+        except BaseException as exc:
+            if instrument_provider and not opened:
+                _institution_provider_observe(
+                    "institution.provider.urlopen.exception",
+                    provider="taifex",
+                    provider_host="openapi.taifex.com.tw",
+                    exception_class=type(exc).__name__,
+                )
+            raise
         return raw, content_type
 
     cleanup_deadline = deadline
@@ -3984,7 +4039,20 @@ def fetch_taifex_openapi_list(
     deadline: float | None = None,
     deadline_cleanup: bool = False,
 ) -> list[dict[str, Any]]:
+    _institution_provider_observe(
+        "institution.provider.cache_lookup.begin",
+        provider="taifex",
+        provider_host="openapi.taifex.com.tw",
+        cache_bucket="taifex_openapi_list",
+    )
     cached = read_memory_cache("taifex_openapi_list", url, cache_seconds, deadline=deadline)
+    _institution_provider_observe(
+        "institution.provider.cache_lookup.end",
+        provider="taifex",
+        provider_host="openapi.taifex.com.tw",
+        cache_bucket="taifex_openapi_list",
+        cache_hit="true" if cached is not None else "false",
+    )
     if cached is not None:
         return cached
     rows = fetch_json(url, timeout=timeout, deadline=deadline, deadline_cleanup=deadline_cleanup)
