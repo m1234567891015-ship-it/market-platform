@@ -42,6 +42,7 @@ resolution lesson as every prior batch this slice.
 """
 from __future__ import annotations
 
+import copy
 import json
 import math
 import re
@@ -67,6 +68,7 @@ from builders import (
     build_yahoo_class_quote_cards,
 )
 from cache import (
+    ProviderCooldownError,
     cache_data,
     cache_lock,
     claim_cache_flight,
@@ -124,6 +126,16 @@ def api_site_data():
     if refresh:
         try:
             return jsonify(build_live_sector_site_data())
+        except ProviderCooldownError as exc:
+            with cache_lock:
+                cached_site_data = copy.deepcopy(cache_data.get("site_data"))
+            if cached_site_data:
+                app.LOGGER.warning(
+                    "Live site-data refresh held by provider cooldown; serving cached snapshot",
+                    exc_info=exc,
+                )
+                return jsonify(cached_site_data)
+            return app.api_exception_response("LIVE_SITE_DATA_UNAVAILABLE", app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc)
         except Exception as exc:  # noqa: BLE001
             return app.api_exception_response("LIVE_SITE_DATA_UNAVAILABLE", app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc)
     cache_error = ensure_cache_or_error("SITE_DATA_UNAVAILABLE")

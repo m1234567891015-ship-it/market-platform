@@ -50,6 +50,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 from flask import g, has_request_context
+from urllib.error import HTTPError
 from urllib.parse import urlsplit
 
 from market_config import CACHE_BUCKET_MAX_ENTRIES, CACHE_TTL_SECONDS, EXCLUDED_SECTOR_SOURCE_NAMES
@@ -419,6 +420,12 @@ def _institution_provider_observe(event: str, **fields: Any) -> None:
 
 
 def _provider_failure_kind(error: BaseException | str) -> str | None:
+    if isinstance(error, HTTPError):
+        # HTTP responses, including upstream 429s, prove that the provider
+        # was reachable.  They must not poison the host cooldown used for
+        # transport failures; callers retain their existing HTTP-error
+        # contract and decide whether a response is retryable.
+        return None
     if isinstance(error, str):
         error_text = error.lower()
         error_name = ""

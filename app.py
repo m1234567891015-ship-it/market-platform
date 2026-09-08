@@ -297,7 +297,12 @@ remove_global_market_symbols("precious-metals", {"XAUUSD=X", "XAGUSD=X", "XPTUSD
 
 
 app = Flask(__name__, static_folder=None)
-if str(os.environ.get("MARKET_PULSE_TRUST_PROXY") or "").strip().lower() in {"1", "true", "yes"}:
+_trust_proxy_flag = str(os.environ.get("MARKET_PULSE_TRUST_PROXY") or "").strip().lower() in {"1", "true", "yes"}
+_render_proxy_environment = any(
+    os.environ.get(name)
+    for name in ("RENDER", "RENDER_SERVICE_ID", "RENDER_EXTERNAL_URL")
+)
+if _trust_proxy_flag or _render_proxy_environment:
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
 PUBLIC_DATA_SOURCE_ERROR_MESSAGE = "資料來源暫不可用，請稍後再試"

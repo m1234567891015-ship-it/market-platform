@@ -3330,7 +3330,13 @@ def fetch_yahoo_us_symbol_news(
     *,
     deadline: float | None = None,
 ) -> list[dict[str, Any]]:
-    payload = fetch_from_registry("yahoo_us_symbol_news", symbol, limit=limit, deadline=deadline)
+    try:
+        payload = fetch_from_registry("yahoo_us_symbol_news", symbol, limit=limit, deadline=deadline)
+    except HTTPError as exc:
+        if exc.code == 429:
+            LOGGER.warning("Yahoo symbol news rate limited for symbol=%s; using empty result", symbol)
+            return []
+        raise
     news = payload.get("news") if isinstance(payload, dict) else []
     results: list[dict[str, Any]] = []
     for item in news or []:
