@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import codecs
 import re
 import socket
 import ssl
@@ -429,6 +430,16 @@ class InstitutionPreResponseSubstageObservabilityTests(unittest.TestCase):
                 patch.object(cache, "start_background_updater", side_effect=lambda: calls.append("updater")):
             reload(app)
         self.assertEqual(calls, ["ssl", "updater"])
+
+    def test_prs_29_idna_codec_is_available_through_startup(self) -> None:
+        created_context = sentinel.idna_startup_context
+        self.assertEqual(codecs.lookup("idna").name, "idna")
+        with patch.object(security, "_verified_ssl_context", None), \
+                patch.object(security.ssl, "create_default_context", return_value=created_context):
+            result = security.initialize_verified_ssl_context()
+        self.assertIs(result, created_context)
+        import encodings.idna
+        self.assertEqual("taiwan-market-pulse.onrender.com".encode("idna").decode("ascii"), "taiwan-market-pulse.onrender.com")
 
 
 if __name__ == "__main__":

@@ -11,6 +11,7 @@ import time.
 """
 from __future__ import annotations
 
+import codecs
 import hmac
 import http.client
 import logging
@@ -342,6 +343,9 @@ INSTITUTION_PROVIDER_HOST = "openapi.taifex.com.tw"
 def initialize_verified_ssl_context() -> ssl.SSLContext:
     """Build the shared verified SSLContext once during application startup."""
     global _verified_ssl_context
+    if _verified_ssl_context is not None:
+        return _verified_ssl_context
+    codecs.lookup("idna")
     if _verified_ssl_context is None:
         with _verified_ssl_context_lock:
             if _verified_ssl_context is None:
