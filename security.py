@@ -12,6 +12,7 @@ import time.
 from __future__ import annotations
 
 import hmac
+import http.client
 import logging
 import os
 import shlex
@@ -22,7 +23,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from urllib.error import URLError
 from urllib.parse import urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import HTTPSHandler, Request, build_opener, urlopen
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import certifi
@@ -335,6 +336,7 @@ def _is_production_environment() -> bool:
 
 _verified_ssl_context: ssl.SSLContext | None = None
 _verified_ssl_context_lock = threading.Lock()
+INSTITUTION_PROVIDER_HOST = "openapi.taifex.com.tw"
 
 
 def _get_verified_ssl_context() -> ssl.SSLContext:
@@ -351,6 +353,266 @@ def _get_verified_ssl_context() -> ssl.SSLContext:
             if _verified_ssl_context is None:
                 _verified_ssl_context = ssl.create_default_context(cafile=certifi.where())
     return _verified_ssl_context
+
+
+def _active_institution_observability_state() -> dict[str, object] | None:
+    from flask import g, has_request_context
+
+    if not has_request_context():
+        return None
+    state = getattr(g, "institution_observability", None)
+    return state if isinstance(state, dict) else None
+
+
+def _institution_observability_enabled(request: Request) -> bool:
+    host = (urlsplit(request.full_url).hostname or "").lower()
+    return host == INSTITUTION_PROVIDER_HOST and _active_institution_observability_state() is not None
+
+
+def _institution_provider_observe(
+    state: dict[str, object] | None,
+    event: str,
+    **fields: object,
+) -> None:
+    if state is None:
+        return
+    try:
+        from app import institution_observability_log
+
+        institution_observability_log(event, state=state, **fields)
+    except Exception:
+        # Observability must never change the provider's return or exception semantics.
+        return
+
+
+def _classify_institution_pre_response_events(events: list[str]) -> str:
+    """Classify the first observable pre-response boundary from event names."""
+    names = set(events)
+
+    def has_open_stage(begin_event: str, terminal_event: str) -> bool:
+        depth = 0
+        for event in events:
+            if event == begin_event:
+                depth += 1
+            elif event == terminal_event and depth:
+                depth -= 1
+        return depth > 0
+
+    if "institution.provider.dns_tcp.begin" in names and "institution.provider.dns_tcp.end" not in names:
+        return "DNS_OR_TCP_CONNECT"
+    if (
+        "institution.provider.dns_tcp.end" in names
+        and "institution.provider.proxy_tunnel.begin" in names
+        and "institution.provider.proxy_tunnel.end" not in names
+    ):
+        return "PROXY_CONNECT"
+    if (
+        "institution.provider.dns_tcp.end" in names
+        and (
+            "institution.provider.proxy_tunnel.begin" not in names
+            or "institution.provider.proxy_tunnel.end" in names
+        )
+        and "institution.provider.https_connect.begin" in names
+        and "institution.provider.https_connect.end" not in names
+    ):
+        return "TLS_HANDSHAKE_PATH"
+    if (
+        "institution.provider.https_connect.end" in names
+        and has_open_stage(
+            "institution.provider.request_send.begin",
+            "institution.provider.request_send.end",
+        )
+    ):
+        return "REQUEST_SEND"
+    if (
+        "institution.provider.request_send.end" in names
+        and "institution.provider.response_headers.begin" in names
+        and has_open_stage(
+            "institution.provider.response_headers.begin",
+            "institution.provider.response_headers.end",
+        )
+    ):
+        return "RESPONSE_HEADERS"
+    if (
+        "institution.provider.response_headers.end" in names
+        and "institution.provider.urlopen.opened" in names
+    ):
+        return "PRE_RESPONSE_COMPLETES"
+    return "NOT_VERIFIED"
+
+
+class _InstitutionObservabilityHTTPSConnection(http.client.HTTPSConnection):
+    """Request-scoped delegation wrappers for the Institution provider path."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._institution_observability_state = _active_institution_observability_state()
+        self._institution_send_seq = 0
+        if self._institution_observability_state is not None:
+            original_create_connection = self._create_connection
+
+            def observed_create_connection(*connection_args, **connection_kwargs):
+                state = self._institution_observability_state
+                _institution_provider_observe(
+                    state,
+                    "institution.provider.dns_tcp.begin",
+                    provider="taifex",
+                    provider_host=INSTITUTION_PROVIDER_HOST,
+                )
+                try:
+                    result = original_create_connection(*connection_args, **connection_kwargs)
+                except BaseException as exc:
+                    _institution_provider_observe(
+                        state,
+                        "institution.provider.dns_tcp.exception",
+                        provider="taifex",
+                        provider_host=INSTITUTION_PROVIDER_HOST,
+                        exception_class=type(exc).__name__,
+                    )
+                    raise
+                _institution_provider_observe(
+                    state,
+                    "institution.provider.dns_tcp.end",
+                    provider="taifex",
+                    provider_host=INSTITUTION_PROVIDER_HOST,
+                )
+                return result
+
+            self._create_connection = observed_create_connection
+
+    def _tunnel(self, *args, **kwargs):
+        if getattr(self, "_tunnel_host", None) is None:
+            return super()._tunnel(*args, **kwargs)
+        state = self._institution_observability_state
+        _institution_provider_observe(
+            state,
+            "institution.provider.proxy_tunnel.begin",
+            provider="taifex",
+            provider_host=INSTITUTION_PROVIDER_HOST,
+            proxy_active="true",
+        )
+        try:
+            result = super()._tunnel(*args, **kwargs)
+        except BaseException as exc:
+            _institution_provider_observe(
+                state,
+                "institution.provider.proxy_tunnel.exception",
+                provider="taifex",
+                provider_host=INSTITUTION_PROVIDER_HOST,
+                proxy_active="true",
+                exception_class=type(exc).__name__,
+            )
+            raise
+        _institution_provider_observe(
+            state,
+            "institution.provider.proxy_tunnel.end",
+            provider="taifex",
+            provider_host=INSTITUTION_PROVIDER_HOST,
+            proxy_active="true",
+        )
+        return result
+
+    def connect(self):
+        state = self._institution_observability_state
+        _institution_provider_observe(
+            state,
+            "institution.provider.https_connect.begin",
+            provider="taifex",
+            provider_host=INSTITUTION_PROVIDER_HOST,
+        )
+        try:
+            result = super().connect()
+        except BaseException as exc:
+            _institution_provider_observe(
+                state,
+                "institution.provider.https_connect.exception",
+                provider="taifex",
+                provider_host=INSTITUTION_PROVIDER_HOST,
+                exception_class=type(exc).__name__,
+            )
+            raise
+        _institution_provider_observe(
+            state,
+            "institution.provider.https_connect.end",
+            provider="taifex",
+            provider_host=INSTITUTION_PROVIDER_HOST,
+        )
+        return result
+
+    def send(self, data):
+        self._institution_send_seq += 1
+        state = self._institution_observability_state
+        send_seq = self._institution_send_seq
+        _institution_provider_observe(
+            state,
+            "institution.provider.request_send.begin",
+            provider="taifex",
+            provider_host=INSTITUTION_PROVIDER_HOST,
+            send_seq=send_seq,
+        )
+        try:
+            result = super().send(data)
+        except BaseException as exc:
+            _institution_provider_observe(
+                state,
+                "institution.provider.request_send.exception",
+                provider="taifex",
+                provider_host=INSTITUTION_PROVIDER_HOST,
+                send_seq=send_seq,
+                exception_class=type(exc).__name__,
+            )
+            raise
+        _institution_provider_observe(
+            state,
+            "institution.provider.request_send.end",
+            provider="taifex",
+            provider_host=INSTITUTION_PROVIDER_HOST,
+            send_seq=send_seq,
+        )
+        return result
+
+    def getresponse(self):
+        state = self._institution_observability_state
+        _institution_provider_observe(
+            state,
+            "institution.provider.response_headers.begin",
+            provider="taifex",
+            provider_host=INSTITUTION_PROVIDER_HOST,
+        )
+        try:
+            result = super().getresponse()
+        except BaseException as exc:
+            _institution_provider_observe(
+                state,
+                "institution.provider.response_headers.exception",
+                provider="taifex",
+                provider_host=INSTITUTION_PROVIDER_HOST,
+                exception_class=type(exc).__name__,
+            )
+            raise
+        _institution_provider_observe(
+            state,
+            "institution.provider.response_headers.end",
+            provider="taifex",
+            provider_host=INSTITUTION_PROVIDER_HOST,
+        )
+        return result
+
+
+class _InstitutionObservabilityHTTPSHandler(HTTPSHandler):
+    def https_open(self, req):
+        if _institution_observability_enabled(req):
+            return self.do_open(
+                _InstitutionObservabilityHTTPSConnection,
+                req,
+                context=self._context,
+            )
+        return super().https_open(req)
+
+
+def _urlopen_with_institution_observability(request: Request, timeout: int, context: ssl.SSLContext):
+    opener = build_opener(_InstitutionObservabilityHTTPSHandler(context=context))
+    return opener.open(request, timeout=timeout)
 
 
 def _urlopen_with_ssl_fallback(request: Request, timeout: int):
@@ -384,6 +646,8 @@ def _urlopen_with_ssl_fallback(request: Request, timeout: int):
 
     try:
         verified_context = _get_verified_ssl_context()
+        if _institution_observability_enabled(request):
+            return _urlopen_with_institution_observability(request, timeout, verified_context)
         return urlopen(request, timeout=timeout, context=verified_context)
     except Exception as exc:
         if not _is_ssl_error(exc):
