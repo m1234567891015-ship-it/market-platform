@@ -8,6 +8,7 @@ import socket
 import ssl
 import time
 import unittest
+from importlib import reload
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch, sentinel
 from urllib.request import HTTPSHandler, ProxyHandler, Request
@@ -16,6 +17,7 @@ os.environ.setdefault("MARKET_PULSE_DISABLE_BACKGROUND", "1")
 os.environ.setdefault("MARKET_PULSE_LOG_LEVEL", "CRITICAL")
 
 import app
+import cache
 import security
 
 
@@ -390,6 +392,43 @@ class InstitutionPreResponseSubstageObservabilityTests(unittest.TestCase):
             "institution.provider.ssl_context.lock_acquired",
             "institution.provider.ssl_context.create.begin",
         ])
+
+    def test_prs_25_startup_initializer_reuses_one_context(self) -> None:
+        created_context = sentinel.startup_context
+        with patch.object(security, "_verified_ssl_context", None), \
+                patch.object(security.certifi, "where", return_value="offline-ca.pem") as where, \
+                patch.object(security.ssl, "create_default_context", return_value=created_context) as create:
+            first = security.initialize_verified_ssl_context()
+            second = security.initialize_verified_ssl_context()
+        self.assertIs(first, created_context)
+        self.assertIs(second, created_context)
+        where.assert_called_once_with()
+        create.assert_called_once_with(cafile="offline-ca.pem")
+
+    def test_prs_26_startup_initializer_fast_path_avoids_reinitialization(self) -> None:
+        existing_context = sentinel.existing_startup_context
+        with patch.object(security, "_verified_ssl_context", existing_context), \
+                patch.object(security.ssl, "create_default_context") as create:
+            result = security.initialize_verified_ssl_context()
+        self.assertIs(result, existing_context)
+        create.assert_not_called()
+
+    def test_prs_27_startup_initializer_preserves_create_exception(self) -> None:
+        error = RuntimeError("offline startup context failure")
+        with patch.object(security, "_verified_ssl_context", None), \
+                patch.object(security.certifi, "where", return_value="offline-ca.pem"), \
+                patch.object(security.ssl, "create_default_context", side_effect=error):
+            with self.assertRaises(RuntimeError) as raised:
+                security.initialize_verified_ssl_context()
+        self.assertIs(raised.exception, error)
+
+    def test_prs_28_wsgi_startup_initializes_ssl_before_background_updater(self) -> None:
+        calls = []
+        with patch.object(security, "initialize_verified_ssl_context", side_effect=lambda: calls.append("ssl")), \
+                patch.object(cache, "background_updater_enabled", return_value=True), \
+                patch.object(cache, "start_background_updater", side_effect=lambda: calls.append("updater")):
+            reload(app)
+        self.assertEqual(calls, ["ssl", "updater"])
 
 
 if __name__ == "__main__":

@@ -27,6 +27,7 @@ from cache import (
 from security import (
     add_security_headers,
     enforce_api_rate_limit,
+    initialize_verified_ssl_context,
     warn_if_multi_worker,
 )
 from fetchers import (
@@ -780,6 +781,7 @@ def handle_internal_error(error):
 
 
 if __name__ == "__main__":
+    initialize_verified_ssl_context()
     initialize_derivatives_store()
     if background_updater_enabled():
         start_background_updater()
@@ -792,5 +794,6 @@ if __name__ == "__main__":
 else:
     # When loaded by a WSGI server (gunicorn, uWSGI, etc.) we still need
     # to spin up the background updater.
+    initialize_verified_ssl_context()
     if background_updater_enabled():
         start_background_updater()

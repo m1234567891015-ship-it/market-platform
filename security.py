@@ -339,6 +339,16 @@ _verified_ssl_context_lock = threading.Lock()
 INSTITUTION_PROVIDER_HOST = "openapi.taifex.com.tw"
 
 
+def initialize_verified_ssl_context() -> ssl.SSLContext:
+    """Build the shared verified SSLContext once during application startup."""
+    global _verified_ssl_context
+    if _verified_ssl_context is None:
+        with _verified_ssl_context_lock:
+            if _verified_ssl_context is None:
+                _verified_ssl_context = ssl.create_default_context(cafile=certifi.where())
+    return _verified_ssl_context
+
+
 def _get_verified_ssl_context() -> ssl.SSLContext:
     """Return a shared, lazily-built verified SSLContext.
 
