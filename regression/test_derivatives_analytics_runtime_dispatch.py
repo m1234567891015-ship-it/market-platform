@@ -51,7 +51,7 @@ class DerivativesAnalyticsRuntimeDispatchTests(unittest.TestCase):
             requests.clear()
             analytics_page = context.new_page()
             analytics_page.goto(f"{server.base_url}/derivatives-analytics.html", wait_until="load")
-            analytics_page.wait_for_function("document.querySelector('#derivatives-analytics-root')?.textContent.includes('衍生品市場狀態')", timeout=10000)
+            analytics_page.locator("#derivatives-analytics-root").get_by_text("衍生品市場狀態", exact=False).first.wait_for(state="visible", timeout=10000)
             required = {
                 "/api/futures?limit=12",
                 "/api/options?limit=12",

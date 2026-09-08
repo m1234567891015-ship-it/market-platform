@@ -134,11 +134,15 @@ class ProductionApiRemediationTests(unittest.TestCase):
     def test_derivatives_asset_hub_uses_bounded_initial_payload(self) -> None:
         source = Path("js/page-global-market-assethub.js").read_text(encoding="utf-8")
         self.assertIn('`/api/${encodeURIComponent(category)}?limit=12`', source)
+        bundle = Path("market-pulse-esm.min.js").read_text(encoding="utf-8")
+        self.assertIn('`/api/${encodeURIComponent(category)}?limit=12`', bundle)
 
     def test_options_page_uses_bounded_initial_payload(self) -> None:
         source = Path("js/page-global-market-options.js").read_text(encoding="utf-8")
         self.assertIn('["precious-metals", "bonds", "futures"].includes(category)', source)
         self.assertIn('      : ["futures", "options"].includes(category)\n        ? 12', source)
+        bundle = Path("market-pulse-esm.min.js").read_text(encoding="utf-8")
+        self.assertIn('["precious-metals","bonds","futures"].includes(category)', bundle)
 
 
 if __name__ == "__main__":
