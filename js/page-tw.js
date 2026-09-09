@@ -3670,6 +3670,15 @@ function initSearchPage() {
   const form = document.getElementById("stock-search-form");
   const input = document.getElementById("stock-search-input");
   if (!form || !input) return;
+  const selectionContext = document.getElementById("selection-funnel-stock-context");
+  const selectionParams = new URLSearchParams(window.location.search);
+  if (selectionContext && selectionParams.get("selectionSource") === "sectorFundFlow.pennyStocks") {
+    const sector = selectionParams.get("selectionSector") || "--";
+    const rank = selectionParams.get("selectionRank") || "--";
+    const reason = selectionParams.get("selectionReason") || "--";
+    selectionContext.hidden = false;
+    selectionContext.innerHTML = `<article class="panel-card"><div class="card-title-row"><h3>選股漏斗脈絡</h3><span class="chip chip-gold">TOP ${escapeHtml(rank)}</span></div><p>市場：台灣上市 · 類股：${escapeHtml(sector)}</p><p class="card-copy">${escapeHtml(reason)}；個股明細沿用既有技術、風險與績效資料。</p></article>`;
+  }
   let searchTimer = null;
 
   form.addEventListener("submit", (event) => {

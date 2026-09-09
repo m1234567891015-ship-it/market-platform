@@ -1300,6 +1300,19 @@ INDEX = PageSpec(
     file="index.html",
     steps=(
         Step(
+            id="index__selection-funnel-sector",
+            tier="P0",
+            selector="#selection-funnel-root [data-selection-sector]",
+            action="click",
+            action_index=1,
+            wait_for=wait_stable("#selection-funnel-root"),
+            asserts=(
+                a_class_present("is-active"),
+                a_content_changed("#selection-funnel-root"),
+            ),
+            note="Phase B: 選取既有淨流入排序的下一個類股→候選宇宙改為該類股既有 TOP10。",
+        ),
+        Step(
             id="index__penny-trend-market",
             tier="P0",
             selector="#penny-trend-controls [data-home-penny-market]",

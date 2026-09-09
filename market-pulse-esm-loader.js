@@ -1,6 +1,6 @@
 /* TD-02 full-site ESM loader with an explicit classic rollback path. */
 (function () {
-  const CURRENT_BUILD_VERSION = "td02-full-esm-0110e9f506bddd37";
+  const CURRENT_BUILD_VERSION = "td02-full-esm-bdbf1caecc94090c";
   const loaderUrl = document.currentScript?.src
     ? new URL(document.currentScript.src, document.baseURI)
     : null;

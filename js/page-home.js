@@ -281,6 +281,124 @@ function formatUpdateText(snapshotDate, cachedAt) {
   if (cachedAt) parts.push(`快取時間：${cachedAt}`);
   return parts.join(" | ");
 }
+(() => {
+  const selectionFunnelState = window.__selectionFunnelState || (window.__selectionFunnelState = { market: "TWSE", sectorName: "" });
+  function buildSelectionFunnelAdapter(payload, marketDecision = null) {
+  const sectorFundFlow = payload?.sectorFundFlow;
+  const rankedSectors = Array.isArray(sectorFundFlow?.inflows) ? sectorFundFlow.inflows : [];
+  const marketEvidence = marketDecision && typeof marketDecision === "object" ? marketDecision : null;
+  const market = {
+    identity: "TWSE",
+    name: "台灣上市",
+    rank: null,
+    score: null,
+    reason: marketEvidence?.summary || null,
+    risk: marketEvidence?.temperature?.value ?? null,
+    freshness: marketEvidence?.freshness?.status || null,
+    confidence: marketEvidence?.confidence || null,
+    source: "既有市場決策與上市類股法人資金流",
+  };
+  const sectors = rankedSectors
+    .filter((sector) => Array.isArray(sector?.pennyStocks) && sector.pennyStocks.length)
+    .map((sector, index) => ({
+      identity: String(sector.name || ""),
+      name: String(sector.name || "--"),
+      market: market.identity,
+      rank: index + 1,
+      score: sector.netAmountValue ?? null,
+      scoreLabel: sector.netAmount || null,
+      reason: "既有法人淨流入類股排序",
+      risk: null,
+      freshness: sectorFundFlow?.date || null,
+      confidence: null,
+      source: "sectorFundFlow.inflows",
+      candidates: sector.pennyStocks,
+    }));
+  const selectedSector = sectors.find((sector) => sector.identity === selectionFunnelState.sectorName) || sectors[0] || null;
+  if (selectedSector) selectionFunnelState.sectorName = selectedSector.identity;
+  const candidates = (selectedSector?.candidates || [])
+    .filter((stock) => String(stock?.code || "").trim())
+    .slice(0, 10)
+    .map((stock, index) => ({
+    identity: String(stock.code || ""),
+    symbol: String(stock.code || ""),
+    name: String(stock.name || "--"),
+    market: market.identity,
+    sector: selectedSector?.name || null,
+    rank: index + 1,
+    score: stock.score ?? null,
+    reason: "既有銅板股排序",
+    risk: null,
+    freshness: sectorFundFlow?.date || null,
+    confidence: null,
+    source: "sectorFundFlow.pennyStocks",
+    pct: stock.pct || null,
+      close: stock.close || null,
+    }));
+  return {
+    available: Boolean(marketEvidence && rankedSectors.length && selectedSector && candidates.length),
+    market,
+    sectors,
+    selectedSector,
+    candidates,
+    source: "sectorFundFlow",
+  };
+}
+window.buildSelectionFunnelAdapter = buildSelectionFunnelAdapter;
+  function buildSelectionFunnelStockUrl(candidate) {
+  const params = new URLSearchParams({
+    q: candidate.symbol,
+    market: candidate.market,
+    selectionSource: candidate.source,
+    selectionSector: candidate.sector || "",
+    selectionRank: String(candidate.rank),
+    selectionReason: candidate.reason,
+  });
+  return `tw-stock-search.html?${params.toString()}`;
+}
+  function renderSelectionFunnel() {
+  const root = document.getElementById("selection-funnel-root");
+  if (!root) return;
+  const decision = typeof window.buildSharedMarketDecisionModel === "function"
+    ? window.buildSharedMarketDecisionModel()
+    : null;
+  const model = buildSelectionFunnelAdapter(data, decision);
+  if (!model.available) {
+    root.innerHTML = '<article class="panel-card"><p class="stock-detail-empty">必要的既有市場決策、類股資金流或候選排序尚未齊備；依規則暫不產生 TOP10。</p></article>';
+    return;
+  }
+  const selected = model.selectedSector;
+  root.innerHTML = `
+    <div class="tri-grid">
+      <article class="panel-card">
+        <div class="card-title-row"><h3>1. 市場</h3><span class="chip chip-blue">既有 A 證據</span></div>
+        <p><strong>${escapeHtml(model.market.name)}</strong> · ${escapeHtml(model.market.freshness || "--")}</p>
+        <p class="card-copy">${escapeHtml(model.market.reason || "既有市場決策資料不足")}</p>
+      </article>
+      <article class="panel-card">
+        <div class="card-title-row"><h3>2. 類股</h3><span class="chip chip-green">既有淨流入排序</span></div>
+        <div class="mini-list">
+          ${model.sectors.slice(0, 10).map((sector) => `<button class="mini-row ${sector.identity === selected.identity ? "is-active" : ""}" type="button" data-selection-sector="${escapeHtml(sector.identity)}"><span><b>${sector.rank}.</b> ${escapeHtml(sector.name)}</span><strong>${escapeHtml(sector.scoreLabel || "--")}</strong></button>`).join("")}
+        </div>
+      </article>
+      <article class="panel-card">
+        <div class="card-title-row"><h3>3. TOP10</h3><span class="chip chip-gold">${model.candidates.length} 檔</span></div>
+        <div class="mini-list">
+          ${model.candidates.map((candidate) => `<a class="mini-row" href="${safeUrl(buildSelectionFunnelStockUrl(candidate))}"><span><b>${candidate.rank}.</b> ${escapeHtml(candidate.symbol)} ${escapeHtml(candidate.name)}</span><strong>評分 ${escapeHtml(String(candidate.score ?? "--"))}</strong></a>`).join("")}
+        </div>
+        <p class="source-note">${escapeHtml(selected.name)} · ${escapeHtml(selected.scoreLabel || "--")} · 分數與排序均沿用既有資料。</p>
+      </article>
+    </div>
+  `;
+  root.querySelectorAll("[data-selection-sector]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectionFunnelState.sectorName = button.dataset.selectionSector || "";
+      renderSelectionFunnel();
+    });
+  });
+}
+window.renderSelectionFunnel = renderSelectionFunnel;
+})();
 function renderHomePennyTrend() {
   const root = document.getElementById("penny-trend-grid");
   const controls = document.getElementById("penny-trend-controls");
@@ -481,6 +599,7 @@ function renderHome() {
     `).join("");
   }
   renderHomePennyTrend();
+  window.renderSelectionFunnel?.();
   loadHomePennySectorRecommendations();
   window.renderSharedMarketDecisionSummary(window.buildSharedMarketDecisionModel());
 }

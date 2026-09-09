@@ -1,4 +1,4 @@
-const CACHE_VERSION = "market-pulse-swr-td02-full-esm-0110e9f506bddd37";
+const CACHE_VERSION = "market-pulse-swr-td02-full-esm-bdbf1caecc94090c";
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
 // TD-09: stale-while-revalidate for static assets only. HTML documents are
