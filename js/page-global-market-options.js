@@ -3847,6 +3847,14 @@ function renderUsMarketOverviewLikeTaiwan(payload = {}) {
 function renderGlobalMarketPage(payload) {
   const root = document.getElementById("global-market-root");
   if (!root || !payload) return;
+  const existingConfidence = payload.confidenceScore
+    ?? payload.analysis?.confidenceScore
+    ?? payload.analysis?.confidence
+    ?? (payload.category === "options" ? buildOptionsAiFunctionalModel(payload).confidenceScore : undefined);
+  window.updateSharedFreshnessConfidence(payload, {
+    page: document.body.dataset.page,
+    confidence: existingConfidence,
+  });
   window.currentGlobalMarketPayload = payload;
   const isUsMarketOverviewPage = payload.category === "us-stocks" && document.body.dataset.marketView === "overview";
   if (isUsMarketOverviewPage) {

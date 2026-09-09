@@ -3634,6 +3634,7 @@ async function runStockSearch(query, autoSelect = true, preferredMarket = "") {
     const payload = await response.json();
     if (requestId !== stockSearchRequestId) return;
     const results = Array.isArray(payload.results) ? payload.results : [];
+    window.updateSharedFreshnessConfidence(payload, { page: document.body.dataset.page });
     renderSearchResults(results);
     if (!results.length) {
       if (status) status.textContent = `live 搜尋查無 ${keyword}。`;
@@ -4057,6 +4058,7 @@ function bindTwEtfEvents() {
 function renderTwEtfPage(payload) {
   const root = document.getElementById("tw-etf-root");
   if (!root) return;
+  window.updateSharedFreshnessConfidence(payload, { page: document.body.dataset.page });
   const categories = payload?.categories || [];
   root.innerHTML = `
     <section class="subpage-hero">

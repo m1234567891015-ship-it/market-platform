@@ -359,6 +359,75 @@ function loadHomePennySectorRecommendations() {
       homePennySectorPromise = null;
     });
 }
+window.buildSharedMarketDecisionModel = function () {
+  const payload = data && typeof data === "object" ? data : {};
+  const overviewRows = Array.isArray(payload.marketOverview) ? payload.marketOverview : [];
+  const overview = overviewRows.find((item) => item && (item.value || item.pct)) || null;
+  const sectors = (Array.isArray(payload.sectors) ? payload.sectors : [])
+    .filter((item) => item && item.name !== "台灣加權指數" && !isExcludedSector(item))
+    .map((item) => ({ ...item, pctValue: parseMarketNumber(item.pct) }))
+    .filter((item) => Number.isFinite(item.pctValue));
+  const institutions = Array.isArray(payload.institutions) ? payload.institutions : [];
+  const institutionSummary = Array.isArray(payload.institutionSummary) ? payload.institutionSummary : [];
+  const hasInstitutions = institutions.length > 0 || institutionSummary.length > 0;
+  const hasBreadth = sectors.length >= 3;
+  const hasCoreEvidence = Boolean(overview && hasBreadth && hasInstitutions);
+  const freshness = window.buildSharedFreshnessConfidenceModel(payload, {
+    requirePrimary: true,
+    hasDecisionEvidence: hasCoreEvidence,
+  });
+  const hasFreshDecisionEvidence = hasCoreEvidence && freshness.status === "Fresh";
+
+  let insight = null;
+  let risk = null;
+  let tomorrow = null;
+  if (hasCoreEvidence) {
+    try { insight = buildMarketAiInsightModel(); } catch (error) { console.warn("Decision insight unavailable", error); }
+    try { risk = buildMarketRiskAdvice(); } catch (error) { console.warn("Decision risk unavailable", error); }
+    try { tomorrow = buildAfterMarketWatchCard(); } catch (error) { console.warn("Decision watch unavailable", error); }
+  }
+  const ranked = [...sectors].sort((left, right) => right.pctValue - left.pctValue);
+  const leaders = ranked.slice(0, 3).map((item) => ({ name: item.name, pct: item.pct || "--" }));
+  const laggards = [...ranked].reverse().slice(0, 3).map((item) => ({ name: item.name, pct: item.pct || "--" }));
+  const confidence = hasFreshDecisionEvidence
+    ? freshness.confidence
+    : { label: "不足", detail: "核心證據未齊或資料不是 Fresh，禁止產生高信心方向結論。" };
+  const decision = insight && hasFreshDecisionEvidence
+    ? insight.trendLabel
+    : "暫不下方向結論";
+  const reasons = insight && hasFreshDecisionEvidence
+    ? [insight.trendSummary, `市場廣度：${insight.breadthText}`, `法人方向：${insight.institutionText}`, `波動背景：${insight.vixText}`]
+    : ["資料不是 Fresh 或核心證據不足，等待來源更新後重新評估。"];
+  const risks = risk && hasFreshDecisionEvidence
+    ? risk.factors.map((text) => ({ text, source: "既有市場風險因子" }))
+    : [{ text: "核心資料不足或已延遲，暫不下方向性風險結論。", source: "資料完整性閘門" }];
+  const strategy = risk && hasFreshDecisionEvidence
+    ? { advice: risk.actions, next: tomorrow ? [tomorrow.body] : ["等待量能、法人與族群輪動同向確認。"] }
+    : { advice: ["資料狀態不是 Fresh，暫不使用方向性策略分類。"], next: ["待加權指數、廣度與法人資料齊全且新鮮後重新評估。"] };
+  const temperatureValue = insight && hasCoreEvidence && Number.isFinite(Number(insight.riskScore)) ? Number(insight.riskScore) : null;
+  const evidence = [
+    { label: "市場狀態", value: decision, source: "既有市場趨勢與廣度邏輯", asOf: freshness.asOf, status: freshness.status },
+    { label: "市場風險分數", value: temperatureValue === null ? "未評定" : `${temperatureValue}/100`, source: "既有 market risk score；數值越高代表風險越高", asOf: freshness.asOf, status: freshness.status },
+    { label: "組裝時間", value: payload.cachedAt || "--", source: "伺服器組裝時間，非行情來源時間", asOf: payload.cachedAt || "--", status: "Evidence" },
+  ];
+  return {
+    decision,
+    summary: insight?.trendSummary || "目前沒有足夠資料整理市場狀態。",
+    confidence,
+    freshness,
+    asOf: freshness.asOf,
+    updatedAt: freshness.updatedAt,
+    temperature: { value: temperatureValue, label: "既有市場風險分數", detail: "此數值維持既有語義；越高代表風險越高，不是溫度或報酬預測。" },
+    reasons,
+    risks,
+    strategy,
+    invalidation: tomorrow && hasFreshDecisionEvidence ? [tomorrow.title, tomorrow.body] : ["核心資料更新或來源日期變動後重新評估。"],
+    leaders,
+    laggards,
+    evidence,
+    limitations: ["資料新鮮度與分析信心分開呈現。", "本區不新增評分、推薦或個人化投資建議。"],
+  };
+};
 function renderHome() {
   setText("source-note", formatUpdateText(data.snapshotDate, data.cachedAt));
   if (data.marketOverview?.length) {
@@ -413,6 +482,7 @@ function renderHome() {
   }
   renderHomePennyTrend();
   loadHomePennySectorRecommendations();
+  window.renderSharedMarketDecisionSummary(window.buildSharedMarketDecisionModel());
 }
 function buildMarketRiskAdvice() {
   const overview = data.marketOverview?.[0] || {};
@@ -1105,6 +1175,7 @@ function renderMarketExtremeObservationCard() {
   `;
 }
 function renderMarketPage() {
+  window.renderSharedMarketDecisionSummary(window.buildSharedMarketDecisionModel());
   const marketGrid = document.getElementById("market-index-grid");
   if (marketGrid) {
     marketGrid.innerHTML = (data.marketOverview || []).map((item) => `

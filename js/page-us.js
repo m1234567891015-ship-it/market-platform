@@ -1284,6 +1284,10 @@ function renderUsEtfComparison(payload = {}) {
 function renderUsEtfPage(payload = {}) {
   const root = document.getElementById("us-etf-root");
   if (!root) return;
+  window.updateSharedFreshnessConfidence(payload, {
+    page: document.body.dataset.page,
+    confidence: payload.confidenceScore ?? payload.analysis?.confidenceScore ?? payload.analysis?.confidence,
+  });
   window.currentGlobalMarketPayload = payload;
   root.innerHTML = `
     ${renderUsEtfPageHero(payload)}
@@ -2612,6 +2616,7 @@ async function loadUsStockSymbol(symbol) {
     const response = await fetchWithTimeout(`/api/us-market/symbol/${encodeURIComponent(cleanSymbol)}`, { cache: "no-store" }, 18000);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const item = await response.json();
+    window.updateSharedFreshnessConfidence(item, { page: document.body.dataset.page });
     renderUsStockSearchDetail(item);
     if (status) status.textContent = `${cleanSymbol} 已載入，資料來源 Yahoo Finance。`;
     const url = new URL(window.location.href);
@@ -2842,6 +2847,7 @@ async function loadUsWatchlistAiAnalyses(force = false) {
         const detail = buildUsSearchDetail(item);
         usWatchlistDetailCache.set(key, detail);
         usWatchlistAnalysisCache.set(key, buildUsWatchlistAiAnalysis(stock, detail));
+        window.updateSharedFreshnessConfidence(item, { page: document.body.dataset.page, confidence: usWatchlistAnalysisCache.get(key)?.confidence });
         upsertUsWatchlistSymbol({ ...stock, ...item, symbol: key }, { render: false });
         renderUsWatchlist();
       } catch (error) {

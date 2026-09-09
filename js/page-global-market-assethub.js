@@ -5292,11 +5292,27 @@ function renderDerivativesMarketOverview(futures, options) {
 
   `;
 }
-function renderAssetHubPage(payloads = []) {
+function renderAssetHubPage(payloads = [], freshnessContext = {}) {
   const root = document.getElementById("asset-hub-root");
   if (!root) return;
   const mode = document.body.dataset.assetHubMode || "derivatives";
   const availablePayloads = payloads.filter(Boolean);
+  const freshnessPayload = availablePayloads.reduce((result, payload) => {
+    const timestamp = payload.refreshedAt || payload.updatedAt || payload.snapshotDate || "";
+    if (!result.updatedAt || (timestamp && String(timestamp) < String(result.updatedAt))) result.updatedAt = timestamp;
+    if (payload.cached || /fallback|cached|snapshot|unavailable/i.test(String(payload.sourceStatus || ""))) result.sourceStatus = "cached";
+    return result;
+  }, {});
+  freshnessPayload.hasUsableData = availablePayloads.some((payload) => Array.isArray(payload.items) && payload.items.some((item) => item && typeof item === "object" && !item.error));
+  if (freshnessContext.hasRequiredSourceFailure) freshnessPayload.completenessFailure = true;
+  const existingConfidence = availablePayloads.map((payload) => payload.confidenceScore ?? payload.analysis?.confidenceScore ?? payload.analysis?.confidence).find((value) => value !== null && value !== undefined && String(value).trim() !== "");
+  const financeConfidence = ["finance", "bonds", "precious-metals"].includes(mode)
+    ? buildAssetHubFinanceModel(
+      availablePayloads.find((payload) => payload.category === "precious-metals") || {},
+      availablePayloads.find((payload) => payload.category === "bonds") || {},
+    ).confidence
+    : undefined;
+  window.updateSharedFreshnessConfidence(freshnessPayload, { page: document.body.dataset.page, confidence: existingConfidence ?? financeConfidence });
   const byCategory = new Map(availablePayloads.map((payload) => [payload.category, payload]));
   const futures = byCategory.get("futures") || createAssetHubPlaceholder("futures", "期貨", "Futures");
   const options = byCategory.get("options") || createAssetHubPlaceholder("options", "選擇權", "Options");
@@ -5543,6 +5559,7 @@ async function initAssetHubPage() {
       });
   }));
   const payloads = results.map((result) => result.status === "fulfilled" ? result.value : null).filter(Boolean);
+  const hasRequiredSourceFailure = results.some((result) => result.status === "rejected");
   if (!payloads.length) {
     root.innerHTML = `
       <section class="subpage-hero">
@@ -5578,7 +5595,7 @@ async function initAssetHubPage() {
     if (optionsPayload && newsResult.status === "fulfilled") optionsPayload.overviewNews = newsResult.value;
   }
   const optionsPayload = payloads.find((payload) => payload.category === "options");
-  renderAssetHubPage(payloads);
+  renderAssetHubPage(payloads, { hasRequiredSourceFailure });
   if (optionsPayload) {
     fetchWithTimeout.scheduleJsonRequest(scheduler, "/api/us-market/options-chain/SPY", 16000, 3, true)
       .then((chain) => {
@@ -5931,6 +5948,13 @@ async function initDerivativesAnalyticsPage() {
   const spot = Number(chain.spot?.value);
   const gap = Number.isFinite(spot) && Number.isFinite(Number(maxPain)) ? spot - Number(maxPain) : null;
   const optionAnalysis = optionResult.data || chain.analysis || optionsPayload.taiwanOptionChain?.analysis || {};
+  const freshnessPayload = [futuresPayload, optionsPayload].reduce((result, payload) => {
+    const timestamp = payload?.refreshedAt || payload?.updatedAt || payload?.snapshotDate || "";
+    if (!result.updatedAt || (timestamp && String(timestamp) < String(result.updatedAt))) result.updatedAt = timestamp;
+    if (payload?.cached || /fallback|cached|snapshot|unavailable/i.test(String(payload?.sourceStatus || ""))) result.sourceStatus = "cached";
+    return result;
+  }, {});
+  window.updateSharedFreshnessConfidence(freshnessPayload, { page: document.body.dataset.page, confidence: optionAnalysis.confidenceScore ?? optionAnalysis.confidence });
   const marketStateModel = buildDerivativesMarketStateModel(
     futuresPayload,
     chain,

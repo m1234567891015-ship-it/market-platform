@@ -73,7 +73,9 @@ export async function startDerivativesStatus() {
   if (!root) return;
   root.innerHTML = '<section class="subpage-hero"><p class="eyebrow">Loading</p><h1>V1 資料狀態載入中</h1></section>';
   try {
-    root.innerHTML = renderStatus(await fetchJson("/api/derivatives/v1-status"));
+    const payload = await fetchJson("/api/derivatives/v1-status");
+    root.innerHTML = renderStatus(payload);
+    window.updateSharedFreshnessConfidence?.(payload, { page: "derivatives-status" });
   } catch (error) {
     root.innerHTML = `<section class="subpage-hero"><p class="eyebrow">Error</p><h1>資料狀態暫不可用</h1><p class="hero-text">${statusEscapeHtml(error.message)}</p></section>`;
   }

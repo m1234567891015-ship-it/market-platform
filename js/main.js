@@ -1,5 +1,6 @@
 function renderCurrentPage() {
   const page = document.body.dataset.page;
+  window.renderSharedFreshnessConfidence(data, { page });
   if (page === "global-market") {
     initGlobalMarketPage(false);
     return;
@@ -102,7 +103,7 @@ document.addEventListener("click", (event) => {
   loadYahooSectorCategory(groupKey, categoryIndex, button.textContent.trim());
 });
 renderCurrentPage();
-if (!["search", "watchlist", "global-market", "tw-etf", "us-etf", "us-stock-search", "asset-hub", "us-watchlist", "derivatives-analytics", "derivatives-ai"].includes(document.body.dataset.page)) {
+if (!["search", "watchlist", "global-market", "tw-etf", "us-etf", "us-stock-search", "asset-hub", "us-watchlist", "derivatives-analytics", "derivatives-ai", "derivatives-status"].includes(document.body.dataset.page)) {
   loadLiveData();
   setInterval(loadLiveData, document.body.dataset.page === "sectors" ? 5 * 60 * 1000 : 60 * 1000);
 }

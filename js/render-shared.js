@@ -1301,4 +1301,207 @@ function twEtfWeightText(value) {
   if (!Number.isFinite(weight)) return "--";
   return `${weight.toFixed(Math.abs(weight % 1) > 0 ? 1 : 0)}%`;
 }
+window.buildSharedFreshnessConfidenceModel = function (payload, options = {}) {
+  const record = payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
+  const now = options.now instanceof Date ? options.now : new Date();
+  const primaryKeys = options.primaryKeys || ["snapshotDate", "institutionDate", "activityDate", "intradayDate"];
+  const parseTimestamp = (value) => {
+    if (value instanceof Date && Number.isFinite(value.getTime())) return value;
+    const text = String(value || "").trim();
+    if (!text) return null;
+    const parsed = new Date(/^\d{4}-\d{2}-\d{2}$/.test(text) ? `${text}T23:59:59` : text.replace(" ", "T"));
+    return Number.isFinite(parsed.getTime()) ? parsed : null;
+  };
+  const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const expectedMarketDate = (date) => {
+    const value = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    while (value.getDay() === 0 || value.getDay() === 6) value.setDate(value.getDate() - 1);
+    return value;
+  };
+  const businessDaysBehind = (sourceDate, currentDate) => {
+    const cursor = new Date(sourceDate.getFullYear(), sourceDate.getMonth(), sourceDate.getDate());
+    const target = expectedMarketDate(currentDate);
+    let days = 0;
+    while (cursor < target) {
+      cursor.setDate(cursor.getDate() + 1);
+      if (cursor.getDay() !== 0 && cursor.getDay() !== 6) days += 1;
+    }
+    return days;
+  };
+  const primary = primaryKeys.map((key) => ({ key, raw: record[key], date: parseTimestamp(record[key]) }));
+  const presentPrimary = primary.filter((item) => item.raw !== null && item.raw !== undefined && String(item.raw).trim() !== "");
+  const validPrimary = presentPrimary.filter((item) => item.date);
+  const timestampCandidates = ["refreshedAt", "updatedAt"]
+    .map((key) => ({ key, raw: record[key], date: parseTimestamp(record[key]) }));
+  const presentTimestamps = timestampCandidates.filter((item) => item.raw !== null && item.raw !== undefined && String(item.raw).trim() !== "");
+  const timestampFields = presentTimestamps.filter((item) => item.date);
+  const hasInvalidTimestamp = presentTimestamps.length > timestampFields.length;
+  const clockSkewMs = Number.isFinite(Number(options.clockSkewMs)) ? Number(options.clockSkewMs) : 5 * 60 * 1000;
+  const hasFutureTimestamp = timestampFields.some((item) => item.date.getTime() > now.getTime() + clockSkewMs);
+  const cachedAt = parseTimestamp(record.cachedAt);
+  const sourceStatusValues = [
+    record.sourceStatus,
+    record.cached ? "cached" : "",
+    record.marketVolatility?.sourceStatus,
+    ...(Array.isArray(record.marketInternationalIndexes) ? record.marketInternationalIndexes.map((item) => item?.sourceStatus) : []),
+  ].map((value) => String(value || "").toLowerCase());
+  const hasFallbackSource = sourceStatusValues.some((value) => /fallback|cached|snapshot|unavailable/.test(value));
+  const requiredPrimaryMissing = Boolean(options.requirePrimary && (validPrimary.length !== primaryKeys.length || presentPrimary.length !== primaryKeys.length));
+  const items = Array.isArray(record.items) ? record.items : null;
+  const usableItems = items ? items.filter((item) => item && typeof item === "object" && !item.error) : [];
+  const validation = record.validation && typeof record.validation === "object" ? record.validation : null;
+  const failedCount = Number(validation?.failedCount);
+  const verifiedCount = Number(validation?.verifiedCount);
+  const providerFailure = Boolean(record.error || record.directory?.error || record.completenessFailure);
+  const allItemsFailed = Boolean(items?.length) && usableItems.length === 0;
+  const noUnderlyingData = Boolean(items) && items.length === 0;
+  const hasDeclaredUsableData = record.hasUsableData === true;
+  const validationFailedWithoutVerifiedData = Number.isFinite(failedCount) && failedCount > 0 && Number.isFinite(verifiedCount) && verifiedCount === 0;
+  const materialCompletenessFailure = providerFailure || allItemsFailed || validationFailedWithoutVerifiedData;
+  const mixedCompletenessFailure = (Number.isFinite(failedCount) && failedCount > 0) || (Boolean(items?.length) && usableItems.length !== items.length);
+  let status = "Unavailable";
+  let detail = "本頁來源尚未提供可驗證的資料日期或更新時間。";
+  if (materialCompletenessFailure || noUnderlyingData) {
+    status = usableItems.length || hasDeclaredUsableData ? "Partial" : "Unavailable";
+    detail = usableItems.length || hasDeclaredUsableData
+      ? "部分底層來源失敗或驗證不完整，不能視為完整新鮮資料。"
+      : "來源回應缺少可用底層資料，不能以組裝時間判定新鮮。";
+  } else if (validPrimary.length || timestampFields.length || cachedAt) {
+    if (requiredPrimaryMissing || (presentPrimary.length && validPrimary.length !== presentPrimary.length) || hasInvalidTimestamp || hasFutureTimestamp || hasFallbackSource || mixedCompletenessFailure) {
+      status = "Partial";
+      detail = hasFutureTimestamp
+        ? "來源更新時間晚於目前參考時間，不能視為新鮮資料。"
+        : hasInvalidTimestamp
+          ? "來源更新時間不可解析，資料完整性不足。"
+          : mixedCompletenessFailure
+            ? "部分底層來源失敗或驗證不完整，不能視為完整新鮮資料。"
+          : hasFallbackSource
+        ? "來源標示為快取、備援或不可用，不能視為完整新鮮資料。"
+        : "必要來源日期缺少或不可解析，資料完整性不足。";
+    } else if (validPrimary.length) {
+      const keys = new Set(validPrimary.map((item) => dateKey(item.date)));
+      if (keys.size > 1) {
+        status = "Partial";
+        detail = `來源日期不一致（${[...keys].join("、")}），不能合併為單一新鮮判讀。`;
+      } else {
+        const targetDate = expectedMarketDate(now);
+        const sourceDate = new Date(validPrimary[0].date.getFullYear(), validPrimary[0].date.getMonth(), validPrimary[0].date.getDate());
+        const behind = Math.max(...validPrimary.map((item) => businessDaysBehind(item.date, now)));
+        if (sourceDate > targetDate) {
+          status = "Partial";
+          detail = `來源日期 ${dateKey(validPrimary[0].date)} 晚於最近交易日 ${dateKey(targetDate)}，日期證據不可用。`;
+        } else if (behind > 0) {
+          status = "Delayed";
+          detail = `來源日期 ${dateKey(validPrimary[0].date)} 落後最近交易日 ${dateKey(expectedMarketDate(now))} ${behind} 個交易日。`;
+        } else {
+          status = "Fresh";
+          detail = `來源日期 ${dateKey(validPrimary[0].date)} 與最近交易日一致。`;
+        }
+      }
+    } else if (timestampFields.length) {
+      const newest = Math.max(...timestampFields.map((item) => item.date.getTime()));
+      const ageMinutes = Math.floor((now.getTime() - newest) / 60000);
+      if (ageMinutes <= 120) {
+        status = "Fresh";
+        detail = `可驗證更新時間距今約 ${ageMinutes} 分鐘。`;
+      } else {
+        status = "Delayed";
+        detail = `可驗證更新時間距今約 ${ageMinutes} 分鐘，超過兩小時視窗。`;
+      }
+    } else {
+      status = "Partial";
+      detail = "只有伺服器組裝時間，不能用它證明底層行情資料新鮮。";
+    }
+  }
+  const suppliedConfidence = options.confidence;
+  const confidenceValue = suppliedConfidence && typeof suppliedConfidence === "object"
+    ? (suppliedConfidence.label ?? suppliedConfidence.score ?? suppliedConfidence.value)
+    : suppliedConfidence;
+  const confidenceLabel = confidenceValue === null || confidenceValue === undefined || String(confidenceValue).trim() === ""
+    ? ""
+    : typeof confidenceValue === "number" ? `${Math.round(confidenceValue)}/100` : String(confidenceValue);
+  const confidenceDetail = suppliedConfidence && typeof suppliedConfidence === "object"
+    ? String(suppliedConfidence.detail || options.confidenceDetail || "")
+    : String(options.confidenceDetail || "");
+  const hasExistingConfidence = Boolean(confidenceLabel);
+  const confidence = status === "Fresh" && hasExistingConfidence
+    ? { label: confidenceLabel, detail: confidenceDetail || "沿用本頁既有分析信心；不另外建立信心分數。" }
+    : status === "Fresh" && options.hasDecisionEvidence
+      ? { label: "有限", detail: "既有證據可用；此為證據覆蓋度，不是模型信心分數。" }
+      : {
+        label: "不足",
+        detail: hasExistingConfidence
+          ? `本頁既有分析信心為 ${confidenceLabel}，但資料狀態為 ${status}，不產生高信心方向結論。`
+          : "沒有足夠且可驗證的新鮮證據，不產生高信心方向結論。",
+      };
+  return {
+    status,
+    label: status,
+    detail,
+    asOf: validPrimary[0] ? dateKey(validPrimary[0].date) : timestampFields[0] ? dateKey(timestampFields[0].date) : "--",
+    updatedAt: record.refreshedAt || record.updatedAt || record.cachedAt || "--",
+    confidence,
+  };
+};
+window.updateSharedFreshnessConfidence = function (payload, context = {}) {
+  window.renderSharedFreshnessConfidence(payload, context);
+};
+window.renderSharedFreshnessConfidence = function (payload, options = {}) {
+  if (document.getElementById("market-decision-summary")) return;
+  const main = document.querySelector("main");
+  if (!main) return;
+  let root = document.getElementById("shared-freshness-confidence");
+  if (!root) {
+    root = document.createElement("section");
+    root.id = "shared-freshness-confidence";
+    root.className = "shared-freshness-confidence";
+    main.insertBefore(root, main.firstElementChild);
+  }
+  const model = window.buildSharedFreshnessConfidenceModel(payload, options);
+  const escape = escapeHtml;
+  const statusKey = ["Fresh", "Delayed", "Partial", "Unavailable"].includes(model.status) ? model.status.toLowerCase() : "unavailable";
+  root.innerHTML = `<div><span class="shared-freshness-label">Data Freshness</span><strong class="decision-status decision-status-${statusKey}">${escape(model.label)}</strong><small>${escape(model.detail)}</small></div><div><span class="shared-freshness-label">Confidence</span><strong>${escape(model.confidence.label)}</strong><small>${escape(model.confidence.detail)}</small></div>`;
+};
+window.renderSharedMarketDecisionSummary = function (model) {
+  const root = document.getElementById("market-decision-summary");
+  if (!root) return;
+  const escape = escapeHtml;
+  const safe = (value, fallback = "--") => escape(value === null || value === undefined || value === "" ? fallback : String(value));
+  const list = (items, empty = "資料同步中") => Array.isArray(items) && items.length
+    ? items.map((item) => `<li>${safe(typeof item === "string" ? item : item.text)}</li>`).join("")
+    : `<li>${safe(empty)}</li>`;
+  const statusKey = ["Fresh", "Delayed", "Partial", "Unavailable"].includes(model?.freshness?.status)
+    ? model.freshness.status.toLowerCase()
+    : "unavailable";
+  const temperatureValue = Number.isFinite(Number(model?.temperature?.value)) ? Math.round(Number(model.temperature.value)) : null;
+  const sectors = (items, empty) => Array.isArray(items) && items.length
+    ? items.map((item) => `<li><span>${safe(item.name)}</span><b>${safe(item.pct)}</b></li>`).join("")
+    : `<li class="decision-empty">${safe(empty)}</li>`;
+  root.innerHTML = `
+    <div class="decision-center-header">
+      <div>
+        <p class="panel-kicker">Today Market Decision Center</p>
+        <h2>今日市場決策中心</h2>
+        <p class="decision-state">${safe(model?.decision, "暫不下方向結論")}</p>
+        <p class="decision-summary-copy">${safe(model?.summary, "目前沒有足夠資料整理市場狀態。")}</p>
+      </div>
+      <div class="decision-center-meta">
+        <span class="decision-status decision-status-${statusKey}">${safe(model?.freshness?.status, "Unavailable")}</span>
+        <small>來源日期 ${safe(model?.asOf)} · 組裝時間 ${safe(model?.updatedAt)}</small>
+      </div>
+    </div>
+    <div class="decision-metric-grid">
+      <article class="decision-metric"><span>Data Freshness</span><strong>${safe(model?.freshness?.label, "Unavailable")}</strong><small>${safe(model?.freshness?.detail)}</small></article>
+      <article class="decision-metric"><span>Confidence</span><strong>${safe(model?.confidence?.label, "不足")}</strong><small>${safe(model?.confidence?.detail)}</small></article>
+      <article class="decision-metric"><span>${safe(model?.temperature?.label, "既有市場風險分數")}</span><strong>${temperatureValue === null ? "未評定" : `${temperatureValue}/100`}</strong><small>${safe(model?.temperature?.detail)}</small></article>
+    </div>
+    <div class="decision-center-grid">
+      <article class="decision-panel"><h3>判斷依據</h3><ul>${list(model?.reasons)}</ul></article>
+      <article class="decision-panel"><h3>今日風險</h3><ul>${list((model?.risks || []).map((item) => `${item.text}（${item.source || "既有資料"}）`), "核心資料不足，暫不下方向性風險結論。")}</ul></article>
+      <article class="decision-panel"><h3>今日策略</h3><div class="decision-subsections"><div><b>策略建議</b><ul>${list(model?.strategy?.advice)}</ul></div><div><b>明日確認</b><ul>${list(model?.strategy?.next)}</ul></div></div></article>
+      <article class="decision-panel"><h3>族群強弱</h3><div class="decision-sector-columns"><div><b>最強</b><ul>${sectors(model?.leaders, "強勢族群同步中")}</ul></div><div><b>最弱</b><ul>${sectors(model?.laggards, "弱勢族群同步中")}</ul></div></div></article>
+    </div>
+    <details class="decision-evidence"><summary>Evidence / Invalidation</summary><div class="decision-evidence-grid"><div><h3>證據來源</h3><ul>${(model?.evidence || []).map((item) => `<li><span>${safe(item.label)}</span><b>${safe(item.value)}</b><small>${safe(item.source)} · ${safe(item.asOf)} · ${safe(item.status)}</small></li>`).join("") || `<li>${safe("尚無可驗證證據")}</li>`}</ul></div><div><h3>失效與重新評估</h3><ul>${list(model?.invalidation)}</ul><h3>限制</h3><ul>${list(model?.limitations)}</ul></div></div></details>
+  `;
+};
 renderSharedNavigation();

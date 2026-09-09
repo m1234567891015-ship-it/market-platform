@@ -39,8 +39,8 @@
     <main>
       <section class="hero hero-home">
         <div class="hero-copy">
-          <p class="eyebrow">證交所即時儀表板</p>
-          <h1>掌握大盤、族群、法人與個股動向</h1>
+          <p class="eyebrow">今日市場決策中心</p>
+          <h1>先看市場狀態，再決定今天怎麼做</h1>
           <p class="hero-text">
             台股脈動以 Python Flask 串接證交所公開資料，整理加權指數、法人買賣超、類股走勢與個股技術資料，
             讓你快速看懂市場節奏。
@@ -58,6 +58,18 @@
           </div>
           <div class="headline-metrics" id="hero-metrics"></div>
         </aside>
+      </section>
+
+      <section id="market-decision-summary" class="section decision-center" aria-live="polite">
+        <div class="decision-center-header">
+          <div>
+            <p class="panel-kicker">Today Market Decision Center</p>
+            <h2>今日市場決策中心</h2>
+            <p class="decision-state">資料同步中</p>
+            <p class="decision-summary-copy">正在整理市場狀態、資料新鮮度與既有風險證據。</p>
+          </div>
+          <span class="decision-status decision-status-unavailable">Unavailable</span>
+        </div>
       </section>
 
       <section class="section">
@@ -135,6 +147,6 @@
     </main>
   </div>
 
-<script src="market-pulse-esm-loader.js?v=td02-full-esm-dbb31aee4cfaec33"></script>
+<script src="market-pulse-esm-loader.js?v=td02-full-esm-0110e9f506bddd37"></script>
 </body>
 </html>
