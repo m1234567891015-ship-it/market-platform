@@ -5321,6 +5321,10 @@ function renderAssetHubPage(payloads = [], freshnessContext = {}) {
   const isBondsMode = mode === "bonds";
   const isMetalsMode = mode === "precious-metals";
   const isFinanceMode = ["finance", "bonds", "precious-metals"].includes(mode);
+  const isCrossMarketHub = mode === "finance";
+  const crossMarketModel = isCrossMarketHub && typeof window.buildCrossMarketDecisionModel === "function"
+    ? window.buildCrossMarketDecisionModel(availablePayloads)
+    : null;
   const financeView = isBondsMode ? "bonds" : isMetalsMode ? "metals" : "combined";
   const bindPublicOptionControls = () => {
     root.querySelectorAll("[data-asset-option-underlying]").forEach((button) => {
@@ -5411,9 +5415,13 @@ function renderAssetHubPage(payloads = [], freshnessContext = {}) {
       </div>
     </section>
     ${isFinanceMode ? renderAssetHubFinanceDashboard(metals, bonds, { view: financeView }) : ""}
+    ${crossMarketModel ? '<section id="market-decision-summary" class="section decision-center" aria-live="polite"></section>' : ""}
     ${isFinanceMode ? "" : renderAssetHubSchemaPanel(navigation.map(([, , , , payload]) => payload))}
     ${isFinanceMode ? "" : `${renderAssetHubFutures(futures)}${renderAssetHubOptions(options)}`}
   `;
+  if (crossMarketModel && typeof window.renderSharedMarketDecisionSummary === "function") {
+    window.renderSharedMarketDecisionSummary(crossMarketModel);
+  }
   initAssetFinanceTrendSwitchers(root);
   initAssetFinanceVolumeSelectors(root);
   initAssetFinanceBondFocusControls(root, availablePayloads);
@@ -5504,6 +5512,7 @@ async function initAssetHubPage() {
   const isBondsMode = mode === "bonds";
   const isMetalsMode = mode === "precious-metals";
   const isFinanceMode = ["finance", "bonds", "precious-metals"].includes(mode);
+  const isCrossMarketHub = mode === "finance";
   const loadingCopy = isBondsMode
     ? {
       eyebrow: "Bonds Platform",
@@ -5543,11 +5552,20 @@ async function initAssetHubPage() {
     ? ["bonds"]
     : isMetalsMode
       ? ["precious-metals"]
-      : isFinanceMode
-        ? ["precious-metals", "bonds"]
+      : isCrossMarketHub
+        ? ["tw", "us-stocks", "us-etf", "futures", "options", "precious-metals", "bonds"]
         : ["futures", "options"];
+  const endpointForCategory = (category) => ({
+    tw: "/api/twse/live-overview",
+    "us-stocks": "/api/global-market/us-stocks?limit=all",
+    "us-etf": "/api/us-market/etf-center?quoteLimit=48",
+    futures: "/api/global-market/futures?limit=all",
+    options: "/api/global-market/options?limit=all",
+    "precious-metals": "/api/global-market/precious-metals?limit=all",
+    bonds: "/api/global-market/bonds?limit=all",
+  }[category] || `/api/${encodeURIComponent(category)}?limit=12`);
   const results = await Promise.allSettled(categories.map((category) => {
-    const endpoint = isFinanceMode
+    const endpoint = isCrossMarketHub ? endpointForCategory(category) : isFinanceMode
       ? `/api/global-market/${encodeURIComponent(category)}?limit=all`
       : `/api/${encodeURIComponent(category)}?limit=12`;
     return fetchWithTimeout.scheduleJsonRequest(scheduler, endpoint, 120000, 1)
@@ -5555,6 +5573,7 @@ async function initAssetHubPage() {
         if (!isFinanceMode && responsePayload?.success === false) {
           throw new Error(responsePayload?.error?.message || `${category} 資料暫不可用`);
         }
+        if (isCrossMarketHub && category === "tw") return { ...responsePayload, category: "tw" };
         return isFinanceMode ? responsePayload : responsePayload?.data;
       });
   }));

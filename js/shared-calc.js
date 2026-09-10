@@ -3346,3 +3346,275 @@ function calculateIchimoku(history) {
     return { tenkan, kijun, senkouB };
   });
 }
+
+// Phase D: reuse market-specific payloads and expose one fail-closed contract.
+// This layer only normalizes existing evidence; it does not create a forecast,
+// score, risk score, or provider path.
+(function registerCrossMarketDecisionLayer() {
+  const CROSS_MARKET_INPUT_DEFINITIONS = [
+    { key: "TW", label: "TW", payloadKey: "tw", symbols: [] },
+    { key: "US", label: "US", payloadKey: "us-stocks", symbols: ["^GSPC", "^IXIC", "^DJI", "^RUT"] },
+    { key: "ETF", label: "ETF", payloadKey: "us-etf", symbols: ["SPY", "QQQ", "VOO", "IVV"] },
+    { key: "Futures", label: "Futures", payloadKey: "futures", symbols: ["ES=F", "NQ=F", "TX", "YM=F"] },
+    { key: "Options", label: "Options", payloadKey: "options", symbols: ["TXO", "^GSPC", "^NDX", "^DJI"] },
+    { key: "VIX", label: "VIX", payloadKey: "us-stocks", symbols: ["^VIX", "VIXY", "VXX"], kind: "volatility" },
+    { key: "DXY", label: "DXY", payloadKeys: ["bonds", "precious-metals"], symbols: ["DX-Y.NYB", "DXY"] },
+    { key: "US10Y", label: "US10Y", payloadKey: "bonds", symbols: ["^TNX", "ZN=F", "US10Y"], maturity: "10 Yr" },
+    { key: "Gold", label: "Gold", payloadKey: "precious-metals", symbols: ["GC=F", "MGC=F", "GLD", "IAU", "GLDM"] },
+  ];
+
+  function crossMarketNumber(value) {
+    if (typeof parseMarketNumber === "function") return parseMarketNumber(value);
+    const parsed = Number.parseFloat(String(value ?? "").replace(/,/g, "").replace(/%/g, ""));
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function crossMarketPayloadMap(payloads) {
+    if (Array.isArray(payloads)) return new Map(payloads.filter(Boolean).map((payload) => [payload.category, payload]));
+    if (payloads && typeof payloads === "object") return new Map(Object.entries(payloads).filter(([, payload]) => payload));
+    return new Map();
+  }
+
+  function crossMarketItems(payload) {
+    return Array.isArray(payload?.items) ? payload.items : [];
+  }
+
+  function crossMarketFindItem(payloads, definition) {
+    const maps = (definition.payloadKeys || [definition.payloadKey])
+      .map((key) => payloads.get(key))
+      .filter(Boolean);
+    for (const payload of maps) {
+      const items = crossMarketItems(payload);
+      const found = definition.symbols
+        .map((symbol) => items.find((item) => String(item?.symbol || "").toUpperCase() === symbol))
+        .find(Boolean);
+      if (found) return { payload, item: found };
+    }
+    return { payload: maps[0] || null, item: null };
+  }
+
+  function crossMarketTwEvidence(payload) {
+    const overview = Array.isArray(payload?.marketOverview) ? payload.marketOverview : [];
+    const item = overview.find((entry) => crossMarketNumber(entry?.pct) !== null || crossMarketNumber(entry?.value) !== null) || null;
+    return {
+      item,
+      value: item?.value ?? null,
+      pct: item?.pct ?? null,
+      date: payload?.snapshotDate || payload?.activityDate || null,
+      source: payload?.sourceLinks?.market || "TWSE / TPEX existing market overview",
+    };
+  }
+
+  function crossMarketOptionsEvidence(payload) {
+    const chain = payload?.taiwanOptionChain || {};
+    const analysis = chain.analysis && typeof chain.analysis === "object" ? chain.analysis : {};
+    const direction = String(analysis.direction || analysis.regime?.direction || "").trim();
+    const item = crossMarketItems(payload).find((entry) => !entry?.error && (crossMarketNumber(entry?.close) !== null || crossMarketNumber(entry?.pct) !== null)) || null;
+    return {
+      item,
+      value: item?.close ?? analysis.pcr ?? null,
+      pct: item?.pct ?? null,
+      direction,
+      date: item?.date || chain.tradeDate || payload?.updatedAt || null,
+      source: item?.dataSource || item?.source || chain.source?.primary || payload?.source || "Existing options analytics",
+    };
+  }
+
+  function crossMarketEvidenceFor(definition, payloads) {
+    if (definition.key === "TW") {
+      const payload = payloads.get("tw") || null;
+      const evidence = crossMarketTwEvidence(payload);
+      return { payload, ...evidence };
+    }
+    const { payload, item } = crossMarketFindItem(payloads, definition);
+    if (definition.key === "Options") {
+      return { payload, ...crossMarketOptionsEvidence(payload) };
+    }
+    if (definition.key === "US10Y" && !item) {
+      const curve = payload?.validation?.treasuryCurve || {};
+      const value = crossMarketNumber(curve.yields?.[definition.maturity]);
+      if (value !== null) {
+        return {
+          payload,
+          item: null,
+          value,
+          pct: null,
+          date: curve.date || payload?.updatedAt || null,
+          source: curve.source || payload?.source || "U.S. Treasury existing yield curve",
+        };
+      }
+    }
+    return {
+      payload,
+      item,
+      value: item?.close ?? item?.value ?? payload?.summary?.avgPct ?? null,
+      pct: item?.pct ?? (item ? null : payload?.summary?.avgPct) ?? null,
+      date: item?.date || payload?.snapshotDate || payload?.updatedAt || null,
+      source: item?.dataSource || item?.source || payload?.sourceInfo?.primary || payload?.source || "Existing market analytics",
+    };
+  }
+
+  function crossMarketDirection(definition, evidence) {
+    const explicit = String(evidence.direction || "").toLowerCase();
+    if (/bull|偏多|上行|positive|risk.?on/.test(explicit)) return "up";
+    if (/bear|偏空|下行|negative|risk.?off/.test(explicit)) return "down";
+    const pct = crossMarketNumber(evidence.pct);
+    if (pct === null) return null;
+    if (pct > 0) return "up";
+    if (pct < 0) return "down";
+    return "flat";
+  }
+
+  function crossMarketRiskHint(definition, evidence, direction) {
+    const pct = crossMarketNumber(evidence.pct);
+    if (direction === null || pct === null) return null;
+    if (definition.key === "VIX" && direction === "up") return { text: "VIX 上行，既有波動訊號顯示風險溫度升高。", source: "VIX existing volatility signal" };
+    if (definition.key === "DXY" && direction === "up") return { text: "DXY 上行，既有美元訊號顯示外部風險壓力需留意。", source: "DXY existing market item" };
+    if (definition.key === "US10Y" && direction === "up") return { text: "US10Y 上行，既有利率資料顯示估值壓力需留意。", source: "U.S. Treasury / existing rate item" };
+    if (definition.key === "Gold" && direction === "up") return { text: "Gold 上行，既有黃金行情顯示避險需求正在變化。", source: "Gold existing market item" };
+    return null;
+  }
+
+  function crossMarketFreshness(record, hasEvidence) {
+    if (typeof window?.buildSharedFreshnessConfidenceModel !== "function") {
+      return {
+        status: "Unavailable",
+        label: "Unavailable",
+        detail: "既有 freshness contract 未載入，停止跨市場判讀。",
+        asOf: "--",
+        updatedAt: "--",
+        confidence: { label: "不足", detail: "無法驗證資料新鮮度。" },
+      };
+    }
+    return window.buildSharedFreshnessConfidenceModel(record, {
+      primaryKeys: ["snapshotDate"],
+      requirePrimary: true,
+      hasDecisionEvidence: hasEvidence,
+    });
+  }
+
+  function crossMarketNormalizeOne(definition, payloads) {
+    const evidence = crossMarketEvidenceFor(definition, payloads);
+    const payload = evidence.payload || {};
+    const item = evidence.item || {};
+    const hasValue = crossMarketNumber(evidence.value) !== null || crossMarketNumber(evidence.pct) !== null || Boolean(evidence.direction);
+    const hasError = Boolean(payload.error || item.error || item.status === "unavailable");
+    const available = Boolean(payload && hasValue && !hasError);
+    const normalizationStatus = available ? "normalized" : payload ? "unsupported" : "unavailable";
+    const quality = available && (item.verification?.status === "limited" || payload.sourceStatus === "cached") ? "degraded" : available ? "valid" : "unavailable";
+    const snapshotDate = evidence.date || null;
+    const gateRecord = {
+      ...payload,
+      items: available ? [item] : [],
+      snapshotDate,
+      updatedAt: payload.updatedAt || item.updatedAt || snapshotDate || "",
+      sourceStatus: item.status || payload.sourceStatus || "",
+      error: hasError ? (item.error || payload.error || "unavailable") : "",
+    };
+    const freshness = crossMarketFreshness(gateRecord, available);
+    const direction = available ? crossMarketDirection(definition, evidence) : null;
+    const risk = available ? crossMarketRiskHint(definition, evidence, direction) : null;
+    const source = evidence.source || payload.source || "Existing analytics";
+    return {
+      market: definition.key,
+      asset: definition.label,
+      state: direction === "up" ? "Up" : direction === "down" ? "Down" : direction === "flat" ? "Flat" : "Unavailable",
+      direction,
+      value: evidence.value ?? null,
+      pct: evidence.pct ?? null,
+      confidence: freshness.confidence,
+      freshness: freshness.status,
+      timestamp: snapshotDate || freshness.updatedAt || "--",
+      evidence: {
+        label: definition.label,
+        value: evidence.pct ?? evidence.value ?? "--",
+        source,
+        asOf: freshness.asOf,
+        status: freshness.status,
+      },
+      risk,
+      dataQuality: quality,
+      provenance: source,
+      available,
+      canUseForDecision: available && freshness.status === "Fresh" ? "YES" : available ? "DEGRADED" : "NO",
+      normalizationStatus,
+      freshnessDetail: freshness.detail,
+      rawPayloadCategory: payload.category || definition.payloadKey || definition.key,
+    };
+  }
+
+  window.buildCrossMarketDecisionModel = function buildCrossMarketDecisionModel(payloads = []) {
+    const payloadMap = crossMarketPayloadMap(payloads);
+    const inputs = CROSS_MARKET_INPUT_DEFINITIONS.map((definition) => crossMarketNormalizeOne(definition, payloadMap));
+    const usable = inputs.filter((item) => item.canUseForDecision === "YES" && item.direction && item.direction !== "flat");
+    const up = usable.filter((item) => item.direction === "up");
+    const down = usable.filter((item) => item.direction === "down");
+    const confirming = up.length && !down.length ? up : down.length && !up.length ? down : [];
+    const conflicting = up.length && down.length ? [...up, ...down] : [];
+    const stale = inputs.filter((item) => item.available && item.freshness !== "Fresh");
+    const unavailable = inputs.filter((item) => !item.available || item.canUseForDecision === "NO");
+    const sufficient = usable.length >= 2;
+    const decision = !sufficient
+      ? "Unavailable / insufficient evidence"
+      : conflicting.length
+        ? "Mixed / conflicted"
+        : up.length
+          ? "Aligned up"
+          : down.length
+            ? "Aligned down"
+            : "Mixed / neutral";
+    const evidenceText = (item) => `${item.asset} ${item.state}${item.pct !== null && item.pct !== undefined ? `（${item.pct}）` : ""}`;
+    const reasons = sufficient
+      ? conflicting.length
+        ? ["既有市場證據同時出現上行與下行，維持 Mixed / conflicted。", `上行：${up.map(evidenceText).join("、")}`, `下行：${down.map(evidenceText).join("、")}`]
+        : [`${confirming.length} 組可用市場證據方向一致：${confirming.map(evidenceText).join("、")}。`]
+      : ["Fresh 且可正規化的市場證據少於兩組，停止產生方向性結論。"];
+    if (stale.length) reasons.push(`延遲或品質降級資料未納入方向判讀：${stale.map((item) => item.asset).join("、")}。`);
+    if (unavailable.length) reasons.push(`不可用資料保持顯示但不計入決策：${unavailable.map((item) => item.asset).join("、")}。`);
+    const risks = inputs.map((item) => item.risk).filter(Boolean);
+    if (conflicting.length) risks.unshift({ text: "跨市場方向衝突，證據一致性風險升高。", source: "Cross-market evidence" });
+    if (stale.length || unavailable.length) risks.push({ text: "部分市場資料延遲或不可用，信心受資料品質限制。", source: "Freshness / data-quality gate" });
+    if (!risks.length) risks.push({ text: "目前沒有可由既有資料明確提出的質性風險；仍需持續監測來源狀態。", source: "Existing evidence only" });
+    const confidence = sufficient && !conflicting.length && !stale.length && !unavailable.length
+      ? { label: "有限", detail: "所有納入市場均通過既有 freshness gate；此為證據覆蓋度，不是新建模型分數。" }
+      : { label: "不足", detail: "市場衝突、延遲或不可用資料限制目前判讀；不產生高信心方向結論。" };
+    const actions = !sufficient
+      ? ["等待必要市場來源恢復並通過 Fresh gate，再重新評估。"]
+      : conflicting.length
+        ? ["訊號衝突，維持觀察並等待既有市場分析重新確認。"]
+        : ["可持續觀察既有市場分析的一致性；本層不輸出買賣或執行指令。"];
+    const invalidation = [
+      ...usable.map((item) => `${item.asset} 的既有狀態或方向改變時，重新評估跨市場判斷。`),
+      "任一納入證據從 Fresh 轉為 Delayed、Partial 或 Unavailable 時，重新評估。",
+      "市場衝突增加、資料品質下降或必要來源缺失時，停止沿用目前結論。",
+    ];
+    const evidenceGroups = {
+      confirming: confirming.map((item) => item.evidence),
+      conflicting: conflicting.map((item) => item.evidence),
+      stale: stale.map((item) => item.evidence),
+      unavailable: unavailable.map((item) => item.evidence),
+    };
+    const freshness = inputs.every((item) => item.freshness === "Fresh") ? "Fresh" : inputs.some((item) => item.freshness === "Fresh") ? "Partial" : "Unavailable";
+    return {
+      crossMarket: true,
+      decision,
+      summary: sufficient ? "跨市場層只編排既有方向與資料品質，不重算任何市場預測或分數。" : "跨市場資料不足，已 fail-closed。",
+      confidence,
+      freshness: { status: freshness, label: freshness, detail: "各市場 freshness 狀態見下方 alignment 與 evidence。" },
+      asOf: inputs.map((item) => item.evidence.asOf).find((value) => value && value !== "--") || "--",
+      updatedAt: inputs.map((item) => item.timestamp).find((value) => value && value !== "--") || "--",
+      temperature: { value: null, label: "Cross-market score", detail: "不建立新的跨市場分數。" },
+      reasons,
+      risks,
+      strategy: { advice: actions, next: invalidation.slice(0, 2) },
+      actions,
+      conditions: invalidation,
+      invalidation,
+      limitations: ["市場專屬分析仍是 authoritative input。", "延遲、衝突或不可用資料不會被補值或隱藏。"],
+      evidence: inputs.map((item) => item.evidence),
+      evidenceGroups,
+      marketAlignment: inputs,
+      inputs,
+    };
+  };
+  })();

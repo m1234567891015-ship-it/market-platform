@@ -1640,6 +1640,13 @@ window.renderSharedMarketDecisionSummary = function (model) {
   const sectors = (items, empty) => Array.isArray(items) && items.length
     ? items.map((item) => `<li><span>${safe(item.name)}</span><b>${safe(item.pct)}</b></li>`).join("")
     : `<li class="decision-empty">${safe(empty)}</li>`;
+  const alignment = Array.isArray(model?.marketAlignment) && model.marketAlignment.length
+    ? `<article class="decision-panel"><h3>Market Alignment</h3><ul class="decision-market-alignment">${model.marketAlignment.map((item) => `<li><span>${safe(item.asset || item.market)} · ${safe(item.state, "Unavailable")}</span><b>${safe(item.pct ?? item.value)}</b><small>${safe(item.freshness, "Unavailable")} · ${safe(item.dataQuality, "unavailable")}</small></li>`).join("")}</ul></article>`
+    : "";
+  const evidenceGroup = (label, items, empty = "無") => `<div><h3>${safe(label)}</h3><ul>${Array.isArray(items) && items.length ? items.map((item) => `<li><span>${safe(item.label)}</span><b>${safe(item.value)}</b><small>${safe(item.source)} · ${safe(item.asOf)} · ${safe(item.status)}</small></li>`).join("") : `<li>${safe(empty)}</li>`}</ul></div>`;
+  const groupedEvidence = model?.evidenceGroups
+    ? `<div class="decision-evidence-grid"><div>${evidenceGroup("Confirming evidence", model.evidenceGroups.confirming)}</div><div>${evidenceGroup("Conflicting evidence", model.evidenceGroups.conflicting)}</div><div>${evidenceGroup("Stale evidence", model.evidenceGroups.stale)}</div><div>${evidenceGroup("Unavailable evidence", model.evidenceGroups.unavailable)}</div></div>`
+    : `<div><h3>證據來源</h3><ul>${(model?.evidence || []).map((item) => `<li><span>${safe(item.label)}</span><b>${safe(item.value)}</b><small>${safe(item.source)} · ${safe(item.asOf)} · ${safe(item.status)}</small></li>`).join("") || `<li>${safe("尚無可驗證證據")}</li>`}</ul></div>`;
   root.innerHTML = `
     <div class="decision-center-header">
       <div>
@@ -1658,13 +1665,14 @@ window.renderSharedMarketDecisionSummary = function (model) {
       <article class="decision-metric"><span>Confidence</span><strong>${safe(model?.confidence?.label, "不足")}</strong><small>${safe(model?.confidence?.detail)}</small></article>
       <article class="decision-metric"><span>${safe(model?.temperature?.label, "既有市場風險分數")}</span><strong>${temperatureValue === null ? "未評定" : `${temperatureValue}/100`}</strong><small>${safe(model?.temperature?.detail)}</small></article>
     </div>
+    ${alignment}
     <div class="decision-center-grid">
       <article class="decision-panel"><h3>判斷依據</h3><ul>${list(model?.reasons)}</ul></article>
-      <article class="decision-panel"><h3>今日風險</h3><ul>${list((model?.risks || []).map((item) => `${item.text}（${item.source || "既有資料"}）`), "核心資料不足，暫不下方向性風險結論。")}</ul></article>
-      <article class="decision-panel"><h3>今日策略</h3><div class="decision-subsections"><div><b>策略建議</b><ul>${list(model?.strategy?.advice)}</ul></div><div><b>明日確認</b><ul>${list(model?.strategy?.next)}</ul></div></div></article>
+      <article class="decision-panel"><h3>${model?.crossMarket ? "Cross-Market Risks" : "今日風險"}</h3><ul>${list((model?.risks || []).map((item) => `${item.text}（${item.source || "既有資料"}）`), "核心資料不足，暫不下方向性風險結論。")}</ul></article>
+      <article class="decision-panel"><h3>${model?.crossMarket ? "Actions / Guidance" : "今日策略"}</h3><div class="decision-subsections"><div><b>${model?.crossMarket ? "Guidance" : "策略建議"}</b><ul>${list(model?.strategy?.advice || model?.actions)}</ul></div><div><b>${model?.crossMarket ? "Conditions" : "明日確認"}</b><ul>${list(model?.strategy?.next || model?.conditions)}</ul></div></div></article>
       <article class="decision-panel"><h3>族群強弱</h3><div class="decision-sector-columns"><div><b>最強</b><ul>${sectors(model?.leaders, "強勢族群同步中")}</ul></div><div><b>最弱</b><ul>${sectors(model?.laggards, "弱勢族群同步中")}</ul></div></div></article>
     </div>
-    <details class="decision-evidence"><summary>Evidence / Invalidation</summary><div class="decision-evidence-grid"><div><h3>證據來源</h3><ul>${(model?.evidence || []).map((item) => `<li><span>${safe(item.label)}</span><b>${safe(item.value)}</b><small>${safe(item.source)} · ${safe(item.asOf)} · ${safe(item.status)}</small></li>`).join("") || `<li>${safe("尚無可驗證證據")}</li>`}</ul></div><div><h3>失效與重新評估</h3><ul>${list(model?.invalidation)}</ul><h3>限制</h3><ul>${list(model?.limitations)}</ul></div></div></details>
+    <details class="decision-evidence"${model?.crossMarket ? " open" : ""}><summary>Evidence / Invalidation</summary><div class="decision-evidence-grid">${groupedEvidence}<div><h3>失效與重新評估</h3><ul>${list(model?.invalidation)}</ul><h3>限制</h3><ul>${list(model?.limitations)}</ul></div></div></details>
   `;
 };
 renderSharedNavigation();

@@ -75,6 +75,19 @@ def _is_external_resource_error(message: str) -> bool:
     ))
 
 
+def _install_deterministic_font_state(context) -> None:
+    """Keep screenshot comparisons on the baseline's fallback-font state.
+
+    The frozen screenshots were captured while Google Fonts was unavailable.
+    Serving an empty stylesheet in compare mode preserves that rendering state
+    without relying on the current machine's external-network availability.
+    """
+    context.route(
+        "**://fonts.googleapis.com/**",
+        lambda route: route.fulfill(status=200, content_type="text/css", body=""),
+    )
+
+
 def _visit_page(browser, base_url: str, page_file: str, mode: str) -> dict:
     console_errors: list[str] = []
     external_errors: list[str] = []
@@ -94,6 +107,8 @@ def _visit_page(browser, base_url: str, page_file: str, mode: str) -> dict:
         if not har_path.exists():
             raise SystemExit(f"找不到 {page_file} 的 HAR 基準 {har_path},請先執行 --capture")
         context.route_from_har(str(har_path), url="**/api/**", not_found="abort")
+        if page_file == "international-finance.html":
+            _install_deterministic_font_state(context)
 
     page = context.new_page()
     page.on(
