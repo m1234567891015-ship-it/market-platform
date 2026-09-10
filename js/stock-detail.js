@@ -1858,6 +1858,8 @@ function renderStockDetail(detail) {
       </div>
     </article>
   `;
+  const stockScenarioContract = window.buildStockScenarioContract?.(detail, technicalTheory, technicalTrendSummary);
+  const stockScenarioHtml = window.renderStockScenarioContract?.(stockScenarioContract) || "";
   const theoryTone = technicalTheory.score >= 3
     ? "positive"
     : technicalTheory.score <= -3
@@ -2267,6 +2269,7 @@ function renderStockDetail(detail) {
       <div><span>月低</span><strong>${detail.monthLow}</strong></div>
     </div>
     <p class="card-copy">${detail.trend}</p>
+    ${stockScenarioHtml}
     <section class="technical-chart-card">
       <div class="card-title-row">
         <div>

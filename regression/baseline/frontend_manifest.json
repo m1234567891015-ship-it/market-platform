@@ -79,7 +79,7 @@
       "counts": {
         "canvas": 0,
         "canvas_nonblank": 0,
-        "cards": 47,
+        "cards": 54,
         "table_rows": 0
       },
       "file": "index.html",
@@ -127,8 +127,8 @@
       "counts": {
         "canvas": 0,
         "canvas_nonblank": 0,
-        "cards": 28,
-        "table_rows": 116
+        "cards": 20,
+        "table_rows": 39
       },
       "file": "options.html",
       "screenshot": "screenshots/options.html.png"

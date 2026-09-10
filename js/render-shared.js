@@ -319,6 +319,169 @@ function buildTechnicalTrendSummary(detail, technicalTheory) {
     },
   };
 }
+window.buildStockScenarioContract = function (detail, technicalTheory, technicalTrendSummary) {
+  const summary = technicalTrendSummary || {};
+  const forecast = summary.forecast || {};
+  const backtest = technicalTheory?.backtestLearning || {};
+  const validation = backtest.validation || {};
+  const primaryScenario = forecast.primaryScenario
+    || (Array.isArray(forecast.scenarios)
+      ? forecast.scenarios.find((item) => Number(item.days) === 20) || forecast.scenarios[0]
+      : null);
+  const primaryTarget = forecast.primaryTarget
+    || (Array.isArray(forecast.priceTargets)
+      ? forecast.priceTargets.find((item) => Number(item.days) === 20) || forecast.priceTargets[0]
+      : null);
+  const hasEvidence = Number(technicalTheory?.evidenceCount) > 0
+    || Boolean(primaryScenario)
+    || Boolean(primaryTarget);
+  const finite = (value) => value === null || value === undefined || value === ""
+    ? null
+    : Number.isFinite(Number(value)) ? Number(value) : null;
+  const support = finite(forecast.support);
+  const resistance = finite(forecast.resistance);
+  const supportText = support === null ? "支撐資料不足" : support.toFixed(2);
+  const resistanceText = resistance === null ? "壓力資料不足" : resistance.toFixed(2);
+  const evidence = Array.isArray(summary.confirmations) ? summary.confirmations.filter(Boolean).slice(0, 4) : [];
+  const risks = Array.isArray(summary.risks) ? [...new Set(summary.risks.filter(Boolean))].slice(0, 5) : [];
+  const modelState = validation.label || validation.status || "模型狀態未提供";
+  const targetRange = primaryTarget && Number.isFinite(primaryTarget.lower) && Number.isFinite(primaryTarget.upper)
+    ? `${primaryTarget.lower.toFixed(2)} ~ ${primaryTarget.upper.toFixed(2)}`
+    : null;
+  const probability = (key) => Number.isFinite(primaryScenario?.[key]) ? primaryScenario[key] : null;
+  const scenarioEvidence = evidence.length ? evidence : ["既有技術與回測證據不足，暫不補造理由"];
+  const scenarioResult = (direction) => {
+    if (!hasEvidence) return "目前無法產生情境";
+    if (direction === "bull") return targetRange ? `既有預估區間參考 ${targetRange}，不代表保證突破。` : "偏多延續條件成立時，沿既有趨勢觀察，不保證上漲。";
+    if (direction === "base") return support !== null && resistance !== null
+      ? `以既有支撐 ${supportText} 至壓力 ${resistanceText} 區間觀察。`
+      : "維持中性觀察，等待既有支撐壓力資料補齊。";
+    return support !== null ? `跌破既有支撐 ${supportText} 後，風險偏向修正；不另造下行目標。` : "既有下行條件可用性不足，需重新評估。";
+  };
+  const cases = [
+    {
+      key: "bull",
+      label: "Bull Case",
+      probability: probability("bullish"),
+      condition: support !== null
+        ? `守住既有支撐 ${supportText}，且既有均線、價量或回測證據續強。`
+        : "既有多方證據續強；支撐資料不足，不能建立價格失效線。",
+      evidence: scenarioEvidence,
+      result: scenarioResult("bull"),
+    },
+    {
+      key: "base",
+      label: "Base Case",
+      probability: probability("neutral"),
+      condition: support !== null && resistance !== null
+        ? `價格維持既有支撐 ${supportText} 與壓力 ${resistanceText} 之間。`
+        : "多空未形成有效共振，暫以既有中性判讀觀察。",
+      evidence: evidence.length ? evidence : ["既有中性證據不足，需等待資料更新"],
+      result: scenarioResult("base"),
+    },
+    {
+      key: "bear",
+      label: "Bear Case",
+      probability: probability("bearish"),
+      condition: support !== null
+        ? `跌破既有支撐 ${supportText}，或既有反向訊號與模型風險同步升高。`
+        : "既有反向訊號或模型風險升高；支撐資料不足，不能建立價格失效線。",
+      evidence: risks.length ? risks : ["既有空方反向證據不足，暫不補造理由"],
+      result: scenarioResult("bear"),
+    },
+  ];
+  const invalidation = [
+    support !== null
+      ? `Bull Case 失效：跌破既有支撐 ${supportText}，需重新評估。`
+      : "Bull Case 失效：支撐資料不足，無法建立有效價格失效條件。",
+    support !== null && resistance !== null
+      ? `Base Case 重新評估：有效突破壓力 ${resistanceText} 或跌破支撐 ${supportText}。`
+      : "Base Case 重新評估：支撐或壓力資料不足，需等待可驗證 levels。",
+    resistance !== null
+      ? `Bear Case 失效：重新站回既有壓力 ${resistanceText} 且反向訊號減弱。`
+      : "Bear Case 失效：壓力資料不足，無法建立有效價格失效條件。",
+    validation.status && validation.status !== "healthy"
+      ? `模型重新評估：既有模型狀態為「${modelState}」，資料更新後需重新檢查。`
+      : "資料品質或模型狀態改變時，需重新評估目前判斷。",
+  ];
+  return {
+    available: hasEvidence,
+    decision: hasEvidence ? `${summary.label || "中性整理"}（條件式觀察）` : "目前無法產生情境",
+    score: finite(summary.score),
+    confidence: hasEvidence ? (summary.confidence || forecast.confidence || "不足") : "不足",
+    why: evidence,
+    cases,
+    support,
+    resistance,
+    riskScore: null,
+    riskLevel: null,
+    riskReasons: risks,
+    counterEvidence: risks,
+    invalidation,
+    modelState,
+    provenance: {
+      decision: "existing technicalTrendSummary.label",
+      score: "existing technicalTrendSummary.score",
+      confidence: "existing technicalTrendSummary.confidence / forecast.confidence",
+      scenarios: "existing backtestLearning.forecast.scenarios",
+      levels: "existing backtestLearning.forecast.support/resistance",
+      risks: "existing technicalTrendSummary.risks",
+      validation: "existing backtestLearning.validation",
+    },
+  };
+};
+window.renderStockScenarioContract = function (contract) {
+  const model = contract || {};
+  const escape = escapeHtml;
+  const safe = (value, fallback = "資料不足") => escape(value === null || value === undefined || value === "" ? fallback : String(value));
+  const scoreText = Number.isFinite(model.score) ? String(model.score) : "未提供";
+  const levelText = (value, fallback) => Number.isFinite(value) ? value.toFixed(2) : fallback;
+  const list = (items, empty = "資料不足") => Array.isArray(items) && items.length
+    ? items.map((item) => `<li>${safe(item)}</li>`).join("")
+    : `<li>${safe(empty)}</li>`;
+  const tone = model.available ? "is-" + (model.decision?.includes("偏多") ? "bullish" : model.decision?.includes("偏空") ? "bearish" : "neutral") : "is-neutral";
+  const renderCase = (item) => `
+    <article class="backtest-forecast-item stock-scenario-case" data-scenario-case="${safe(item.key, "unknown")}">
+      <strong>${safe(item.label)}</strong>
+      <span>既有機率 ${Number.isFinite(item.probability) ? `${item.probability}%` : "未提供"}</span>
+      <p><b>條件</b>${safe(item.condition)}</p>
+      <p><b>證據</b>${list(item.evidence, "證據不足")}</p>
+      <p><b>結果</b>${safe(item.result, "目前無法產生情境")}</p>
+    </article>
+  `;
+  return `
+    <section class="stock-market-context technical-trend-summary stock-scenario-contract ${tone}" data-stock-scenario-contract>
+      <div class="technical-summary-head">
+        <div class="stock-theory-title">
+          <span>Decision scenario</span>
+          <h4>條件式決策情境</h4>
+        </div>
+        <div class="technical-summary-score">
+          <b>${safe(model.decision, "目前無法產生情境")}</b>
+          <span>非買賣建議</span>
+        </div>
+      </div>
+      <div class="market-decision-grid stock-scenario-metrics">
+        <div class="market-decision-item ${tone.replace("is-", "")}" data-scenario-field="decision"><span>Decision</span><div><b>${safe(model.decision, "目前無法產生情境")}</b><small>依既有技術與回測證據組裝</small></div></div>
+        <div class="market-decision-item" data-scenario-field="score"><span>Score</span><div><b>${scoreText}</b><small>沿用既有 stock-detail decision score</small></div></div>
+        <div class="market-decision-item" data-scenario-field="confidence"><span>Confidence</span><div><b>${safe(model.confidence, "不足")}</b><small>不另造信心分數</small></div></div>
+        <div class="market-decision-item" data-scenario-field="support"><span>Support</span><div><b>${levelText(model.support, "支撐資料不足")}</b><small>沿用既有 forecast level</small></div></div>
+        <div class="market-decision-item" data-scenario-field="resistance"><span>Resistance</span><div><b>${levelText(model.resistance, "壓力資料不足")}</b><small>沿用既有 forecast level</small></div></div>
+      </div>
+      <div class="technical-summary-columns stock-scenario-evidence">
+        <section><h5>Why / Evidence</h5><ul>${list(model.why, "既有證據不足")}</ul></section>
+        <section><h5>Risk / Counter-evidence</h5><ul>${list(model.riskReasons, "Risk Score unavailable；既有風險證據不足")}</ul></section>
+      </div>
+      <div class="backtest-forecast-grid stock-scenario-grid">
+        ${(Array.isArray(model.cases) ? model.cases : []).map(renderCase).join("") || '<p class="stock-detail-empty">目前無法產生情境</p>'}
+      </div>
+      <div class="backtest-action-card stock-scenario-invalidation">
+        <div><span>Invalidation condition</span><strong>失效與重新評估</strong></div>
+        <ul>${list(model.invalidation, "需要重新評估")}</ul>
+      </div>
+    </section>
+  `;
+};
 function renderTechnicalTrendForecastSummary(technicalTrendSummary, options = {}) {
   const forecast = technicalTrendSummary?.forecast || {};
   const assetLabel = options.assetLabel || "股價";
