@@ -1,3 +1,42 @@
+f69c94b feat: complete phase d cross-market intelligence
+ffbdfd6 C: close Decision Scenario after validated implementation
+2b6dd0f B: close Selection Funnel after validated implementation
+3dbaf51 A: close Decision Layer after final validated remediation
+075b010 Remediate targeted derivatives ESM artifact
+a523249 Remediate targeted derivatives page loading
+eb94990 Post-deploy remediation: restore remaining production API paths
+25904ee Post-deploy remediation: bound provider DNS TCP connection deadline
+8712db7 Post-deploy remediation: preserve IDNA codec during SSL startup initialization
+c2b59fb Post-deploy remediation: initialize verified SSL context at startup
+5f6e698 Post-deploy remediation: observe shared SSL context lock lifecycle
+16ceacb Post-deploy remediation: observe institution SSL context lifecycle
+caaeb92 Post-deploy remediation: instrument institution pre-response substages
+b6a04fb Post-deploy remediation: instrument institution provider I/O
+fd70cbf Post-deploy remediation: instrument institution request lifecycle
+5730f3a Post-deploy remediation: close institution deadline escapes
+7a88131 Post-deploy remediation: bound full request deadlines
+e75bc17 Post-deploy remediation: bound runtime starvation
+8b8d4b6 Cloudflare Pages local release: validated Pages Functions baseline
+9e2b093 Add local Cloudflare hybrid migration scaffold
+efeb0d0 Local release candidate: validated runtime persistence baseline
+e2dd802 fix: fail closed derivative market data
+830b152 fix: harden derivatives API transport
+931f916 fix: self-heal legacy service worker clients
+866e779 fix: prevent stale HTML runtime delivery
+df6c622 fix: version derivatives analytics runtime assets
+e824223 test: verify derivatives analytics runtime dispatch
+d1dddc9 fix: wire derivatives analytics production APIs
+3913508 fix: isolate provider warming failures
+c3c7aec fix: make Render free tier blueprint compatible
+214856b fix: persist verified TAIFEX option chain cache
+3680dfc merge: integrate complete market-platform history into main
+abd597f feat: integrate technical debt remediation and platform refactor
+8bced6b Initial commit
+6be4268 docs(TD-24): register clean-package round-trip contamination (log only)
+540d0e9 fix(TD-20): verify_release_integrity.py clean-package mode (TD-RELEASE-v2 F-03)
+8c5a206 feat(TD-RELEASE-v2 F-02): add build_portable_package.py
+56d6894 fix(TD-02/TD-00B): SKIP frontend/interaction guardrails when regression/ absent
+39ffae9 docs(TD-RELEASE-v2 F-04): refresh bundle self-proof to current HEAD
 dc0296f docs: add AGENTS.md and new-feature dev spec for Codex handoff
 d6c2adf docs: tighten "JS module" wording to classic-script (回應外部技術回饋 項目6)
 0ad70af feat(release): add delivery-package self-proof files (回應外部技術回饋 項目5)

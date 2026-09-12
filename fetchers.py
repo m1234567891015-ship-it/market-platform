@@ -495,7 +495,7 @@ def find_latest_dataset(
                 timeout=TWSE_DATE_REQUEST_TIMEOUT_SECONDS,
                 deadline=deadline,
             )
-        except (HTTPError, URLError, TimeoutError) as exc:
+        except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
             LOGGER.warning("TWSE dataset fetch failed for date=%s", date_str, exc_info=exc)
             errors.append(date_str)
             continue

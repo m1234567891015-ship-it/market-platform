@@ -234,6 +234,11 @@ def _pixel_diff_pct(baseline_png: bytes, current_png: bytes) -> float:
     return float(diff_mask.sum()) / total * 100.0
 
 
+def _page_set_mismatches(current_pages: set[str], baseline_pages: set[str]) -> tuple[set[str], set[str]]:
+    """回傳 current-only 與 baseline-only 頁面,頁面集合以內容而非數量為準。"""
+    return current_pages - baseline_pages, baseline_pages - current_pages
+
+
 def _compare(results: list[dict]) -> dict:
     if not FRONTEND_MANIFEST_PATH.exists():
         raise SystemExit(f"找不到前端基準 {FRONTEND_MANIFEST_PATH},請先執行 --capture")
@@ -241,6 +246,14 @@ def _compare(results: list[dict]) -> dict:
     baseline_by_file = {p["file"]: p for p in baseline["pages"]}
 
     failures: list[str] = []
+    current_pages = {result["file"] for result in results}
+    current_only_set, baseline_only_set = _page_set_mismatches(current_pages, set(baseline_by_file))
+    current_only = sorted(current_only_set)
+    baseline_only = sorted(baseline_only_set)
+    if current_only:
+        failures.append(f"CURRENT_ONLY_PAGES: {current_only}")
+    if baseline_only:
+        failures.append(f"BASELINE_ONLY_PAGES: {baseline_only}")
     for result in results:
         file = result["file"]
         base = baseline_by_file.get(file)

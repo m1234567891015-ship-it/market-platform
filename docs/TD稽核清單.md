@@ -186,7 +186,7 @@ TD-15 目前狀態（2026-09-01）：REMAIN-01～07 已完成全量 review closu
 | CSP 嚴格 | script-src 'self'、frame-ancestors 'none'(app.py L504 起) | 導入 bundler 後勿為方便加回 unsafe-inline |
 | XSS 防護系統化 | escapeHtml() 呼叫 2,037 次;innerHTML 138 處均經審核 | 拆分 app.js 時 escapeHtml 保持單一來源 |
 | 無 hardcoded secrets、debug=False | app.py L15506 | — |
-| 低依賴 | requirements.txt 僅 Flask/gunicorn/certifi | fetcher 重構可考慮續用 stdlib urllib 維持零新增依賴 |
+| 低依賴 | requirements.txt 僅 Flask/gunicorn/certifi/redis==8.1.0 | fetcher 重構可考慮續用 stdlib urllib 維持零新增依賴 |
 | 測試基礎設施存在 | e2e_smoke.py、TAIFEX/TWSE fixtures、verify_release_integrity.py | 以 fixtures 為基礎擴充特性測試(TD-10) |
 | 安全標頭完整 | X-Frame-Options、HSTS、nosniff、Permissions-Policy | — |
 | SSL fallback 有 production 阻擋與 allowlist | `_urlopen_with_ssl_fallback` 設計上已有 gating | TD-07 為收緊而非重寫 |

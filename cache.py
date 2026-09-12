@@ -1014,7 +1014,15 @@ def _run_background_refresh_tasks() -> None:
     with cache_lock:
         cache_data["provider_status"]["tpex"]["lastAttemptAt"] = attempt_at
     try:
-        app.refresh_tpex_cache()
+        tpex_refresh_succeeded = app.refresh_tpex_cache()
+        if tpex_refresh_succeeded is False:
+            LOGGER.warning("Background provider refresh produced no usable TPEx rows")
+            with cache_lock:
+                cache_data["last_error"] = PUBLIC_CACHE_ERROR_MESSAGE
+                cache_data["provider_status"]["tpex"].update({"status": "parse_error", "lastError": "parse_error"})
+        else:
+            with cache_lock:
+                cache_data["provider_status"]["tpex"].update({"status": "available", "lastSuccessAt": time.time(), "lastError": None})
     except Exception as exc:  # noqa: BLE001
         error_kind = type(exc).__name__.lower()
         provider_status = "timeout" if "timeout" in error_kind else "network_error"
@@ -1022,10 +1030,6 @@ def _run_background_refresh_tasks() -> None:
         with cache_lock:
             cache_data["last_error"] = PUBLIC_CACHE_ERROR_MESSAGE
             cache_data["provider_status"]["tpex"].update({"status": provider_status, "lastError": provider_status})
-    else:
-        with cache_lock:
-            cache_data["provider_status"]["tpex"].update({"status": "available", "lastSuccessAt": time.time(), "lastError": None})
-
     with cache_lock:
         cache_data["provider_status"]["twse"]["lastAttemptAt"] = time.time()
     try:

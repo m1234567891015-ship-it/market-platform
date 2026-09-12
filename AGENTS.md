@@ -82,10 +82,10 @@ node --check <你改過的 .js>        # 若改了前端
 python -m unittest test_derivatives_platform.py
 
 # 3. 安全不變量
-python regression/security_guardrail_check.py
+python security_guardrail_check.py
 
 # 4. 端到端可啟動
-python regression/e2e_smoke.py
+python e2e_smoke.py
 
 # 5. 完整基準（API + 21 頁截圖 + 94 條互動路徑）
 python regression/verify_against_baseline.py --full

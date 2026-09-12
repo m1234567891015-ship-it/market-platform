@@ -604,6 +604,11 @@ def _load_json(path: Path) -> dict:
     return {"pages": {}}
 
 
+def _step_set_mismatches(expected_ids: list[str], actual_ids: list[str]) -> tuple[set[str], set[str], bool]:
+    """回傳 actual-only、expected-only 與 actual 是否有重複 ID。"""
+    return set(actual_ids) - set(expected_ids), set(expected_ids) - set(actual_ids), len(actual_ids) != len(set(actual_ids))
+
+
 def _write_baseline(results: list[dict]) -> dict:
     BASELINE_DIR.mkdir(parents=True, exist_ok=True)
     manifest = _load_json(MANIFEST_PATH)
@@ -636,9 +641,32 @@ def _write_baseline(results: list[dict]) -> dict:
 
 
 def _compare(results: list[dict]) -> dict:
+    if not MANIFEST_PATH.exists():
+        raise SystemExit(f"找不到互動基準 manifest {MANIFEST_PATH},請先執行 --capture")
+    baseline = _load_json(MANIFEST_PATH)
+    baseline_pages = baseline.get("pages", {})
     failures: list[str] = []
     step_count = 0
+    current_pages = [result["file"] for result in results]
+    current_only_pages = sorted(set(current_pages) - set(baseline_pages))
+    baseline_only_pages = sorted(set(baseline_pages) - set(current_pages))
+    if current_only_pages:
+        failures.append(f"CURRENT_ONLY_PAGES: {current_only_pages}")
+    if baseline_only_pages:
+        failures.append(f"BASELINE_ONLY_PAGES: {baseline_only_pages}")
     for result in results:
+        expected_page = baseline_pages.get(result["file"])
+        expected_ids = [step["id"] for step in (expected_page or {}).get("steps", [])]
+        actual_ids = [step["id"] for step in result["steps"]]
+        current_only_steps, baseline_only_steps, actual_has_duplicates = _step_set_mismatches(expected_ids, actual_ids)
+        if len(expected_ids) != len(set(expected_ids)):
+            failures.append(f"{result['file']}: baseline step ID 重複，無法建立唯一契約")
+        if actual_has_duplicates:
+            failures.append(f"{result['file']}: ACTUAL_DUPLICATE_STEP_IDS: {actual_ids}")
+        if current_only_steps:
+            failures.append(f"{result['file']}: CURRENT_ONLY_STEPS: {sorted(current_only_steps)}")
+        if baseline_only_steps:
+            failures.append(f"{result['file']}: BASELINE_ONLY_STEPS: {sorted(baseline_only_steps)}")
         if result["console_errors"]:
             failures.append(f"{result['file']}: 出現 {len(result['console_errors'])} 個 console error: {result['console_errors'][:3]}")
         if result.get("external_errors"):

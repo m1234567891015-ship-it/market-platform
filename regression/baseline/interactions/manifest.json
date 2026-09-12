@@ -517,8 +517,40 @@
     "index.html": {
       "known_issues": [],
       "render_only": false,
-      "step_count": 1,
+      "step_count": 2,
       "steps": [
+        {
+          "action": "click",
+          "action_index": 1,
+          "action_value": null,
+          "asserts": [
+            {
+              "class_name": "is-active",
+              "kind": "class_present",
+              "n": null,
+              "pattern": null,
+              "target": null
+            },
+            {
+              "class_name": null,
+              "kind": "content_changed",
+              "n": null,
+              "pattern": null,
+              "target": "#selection-funnel-root"
+            }
+          ],
+          "id": "index__selection-funnel-sector",
+          "note": "Phase B selection funnel sector interaction",
+          "pre_fill": null,
+          "selector": "#selection-funnel-root [data-selection-sector]",
+          "tier": "P0",
+          "wait_for": {
+            "class_name": null,
+            "kind": "stable",
+            "pattern": null,
+            "target": "#selection-funnel-root"
+          }
+        },
         {
           "action": "click",
           "action_index": 1,
@@ -2556,5 +2588,5 @@
       ]
     }
   },
-  "step_count_total": 94
+  "step_count_total": 95
 }

@@ -1,6 +1,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const vm = require("node:vm");
@@ -46,6 +47,56 @@ assert.equal(unavailable.status, "Unavailable", "missing freshness evidence must
 assert.equal(unavailable.confidence.label, "不足", "unavailable freshness must suppress high-confidence conclusions");
 assert.notEqual(build({ updatedAt: "2030-01-01T00:00:00" }, { now }).status, "Fresh", "future timestamps must fail closed");
 assert.notEqual(build({ updatedAt: "not-a-timestamp" }, { now }).status, "Fresh", "malformed timestamps must fail closed");
+
+function probeTimestamp(timezone, timestamp, reference) {
+  const probe = `
+    const fs = require("node:fs");
+    const vm = require("node:vm");
+    const context = {
+      console, Date, Math, Number, String, Array, Set, RegExp,
+      window: { location: { pathname: "/index.html" } },
+      document: { querySelectorAll: () => [], getElementById: () => null, querySelector: () => null, createElement: () => ({}) },
+      escapeHtml: (value) => String(value),
+    };
+    vm.runInNewContext(fs.readFileSync(${JSON.stringify(path.join(ROOT, "js", "render-shared.js"))}, "utf8"), context);
+    const result = context.window.buildSharedFreshnessConfidenceModel(
+      { updatedAt: process.argv[1], items: [{ symbol: "fixture" }] },
+      { now: new Date(process.argv[2]) },
+    );
+    process.stdout.write(JSON.stringify({ status: result.status, detail: result.detail }));
+  `;
+  const result = spawnSync(process.execPath, ["-e", probe, timestamp, reference], {
+    encoding: "utf8",
+    env: { ...process.env, TZ: timezone },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  return JSON.parse(result.stdout);
+}
+
+const taipeiTimestamp = "2026-09-09 12:00:00";
+const sameInstantReference = "2026-09-09T04:30:00Z";
+assert.deepEqual(
+  probeTimestamp("UTC", taipeiTimestamp, sameInstantReference),
+  probeTimestamp("America/New_York", taipeiTimestamp, sameInstantReference),
+  "Taipei legacy timestamp must resolve to one instant across browser timezones",
+);
+assert.equal(probeTimestamp("UTC", taipeiTimestamp, sameInstantReference).status, "Fresh");
+assert.match(probeTimestamp("UTC", taipeiTimestamp, sameInstantReference).detail, /約 30 分鐘/);
+for (const timestamp of [
+  "2026-09-09T04:00:00Z",
+  "2026-09-09 12:00:00+08:00",
+  "2026-09-09 13:00:00+09:00",
+]) {
+  assert.equal(probeTimestamp("UTC", timestamp, sameInstantReference).status, "Fresh", timestamp);
+  assert.equal(probeTimestamp("America/New_York", timestamp, sameInstantReference).status, "Fresh", timestamp);
+}
+assert.equal(probeTimestamp("UTC", "2026/09/09 12:00:00", sameInstantReference).status, "Unavailable");
+assert.equal(probeTimestamp("UTC", "2026-09-09 12:00", sameInstantReference).status, "Unavailable");
+assert.notEqual(
+  build({ snapshotDate: "2026-09-09", cached: true, items: [{ symbol: "fixture" }] }, { now }).status,
+  "Fresh",
+  "cached fallback must not be normal Fresh",
+);
 
 const freshnessRoot = { innerHTML: "" };
 context.document.getElementById = (id) => id === "shared-freshness-confidence" ? freshnessRoot : null;

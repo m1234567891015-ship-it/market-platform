@@ -754,8 +754,6 @@ function renderUsNyseDirectoryTable(kind, payload) {
     ? allResults.filter((item) => item.etfCategoryKey === activeCategory)
     : allResults;
   const total = config.key === "etf" ? results.length : payload?.total || payload?.count || 0;
-  const categoryFilters = config.key === "etf" ? document.getElementById("us-nyse-etf-category-filters") : null;
-  if (categoryFilters) categoryFilters.innerHTML = renderUsEtfCategoryFilters(allResults, activeCategory);
   const totalPages = Math.max(Math.ceil(results.length / US_NYSE_DIRECTORY_PAGE_SIZE), 1);
   state.page = Math.max(1, Math.min(state.page || 1, totalPages));
   const start = (state.page - 1) * US_NYSE_DIRECTORY_PAGE_SIZE;

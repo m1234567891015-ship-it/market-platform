@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import unittest
 from unittest.mock import MagicMock, patch
@@ -58,6 +59,27 @@ class RequestStarvationSliceATests(unittest.TestCase):
         with patch.object(fetchers, "fetch_json", return_value=payload) as fetch_json:
             result = fetchers.find_latest_dataset(lambda date: date, lookback_days=10, deadline=fetch_registry.deadline_after(60))
         self.assertEqual(result[0], payload)
+        self.assertEqual(fetch_json.call_count, 1)
+
+    def test_twse_malformed_json_continues_to_previous_date(self):
+        payload = {"stat": "OK", "data": [["row"]]}
+        malformed = json.JSONDecodeError("invalid JSON", "<provider>", 0)
+        with patch.object(fetchers, "fetch_json", side_effect=[malformed, payload]) as fetch_json:
+            result = fetchers.find_latest_dataset(lambda date: date, lookback_days=10, deadline=fetch_registry.deadline_after(60))
+        self.assertEqual(result[0], payload)
+        self.assertEqual(fetch_json.call_count, 2)
+
+    def test_twse_malformed_json_exhaustion_is_controlled(self):
+        malformed = json.JSONDecodeError("invalid JSON", "<provider>", 0)
+        with patch.object(fetchers, "fetch_json", side_effect=[malformed, malformed, malformed]) as fetch_json:
+            with self.assertRaises(RuntimeError):
+                fetchers.find_latest_dataset(lambda date: date, lookback_days=10, deadline=fetch_registry.deadline_after(60))
+        self.assertEqual(fetch_json.call_count, fetchers.TWSE_MAX_DATE_ATTEMPTS)
+
+    def test_twse_unexpected_exception_is_not_swallowed(self):
+        with patch.object(fetchers, "fetch_json", side_effect=TypeError("internal bug")) as fetch_json:
+            with self.assertRaises(TypeError):
+                fetchers.find_latest_dataset(lambda date: date, lookback_days=10, deadline=fetch_registry.deadline_after(60))
         self.assertEqual(fetch_json.call_count, 1)
 
     def test_twse_institution_date_scan_is_also_capped(self):

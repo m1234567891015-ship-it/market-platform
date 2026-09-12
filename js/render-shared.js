@@ -1472,7 +1472,13 @@ window.buildSharedFreshnessConfidenceModel = function (payload, options = {}) {
     if (value instanceof Date && Number.isFinite(value.getTime())) return value;
     const text = String(value || "").trim();
     if (!text) return null;
-    const parsed = new Date(/^\d{4}-\d{2}-\d{2}$/.test(text) ? `${text}T23:59:59` : text.replace(" ", "T"));
+    const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(text);
+    const candidate = isDateOnly ? `${text}T23:59:59` : text.replace(" ", "T");
+    const isTaipeiLegacyTimestamp = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(text);
+    const isLocalIsoTimestamp = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(candidate);
+    const hasExplicitTimezone = /(?:Z|[+-]\d{2}:\d{2})$/i.test(candidate);
+    if (!isDateOnly && !isTaipeiLegacyTimestamp && !isLocalIsoTimestamp && !hasExplicitTimezone) return null;
+    const parsed = new Date(isTaipeiLegacyTimestamp ? `${candidate}+08:00` : candidate);
     return Number.isFinite(parsed.getTime()) ? parsed : null;
   };
   const dateKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;

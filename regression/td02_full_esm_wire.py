@@ -19,25 +19,25 @@ def wire_page(path: Path) -> bool:
     replacement = LOADER
     patterns = [
         (
-            b'<script src="common-runtime.min.js?v=td18-minify-422f180f622be4b4"></script>\r\n'
-            b'<script src="route-bundle.min.js?v=td18-minify-422f180f622be4b4"></script>\r\n'
+            b'<script src="common-runtime.min.js?v=td18-minify-381f82f1f41aa0e0"></script>\r\n'
+            b'<script src="route-bundle.min.js?v=td18-minify-381f82f1f41aa0e0"></script>\r\n'
             b'<script src="derivatives-status-esm-loader.js?v=td02-remain-02-20260901-1"></script>',
             replacement,
         ),
         (
-            b'<script src="common-runtime.min.js?v=td18-minify-422f180f622be4b4"></script>\r\n'
-            b'<script src="route-bundle.min.js?v=td18-minify-422f180f622be4b4"></script>',
+            b'<script src="common-runtime.min.js?v=td18-minify-381f82f1f41aa0e0"></script>\r\n'
+            b'<script src="route-bundle.min.js?v=td18-minify-381f82f1f41aa0e0"></script>',
             replacement,
         ),
         (
-            b'<script src="common-runtime.min.js?v=td18-minify-422f180f622be4b4"></script>\n'
-            b'<script src="route-bundle.min.js?v=td18-minify-422f180f622be4b4"></script>\n'
+            b'<script src="common-runtime.min.js?v=td18-minify-381f82f1f41aa0e0"></script>\n'
+            b'<script src="route-bundle.min.js?v=td18-minify-381f82f1f41aa0e0"></script>\n'
             b'<script src="derivatives-status-esm-loader.js?v=td02-remain-02-20260901-1"></script>',
             replacement,
         ),
         (
-            b'<script src="common-runtime.min.js?v=td18-minify-422f180f622be4b4"></script>\n'
-            b'<script src="route-bundle.min.js?v=td18-minify-422f180f622be4b4"></script>',
+            b'<script src="common-runtime.min.js?v=td18-minify-381f82f1f41aa0e0"></script>\n'
+            b'<script src="route-bundle.min.js?v=td18-minify-381f82f1f41aa0e0"></script>',
             replacement,
         ),
     ]
@@ -63,7 +63,7 @@ def main() -> None:
     remaining = []
     for path in pages:
         raw = path.read_bytes()
-        if b"common-runtime.min.js?v=td18-minify-422f180f622be4b4" in raw or b"derivatives-status-esm-loader.js" in raw:
+        if b"common-runtime.min.js?v=td18-minify-381f82f1f41aa0e0" in raw or b"derivatives-status-esm-loader.js" in raw:
             remaining.append(path.name)
     if remaining:
         raise RuntimeError("legacy production script wiring remains: " + ", ".join(remaining))

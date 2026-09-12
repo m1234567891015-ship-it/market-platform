@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -150,6 +151,9 @@ def main() -> int:
     env["MARKET_PULSE_HOST"] = "127.0.0.1"
     env["MARKET_PULSE_PORT"] = PORT
     env["MARKET_PULSE_DISABLE_BACKGROUND"] = "1"
+    runtime_dir = Path(tempfile.mkdtemp(prefix="market_pulse_portable_runtime_"))
+    env["DERIVATIVES_DB_PATH"] = str(runtime_dir / "derivatives-platform.sqlite3")
+    env["MARKET_PULSE_CACHE_FILE"] = str(runtime_dir / "twse-cache.json")
 
     log_fd, log_path_str = tempfile.mkstemp(prefix="portable_check_backend_", suffix=".log")
     log_path = Path(log_path_str)
@@ -240,6 +244,7 @@ def main() -> int:
         except subprocess.TimeoutExpired:
             process.kill()
         log_file.close()
+        shutil.rmtree(runtime_dir, ignore_errors=True)
 
     if failures:
         print("Portable check failed:")

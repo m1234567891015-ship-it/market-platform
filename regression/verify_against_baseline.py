@@ -249,6 +249,35 @@ def _validate_required_key_policy(endpoints: list[dict]) -> list[str]:
     return errors
 
 
+def _route_set_mismatches(current_routes: set[str], baseline_routes: set[str]) -> tuple[set[str], set[str]]:
+    """回傳 current-only 與 baseline-only 路由,不以數量相等取代內容對帳。"""
+    return current_routes - baseline_routes, baseline_routes - current_routes
+
+
+def check_api_route_set() -> CheckReport:
+    """確認目前相關 GET API route 與 manifest rule 完全對稱。"""
+    report = CheckReport("API GET route exact-set completeness")
+    if not MANIFEST_PATH.exists():
+        report.fail(f"找不到基準 manifest {MANIFEST_PATH}")
+        return report
+
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    baseline_routes = {
+        endpoint["rule"]
+        for endpoint in manifest.get("endpoints", [])
+        if endpoint.get("rule", "").startswith("/api/")
+    }
+    current_routes = {route.path for route in api_get_routes()}
+    current_only, baseline_only = _route_set_mismatches(current_routes, baseline_routes)
+    if current_only:
+        report.fail(f"CURRENT_ONLY_ROUTES: {sorted(current_only)}")
+    if baseline_only:
+        report.fail(f"BASELINE_ONLY_ROUTES: {sorted(baseline_only)}")
+    if report.ok:
+        report.details.append(f"current={len(current_routes)}, baseline={len(baseline_routes)}; exact set match")
+    return report
+
+
 def _check_one_endpoint(server_base_url: str, endpoint: dict) -> str | None:
     """回傳 None 表示通過,否則回傳帶分類標籤(外部問題 / 程式碼問題)的失敗描述。"""
     from capture_baseline import Case
@@ -279,7 +308,7 @@ def _check_one_endpoint(server_base_url: str, endpoint: dict) -> str | None:
 
     if endpoint["structure_only"]:
         current_schema = extract_schema(body)
-        schema_diffs = schema_diff(stored_value, current_schema)
+        schema_diffs = schema_diff(stored_value, current_schema, required_paths=required_keys)
         if schema_diffs:
             return f"[程式碼可能改動回應格式] {endpoint['request_path']}: 回應結構(schema)與基準不同 - {'; '.join(schema_diffs[:5])}"
         return None
@@ -438,6 +467,7 @@ def main() -> int:
         check_security_guardrail(),
         check_escapehtml_threshold(),
         check_security_headers(),
+        check_api_route_set(),
         check_api_baseline(),
     ]
     if args.full or args.api_live:

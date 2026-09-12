@@ -1475,7 +1475,7 @@ def find_stock_by_query(query: str, stocks: list[dict[str, Any]], limit: int = 2
     return unique
 
 
-def refresh_tpex_cache() -> None:
+def refresh_tpex_cache() -> bool:
     import app
 
     quotes, quote_date = fetch_tpex_mainboard_quotes()
@@ -1489,7 +1489,7 @@ def refresh_tpex_cache() -> None:
         yahoo_etfs = {}
     tpex_stocks = parse_tpex_quotes(quotes, yahoo_etfs)
     if not tpex_stocks:
-        return
+        return False
 
     with cache_lock:
         existing_site_data = copy.deepcopy(cache_data["site_data"])
@@ -1564,6 +1564,7 @@ def refresh_tpex_cache() -> None:
             }
             cache_data["site_data"] = site_data
     save_disk_cache()
+    return True
 
 
 def site_data_has_complete_sector_payload(site_data: dict[str, Any] | None) -> bool:  # DEADCODE-CANDIDATE (confirmed zero callers 2026-07-19)

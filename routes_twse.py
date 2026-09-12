@@ -134,6 +134,7 @@ def api_site_data():
                     "Live site-data refresh held by provider cooldown; serving cached snapshot",
                     exc_info=exc,
                 )
+                cached_site_data["cached"] = True
                 return jsonify(cached_site_data)
             return app.api_exception_response("LIVE_SITE_DATA_UNAVAILABLE", app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc)
         except Exception as exc:  # noqa: BLE001

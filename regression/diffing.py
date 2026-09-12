@@ -78,7 +78,12 @@ def extract_schema(value: Any) -> Any:
     return type(value).__name__
 
 
-def schema_diff(expected: Any, actual: Any, path: PathKey = ()) -> list[str]:
+def schema_diff(
+    expected: Any,
+    actual: Any,
+    path: PathKey = (),
+    required_paths: tuple[str, ...] | list[str] = (),
+) -> list[str]:
     """比對兩份 extract_schema() 結果,只回報「結構真的變了」的差異。
 
     這裡刻意比 deep_diff 寬鬆:structure-only 端點多半含法人籌碼、選擇權
@@ -92,31 +97,44 @@ def schema_diff(expected: Any, actual: Any, path: PathKey = ()) -> list[str]:
     只有「兩個都有值的非 null、非數值型別之間仍然對不上」才視為真正的
     結構差異(例如一個是 str、另一個是 dict)。
     """
-    diffs: list[str] = []
-    if isinstance(expected, dict) and isinstance(actual, dict):
-        for key in sorted(set(expected.keys()) | set(actual.keys())):
-            if key not in expected or key not in actual:
-                continue  # 容忍:即時資料當下有沒有抓到而欄位整個消失/多出來
-            diffs.extend(schema_diff(expected[key], actual[key], path + (key,)))
-    elif isinstance(expected, list) and isinstance(actual, list):
-        for idx, (e_item, a_item) in enumerate(zip(expected, actual)):
-            diffs.extend(schema_diff(e_item, a_item, path + (idx,)))
-    else:
-        # empty_list 与非空 list schema、"null" 与其他型別、int/float 数值型别
-        # 之间视为相容。值本身可能是 list(非空 list schema 的骨架),不可直接
-        # 丟進 set 判斷成員(unhashable),所以用逐一比較取代 `in {...}`。
-        numeric_types = {"int", "float"}
+    required = {tuple(item.split(".")) for item in required_paths}
 
-        def _is_flexible(value: Any) -> bool:
-            return value == "null" or value == "empty_list" or isinstance(value, list)
+    def _required_or_parent(path_to_key: PathKey) -> bool:
+        return any(required_path[: len(path_to_key)] == path_to_key for required_path in required)
 
-        both_numeric = (
-            isinstance(expected, str) and isinstance(actual, str)
-            and expected in numeric_types and actual in numeric_types
-        )
-        if not both_numeric and expected != actual and not (_is_flexible(expected) or _is_flexible(actual)):
-            diffs.append(f"{_path_to_str(path)}: {expected!r} -> {actual!r}")
-    return diffs
+    def _diff(expected_value: Any, actual_value: Any, current_path: PathKey) -> list[str]:
+        diffs: list[str] = []
+        if isinstance(expected_value, dict) and isinstance(actual_value, dict):
+            for key in sorted(set(expected_value.keys()) | set(actual_value.keys())):
+                key_path = current_path + (key,)
+                if key not in expected_value or key not in actual_value:
+                    if key not in actual_value and _required_or_parent(key_path):
+                        diffs.append(f"{_path_to_str(key_path)}: 缺少必要欄位")
+                    continue  # optional key / extra key follows the existing structure-only contract
+                diffs.extend(_diff(expected_value[key], actual_value[key], key_path))
+        elif isinstance(expected_value, list) and isinstance(actual_value, list):
+            for idx, (e_item, a_item) in enumerate(zip(expected_value, actual_value)):
+                diffs.extend(_diff(e_item, a_item, current_path + (idx,)))
+        else:
+            # empty_list 与非空 list schema、"null" 与其他型別、int/float 数值型别
+            # 之间视为相容。值本身可能是 list(非空 list schema 的骨架),不可直接
+            # 丟進 set 判斷成員(unhashable),所以用逐一比較取代 `in {...}`。
+            numeric_types = {"int", "float"}
+
+            def _is_flexible(value: Any) -> bool:
+                return value == "null" or value == "empty_list" or isinstance(value, list)
+
+            both_numeric = (
+                isinstance(expected_value, str) and isinstance(actual_value, str)
+                and expected_value in numeric_types and actual_value in numeric_types
+            )
+            if not both_numeric and expected_value != actual_value and not (
+                _is_flexible(expected_value) or _is_flexible(actual_value)
+            ):
+                diffs.append(f"{_path_to_str(current_path)}: {expected_value!r} -> {actual_value!r}")
+        return diffs
+
+    return _diff(expected, actual, path)
 
 
 def deep_diff(expected: Any, actual: Any, path: PathKey = ()) -> list[str]:
