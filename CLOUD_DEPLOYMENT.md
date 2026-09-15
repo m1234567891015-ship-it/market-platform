@@ -9,30 +9,35 @@ Date: 2026-06-22
 - Runtime: Python
 - Start command: `gunicorn --workers 1 --threads 4 --timeout 180 --bind 0.0.0.0:$PORT app:app`
 - Health check: `/api/health`
-- Persistent disk mount: `/var/data`
+- Render plan: `free`
+- Persistent disk: not currently configured by `render.yaml`
+- Storage lifecycle: ephemeral
 
-## Persistent Data Paths
+## Current Storage Topology
 
 The application supports path overrides through environment variables:
 
-- `MARKET_PULSE_CACHE_FILE=/var/data/twse-cache.json`
-- `DERIVATIVES_DB_PATH=/var/data/derivatives-platform.sqlite3`
+- `MARKET_PULSE_CACHE_FILE=/tmp/market-pulse-cache.json`
+- `DERIVATIVES_DB_PATH=/tmp/derivatives-platform.sqlite3`
 
 `DerivativesStore` creates the DB parent directory automatically and initializes the
 SQLite schema on startup.
 
-## Important Render Plan Note
+The current Render service uses the free plan and `render.yaml` does not configure a
+persistent disk. The `/tmp` filesystem is ephemeral and may be lost after:
 
-Persistent disks require a Render plan that supports disks. If the service is deployed
-without a persistent disk, the platform filesystem may reset after redeploys, restarts,
-or cold starts. In that case:
+- redeploy;
+- restart; or
+- cold start / instance replacement.
+
+As a result, the following runtime data may be lost with the instance:
 
 - imported institutional rows may be lost;
 - accumulated AI reports may be lost;
 - system logs stored in SQLite may be lost.
 
-For production use, keep the persistent disk enabled or migrate the SQLite store to a
-managed external database.
+Persistence redesign, PostgreSQL, Redis, and persistent-disk migration belong to **R4 Data Durability**.
+R3 does not authorize persistence migration.
 
 ## Workers And Scheduler
 
