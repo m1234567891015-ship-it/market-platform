@@ -30,6 +30,7 @@ from security import (
     initialize_verified_ssl_context,
     warn_if_multi_worker,
 )
+from observability import api_observability_after_request, api_observability_before_request
 from fetchers import (
     build_market_url,
     build_tpex_openapi_url,
@@ -440,6 +441,8 @@ def log_institution_after_request(response: Any):
 
 app.after_request(add_security_headers)
 app.after_request(log_institution_after_request)
+app.after_request(api_observability_after_request)
+app.before_request(api_observability_before_request)
 app.before_request(initialize_derivatives_store_for_request)
 app.before_request(enforce_api_rate_limit)
 app.register_blueprint(system_bp)

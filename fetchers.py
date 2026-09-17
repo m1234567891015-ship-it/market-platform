@@ -274,6 +274,13 @@ from market_config import (
     YAHOO_TPEX_ETF_URL,
 )
 from security import _urlopen_with_ssl_fallback
+from observability import (
+    normalize_provider,
+    record_provider_attempt,
+    record_provider_failure,
+    record_provider_success,
+    record_provider_validation_failure,
+)
 
 TREASURY_YIELD_CURVE_CACHE_SECONDS = CACHE_TTL_SECONDS["treasury_yield_curve"]
 BARCHART_FUTURES_OPTIONS_PAGE_BASE = "https://www.barchart.com/futures/quotes"
@@ -1909,6 +1916,7 @@ def _read_provider_payload(
     instrument_provider = (urlsplit(request.full_url).hostname or "").lower() == "openapi.taifex.com.tw"
 
     def read_uncached() -> tuple[bytes, str]:
+        record_provider_attempt(normalize_provider(request.full_url))
         opened = False
         if instrument_provider:
             _institution_provider_observe(
@@ -1952,6 +1960,11 @@ def _read_provider_payload(
                     )
                 content_type = str(response.headers.get("Content-Type") or "").lower()
         except BaseException as exc:
+            record_provider_failure(
+                normalize_provider(request.full_url),
+                error=exc,
+                http_status=getattr(exc, "code", None),
+            )
             if instrument_provider and not opened:
                 _institution_provider_observe(
                     "institution.provider.urlopen.exception",
@@ -1960,6 +1973,7 @@ def _read_provider_payload(
                     exception_class=type(exc).__name__,
                 )
             raise
+        record_provider_success(normalize_provider(request.full_url))
         return raw, content_type
 
     cleanup_deadline = deadline
@@ -1994,7 +2008,14 @@ def fetch_json(
         deadline=deadline,
         deadline_cleanup=deadline_cleanup,
     )
-    return json.loads(raw.decode("utf-8"))
+    try:
+        return json.loads(raw.decode("utf-8"))
+    except json.JSONDecodeError:
+        record_provider_validation_failure(
+            normalize_provider(url),
+            "empty_response" if not raw else "invalid_response",
+        )
+        raise
 def fetch_nasdaq_json(path: str, timeout: int = 12, *, deadline: float | None = None) -> Any:
     url = path if path.startswith("http") else f"{NASDAQ_API_BASE}{path}"
     req = Request(url, headers={
@@ -2004,7 +2025,14 @@ def fetch_nasdaq_json(path: str, timeout: int = 12, *, deadline: float | None = 
         "Referer": "https://www.nasdaq.com/",
     })
     raw, _content_type = _read_provider_payload(req, bounded_timeout(timeout, deadline), deadline=deadline)
-    return json.loads(raw.decode("utf-8"))
+    try:
+        return json.loads(raw.decode("utf-8"))
+    except json.JSONDecodeError:
+        record_provider_validation_failure(
+            normalize_provider(url),
+            "empty_response" if not raw else "invalid_response",
+        )
+        raise
 
 
 def post_json(
@@ -2023,7 +2051,14 @@ def post_json(
     }
     req = Request(url, data=body, headers=request_headers, method="POST")
     raw, _content_type = _read_provider_payload(req, bounded_timeout(timeout, deadline), deadline=deadline)
-    return json.loads(raw.decode("utf-8"))
+    try:
+        return json.loads(raw.decode("utf-8"))
+    except json.JSONDecodeError:
+        record_provider_validation_failure(
+            normalize_provider(url),
+            "empty_response" if not raw else "invalid_response",
+        )
+        raise
 
 
 def fetch_text(url: str, timeout: int = 30, *, deadline: float | None = None) -> str:
@@ -4024,6 +4059,13 @@ def fetch_taifex_txo_option_chain(
             return {**payload, "cached": False}
         stale_payload, stale_at = read_stale_memory_cache("taifex_options_chain", cache_key, 24 * 60 * 60, deadline=chain_deadline)
         if isinstance(stale_payload, dict) and stale_payload.get("chain") and stale_payload.get("tradeDate"):
+            record_stale_fallback(
+                "taifex",
+                "taifex_options_chain",
+                "provider_unavailable",
+                stale_at=stale_at,
+                ttl_seconds=OPTIONS_CHAIN_CACHE_SECONDS,
+            )
             LOGGER.warning("TAIFEX %s source unavailable; serving verified stale chain tradeDate=%s stored_at=%s", product["symbol"], stale_payload.get("tradeDate"), stale_at)
             return {
                 **app.supplement_taifex_option_payload_with_yahoo_oi(stale_payload, deadline=chain_deadline),
@@ -4905,6 +4947,13 @@ def fetch_shareholder_distribution(code: str) -> dict[str, Any]:
     except Exception:  # noqa: BLE001
         LOGGER.exception("TDCC shareholder distribution fetch failed")
         if cached:
+            record_stale_fallback(
+                "tdcc",
+                "shareholder_distributions",
+                "provider_unavailable",
+                stale_at=stored_at,
+                ttl_seconds=TDCC_HOLDING_CACHE_SECONDS,
+            )
             return {
                 **cached,
                 "stale": True,
@@ -4913,6 +4962,13 @@ def fetch_shareholder_distribution(code: str) -> dict[str, Any]:
         return unavailable("集保資料來源暫時無法連線。")
     if not distributions:
         if cached:
+            record_stale_fallback(
+                "tdcc",
+                "shareholder_distributions",
+                "empty_response",
+                stale_at=stored_at,
+                ttl_seconds=TDCC_HOLDING_CACHE_SECONDS,
+            )
             return {
                 **cached,
                 "stale": True,

@@ -53,6 +53,13 @@ from cache import (
     write_memory_cache,
 )
 from security import _urlopen_with_ssl_fallback
+from observability import (
+    normalize_provider,
+    record_provider_attempt,
+    record_provider_failure,
+    record_provider_success,
+    record_provider_validation_failure,
+)
 
 DEFAULT_USER_AGENT = "market-pulse-fetcher/1.0"
 
@@ -154,6 +161,8 @@ def fetch_from_registry(
     def fetch_uncached() -> Any:
         req = Request(url, headers=headers, method="POST" if spec.method == "POST" else "GET")
         call_timeout = bounded_timeout(timeout if timeout is not None else spec.timeout, deadline)
+        provider = normalize_provider(url)
+        record_provider_attempt(provider)
         try:
             with _urlopen_with_ssl_fallback(req, call_timeout) as response:
                 raw = response.read()
@@ -168,10 +177,21 @@ def fetch_from_registry(
                     payload = raw.decode(encoding, errors=spec.decode_errors)
                 else:
                     payload = json.loads(raw.decode("utf-8"))
-        except (OSError, TimeoutError):
+        except (OSError, TimeoutError) as exc:
+            record_provider_failure(provider, error=exc, http_status=getattr(exc, "code", None))
+            raise
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            record_provider_success(provider)
+            record_provider_validation_failure(provider, "invalid_response")
             raise
 
-        result = spec.parser(payload) if spec.parser else payload
+        record_provider_success(provider)
+
+        try:
+            result = spec.parser(payload) if spec.parser else payload
+        except Exception:  # noqa: BLE001
+            record_provider_validation_failure(provider, "parse_error")
+            raise
         if spec.cache_bucket and cache_key is not None:
             write_memory_cache(spec.cache_bucket, cache_key, result, spec.ttl_seconds, deadline=deadline)
         return result

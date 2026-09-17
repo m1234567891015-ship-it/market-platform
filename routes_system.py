@@ -55,6 +55,7 @@ from flask import Blueprint, Response, abort, jsonify, redirect, request, send_f
 
 from cache import cache_data, cache_lock
 from market_config import ASSET_STATIC_FILES, JS_MODULE_STATIC_FILES, PAGE_ROUTES, ROOT_STATIC_FILES
+from observability import get_observability_snapshot, record_readiness
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -98,15 +99,17 @@ def api_health():
         twse_status = (providers.get("twse") or {}).get("status")
         readiness = "warming" if not cache_data["site_data"] else ("degraded" if twse_status in {"timeout", "network_error", "parse_error"} else ("partial" if tpex_status in {"timeout", "network_error", "parse_error"} else "ready"))
         overall_status = "ok" if readiness == "ready" else readiness
-        return jsonify(
-            {
-                "status": overall_status,
-                "readiness": readiness,
-                "cachedAt": cache_data["cached_at"],
-                "lastError": cache_data["last_error"],
-                "providers": providers,
-            }
-        )
+        record_readiness(readiness)
+        payload = {
+            "status": overall_status,
+            "readiness": readiness,
+            "cachedAt": cache_data["cached_at"],
+            "lastError": cache_data["last_error"],
+            "providers": providers,
+        }
+        if request.args.get("observability") == "1":
+            payload["observability"] = get_observability_snapshot()
+        return jsonify(payload)
 
 
 @bp.route("/manifest.webmanifest")

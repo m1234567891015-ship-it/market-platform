@@ -54,6 +54,7 @@ from urllib.error import HTTPError
 from urllib.parse import urlsplit
 
 from market_config import CACHE_BUCKET_MAX_ENTRIES, CACHE_TTL_SECONDS, EXCLUDED_SECTOR_SOURCE_NAMES
+from observability import record_cache_state
 from shared_state import (
     RedisSharedStateAdapter,
     SharedStateAdapter,
@@ -280,6 +281,7 @@ def read_memory_cache(
         cached = cache_data.get(bucket, {}).get(key)
     finally:
         cache_lock.release()
+    record_cache_state(bucket, cached.get("stored_at") if isinstance(cached, dict) else None, ttl_seconds, source=bucket)
     if cached and now - float(cached.get("stored_at") or 0) < ttl_seconds:
         return cached.get("payload")
     if deadline is None and _cache_l2_enabled() and bucket in CACHE_L2_BUCKETS and ttl_seconds > 0:
@@ -299,6 +301,7 @@ def read_memory_cache(
                     enforce_bucket_cap(bucket)
                 finally:
                     cache_lock.release()
+                record_cache_state(bucket, now, ttl_seconds, source=bucket, timestamp=now)
                 LOGGER.debug("Cache L2 hit bucket=%s", bucket)
                 return payload
     return None
@@ -322,6 +325,7 @@ def read_stale_memory_cache(
         return None, None
     stored_at = float(cached.get("stored_at") or 0)
     age = time.time() - stored_at
+    record_cache_state(bucket, stored_at, max_age_seconds, source=bucket)
     if stored_at <= 0 or age < 0 or age > max_age_seconds:
         return None, None
     return cached.get("payload"), stored_at
@@ -335,13 +339,15 @@ def write_memory_cache(
     *,
     deadline: float | None = None,
 ) -> None:
+    stored_at = time.time()
     if not _acquire_cache_lock(deadline):
         return
     try:
-        cache_data.setdefault(bucket, {})[key] = {"stored_at": time.time(), "payload": payload}
+        cache_data.setdefault(bucket, {})[key] = {"stored_at": stored_at, "payload": payload}
         enforce_bucket_cap(bucket)
     finally:
         cache_lock.release()
+    record_cache_state(bucket, stored_at, ttl_seconds, source=bucket, timestamp=stored_at)
     if (
         deadline is None
         and _cache_l2_enabled()

@@ -40,6 +40,47 @@ const API_CACHE_HEADERS: Record<string, string> = {
   Expires: "0",
 };
 
+export type ProxyFailureClass =
+  | "UPSTREAM_NOT_CONFIGURED"
+  | "UPSTREAM_UNAVAILABLE"
+  | "UPSTREAM_INVALID_RESPONSE"
+  | "UPSTREAM_NON_2XX";
+
+const proxyFailureCounters: Record<ProxyFailureClass, number> = {
+  UPSTREAM_NOT_CONFIGURED: 0,
+  UPSTREAM_UNAVAILABLE: 0,
+  UPSTREAM_INVALID_RESPONSE: 0,
+  UPSTREAM_NON_2XX: 0,
+};
+const proxyLastFailureAt: Record<ProxyFailureClass, string | null> = {
+  UPSTREAM_NOT_CONFIGURED: null,
+  UPSTREAM_UNAVAILABLE: null,
+  UPSTREAM_INVALID_RESPONSE: null,
+  UPSTREAM_NON_2XX: null,
+};
+
+function recordProxyFailure(code: ProxyFailureClass): void {
+  proxyFailureCounters[code] += 1;
+  proxyLastFailureAt[code] = new Date().toISOString();
+}
+
+export function getProxyObservabilitySnapshot(): {
+  counters: Record<ProxyFailureClass, number>;
+  last_failure_at: Record<ProxyFailureClass, string | null>;
+} {
+  return {
+    counters: { ...proxyFailureCounters },
+    last_failure_at: { ...proxyLastFailureAt },
+  };
+}
+
+export function resetProxyObservability(): void {
+  (Object.keys(proxyFailureCounters) as ProxyFailureClass[]).forEach((code) => {
+    proxyFailureCounters[code] = 0;
+    proxyLastFailureAt[code] = null;
+  });
+}
+
 export function isApiPath(pathname: string): boolean {
   return pathname === "/api" || pathname.startsWith("/api/");
 }
@@ -94,6 +135,7 @@ function requestContext(request: Request): Record<string, unknown> {
 }
 
 function errorResponse(request: Request, code: string, message: string, status = 502): Response {
+  if (code in proxyFailureCounters) recordProxyFailure(code as ProxyFailureClass);
   const payload = {
     success: false,
     error_code: code,
@@ -136,6 +178,9 @@ export async function proxyApi(request: Request, env: Env): Promise<Response> {
       } catch (_error) {
         return errorResponse(request, "UPSTREAM_INVALID_RESPONSE", "API 上游回應格式錯誤", 502);
       }
+    }
+    if (upstreamResponse.status < 200 || upstreamResponse.status >= 300) {
+      recordProxyFailure("UPSTREAM_NON_2XX");
     }
     return withHeaders(upstreamResponse, {
       ...SECURITY_HEADERS,

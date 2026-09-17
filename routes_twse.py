@@ -102,6 +102,7 @@ from fetchers import (
     parse_float,
 )
 from market_config import CACHE_TTL_SECONDS, INTERNATIONAL_INDEX_SPECS, YAHOO_TPEX_ETF_URL
+from observability import record_stale_fallback
 from parsers import enrich_stocks_with_industry, find_stock_by_query, pick_exact_live_stock
 
 
@@ -130,6 +131,13 @@ def api_site_data():
             with cache_lock:
                 cached_site_data = copy.deepcopy(cache_data.get("site_data"))
             if cached_site_data:
+                record_stale_fallback(
+                    "tpex",
+                    "site_data",
+                    "cooldown",
+                    stale_at=cached_site_data.get("cachedAt"),
+                    ttl_seconds=CACHE_TTL_SECONDS.get("site_data"),
+                )
                 app.LOGGER.warning(
                     "Live site-data refresh held by provider cooldown; serving cached snapshot",
                     exc_info=exc,
