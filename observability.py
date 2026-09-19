@@ -9,9 +9,12 @@ from __future__ import annotations
 from collections import deque
 from copy import deepcopy
 from datetime import datetime, timezone
+import json
 import logging
 import math
+import os
 import re
+import sys
 import threading
 import time
 from typing import Any, Callable, Iterable
@@ -27,6 +30,101 @@ MAX_API_SAMPLES = 10_000
 MAX_PROVIDER_EVENTS = 512
 MAX_STALE_EVENTS = 1_000
 MAX_CACHE_ENTRIES = 64
+memory_attribution_peak_lock = threading.Lock()
+memory_attribution_peak_rss_bytes = 0
+
+
+def memory_attribution_enabled() -> bool:
+    """Whether opt-in, low-overhead RSS attribution logging is enabled."""
+    return str(os.environ.get("MARKET_PULSE_MEMORY_ATTRIBUTION") or "").strip().lower() in {"1", "true", "yes"}
+
+
+def _process_rss_bytes() -> int | None:
+    """Return current RSS without adding a runtime dependency, where available."""
+    try:
+        with open("/proc/self/statm", encoding="ascii") as statm:
+            resident_pages = int(statm.read().split()[1])
+        return resident_pages * os.sysconf("SC_PAGE_SIZE")
+    except (OSError, ValueError, IndexError):
+        pass
+    if sys.platform != "win32":
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class ProcessMemoryCounters(ctypes.Structure):
+            _fields_ = [
+                ("cb", wintypes.DWORD),
+                ("PageFaultCount", wintypes.DWORD),
+                ("PeakWorkingSetSize", ctypes.c_size_t),
+                ("WorkingSetSize", ctypes.c_size_t),
+                ("QuotaPeakPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                ("PagefileUsage", ctypes.c_size_t),
+                ("PeakPagefileUsage", ctypes.c_size_t),
+            ]
+
+        counters = ProcessMemoryCounters()
+        counters.cb = ctypes.sizeof(counters)
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        psapi = ctypes.WinDLL("psapi", use_last_error=True)
+        kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+        psapi.GetProcessMemoryInfo.argtypes = (wintypes.HANDLE, ctypes.POINTER(ProcessMemoryCounters), wintypes.DWORD)
+        psapi.GetProcessMemoryInfo.restype = wintypes.BOOL
+        ok = psapi.GetProcessMemoryInfo(
+            kernel32.GetCurrentProcess(),
+            ctypes.byref(counters),
+            counters.cb,
+        )
+        return int(counters.WorkingSetSize) if ok else None
+    except Exception:  # noqa: BLE001 - diagnostics must not affect application work
+        return None
+
+
+def record_memory_attribution(
+    event: str,
+    *,
+    phase: str,
+    route_or_operation: str | None = None,
+    category: str | None = None,
+    background_updater_phase: str | None = None,
+    provider: str | None = None,
+    cache_summary: dict[str, Any] | None = None,
+    max_workers: int | None = None,
+    task_count: int | None = None,
+) -> None:
+    """Emit one opt-in structured, non-persistent memory attribution sample."""
+    if not memory_attribution_enabled():
+        return
+    process_rss_bytes = _process_rss_bytes()
+    sampled_peak_rss_bytes: int | None = None
+    if process_rss_bytes is not None:
+        global memory_attribution_peak_rss_bytes
+        with memory_attribution_peak_lock:
+            memory_attribution_peak_rss_bytes = max(memory_attribution_peak_rss_bytes, process_rss_bytes)
+            sampled_peak_rss_bytes = memory_attribution_peak_rss_bytes
+    payload: dict[str, Any] = {
+        "timestamp": _iso(_clock()),
+        "phase": phase,
+        "process_rss_bytes": process_rss_bytes,
+        "sampled_peak_rss_bytes": sampled_peak_rss_bytes,
+        "thread_count": threading.active_count(),
+    }
+    for key, value in {
+        "route_or_operation": route_or_operation,
+        "category": category,
+        "background_updater_phase": background_updater_phase,
+        "provider": provider,
+        "cache_summary": cache_summary,
+        "max_workers": max_workers,
+        "task_count": task_count,
+    }.items():
+        if value is not None:
+            payload[key] = value
+    LOGGER.info("event=memory_attribution.%s %s", _bounded_label(event, fallback="snapshot", limit=32), json.dumps(payload, ensure_ascii=False, separators=(",", ":"), default=str))
 
 FAILURE_CLASSES = frozenset(
     {

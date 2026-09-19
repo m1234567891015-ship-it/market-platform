@@ -44,6 +44,7 @@ import copy
 import json
 import logging
 import os
+import sys
 import threading
 import time
 from datetime import datetime
@@ -54,7 +55,7 @@ from urllib.error import HTTPError
 from urllib.parse import urlsplit
 
 from market_config import CACHE_BUCKET_MAX_ENTRIES, CACHE_TTL_SECONDS, EXCLUDED_SECTOR_SOURCE_NAMES
-from observability import record_cache_state
+from observability import memory_attribution_enabled, record_cache_state, record_memory_attribution
 from shared_state import (
     RedisSharedStateAdapter,
     SharedStateAdapter,
@@ -71,6 +72,20 @@ CACHE_FILE = Path(os.environ.get("MARKET_PULSE_CACHE_FILE", str(BUNDLED_CACHE_FI
 CACHE_VERSION = 13
 UPDATE_INTERVAL_SECONDS = 60
 PUBLIC_CACHE_ERROR_MESSAGE = "背景資料更新暫時無法完成，請稍後再試"
+
+MEMORY_ATTRIBUTION_BUCKETS = (
+    "global_markets",
+    "global_market_items",
+    "us_etf_center",
+    "stock_details",
+    "sector_charts",
+    "yahoo_tw_stock_resources",
+    "us_options_chains",
+    "taifex_options_chain",
+    "taifex_openapi_list",
+)
+MEMORY_ATTRIBUTION_ENTRY_SAMPLE_LIMIT = 128
+MEMORY_ATTRIBUTION_NODE_BUDGET = 96
 
 cache_lock = threading.RLock()
 cache_refresh_lock = threading.Lock()
@@ -161,6 +176,152 @@ cache_data: dict[str, Any] = {
     "yahoo_tw_future_technical_candles": {},
     "taifex_openapi_list": {},
 }
+
+
+def _bounded_approx_bytes(value: Any, *, node_budget: int = MEMORY_ATTRIBUTION_NODE_BUDGET) -> tuple[int, bool]:
+    """Estimate retained object size without serializing or walking unbounded data."""
+    total = 0
+    seen: set[int] = set()
+    stack: list[tuple[Any, int]] = [(value, 0)]
+    visited = 0
+    truncated = False
+    while stack:
+        current, depth = stack.pop()
+        object_id = id(current)
+        if object_id in seen:
+            continue
+        seen.add(object_id)
+        visited += 1
+        if visited > node_budget:
+            truncated = True
+            break
+        try:
+            total += sys.getsizeof(current)
+        except TypeError:
+            continue
+        if depth >= 4:
+            truncated = True
+            continue
+        if isinstance(current, dict):
+            stack.extend((item, depth + 1) for pair in current.items() for item in pair)
+        elif isinstance(current, (list, tuple, set, frozenset)):
+            stack.extend((item, depth + 1) for item in current)
+    return total, truncated
+
+
+def memory_attribution_cache_summary(buckets: tuple[str, ...] | None = None) -> dict[str, Any]:
+    """Return a bounded, approximate cache view for opt-in RSS attribution logs."""
+    requested_buckets = buckets or MEMORY_ATTRIBUTION_BUCKETS
+    with cache_lock:
+        views = {
+            bucket: list((cache_data.get(bucket) or {}).items())
+            if isinstance(cache_data.get(bucket), dict)
+            else cache_data.get(bucket)
+            for bucket in requested_buckets
+        }
+
+    summary: dict[str, Any] = {}
+    for bucket, view in views.items():
+        if isinstance(view, list):
+            entry_count = len(view)
+            if entry_count == 0:
+                summary[bucket] = {
+                    "entry_count": 0,
+                    "approx_retained_bytes": 0,
+                    "largest_entry_key": None,
+                    "largest_entry_approx_bytes": 0,
+                    "sampled_entry_count": 0,
+                    "approximation": "bounded_object_walk",
+                }
+                continue
+            stride = max(1, (entry_count + MEMORY_ATTRIBUTION_ENTRY_SAMPLE_LIMIT - 1) // MEMORY_ATTRIBUTION_ENTRY_SAMPLE_LIMIT)
+            sampled_entries = view[::stride][:MEMORY_ATTRIBUTION_ENTRY_SAMPLE_LIMIT]
+            estimated_bytes = 0
+            largest_key: str | None = None
+            largest_bytes = -1
+            truncated = False
+            max_series_or_rows = 0
+            for key, entry in sampled_entries:
+                payload = entry.get("payload") if isinstance(entry, dict) and "payload" in entry else entry
+                estimated, item_truncated = _bounded_approx_bytes(payload)
+                estimated_bytes += estimated
+                truncated = truncated or item_truncated
+                if estimated > largest_bytes:
+                    largest_key = str(key)[:160]
+                    largest_bytes = estimated
+                if isinstance(payload, dict):
+                    for field in ("series", "rows", "items"):
+                        value = payload.get(field)
+                        if isinstance(value, list):
+                            max_series_or_rows = max(max_series_or_rows, len(value))
+            scale = entry_count / len(sampled_entries)
+            summary[bucket] = {
+                "entry_count": entry_count,
+                "approx_retained_bytes": int(estimated_bytes * scale),
+                "largest_entry_key": largest_key,
+                "largest_entry_approx_bytes": max(0, largest_bytes),
+                "max_series_or_rows": max_series_or_rows,
+                "sampled_entry_count": len(sampled_entries),
+                "approximation": "bounded_object_walk_scaled" if len(sampled_entries) < entry_count else "bounded_object_walk",
+                "truncated": truncated,
+            }
+        else:
+            estimated, truncated = _bounded_approx_bytes(view)
+            summary[bucket] = {
+                "entry_count": len(view) if isinstance(view, (list, tuple, set, frozenset)) else None,
+                "approx_retained_bytes": estimated,
+                "largest_entry_key": None,
+                "largest_entry_approx_bytes": estimated,
+                "sampled_entry_count": 1,
+                "approximation": "bounded_object_walk",
+                "truncated": truncated,
+            }
+    return summary
+
+
+def memory_attribution_cache_write_summary(bucket: str, key: str, payload: Any) -> dict[str, Any]:
+    """Capture a single write cheaply; full bucket attribution stays at phase boundaries."""
+    with cache_lock:
+        entries = cache_data.get(bucket)
+        entry_count = len(entries) if isinstance(entries, dict) else None
+    estimated, truncated = _bounded_approx_bytes(payload)
+    return {
+        bucket: {
+            "entry_count": entry_count,
+            "written_entry_key": str(key)[:160],
+            "written_entry_approx_bytes": estimated,
+            "approximation": "bounded_object_walk",
+            "truncated": truncated,
+        }
+    }
+
+
+def record_memory_attribution_snapshot(
+    event: str,
+    *,
+    phase: str,
+    route_or_operation: str | None = None,
+    category: str | None = None,
+    background_updater_phase: str | None = None,
+    provider: str | None = None,
+    buckets: tuple[str, ...] | None = None,
+    max_workers: int | None = None,
+    task_count: int | None = None,
+) -> None:
+    if not memory_attribution_enabled():
+        return
+    record_memory_attribution(
+        event,
+        phase=phase,
+        route_or_operation=route_or_operation,
+        category=category,
+        background_updater_phase=background_updater_phase,
+        provider=provider,
+        cache_summary=memory_attribution_cache_summary(buckets),
+        max_workers=max_workers,
+        task_count=task_count,
+    )
+
 
 _yahoo_options_crumb: dict[str, Any] = {"value": "", "stored_at": 0.0}
 
@@ -348,6 +509,13 @@ def write_memory_cache(
     finally:
         cache_lock.release()
     record_cache_state(bucket, stored_at, ttl_seconds, source=bucket, timestamp=stored_at)
+    if memory_attribution_enabled():
+        record_memory_attribution(
+            "cache",
+            phase="cache_write",
+            route_or_operation="write_memory_cache",
+            cache_summary=memory_attribution_cache_write_summary(bucket, key, payload),
+        )
     if (
         deadline is None
         and _cache_l2_enabled()
@@ -1016,9 +1184,22 @@ def _renew_background_updater_lease(
 def _run_background_refresh_tasks() -> None:
     import app  # deferred: refresh_tpex_cache hasn't moved out of app.py yet (TD-01 slice 2c)
 
+    record_memory_attribution_snapshot(
+        "background",
+        phase="refresh_cycle_begin",
+        route_or_operation="background_updater",
+        background_updater_phase="refresh_cycle",
+    )
     attempt_at = time.time()
     with cache_lock:
         cache_data["provider_status"]["tpex"]["lastAttemptAt"] = attempt_at
+    record_memory_attribution_snapshot(
+        "background",
+        phase="provider_refresh_begin",
+        route_or_operation="refresh_tpex_cache",
+        background_updater_phase="provider_refresh",
+        provider="tpex",
+    )
     try:
         tpex_refresh_succeeded = app.refresh_tpex_cache()
         if tpex_refresh_succeeded is False:
@@ -1036,8 +1217,22 @@ def _run_background_refresh_tasks() -> None:
         with cache_lock:
             cache_data["last_error"] = PUBLIC_CACHE_ERROR_MESSAGE
             cache_data["provider_status"]["tpex"].update({"status": provider_status, "lastError": provider_status})
+    record_memory_attribution_snapshot(
+        "background",
+        phase="provider_refresh_end",
+        route_or_operation="refresh_tpex_cache",
+        background_updater_phase="provider_refresh",
+        provider="tpex",
+    )
     with cache_lock:
         cache_data["provider_status"]["twse"]["lastAttemptAt"] = time.time()
+    record_memory_attribution_snapshot(
+        "background",
+        phase="provider_refresh_begin",
+        route_or_operation="refresh_cache",
+        background_updater_phase="provider_refresh",
+        provider="twse",
+    )
     try:
         refresh_cache()
     except Exception as exc:  # noqa: BLE001
@@ -1050,6 +1245,19 @@ def _run_background_refresh_tasks() -> None:
     else:
         with cache_lock:
             cache_data["provider_status"]["twse"].update({"status": "available", "lastSuccessAt": time.time(), "lastError": None})
+    record_memory_attribution_snapshot(
+        "background",
+        phase="provider_refresh_end",
+        route_or_operation="refresh_cache",
+        background_updater_phase="provider_refresh",
+        provider="twse",
+    )
+    record_memory_attribution_snapshot(
+        "background",
+        phase="refresh_cycle_end",
+        route_or_operation="background_updater",
+        background_updater_phase="refresh_cycle",
+    )
 
 
 def run_background_update_cycle() -> bool:
@@ -1096,8 +1304,20 @@ def run_background_update_cycle() -> bool:
 
 
 def update_loop() -> None:
+    record_memory_attribution_snapshot(
+        "background",
+        phase="update_loop_begin",
+        route_or_operation="background_updater",
+        background_updater_phase="loop",
+    )
     while True:
         run_background_update_cycle()
+        record_memory_attribution_snapshot(
+            "background",
+            phase="update_loop_sleep",
+            route_or_operation="background_updater",
+            background_updater_phase="idle",
+        )
         time.sleep(UPDATE_INTERVAL_SECONDS)
 
 
@@ -1145,6 +1365,12 @@ def start_background_updater() -> None:
             cache_data["last_error"] = PUBLIC_CACHE_ERROR_MESSAGE
     thread = threading.Thread(target=update_loop, daemon=True)
     thread.start()
+    record_memory_attribution_snapshot(
+        "startup",
+        phase="background_updater_started",
+        route_or_operation="background_updater",
+        background_updater_phase="started",
+    )
 
 
 def background_updater_enabled() -> bool:

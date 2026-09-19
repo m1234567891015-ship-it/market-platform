@@ -22,6 +22,7 @@ from cache import (
     cache_data,
     cache_lock,
     load_disk_cache,
+    record_memory_attribution_snapshot,
     start_background_updater,
 )
 from security import (
@@ -439,16 +440,44 @@ def log_institution_after_request(response: Any):
     return response
 
 
+def memory_attribution_health_before_request() -> None:
+    if request.path == "/api/health":
+        record_memory_attribution_snapshot(
+            "startup",
+            phase="health_request_begin",
+            route_or_operation="/api/health",
+            buckets=("global_markets", "global_market_items"),
+        )
+
+
+def memory_attribution_health_after_request(response: Any):
+    if request.path == "/api/health":
+        record_memory_attribution_snapshot(
+            "startup",
+            phase="health_request_end",
+            route_or_operation="/api/health",
+            buckets=("global_markets", "global_market_items"),
+        )
+    return response
+
+
 app.after_request(add_security_headers)
 app.after_request(log_institution_after_request)
 app.after_request(api_observability_after_request)
+app.after_request(memory_attribution_health_after_request)
 app.before_request(api_observability_before_request)
+app.before_request(memory_attribution_health_before_request)
 app.before_request(initialize_derivatives_store_for_request)
 app.before_request(enforce_api_rate_limit)
 app.register_blueprint(system_bp)
 app.register_blueprint(global_market_bp)
 app.register_blueprint(twse_bp)
 app.register_blueprint(derivatives_bp)
+record_memory_attribution_snapshot(
+    "startup",
+    phase="app_initialized",
+    route_or_operation="app:app",
+)
 
 
 def taipei_now() -> datetime:
@@ -789,10 +818,15 @@ def handle_internal_error(error):
 
 
 if __name__ == "__main__":
+    record_memory_attribution_snapshot("startup", phase="server_bootstrap_begin", route_or_operation="app.py")
     initialize_verified_ssl_context()
+    record_memory_attribution_snapshot("startup", phase="ssl_initialized", route_or_operation="app.py")
+    record_memory_attribution_snapshot("startup", phase="derivatives_store_initialize_begin", route_or_operation="app.py")
     initialize_derivatives_store()
+    record_memory_attribution_snapshot("startup", phase="derivatives_store_initialize_end", route_or_operation="app.py")
     if background_updater_enabled():
         start_background_updater()
+    record_memory_attribution_snapshot("startup", phase="application_ready_boundary", route_or_operation="app.py")
     app.run(
         host=os.environ.get("MARKET_PULSE_HOST", "127.0.0.1"),
         port=int(os.environ.get("MARKET_PULSE_PORT", "5000")),
@@ -802,6 +836,9 @@ if __name__ == "__main__":
 else:
     # When loaded by a WSGI server (gunicorn, uWSGI, etc.) we still need
     # to spin up the background updater.
+    record_memory_attribution_snapshot("startup", phase="wsgi_application_init", route_or_operation="app:app")
     initialize_verified_ssl_context()
+    record_memory_attribution_snapshot("startup", phase="ssl_initialized", route_or_operation="app:app")
     if background_updater_enabled():
         start_background_updater()
+    record_memory_attribution_snapshot("startup", phase="application_ready_boundary", route_or_operation="app:app")

@@ -80,6 +80,7 @@ from cache import (
     claim_cache_flight,
     finish_cache_flight,
     read_memory_cache,
+    record_memory_attribution_snapshot,
     wait_for_cache_flight,
     write_memory_cache,
 )
@@ -131,6 +132,17 @@ def api_global_market(category: str):
             requested_limit = GLOBAL_MARKET_DEFAULT_LOAD_LIMIT
     limit = min(max(requested_limit, 1), GLOBAL_MARKET_MAX_LOAD_LIMIT)
     cache_key = f"{category_key}:{limit}:{option_underlying}:{option_source if category_key == 'options' else 'default'}"
+    def record_request_boundary(phase: str) -> None:
+        record_memory_attribution_snapshot(
+            "request",
+            phase=phase,
+            route_or_operation="/api/global-market/<category>",
+            category=category_key,
+            buckets=("global_markets", "global_market_items"),
+        )
+
+    record_request_boundary("request_enter")
+    record_request_boundary("cache_lookup_begin")
     cached_payload = None if refresh else read_memory_cache("global_markets", cache_key, GLOBAL_MARKET_CACHE_SECONDS)
     cached = {"payload": cached_payload} if cached_payload is not None else None
     cached_items = cached_payload.get("items", []) if isinstance(cached_payload, dict) else []
@@ -147,26 +159,40 @@ def api_global_market(category: str):
         and not cache_is_stale_us_vix
         and not cache_is_stale_derivative_payload
     ):
+        record_request_boundary("cache_hit")
         cached_payload = copy.deepcopy(cached_payload)
         if category_key == "futures":
             cached_payload["items"] = [normalize_futures_yahoo_uncovered_links(item) for item in cached_payload.get("items", [])]
-        return jsonify({**cached_payload, "cached": True})
+        record_request_boundary("response_serialization_boundary")
+        response = jsonify({**cached_payload, "cached": True})
+        record_request_boundary("request_exit")
+        return response
 
+    record_request_boundary("cache_miss")
     is_leader, flight = claim_cache_flight(f"global-market:{cache_key}")
     if not is_leader:
         wait_for_cache_flight(flight)
         refreshed_payload = read_memory_cache("global_markets", cache_key, GLOBAL_MARKET_CACHE_SECONDS)
         if refreshed_payload:
+            record_request_boundary("cache_hit_after_flight")
             shared_payload = copy.deepcopy(refreshed_payload)
             if category_key == "futures":
                 shared_payload["items"] = [normalize_futures_yahoo_uncovered_links(item) for item in shared_payload.get("items", [])]
-            return jsonify({**shared_payload, "cached": True})
+            record_request_boundary("response_serialization_boundary")
+            response = jsonify({**shared_payload, "cached": True})
+            record_request_boundary("request_exit")
+            return response
         return jsonify(app.api_error_payload("CACHE_REFRESH_UNAVAILABLE", app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE)), 503
 
     try:
+        record_request_boundary("build_begin")
         payload = build_global_market_payload(category_key, limit, option_source=option_source, option_underlying=option_underlying)
+        record_request_boundary("payload_built")
         write_memory_cache("global_markets", cache_key, payload, GLOBAL_MARKET_CACHE_SECONDS)
-        return jsonify({**payload, "cached": False})
+        record_request_boundary("response_serialization_boundary")
+        response = jsonify({**payload, "cached": False})
+        record_request_boundary("request_exit")
+        return response
     finally:
         finish_cache_flight(f"global-market:{cache_key}", flight)
 

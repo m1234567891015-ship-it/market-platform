@@ -236,6 +236,7 @@ from cache import (
     penny_sector_recommendation_cache,
     penny_sector_recommendation_lock,
     read_memory_cache,
+    record_memory_attribution_snapshot,
     sanitize_site_data,
     wait_for_cache_flight,
     write_memory_cache,
@@ -6584,6 +6585,14 @@ def build_global_market_payload(
     max_workers = min(6 if category == "options" else 8, len(selected_specs))
     executor_cls = app.DeadlineThreadPoolExecutor if deadline is not None else ThreadPoolExecutor
     executor = executor_cls(max_workers=max_workers)
+    record_memory_attribution_snapshot(
+        "fanout",
+        phase="provider_fanout_begin",
+        route_or_operation="build_global_market_payload",
+        category=category,
+        max_workers=max_workers,
+        task_count=len(selected_specs),
+    )
     futures = {
         executor.submit(build_global_market_item, item, deadline=deadline): item
         for item in selected_specs
@@ -6631,6 +6640,14 @@ def build_global_market_payload(
             append_failed_item(item_spec)
     finally:
         executor.shutdown(wait=False, cancel_futures=True)
+        record_memory_attribution_snapshot(
+            "fanout",
+            phase="provider_fanout_end",
+            route_or_operation="build_global_market_payload",
+            category=category,
+            max_workers=max_workers,
+            task_count=len(selected_specs),
+        )
 
     item_order = {item["symbol"]: index for index, item in enumerate(selected_specs)}
     items.sort(key=lambda item: item_order.get(item.get("symbol"), 999))
@@ -6734,6 +6751,13 @@ def build_global_market_payload(
                 app.DERIVATIVES_STORE.record_ai_report(str(option_chain.get("underlying") or option_underlying), option_chain["analysis"], str(payload.get("updatedAt") or ""))
     except Exception as exc:  # noqa: BLE001
         app.LOGGER.exception("Failed to persist derivatives payload", exc_info=exc)
+    record_memory_attribution_snapshot(
+        "request",
+        phase="payload_built",
+        route_or_operation="build_global_market_payload",
+        category=category,
+        buckets=("global_markets", "global_market_items"),
+    )
     return payload
 
 
