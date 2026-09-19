@@ -307,6 +307,10 @@ def record_memory_attribution_snapshot(
     buckets: tuple[str, ...] | None = None,
     max_workers: int | None = None,
     task_count: int | None = None,
+    row_count: int | None = None,
+    item_count: int | None = None,
+    object_count: int | None = None,
+    include_cache_summary: bool = True,
 ) -> None:
     if not memory_attribution_enabled():
         return
@@ -317,9 +321,12 @@ def record_memory_attribution_snapshot(
         category=category,
         background_updater_phase=background_updater_phase,
         provider=provider,
-        cache_summary=memory_attribution_cache_summary(buckets),
+        cache_summary=memory_attribution_cache_summary(buckets) if include_cache_summary else None,
         max_workers=max_workers,
         task_count=task_count,
+        row_count=row_count,
+        item_count=item_count,
+        object_count=object_count,
     )
 
 
@@ -1082,15 +1089,36 @@ def save_disk_cache(snapshot: dict[str, Any] | None = None, *, deadline: float |
 def _refresh_cache_impl() -> None:
     import app  # deferred: avoids a module-load-time app.py <-> cache.py import cycle
 
+    def record_twse_boundary(
+        phase: str,
+        *,
+        item_count: int | None = None,
+        object_count: int | None = None,
+    ) -> None:
+        record_memory_attribution_snapshot(
+            "background",
+            phase=phase,
+            route_or_operation="refresh_cache",
+            provider="twse",
+            item_count=item_count,
+            object_count=object_count,
+            include_cache_summary=False,
+        )
+
+    record_twse_boundary("twse.state_snapshot_begin")
     with cache_lock:
         existing_site_data = copy.deepcopy(cache_data["site_data"])
         existing_market_date = cache_data["market_date"]
+    record_twse_boundary("twse.state_snapshot_end")
 
+    record_twse_boundary("twse.build_site_data_begin")
     site_data, all_stocks, market_date_iso = app.build_site_data(
         existing_site_data=existing_site_data,
         existing_market_date=existing_market_date,
     )
+    record_twse_boundary("twse.build_site_data_end", item_count=len(all_stocks))
 
+    record_twse_boundary("twse.state_write_begin", item_count=len(all_stocks))
     with cache_lock:
         cache_data["site_data"] = site_data
         cache_data["all_stocks"] = all_stocks
@@ -1098,15 +1126,32 @@ def _refresh_cache_impl() -> None:
         cache_data["cached_at"] = site_data["cachedAt"]
         cache_data["last_error"] = None
         cache_data["stock_details"] = {}
+    record_twse_boundary("twse.state_write_end", item_count=len(all_stocks))
+    record_twse_boundary("twse.disk_snapshot_begin", item_count=len(all_stocks))
     save_disk_cache()
+    record_twse_boundary("twse.disk_snapshot_end", item_count=len(all_stocks))
 
 
 def refresh_cache(*, deadline: float | None = None) -> bool:
     """Refresh site data without holding a broad coordination lock over I/O."""
+    record_memory_attribution_snapshot(
+        "background",
+        phase="twse.refresh_enter",
+        route_or_operation="refresh_cache",
+        provider="twse",
+        include_cache_summary=False,
+    )
     result = run_cache_single_flight(
         "site-data-refresh",
         _refresh_cache_impl,
         deadline=deadline,
+    )
+    record_memory_attribution_snapshot(
+        "background",
+        phase="twse.refresh_exit",
+        route_or_operation="refresh_cache",
+        provider="twse",
+        include_cache_summary=False,
     )
     return result is not False
 

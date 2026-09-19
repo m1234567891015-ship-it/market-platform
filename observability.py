@@ -95,6 +95,9 @@ def record_memory_attribution(
     cache_summary: dict[str, Any] | None = None,
     max_workers: int | None = None,
     task_count: int | None = None,
+    row_count: int | None = None,
+    item_count: int | None = None,
+    object_count: int | None = None,
 ) -> None:
     """Emit one opt-in structured, non-persistent memory attribution sample."""
     if not memory_attribution_enabled():
@@ -121,6 +124,9 @@ def record_memory_attribution(
         "cache_summary": cache_summary,
         "max_workers": max_workers,
         "task_count": task_count,
+        "row_count": row_count,
+        "item_count": item_count,
+        "object_count": object_count,
     }.items():
         if value is not None:
             payload[key] = value

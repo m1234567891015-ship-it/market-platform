@@ -176,7 +176,7 @@ from datetime import datetime
 from html import unescape
 from typing import Any
 
-from cache import cache_data, cache_lock, save_disk_cache
+from cache import cache_data, cache_lock, record_memory_attribution_snapshot, save_disk_cache
 from fetchers import (
     TAIFEX_FUTURES_DATA_DOWNLOAD_URL,
     detect_tone,
@@ -1478,7 +1478,30 @@ def find_stock_by_query(query: str, stocks: list[dict[str, Any]], limit: int = 2
 def refresh_tpex_cache() -> bool:
     import app
 
+    def record_tpex_boundary(
+        phase: str,
+        *,
+        provider: str | None = None,
+        row_count: int | None = None,
+        item_count: int | None = None,
+        object_count: int | None = None,
+    ) -> None:
+        record_memory_attribution_snapshot(
+            "background",
+            phase=phase,
+            route_or_operation="refresh_tpex_cache",
+            provider=provider or "tpex",
+            row_count=row_count,
+            item_count=item_count,
+            object_count=object_count,
+            include_cache_summary=False,
+        )
+
+    record_tpex_boundary("tpex.refresh_enter")
+    record_tpex_boundary("tpex.fetch_begin", provider="tpex_mainboard_quotes")
     quotes, quote_date = fetch_tpex_mainboard_quotes()
+    record_tpex_boundary("tpex.fetch_end", provider="tpex_mainboard_quotes", row_count=len(quotes))
+    record_tpex_boundary("tpex.fetch_begin", provider="yahoo_tpex_etfs")
     try:
         yahoo_etfs = fetch_yahoo_tpex_etfs()
     except Exception as exc:  # noqa: BLE001
@@ -1487,8 +1510,16 @@ def refresh_tpex_cache() -> bool:
             exc_info=exc,
         )
         yahoo_etfs = {}
+    record_tpex_boundary("tpex.fetch_end", provider="yahoo_tpex_etfs", item_count=len(yahoo_etfs))
+    record_tpex_boundary(
+        "tpex.parse_begin",
+        row_count=len(quotes),
+        object_count=len(yahoo_etfs),
+    )
     tpex_stocks = parse_tpex_quotes(quotes, yahoo_etfs)
+    record_tpex_boundary("tpex.parse_end", item_count=len(tpex_stocks))
     if not tpex_stocks:
+        record_tpex_boundary("tpex.refresh_exit", item_count=0)
         return False
 
     with cache_lock:
@@ -1501,9 +1532,12 @@ def refresh_tpex_cache() -> bool:
             if item.get("sourceName")
         }
     else:
+        record_tpex_boundary("tpex.history_build_begin", provider="sector_history")
         history_series_by_index = app.build_sector_history_series(existing_market_date or quote_date, TARGET_INDEX_NAMES)
+        record_tpex_boundary("tpex.history_build_end", provider="sector_history", item_count=len(history_series_by_index))
     benchmark_day_series = history_series_by_index.get("發行量加權股價指數", [])
 
+    record_tpex_boundary("tpex.highlight_yahoo_begin", provider="yahoo")
     try:
         tpex_mainboard_highlight, yahoo_tpex_otc_date = app.build_yahoo_class_quote_cards(YAHOO_TPEX_OTC_CLASS_URL, "上櫃", limit=6)
     except Exception as exc:  # noqa: BLE001
@@ -1522,6 +1556,14 @@ def refresh_tpex_cache() -> bool:
         )
         tpex_esb_highlight = []
         yahoo_tpex_emerging_date = None
+    record_tpex_boundary(
+        "tpex.highlight_yahoo_end",
+        provider="yahoo",
+        item_count=len(tpex_mainboard_highlight) + len(tpex_esb_highlight),
+    )
+    needs_highlight_fallback = not tpex_mainboard_highlight or not tpex_esb_highlight
+    if needs_highlight_fallback:
+        record_tpex_boundary("tpex.highlight_fallback_begin", provider="tpex_openapi")
     if not tpex_mainboard_highlight:
         tpex_mainboard_highlight = app.build_summary_cards_from_payload(
             fetch_json(app.build_tpex_openapi_url("tpex_mainborad_highlight")),
@@ -1534,9 +1576,18 @@ def refresh_tpex_cache() -> bool:
             "興櫃",
             limit=6,
         )
+    if needs_highlight_fallback:
+        record_tpex_boundary(
+            "tpex.highlight_fallback_end",
+            provider="tpex_openapi",
+            item_count=len(tpex_mainboard_highlight) + len(tpex_esb_highlight),
+        )
+    record_tpex_boundary("tpex.transform_begin", item_count=len(tpex_mainboard_highlight) + len(tpex_esb_highlight))
     tpex_mainboard_highlight = app.build_yahoo_summary_series(tpex_mainboard_highlight, benchmark_day_series)
     tpex_esb_highlight = app.build_yahoo_summary_series(tpex_esb_highlight, benchmark_day_series)
+    record_tpex_boundary("tpex.transform_end", item_count=len(tpex_mainboard_highlight) + len(tpex_esb_highlight))
 
+    record_tpex_boundary("tpex.state_write_begin", item_count=len(tpex_stocks))
     with cache_lock:
         listed_stocks = [
             stock for stock in cache_data["all_stocks"]
@@ -1563,7 +1614,16 @@ def refresh_tpex_cache() -> bool:
                 "emergingStats": [],
             }
             cache_data["site_data"] = site_data
+        all_stock_count = len(cache_data["all_stocks"])
+    record_tpex_boundary(
+        "tpex.state_write_end",
+        item_count=len(tpex_stocks),
+        object_count=all_stock_count,
+    )
+    record_tpex_boundary("tpex.disk_snapshot_begin", item_count=len(tpex_stocks), object_count=all_stock_count)
     save_disk_cache()
+    record_tpex_boundary("tpex.disk_snapshot_end", item_count=len(tpex_stocks), object_count=all_stock_count)
+    record_tpex_boundary("tpex.refresh_exit", item_count=len(tpex_stocks), object_count=all_stock_count)
     return True
 
 
