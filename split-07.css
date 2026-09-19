@@ -719,6 +719,76 @@ button.asset-finance-sync-stat {
   gap: 10px;
 }
 
+/* R2-03 mobile responsive remediation: keep wide components locally scrollable. */
+@media (max-width: 680px) {
+  .table-wrap,
+  .class-table,
+  .tw-option-chain-scroll {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .institution-sector-ranking .class-table {
+    min-width: 0;
+  }
+
+  .asset-finance-trend-shell.is-embedded {
+    min-width: 0;
+    max-width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .asset-finance-trend-subhead,
+  .asset-finance-trend-controls {
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .asset-finance-trend-stage {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .futures-center-stack {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .futures-center-hero-card,
+  .tw-option-chain-card {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  #futures-detail {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  .us-sector-index-summary {
+    grid-template-columns: 1fr;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .us-sector-index-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .asset-finance-bond-research-card .asset-hub-group-heading {
+    display: grid;
+    align-items: start;
+  }
+
+  .asset-finance-bond-research-card .asset-hub-group-heading > span {
+    justify-self: start;
+  }
+}
+
 .institution-range-buttons,
 .institution-series-buttons {
   display: flex;
