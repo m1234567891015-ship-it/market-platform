@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Market Pulse / Derivatives Platform V1.0 R6
 
 Date: 2026-06-22
@@ -189,3 +190,6 @@ The R6 ZIP is generated from an explicit allowlist. It excludes archived release
 old ZIPs, DOCX validation reports, personal files, obsolete backup files, and zero-byte
 leftovers. The shipped SQLite database is schema-only for reproducible delivery; runtime
 data is populated after startup or protected imports.
+=======
+# market-platform
+>>>>>>> 1c6729ce3be69693d844127b85f388b79cf4e5d5
