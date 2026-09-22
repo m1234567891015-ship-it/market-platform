@@ -40,6 +40,10 @@ LOCAL_LINK_SKIP_PREFIXES = (
     "blob:",
 )
 EXTERNAL_DATA_PATHS = {"/twse-data.js", "/api/twse/site-data", "/api/twse/search"}
+# The disk cache is a gitignored runtime artifact.  It is consumed by the
+# legacy twse-data.js bootstrap as an optional warm-start optimization; a clean
+# checkout is valid without it and the script falls through to live APIs.
+OPTIONAL_RUNTIME_ROOT_FILES = {"twse-cache.json"}
 LOGGER = logging.getLogger("market_pulse.portable_check")
 
 
@@ -188,7 +192,14 @@ def main() -> int:
             failures.append("Server did not become ready (health check timed out).")
 
         if server_ready:
-            checked_urls = set(PAGES)
+            checked_urls = {
+                path
+                for path in PAGES
+                if not (
+                    path.lstrip("/") in OPTIONAL_RUNTIME_ROOT_FILES
+                    and not (BASE_DIR / path.lstrip("/")).exists()
+                )
+            }
             for page_name in HTML_PAGES:
                 page_path = BASE_DIR / page_name
                 try:

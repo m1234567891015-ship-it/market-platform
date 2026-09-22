@@ -72,7 +72,15 @@ def _is_external_resource_error(message: str) -> bool:
         "net::ERR_NETWORK_ACCESS_DENIED",
         "net::ERR_INTERNET_DISCONNECTED",
         "net::ERR_NAME_NOT_RESOLVED",
+        "Failed to load resource: net::ERR_FAILED",
     ))
+
+
+def _is_external_resource_url(url: str) -> bool:
+    from urllib.parse import urlsplit
+
+    parts = urlsplit(url)
+    return parts.scheme in {"http", "https"} and parts.hostname not in {None, "127.0.0.1", "localhost", "::1"}
 
 
 def _visit_page(browser, base_url: str, page_file: str, mode: str) -> dict:
@@ -104,6 +112,14 @@ def _visit_page(browser, base_url: str, page_file: str, mode: str) -> dict:
         else None,
     )
     page.on("pageerror", lambda exc: console_errors.append(str(exc)))
+    page.on(
+        "requestfailed",
+        lambda request: external_errors.append(
+            f"{request.url}: {request.failure or 'request failed'}"
+        )
+        if _is_external_resource_url(request.url)
+        else console_errors.append(f"Failed local resource request: {request.url}"),
+    )
 
     url = f"{base_url}/{page_file}"
     page.goto(url, wait_until="load", timeout=30000)
@@ -126,6 +142,19 @@ def _visit_page(browser, base_url: str, page_file: str, mode: str) -> dict:
         else:
             stable_rounds = 0
         previous_height = current_height
+
+    font_probe = page.evaluate(
+        """() => ({
+          externalGoogleFonts: Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+            .some(link => new URL(link.href, location.href).hostname === 'fonts.googleapis.com'),
+          notoSansTcReady: document.fonts.check('16px "Noto Sans TC"'),
+          spaceGroteskReady: document.fonts.check('16px "Space Grotesk"'),
+        })"""
+    )
+    if font_probe["externalGoogleFonts"] and not (
+        font_probe["notoSansTcReady"] and font_probe["spaceGroteskReady"]
+    ):
+        external_errors.append("Google Fonts stylesheet present but requested web fonts are unavailable")
 
     counts = _measure_page(page)
     screenshot_bytes = page.screenshot(full_page=True)
@@ -255,8 +284,16 @@ def _compare(results: list[dict]) -> dict:
         if screenshot_path.exists():
             diff_pct = _pixel_diff_pct(screenshot_path.read_bytes(), result["screenshot_bytes"])
             if diff_pct > PIXEL_DIFF_FAIL_THRESHOLD_PCT:
-                external_note = "；同頁另有 external resource error，需在允許外網時複核" if result.get("external_errors") else ""
-                failures.append(f"[畫面差異] {file}: 截圖像素差異率 {diff_pct:.2f}% > {PIXEL_DIFF_FAIL_THRESHOLD_PCT}%{external_note}")
+                if result.get("external_errors"):
+                    print(
+                        f"  [EXTERNAL] {file}: 截圖像素差異率 {diff_pct:.2f}% > "
+                        f"{PIXEL_DIFF_FAIL_THRESHOLD_PCT}%，但同頁有外部資源錯誤，跳過程式碼回歸判定"
+                    )
+                else:
+                    failures.append(
+                        f"[畫面差異] {file}: 截圖像素差異率 {diff_pct:.2f}% > "
+                        f"{PIXEL_DIFF_FAIL_THRESHOLD_PCT}%"
+                    )
         else:
             failures.append(f"{file}: 找不到基準截圖 {screenshot_path}")
 

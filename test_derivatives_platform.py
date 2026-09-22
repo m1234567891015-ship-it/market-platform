@@ -2038,13 +2038,14 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertIn('compact.startsWith("data:")', script)
         self.assertIn('compact.startsWith("vbscript:")', script)
 
-    def test_us_market_overview_loads_all_sector_ranking_data(self):
+    def test_us_market_overview_uses_baseline_initial_limit_and_keeps_sector_ranking(self):
         source = Path("js/page-global-market-options.js").read_text(encoding="utf-8")
         self.assertIn(
-            'const initialLimit = category === "us-stocks" && document.body.dataset.marketView === "overview"\n'
-            '      ? "all"\n      :',
+            'const initialLimit = ["precious-metals", "bonds", "futures", "options"].includes(category)\n'
+            '      ? "all"\n',
             source,
         )
+        self.assertIn('queryParams.set("limit", refresh ? "all" : String(initialLimit));', source)
         self.assertIn('data-us-market-sector-ranking-group', source)
 
     def test_us_etf_detail_cards_keep_desktop_layout_width(self):

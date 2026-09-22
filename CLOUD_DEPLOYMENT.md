@@ -1,38 +1,45 @@
 # Cloud Deployment Notes
 
-Date: 2026-06-22
+Date: 2026-09-21
 
 ## Render Blueprint
 
 `render.yaml` defines one web service:
 
 - Runtime: Python
+- Plan: `free`
 - Start command: `gunicorn --workers 1 --threads 4 --timeout 180 --bind 0.0.0.0:$PORT app:app`
 - Health check: `/api/health`
-- Persistent disk mount: `/var/data`
+- Persistent disk: not attached in the checked-in free-tier blueprint
 
-## Persistent Data Paths
+## Current Data Paths And Persistence Contract
 
-The application supports path overrides through environment variables:
+The checked-in `render.yaml` uses ephemeral paths:
 
-- `MARKET_PULSE_CACHE_FILE=/var/data/twse-cache.json`
-- `DERIVATIVES_DB_PATH=/var/data/derivatives-platform.sqlite3`
+- `MARKET_PULSE_CACHE_FILE=/tmp/market-pulse-cache.json`
+- `DERIVATIVES_DB_PATH=/tmp/derivatives-platform.sqlite3`
 
 `DerivativesStore` creates the DB parent directory automatically and initializes the
-SQLite schema on startup.
+SQLite schema on startup. The application still supports persistent path overrides through
+environment variables, but the current free-tier blueprint does not provide a persistent
+disk.
 
 ## Important Render Plan Note
 
-Persistent disks require a Render plan that supports disks. If the service is deployed
-without a persistent disk, the platform filesystem may reset after redeploys, restarts,
-or cold starts. In that case:
+The current blueprint is intentionally free-tier compatible and therefore does not claim
+durable production storage. Without a persistent disk, the platform filesystem may reset
+after redeploys, restarts, or cold starts. In that case:
 
 - imported institutional rows may be lost;
 - accumulated AI reports may be lost;
 - system logs stored in SQLite may be lost.
+- the warm TWSE cache may be lost.
 
-For production use, keep the persistent disk enabled or migrate the SQLite store to a
-managed external database.
+For production use, obtain explicit approval for a plan that supports disks, add a disk
+mounted at `/var/data`, and set `MARKET_PULSE_CACHE_FILE` and `DERIVATIVES_DB_PATH` to
+`/var/data/...`; alternatively migrate the SQLite store to a managed external database.
+The plan/cost, backup/restore, and migration decision is outside the current free-tier
+blueprint.
 
 ## Workers And Scheduler
 

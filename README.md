@@ -1,10 +1,9 @@
-<<<<<<< HEAD
 # Market Pulse / Derivatives Platform V1.0 R6
 
-Date: 2026-06-22
+Date: 2026-09-21
 
 This package contains the Taiwan market dashboard and V1.0 futures/options platform.
-The R6 revision applies the Final Candidate R5 review fixes: cloud database persistence,
+The R6 revision applies the Final Candidate R5 review fixes: cloud persistence path support,
 broader tests, cold-cache refresh locking, SQLite WAL mode, tighter CSP, production-safe
 SSL behavior, and schema-only clean delivery packaging.
 
@@ -105,11 +104,14 @@ git rev-parse v1.0-refactor-complete >> release_proof/git-tag-proof.txt
 A reviewer restores full history from just the `.bundle` file with
 `git clone market-platform-full-history.bundle`. The `.bundle` itself is
 gitignored (it's a generated artifact, same rationale as the SQLite/cache
-exclusions above); `release_proof/*.txt` stays version-controlled.
+exclusions above); `release_proof/*.txt` stays version-controlled. The
+`v1.0-refactor-complete` command requires that tag to exist in the checkout;
+the current checkout has no local tags, so tag proof must be regenerated after
+the release tag is restored.
 
 Current verified result:
 
-- Unit tests: 24 tests OK
+- Unit tests: 190 tests OK (`python -m unittest test_derivatives_platform.py`)
 - E2E smoke: `E2E_SMOKE_OK`
 - Release integrity: `db_unchanged=true`, `mock_free=true`
 - Portable ZIP smoke: `E2E_SMOKE_OK` after clean extraction
@@ -129,14 +131,18 @@ Current verified result:
 
 ## Cloud Persistence
 
-`render.yaml` sets persistent paths for deployments with a Render persistent disk:
+The checked-in `render.yaml` is intentionally compatible with Render's free
+tier. It has no persistent disk and uses ephemeral `/tmp` paths:
 
-- `MARKET_PULSE_CACHE_FILE=/var/data/twse-cache.json`
-- `DERIVATIVES_DB_PATH=/var/data/derivatives-platform.sqlite3`
+- `MARKET_PULSE_CACHE_FILE=/tmp/market-pulse-cache.json`
+- `DERIVATIVES_DB_PATH=/tmp/derivatives-platform.sqlite3`
 
-The SQLite store creates parent directories automatically and initializes the schema on
-startup. Without a persistent disk, platform restarts may reset imported rows, AI reports,
-and structured logs.
+The SQLite store creates parent directories automatically and initializes the
+schema on startup. Because `/tmp` is ephemeral, Render restarts, redeploys, or
+cold starts may reset imported rows, AI reports, structured logs, and the warm
+cache. For production data persistence, use a separately approved Render plan
+and disk-enabled deployment profile with `/var/data`; changing to that profile
+also requires confirming cost, backup, restore, and migration ownership.
 
 ## Main Pages
 
@@ -190,6 +196,3 @@ The R6 ZIP is generated from an explicit allowlist. It excludes archived release
 old ZIPs, DOCX validation reports, personal files, obsolete backup files, and zero-byte
 leftovers. The shipped SQLite database is schema-only for reproducible delivery; runtime
 data is populated after startup or protected imports.
-=======
-# market-platform
->>>>>>> 1c6729ce3be69693d844127b85f388b79cf4e5d5
