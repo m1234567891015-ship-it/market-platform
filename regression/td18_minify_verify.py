@@ -16,6 +16,7 @@ BASELINE_SYMBOLS = REGRESSION / "baseline" / "frontend" / "global_symbols.json"
 PACKAGE_JSON = ROOT / "package.json"
 PACKAGE_LOCK = ROOT / "package-lock.json"
 PRODUCTION_MANIFEST = ROOT / "td18-minify-bundle-manifest.json"
+TEMP_ROOT = ROOT / ".tmp"
 
 
 class VerificationFailure(AssertionError):
@@ -120,8 +121,9 @@ def verify_production_manifest() -> dict:
 def main() -> None:
     lock = json.loads(LOCKFILE.read_text(encoding="utf-8"))
     package = verify_package_lock()
-    with tempfile.TemporaryDirectory(prefix="td18-minify-verify-", dir=ROOT / ".tmp") as first, tempfile.TemporaryDirectory(
-        prefix="td18-minify-verify-", dir=ROOT / ".tmp"
+    TEMP_ROOT.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="td18-minify-verify-", dir=TEMP_ROOT) as first, tempfile.TemporaryDirectory(
+        prefix="td18-minify-verify-", dir=TEMP_ROOT
     ) as second:
         first_result = run_builder(Path(first))
         second_result = run_builder(Path(second))

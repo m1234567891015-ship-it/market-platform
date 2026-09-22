@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "batch": "TD02-FULL-ESM-PHASE-3-4",
-  "version": "td02-full-esm-ff25939a2337230a",
+  "version": "td02-full-esm-a467e3c66880b76e",
   "mode": "module-with-transitional-895-symbol-bridge",
   "sourceInputs": [
     "pwa.js",
@@ -26,13 +26,13 @@
   "bridgeSymbols": 895,
   "output": {
     "file": "market-pulse-esm.min.js",
-    "bytes": 1546367,
-    "sha256": "9f95d57edcb6fb47cc64ec0c6726c9b8ca2ac15b3399ec26a450510b97289939"
+    "bytes": 1549422,
+    "sha256": "cf7276b9c3788af785231a6ffddb0d5cc76a46cf58ee531da7bf898fce66d965"
   },
   "sourceMap": {
     "file": "market-pulse-esm.min.js.map",
-    "bytes": 2829491,
-    "sha256": "e6ad387a5a9da42aaea41bd3710bc6ba32690586aa2bc093587d2dc812b658b0"
+    "bytes": 2835029,
+    "sha256": "6b1444b3861f04510cffe683b9877fac30d0d98e0b0477e9cf20e2dbcbb477db"
   },
   "classicFallback": [
     "common-runtime.min.js",

@@ -24,14 +24,14 @@
       "output": "common-runtime.min.js",
       "sourceMap": "common-runtime.min.js.map",
       "bytes": 290573,
-      "sha256": "311886ef60f75a201429f8699dfadeaf5304f7599c782292f99e414daaf7979f",
+      "sha256": "f0d81a8283d49612e8a7fe9eb7410c33b52778dbbf4a98f3885a581e5f9aaa58",
       "sourceMapBytes": 757079,
-      "sourceMapSha256": "a6f0feb28e86ef8b9c835fb3fb2c2d12d7ee529372a2c5b30feace99fff71336",
+      "sourceMapSha256": "3fe93f3bd82b8d54f4c3fb581e2057f155955345dc30344a7fc5da9189c5117c",
       "inputs": [
         {
           "path": "pwa.js",
           "bytes": 3846,
-          "sha256": "b86b42828ad9c4600dfaa433ec8e13bf59beb76127d0a6e10c91157cfa3e62fc"
+          "sha256": "86f9331c31b26c9563e5f5738acb8486c6904a0bba2ae6fa72af53eeaad84831"
         },
         {
           "path": "js/state.js",
@@ -74,15 +74,15 @@
       "name": "route-bundle",
       "output": "route-bundle.min.js",
       "sourceMap": "route-bundle.min.js.map",
-      "bytes": 921608,
-      "sha256": "9b6382d326ed82fc1e4f37a8ed0b00b9bb77a257ea317ffc6655936efe344dca",
-      "sourceMapBytes": 1974062,
-      "sourceMapSha256": "27251f4e64235e3fb0f0282ffc5bb5cc0e8ef543b33b6be0acfbff3b7e17c371",
+      "bytes": 924006,
+      "sha256": "00b797482c60994bbda031c48d99ae868de5a84ce58f11643b63a722071e495b",
+      "sourceMapBytes": 1979480,
+      "sourceMapSha256": "a222e512fd4d1d1663b938fb4da41869a00c1f43f5d41a73cdbd5b4963d8b448",
       "inputs": [
         {
           "path": "js/page-home.js",
-          "bytes": 62797,
-          "sha256": "d8daa0bc91723025fbc9b6552b84b2d39f0b3ede6d57cdea474861b2e67561ec"
+          "bytes": 63262,
+          "sha256": "b8dc8372a91a0e11de846d9b0c748c324fbe2eddbac12d1b41e0211206aeee04"
         },
         {
           "path": "js/page-us.js",
@@ -96,8 +96,8 @@
         },
         {
           "path": "js/page-global-market-options.js",
-          "bytes": 210905,
-          "sha256": "f9a29f0e95ec59bc04c08f02f6157ea1587c98ad6fdc58a8ef30f5969cb0750d"
+          "bytes": 210807,
+          "sha256": "013819ec07e34c4da231b4d25d4b4cee61387dc2e91420dca14df30c78102918"
         },
         {
           "path": "js/page-global-market-assethub.js",
@@ -106,8 +106,8 @@
         },
         {
           "path": "js/page-tw.js",
-          "bytes": 215153,
-          "sha256": "18d2a1cd53b10cad242ce830f99e438f55e6124c6e19bfb8e6273b335c53fa6f"
+          "bytes": 216496,
+          "sha256": "9a59cf07729e68e76a2f6efbeb84e28ba39af7cb9c6947e0cd3aef3ab0d688c0"
         },
         {
           "path": "js/legacy-unclassified.js",
@@ -116,8 +116,8 @@
         },
         {
           "path": "js/main.js",
-          "bytes": 3894,
-          "sha256": "fca8270594ee527779d17c143a2b67af2e1b09096d2b7362809d704e17f92c4e"
+          "bytes": 5706,
+          "sha256": "e523382d1440d13fa98e0ac95451a0ae3c51e05cda11acbfb065c1241ef1818f"
         },
         {
           "path": "app.js",
@@ -144,7 +144,7 @@
     }
   ],
   "rollout": {
-    "version": "td18-minify-5e25eb24db6b5c9c",
+    "version": "td18-minify-5da203183f90e574",
     "htmlPages": 21,
     "scriptOrder": [
       "common-runtime.min.js",
