@@ -24,6 +24,7 @@ from cache import (
 from security import (
     add_security_headers,
     enforce_api_rate_limit,
+    is_rate_limit_exempt_request,
     warn_if_multi_worker,
 )
 from fetchers import (
@@ -337,9 +338,17 @@ def api_exception_response(code: str, public_message: str, exc: Exception, statu
     return jsonify(api_error_payload(code, public_message)), status
 
 
+def start_background_updater_after_rate_limit():
+    """Start WSGI background work only after a non-exempt request passes rate limiting."""
+    if background_updater_enabled() and not is_rate_limit_exempt_request():
+        start_background_updater()
+    return None
+
+
 app.after_request(add_security_headers)
 app.before_request(initialize_derivatives_store_for_request)
 app.before_request(enforce_api_rate_limit)
+app.before_request(start_background_updater_after_rate_limit)
 app.register_blueprint(system_bp)
 app.register_blueprint(global_market_bp)
 app.register_blueprint(twse_bp)
@@ -678,8 +687,3 @@ if __name__ == "__main__":
         debug=False,
         threaded=True,
     )
-else:
-    # When loaded by a WSGI server (gunicorn, uWSGI, etc.) we still need
-    # to spin up the background updater.
-    if background_updater_enabled():
-        start_background_updater()

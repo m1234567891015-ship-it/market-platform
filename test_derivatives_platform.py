@@ -166,6 +166,121 @@ class DerivativesPlatformApiTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertFalse(db_path.exists(), "import app must not initialize SQLite")
 
+    def test_wsgi_import_does_not_start_background_updater(self):
+        with tempfile.TemporaryDirectory(prefix="market-pulse-wsgi-import-check-") as tmp_name:
+            env = os.environ.copy()
+            env["PYTHONPATH"] = str(Path(__file__).resolve().parent)
+            env["DERIVATIVES_DB_PATH"] = str(Path(tmp_name) / "import.sqlite3")
+            env.pop("MARKET_PULSE_DISABLE_BACKGROUND", None)
+            probe = (
+                "import cache; calls = []; cache.start_background_updater = lambda: calls.append(1); "
+                "import app; print(len(calls))"
+            )
+            result = subprocess.run(
+                [sys.executable, "-c", probe],
+                cwd=tmp_name,
+                env=env,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout.strip(), "0")
+
+    def test_health_request_does_not_start_background_updater(self):
+        with patch.object(app, "background_updater_enabled", return_value=True), patch.object(
+            app, "start_background_updater"
+        ) as start_updater:
+            response = self.client.get("/api/health")
+        self.assertEqual(response.status_code, 200)
+        start_updater.assert_not_called()
+
+    def test_health_then_non_exempt_request_starts_updater_after_rate_limit(self):
+        with security.API_RATE_LIMIT_LOCK:
+            security.API_RATE_LIMIT_STATE.clear()
+        try:
+            with patch.dict(os.environ, {"MARKET_PULSE_RATE_LIMIT_MODE": "local"}, clear=False), patch.object(
+                app, "background_updater_enabled", return_value=True
+            ), patch.object(app, "start_background_updater") as start_updater:
+                self.assertEqual(self.client.get("/api/health").status_code, 200)
+                start_updater.assert_not_called()
+                with app.app.test_request_context(
+                    "/api/derivatives/v1-status", environ_base={"REMOTE_ADDR": "198.51.100.41"}
+                ):
+                    self.assertIsNone(app.app.preprocess_request())
+            start_updater.assert_called_once_with()
+        finally:
+            with security.API_RATE_LIMIT_LOCK:
+                security.API_RATE_LIMIT_STATE.clear()
+
+    def test_background_updater_hook_order_and_successful_api_start(self):
+        hooks = app.app.before_request_funcs[None]
+        names = [hook.__name__ for hook in hooks]
+        self.assertLess(names.index("initialize_derivatives_store_for_request"), names.index("enforce_api_rate_limit"))
+        self.assertLess(names.index("enforce_api_rate_limit"), names.index("start_background_updater_after_rate_limit"))
+        with security.API_RATE_LIMIT_LOCK:
+            security.API_RATE_LIMIT_STATE.clear()
+        try:
+            with patch.dict(os.environ, {"MARKET_PULSE_RATE_LIMIT_MODE": "local"}, clear=False), patch.object(
+                app, "background_updater_enabled", return_value=True
+            ), patch.object(app, "start_background_updater") as start_updater, app.app.test_request_context(
+                "/api/derivatives/v1-status", environ_base={"REMOTE_ADDR": "198.51.100.42"}
+            ):
+                self.assertIsNone(app.app.preprocess_request())
+            start_updater.assert_called_once_with()
+        finally:
+            with security.API_RATE_LIMIT_LOCK:
+                security.API_RATE_LIMIT_STATE.clear()
+
+    def test_repeated_successful_api_requests_start_background_once(self):
+        original_started = cache.background_updater_started
+        cache.background_updater_started = False
+        with security.API_RATE_LIMIT_LOCK:
+            security.API_RATE_LIMIT_STATE.clear()
+        try:
+            with patch.dict(os.environ, {"MARKET_PULSE_RATE_LIMIT_MODE": "local"}, clear=False), patch.object(
+                app, "background_updater_enabled", return_value=True
+            ), patch.object(cache, "load_disk_cache"), patch.object(cache.threading, "Thread") as thread_cls:
+                for address in ("198.51.100.43", "198.51.100.44"):
+                    with app.app.test_request_context(
+                        "/api/derivatives/v1-status", environ_base={"REMOTE_ADDR": address}
+                    ):
+                        self.assertIsNone(app.app.preprocess_request())
+            self.assertEqual(thread_cls.call_count, 1)
+        finally:
+            cache.background_updater_started = original_started
+            with security.API_RATE_LIMIT_LOCK:
+                security.API_RATE_LIMIT_STATE.clear()
+
+    def _assert_rate_limit_response_does_not_start_updater(self, status_code):
+        hooks = app.app.before_request_funcs[None]
+        rate_limit_index = hooks.index(security.enforce_api_rate_limit)
+        original_rate_limit_hook = hooks[rate_limit_index]
+        hooks[rate_limit_index] = lambda: app.app.response_class(status=status_code)
+        try:
+            with patch.object(app, "background_updater_enabled", return_value=True), patch.object(
+                app, "start_background_updater"
+            ) as start_updater, app.app.test_request_context("/api/derivatives/v1-status"):
+                response = app.app.preprocess_request()
+            self.assertEqual(response.status_code, status_code)
+            start_updater.assert_not_called()
+        finally:
+            hooks[rate_limit_index] = original_rate_limit_hook
+
+    def test_rate_limit_503_does_not_start_background_updater(self):
+        self._assert_rate_limit_response_does_not_start_updater(503)
+
+    def test_rate_limit_429_does_not_start_background_updater(self):
+        self._assert_rate_limit_response_does_not_start_updater(429)
+
+    def test_disabled_background_updater_does_not_start_for_non_exempt_request(self):
+        with patch.object(app, "background_updater_enabled", return_value=False), patch.object(
+            app, "start_background_updater"
+        ) as start_updater, app.app.test_request_context("/api/derivatives/v1-status"):
+            self.assertIsNone(app.start_background_updater_after_rate_limit())
+        start_updater.assert_not_called()
+
     def test_api_request_initializes_replaced_store(self):
         original_store = app.DERIVATIVES_STORE
         with tempfile.TemporaryDirectory(prefix="market-pulse-request-db-") as tmp_name:
