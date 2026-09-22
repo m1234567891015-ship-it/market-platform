@@ -1936,8 +1936,11 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         try:
             with security.API_RATE_LIMIT_LOCK:
                 security.API_RATE_LIMIT_STATE.clear()
-                security.API_RATE_LIMIT_STATE["stale-client"] = [0.0]
-                security.API_RATE_LIMIT_LAST_CLEANUP = -security.API_RATE_LIMIT_WINDOW_SECONDS * 2
+                now = time.monotonic()
+                security.API_RATE_LIMIT_STATE["stale-client"] = [
+                    now - security.API_RATE_LIMIT_WINDOW_SECONDS * 2
+                ]
+                security.API_RATE_LIMIT_LAST_CLEANUP = now - security.API_RATE_LIMIT_WINDOW_SECONDS * 2
             response = self.client.get("/api/derivatives/v1-status")
             self.assertEqual(response.status_code, 200)
             with security.API_RATE_LIMIT_LOCK:
