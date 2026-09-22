@@ -105,9 +105,11 @@ A reviewer restores full history from just the `.bundle` file with
 `git clone market-platform-full-history.bundle`. The `.bundle` itself is
 gitignored (it's a generated artifact, same rationale as the SQLite/cache
 exclusions above); `release_proof/*.txt` stays version-controlled. The
-`v1.0-refactor-complete` command requires that tag to exist in the checkout;
-the current checkout has no local tags, so tag proof must be regenerated after
-the release tag is restored.
+`v1.0-refactor-complete` command requires that historical tag to exist in the
+checkout. Its original tag object is absent from this imported repository and
+cannot be reconstructed from the recorded proof alone. The current P0
+verification is separately anchored by `p0-optimization-verified-2026-09-22`;
+this new tag does not replace or claim to be the historical refactor tag.
 
 Current verified result:
 
