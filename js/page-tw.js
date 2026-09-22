@@ -1315,7 +1315,10 @@ function renderSectorPageV2() {
     const cachedAt = data.cachedAt || "--";
     const activeSubcategory = activeYahooSectorCategories[activeGroup.key]?.name;
     const categoryLabel = activeSubcategory ? `${activeGroup.label} / ${activeSubcategory}` : activeGroup.label;
-    sourceNote.textContent = `${categoryLabel} 資料已同步自 ${activeGroup.source}。更新時間：${cachedAt}。資料日期：${snapshotDate}。`;
+    const sourceLabels = { healthy: "來源正常", stale: "使用快取資料", temporarily_unavailable: "來源暫時無法連線", invalid_payload: "來源資料格式異常" };
+    const sourceState = sourceLabels[data.sourceStatus || "healthy"] || sourceLabels.temporarily_unavailable;
+    const sourceUpdatedAt = data.sourceUpdatedAt || cachedAt || snapshotDate;
+    sourceNote.textContent = categoryLabel + " 資料已同步自 " + activeGroup.source + "。來源狀態：" + sourceState + "。更新時間：" + sourceUpdatedAt + "。資料日期：" + snapshotDate + "。";
   }
 
   tabsContainer.querySelectorAll("[data-category]").forEach((button) => {
@@ -3633,10 +3636,18 @@ async function runStockSearch(query, autoSelect = true, preferredMarket = "") {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const payload = await response.json();
     if (requestId !== stockSearchRequestId) return;
+    if (payload.sourceStatus === "invalid_payload" || payload.sourceStatus === "temporarily_unavailable") {
+      const statusLabels = { invalid_payload: "來源資料格式異常", temporarily_unavailable: "來源暫時無法連線" };
+      if (status) status.textContent = statusLabels[payload.sourceStatus] + "；保留目前結果，不以空結果呈現。更新時間：" + (payload.sourceUpdatedAt || "--") + "。";
+      return;
+    }
     const results = Array.isArray(payload.results) ? payload.results : [];
     renderSearchResults(results);
+    const sourceLabels = { healthy: "來源正常", stale: "使用快取資料", temporarily_unavailable: "來源暫時無法連線", invalid_payload: "來源資料格式異常" };
+    const sourceLabel = sourceLabels[payload.sourceStatus || "healthy"] || sourceLabels.temporarily_unavailable;
+    const updatedAt = payload.sourceUpdatedAt || payload.refreshedAt || payload.snapshotDate || "--";
     if (!results.length) {
-      if (status) status.textContent = `live 搜尋查無 ${keyword}。`;
+      if (status) status.textContent = "live 搜尋查無 " + keyword + "。來源狀態：" + sourceLabel + "；資料時間：" + updatedAt + "。";
       return;
     }
     localAllStocks = results;
@@ -3646,7 +3657,7 @@ async function runStockSearch(query, autoSelect = true, preferredMarket = "") {
       cachedAt: payload.refreshedAt,
       stockCount: payload.count,
     };
-    if (status) status.textContent = `live 搜尋找到 ${results.length} 筆，資料時間 ${payload.refreshedAt || payload.snapshotDate || "--"}。`;
+    if (status) status.textContent = "live 搜尋找到 " + results.length + " 筆。來源狀態：" + sourceLabel + "；資料時間：" + updatedAt + "。";
     const selected = autoSelect ? pickPreferredStockResult(results, preferredMarket) : null;
     if (selected) {
       const selectedButton = Array.from(document.querySelectorAll("#search-results [data-code]"))
@@ -3659,8 +3670,7 @@ async function runStockSearch(query, autoSelect = true, preferredMarket = "") {
     }
   } catch (error) {
     if (requestId === stockSearchRequestId) {
-      renderSearchResults([]);
-      if (status) status.textContent = "live 搜尋同步失敗，請稍後再試。";
+      if (status) status.textContent = "來源暫時無法連線；保留目前結果，請稍後再試。";
     }
     console.error("Failed to run live stock search:", error);
   }

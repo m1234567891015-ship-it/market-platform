@@ -1,0 +1,50 @@
+{
+  "healthy_stock_search": {
+    "payload": {"query": "2330", "snapshotDate": "2026-09-21", "cachedAt": "2026-09-22 09:00:00", "count": 1, "results": [{"code": "2330", "name": "台積電"}]},
+    "required": {"query": "str", "cachedAt": "str", "count": "int", "results": "list"},
+    "status": "healthy"
+  },
+  "stale_stock_search": {
+    "payload": {"query": "2330", "snapshotDate": "2026-09-21", "cachedAt": "2026-09-22 08:30:00", "count": 1, "results": [{"code": "2330", "name": "台積電"}]},
+    "required": {"query": "str", "cachedAt": "str", "count": "int", "results": "list"},
+    "stale": true,
+    "status": "stale"
+  },
+  "site_data": {
+    "payload": {"snapshotDate": "2026-09-21", "cachedAt": "2026-09-22 09:00:00", "marketOverview": [{"name": "加權指數"}], "sectors": [{"name": "半導體"}], "stocks": []},
+    "required": {"snapshotDate": "str", "cachedAt": "str", "marketOverview": "list", "sectors": "list"},
+    "status": "healthy"
+  },
+  "live_search_empty_is_valid": {
+    "payload": {"query": "no-match", "refreshedAt": "2026-09-22 09:00:00", "count": 0, "results": []},
+    "required": {"query": "str", "refreshedAt": "str", "count": "int", "results": "list"},
+    "status": "healthy"
+  },
+  "live_stocks": {
+    "payload": {"snapshotDate": "2026-09-21", "refreshedAt": "2026-09-22 09:00:00", "count": 1, "stocks": [{"code": "2330", "name": "台積電"}]},
+    "required": {"refreshedAt": "str", "count": "int", "stocks": "list"},
+    "status": "healthy"
+  },
+  "live_sectors": {
+    "payload": {"snapshotDate": "2026-09-21", "cachedAt": "2026-09-22 09:00:00", "marketOverview": [{"name": "加權指數"}], "sectors": [{"name": "半導體"}]},
+    "required": {"snapshotDate": "str", "cachedAt": "str", "marketOverview": "list", "sectors": "list"},
+    "non_empty": ["marketOverview", "sectors"],
+    "status": "healthy"
+  },
+  "live_overview": {
+    "payload": {"snapshotDate": "2026-09-21", "cachedAt": "2026-09-22 09:00:00", "marketOverview": [{"name": "加權指數"}]},
+    "required": {"snapshotDate": "str", "cachedAt": "str", "marketOverview": "list"},
+    "non_empty": ["marketOverview"],
+    "status": "healthy"
+  },
+  "invalid_search_payload": {
+    "payload": {"query": "2330", "cachedAt": "2026-09-22 09:00:00", "count": "one", "results": {}},
+    "required": {"query": "str", "cachedAt": "str", "count": "int", "results": "list"},
+    "status": "invalid_payload"
+  },
+  "upstream_error": {
+    "kind": "error",
+    "payload": {"success": false, "error_code": "LIVE_SEARCH_UNAVAILABLE"},
+    "status": "temporarily_unavailable"
+  }
+}

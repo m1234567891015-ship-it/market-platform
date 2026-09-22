@@ -77,6 +77,11 @@ from cache import (
     save_disk_cache,
     write_memory_cache,
 )
+from data_source_status import (
+    annotate_source_error,
+    annotate_source_payload,
+    providers_are_stale,
+)
 from fetchers import (
     build_yahoo_chart_series,
     detect_tone,
@@ -106,6 +111,15 @@ from parsers import enrich_stocks_with_industry, find_stock_by_query, pick_exact
 bp = Blueprint("twse", __name__)
 
 
+def source_exception_response(error_code: str, exc: Exception):
+    import app
+
+    response, status_code = app.api_exception_response(
+        error_code, app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc
+    )
+    return jsonify(annotate_source_error(response.get_json(), "temporarily_unavailable")), status_code
+
+
 def ensure_cache_or_error(error_code: str):
     import app
 
@@ -123,14 +137,31 @@ def api_site_data():
     refresh = request.args.get("refresh", "").strip().lower() in {"1", "true", "yes", "on"}
     if refresh:
         try:
-            return jsonify(build_live_sector_site_data())
+            payload = build_live_sector_site_data()
         except Exception as exc:  # noqa: BLE001
-            return app.api_exception_response("LIVE_SITE_DATA_UNAVAILABLE", app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc)
+            return source_exception_response("LIVE_SITE_DATA_UNAVAILABLE", exc)
+        return jsonify(
+            annotate_source_payload(
+                payload,
+                {"snapshotDate": str, "cachedAt": str, "marketOverview": list, "sectors": list},
+                non_empty_fields=("marketOverview", "sectors"),
+            )
+        )
     cache_error = ensure_cache_or_error("SITE_DATA_UNAVAILABLE")
     if cache_error is not None:
-        return cache_error
+        response, status_code = cache_error
+        return jsonify(annotate_source_error(response.get_json(), "temporarily_unavailable")), status_code
     with cache_lock:
-        return jsonify(cache_data["site_data"])
+        payload = cache_data["site_data"]
+        stale = providers_are_stale(cache_data.get("provider_status"))
+    return jsonify(
+        annotate_source_payload(
+            payload,
+            {"snapshotDate": str, "cachedAt": str, "marketOverview": list, "sectors": list},
+            non_empty_fields=("marketOverview", "sectors"),
+            stale=stale,
+        )
+    )
 
 
 @bp.route("/api/twse/live-sectors")
@@ -138,9 +169,15 @@ def api_live_sectors():
     import app
 
     try:
-        return jsonify(build_live_sector_site_data())
+        payload = build_live_sector_site_data()
     except Exception as exc:  # noqa: BLE001
-        return app.api_exception_response("LIVE_SECTORS_UNAVAILABLE", app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc)
+        return source_exception_response("LIVE_SECTORS_UNAVAILABLE", exc)
+    return jsonify(
+        annotate_source_payload(
+            payload,
+            {"snapshotDate": str, "cachedAt": str, "marketOverview": list, "sectors": list},
+        )
+    )
 
 
 @bp.route("/api/twse/live-overview")
@@ -148,9 +185,16 @@ def api_live_overview():
     import app
 
     try:
-        return jsonify(build_live_market_overview_data())
+        payload = build_live_market_overview_data()
     except Exception as exc:  # noqa: BLE001
-        return app.api_exception_response("LIVE_OVERVIEW_UNAVAILABLE", app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc)
+        return source_exception_response("LIVE_OVERVIEW_UNAVAILABLE", exc)
+    return jsonify(
+        annotate_source_payload(
+            payload,
+            {"snapshotDate": str, "cachedAt": str, "marketOverview": list},
+            non_empty_fields=("marketOverview",),
+        )
+    )
 
 
 def format_market_date(date_str: str | None) -> str | None:
@@ -170,17 +214,21 @@ def api_live_stocks():
         stocks, _market_payload, market_date, tpex_quote_date = fetch_live_stock_universe()
         stocks = enrich_stocks_with_industry(stocks)
     except Exception as exc:  # noqa: BLE001
-        return app.api_exception_response("LIVE_STOCKS_UNAVAILABLE", app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc)
+        return source_exception_response("LIVE_STOCKS_UNAVAILABLE", exc)
 
     return jsonify(
-        {
+        annotate_source_payload(
+            {
             "snapshotDate": format_market_date(market_date),
             "tpexStockDate": format_market_date(tpex_quote_date),
             "refreshedAt": app.taipei_now().strftime("%Y-%m-%d %H:%M:%S"),
             "count": len(stocks),
             "stocks": build_stocks_view(stocks, "search"),
             "source": "TWSE / TPEx 即時同步",
-        }
+            },
+            {"refreshedAt": str, "count": int, "stocks": list},
+            non_empty_fields=("stocks",),
+        )
     )
 
 
@@ -192,7 +240,8 @@ def api_live_stock_search():
     requested_market = request.args.get("market", "").strip()
     if not query:
         return jsonify(
-            {
+            annotate_source_payload(
+                {
                 "query": query,
                 "snapshotDate": None,
                 "tpexStockDate": None,
@@ -201,7 +250,9 @@ def api_live_stock_search():
                 "results": [],
                 "source": "TWSE / TPEx live search",
                 "sources": [],
-            }
+                },
+                {"query": str, "refreshedAt": str, "count": int, "results": list},
+            )
         )
     try:
         matches, market_date, tpex_quote_date, sources = fetch_live_stock_search_results(
@@ -210,10 +261,11 @@ def api_live_stock_search():
             limit=20,
         )
     except Exception as exc:  # noqa: BLE001
-        return app.api_exception_response("LIVE_SEARCH_UNAVAILABLE", app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc)
+        return source_exception_response("LIVE_SEARCH_UNAVAILABLE", exc)
 
     return jsonify(
-        {
+        annotate_source_payload(
+            {
             "query": query,
             "snapshotDate": format_market_date(market_date),
             "tpexStockDate": format_market_date(tpex_quote_date),
@@ -222,7 +274,9 @@ def api_live_stock_search():
             "results": build_stocks_view(matches, "search"),
             "source": " / ".join(sources) + " live search" if sources else "live search",
             "sources": sources,
-        }
+            },
+            {"query": str, "refreshedAt": str, "count": int, "results": list},
+        )
     )
 
 
@@ -667,7 +721,8 @@ def api_stock_search():
 
     cache_error = ensure_cache_or_error("STOCK_SEARCH_UNAVAILABLE")
     if cache_error is not None:
-        return cache_error
+        response, status_code = cache_error
+        return jsonify(annotate_source_error(response.get_json(), "temporarily_unavailable")), status_code
     query = request.args.get("q", "").strip()
     with cache_lock:
         raw_stocks = cache_data.get("all_stocks")
@@ -678,15 +733,22 @@ def api_stock_search():
     try:
         matches = find_stock_by_query(query, stocks)
     except Exception as exc:  # noqa: BLE001
-        return app.api_exception_response("STOCK_SEARCH_INVALID_DATA", app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc)
+        response, status_code = app.api_exception_response(
+            "STOCK_SEARCH_INVALID_DATA", app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc
+        )
+        return jsonify(annotate_source_error(response.get_json(), "invalid_payload")), status_code
     return jsonify(
-        {
+        annotate_source_payload(
+            {
             "query": query,
             "snapshotDate": datetime.strptime(market_date, "%Y%m%d").strftime("%Y-%m-%d") if market_date else None,
             "cachedAt": cached_at,
             "count": len(matches),
             "results": matches,
-        }
+            },
+            {"query": str, "cachedAt": str, "count": int, "results": list},
+            stale=providers_are_stale(cache_data.get("provider_status")),
+        )
     )
 
 

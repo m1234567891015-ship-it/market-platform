@@ -63,11 +63,27 @@ async function loadLiveData() {
       timeoutMs,
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    data = await response.json();
+    const payload = await response.json();
+    const sourceStatus = payload.sourceStatus || "healthy";
+    if (sourceStatus === "invalid_payload" || sourceStatus === "temporarily_unavailable") {
+      const statusLabels = { invalid_payload: "來源資料格式異常", temporarily_unavailable: "來源暫時無法連線" };
+      const statusText = statusLabels[sourceStatus] + "；保留上一份資料。更新時間：" + (payload.sourceUpdatedAt || "--") + "。";
+      if (page === "sectors") setText("sector-source-note", statusText);
+      if (page === "market") setText("institution-date", statusText);
+      if (page === "home") setText("source-note", statusText);
+      return false;
+    }
+    data = payload;
     if (Array.isArray(data.stocks)) {
       localAllStocks = data.stocks;
     }
     renderCurrentPage();
+    const sourceLabels = { healthy: "來源正常", stale: "使用快取資料", temporarily_unavailable: "來源暫時無法連線", invalid_payload: "來源資料格式異常" };
+    const sourceLabel = sourceLabels[sourceStatus] || sourceLabels.temporarily_unavailable;
+    const updatedAt = payload.sourceUpdatedAt || payload.refreshedAt || payload.cachedAt || payload.snapshotDate || "--";
+    if (page === "home") setText("source-note", formatUpdateText(data.snapshotDate, data.cachedAt) + " 來源狀態：" + sourceLabel + "；資料時間：" + updatedAt + "。");
+    if (page === "market") setText("institution-date", (data.institutionDate ? "資料日期 " + data.institutionDate : "每 60 秒更新") + " · " + sourceLabel + " · 更新時間 " + updatedAt);
+    if (page === "watchlist") setText("watchlist-status", "資料來源狀態：" + sourceLabel + "；資料時間：" + updatedAt + "。");
     return true;
   } catch (error) {
     const sectorNote = document.getElementById("sector-source-note");
@@ -81,6 +97,9 @@ async function loadLiveData() {
     }
     if (page === "watchlist") {
       setText("watchlist-status", "live 大盤資料同步失敗，請稍後再試。");
+    }
+    if (page === "home") {
+      setText("source-note", "來源暫時無法連線；保留目前資料。更新時間：" + (data?.sourceUpdatedAt || data?.cachedAt || data?.snapshotDate || "--") + "。");
     }
     console.error("Failed to load live TWSE data:", error);
     return false;

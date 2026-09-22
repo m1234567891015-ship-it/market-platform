@@ -360,7 +360,10 @@ function loadHomePennySectorRecommendations() {
     });
 }
 function renderHome() {
-  setText("source-note", formatUpdateText(data.snapshotDate, data.cachedAt));
+  const sourceLabels = { healthy: "來源正常", stale: "使用快取資料", temporarily_unavailable: "來源暫時無法連線", invalid_payload: "來源資料格式異常" };
+  const sourceLabel = sourceLabels[data.sourceStatus || "healthy"] || sourceLabels.temporarily_unavailable;
+  const sourceUpdatedAt = data.sourceUpdatedAt || data.cachedAt || data.snapshotDate || "--";
+  setText("source-note", formatUpdateText(data.snapshotDate, data.cachedAt) + " 來源狀態：" + sourceLabel + "；資料時間：" + sourceUpdatedAt + "。");
   if (data.marketOverview?.length) {
     setText("hero-index", `${data.marketOverview[0].value} ${data.marketOverview[0].pct}`);
   }

@@ -1,0 +1,51 @@
+name: P1 quality gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    env:
+      DERIVATIVES_DB_PATH: /tmp/market-platform-regression.sqlite3
+      MARKET_PULSE_CACHE_FILE: /tmp/market-platform-cache.json
+      MARKET_PULSE_DISABLE_BACKGROUND: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt -r regression/requirements-regression.txt
+
+      - name: Check Python syntax
+        run: python -m py_compile app.py routes_twse.py data_source_status.py test_derivatives_platform.py regression/test_data_source_contracts.py
+
+      - name: Check JavaScript syntax
+        run: for file in js/*.js; do node --check "$file"; done
+
+      - name: Run unit and offline contract tests
+        run: python -m unittest test_derivatives_platform.py regression.test_data_source_contracts
+
+      - name: Run security guardrails
+        run: python security_guardrail_check.py
+
+      - name: Run E2E smoke
+        run: python e2e_smoke.py
+
+      - name: Run offline quick baseline
+        run: python regression/verify_against_baseline.py --quick
