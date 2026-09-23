@@ -459,8 +459,8 @@ Phase 5 的報表會將外部字型差異與真正 pixel diff 分開；即使 pi
 
 | 狀態 | 後續事項 | 說明 |
 |---|---|---|
-| 待辦 | 正式 commit | 依 `AGENTS.md` 規範，在最後一次完整六層驗證全綠後建立獨立、語意清楚的 commit。 |
-| 待辦 | CI 整合 | 將 `verify --quick`、`frontend_check.py --compare`、`interaction_check.py --compare`、`verify --negative` 與必要的 runtime 檢查接入 CI；即時外部端點維持獨立 job。 |
-| 評估中 | Google Fonts 視覺噪音 | 目前已分類為 `external_font`，不會誤判程式回歸；若要進一步消除 20 頁的字型差異，需評估自 hosted 字型、CI font fixture 或穩定化 screenshot 環境，不能直接放寬 2% pixel diff 門檻。 |
+| 已完成 | 正式 commit | 已建立 `4c8ada7 test: complete API import verification phases 0-5`；commit 前離線 gate 全部通過，live TWSE 3 個 endpoint 回傳受控 502，已依規則列為外部環境阻塞。 |
+| 已完成配置 | CI 整合 | `.github/workflows/p1-quality-gate.yml` 已接入 quick、frontend、interaction、runtime、negative gate 並上傳 frontend JSON 報表；`.github/workflows/api-live-health.yml` 提供工作日排程與手動 live API health job，不阻塞 PR。待 GitHub Actions 首次執行確認 runner 環境。 |
+| 已完成（測試層） | Google Fonts 視覺噪音 | 已分類為 `external_font` 並輸出到逐頁 JSON 報表；pixel diff 超標時仍保留 DOM/count gate，不誤判為程式回歸。自 hosted 字型或 baseline 重建仍屬後續可選優化，不能直接放寬 2% pixel diff 門檻。 |
 
-目前不需更新 screenshot、HAR、API schema 或既有 baseline；Google Fonts 問題在未完成方案評估前，維持「外部噪音分類 + DOM/count gate + 2% pixel gate」的安全策略。
+目前不需更新 screenshot、HAR、API schema 或既有 baseline；Google Fonts 維持「外部噪音分類 + DOM/count gate + 2% pixel gate」的安全策略。

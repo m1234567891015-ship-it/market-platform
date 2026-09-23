@@ -1,0 +1,32 @@
+name: API live health
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 1 * * 1-5"
+
+permissions:
+  contents: read
+
+jobs:
+  api-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DERIVATIVES_DB_PATH: /tmp/market-platform-live.sqlite3
+      MARKET_PULSE_CACHE_FILE: /tmp/market-platform-live-cache.json
+      MARKET_PULSE_DISABLE_BACKGROUND: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt -r regression/requirements-regression.txt
+
+      - name: Run live API health check
+        run: python regression/verify_against_baseline.py --quick --api-live
