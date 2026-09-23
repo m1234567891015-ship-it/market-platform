@@ -59,7 +59,10 @@ jobs:
         run: python -m playwright install --with-deps chromium
 
       - name: Run frontend visual gate
-        run: python regression/frontend_check.py --compare --report "$RUNNER_TEMP/frontend-compare.json"
+        run: >-
+          python regression/frontend_check.py --compare
+          --report "$RUNNER_TEMP/frontend-compare.json"
+          --diagnostic-dir "$RUNNER_TEMP/frontend-diagnostics"
 
       - name: Run interaction gate
         run: python regression/interaction_check.py --compare
@@ -75,5 +78,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: frontend-compare-report
-          path: ${{ runner.temp }}/frontend-compare.json
+          path: |
+            ${{ runner.temp }}/frontend-compare.json
+            ${{ runner.temp }}/frontend-diagnostics/
           if-no-files-found: ignore
