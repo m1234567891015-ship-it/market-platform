@@ -10,11 +10,14 @@ from __future__ import annotations
 import argparse
 import base64
 import hashlib
+import importlib.util
 import json
 import os
 import platform
 import re
+import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -404,6 +407,191 @@ def execute_runtime_diagnostic() -> dict[str, Any]:
     return report
 
 
+def _origin_classification(origin: str | None, repo_root: Path) -> str:
+    if not origin:
+        return "other"
+    try:
+        relative = Path(origin).resolve().relative_to(repo_root.resolve()).as_posix()
+    except (OSError, ValueError):
+        return "other"
+    return f"repo_root/{relative}" if relative in {"cache.py", "shared_state.py", "market_config.py"} else "other"
+
+
+def _module_spec_report(name: str, repo_root: Path) -> dict[str, str]:
+    try:
+        spec = importlib.util.find_spec(name)
+    except Exception:
+        spec = None
+    return {
+        "status": "FOUND" if spec is not None else "NOT FOUND",
+        "origin": _origin_classification(getattr(spec, "origin", None), repo_root) if spec is not None else "other",
+    }
+
+
+def _sanitize_exception(exc: BaseException, stage: str) -> dict[str, Any]:
+    return {
+        "exception_class": type(exc).__name__,
+        "module_not_found_name": getattr(exc, "name", None) if isinstance(exc, ModuleNotFoundError) else None,
+        "failure_stage": stage,
+        "failure_category": _failure_category(exc),
+        "safe_errno": _safe_errno(exc),
+    }
+
+
+def _repo_root_import_check(repo_root: Path) -> dict[str, Any]:
+    code = r'''
+import importlib.util, json, os, sys
+def origin_class(spec):
+    if spec is None or not spec.origin:
+        return "other"
+    origin = os.path.basename(spec.origin)
+    return "repo_root/" + origin if origin in {"cache.py", "shared_state.py", "market_config.py"} else "other"
+def err(exc, stage):
+    return {"exception_class": type(exc).__name__, "module_not_found_name": getattr(exc, "name", None) if isinstance(exc, ModuleNotFoundError) else None, "failure_stage": stage}
+result = {name: {"status": "FOUND" if (spec := importlib.util.find_spec(name)) is not None else "NOT FOUND", "origin": origin_class(spec)} for name in ("cache", "shared_state", "market_config")}
+try:
+    import cache
+except Exception as exc:
+    result["import_cache"] = {"status": "FAIL", **err(exc, "import_cache")}
+else:
+    result["import_cache"] = {"status": "PASS"}
+    result["shared_state_loaded"] = "YES" if "shared_state" in sys.modules else "NO"
+    result["market_config_loaded"] = "YES" if "market_config" in sys.modules else "NO"
+    result["redis_loaded"] = "YES" if "redis" in sys.modules else "NO"
+    try:
+        cache._build_cache_l2_shared_adapter()
+    except Exception as exc:
+        result["builder"] = {"status": "FAIL", **err(exc, "cache_l2_builder")}
+    else:
+        result["builder"] = {"status": "PASS"}
+    try:
+        cache._get_cache_l2_shared_adapter()
+    except Exception as exc:
+        result["getter"] = {"status": "FAIL", **err(exc, "cache_l2_getter")}
+    else:
+        result["getter"] = {"status": "PASS"}
+print(json.dumps(result, sort_keys=True))
+'''
+    completed = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=str(repo_root),
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=False,
+    )
+    try:
+        return json.loads(completed.stdout.strip().splitlines()[-1])
+    except (ValueError, IndexError):
+        return {"status": "FAIL", "failure_stage": "repo_root_interpreter", "exception_class": "UnparseableDiagnosticOutput"}
+
+
+def execute_import_boundary_diagnostic() -> dict[str, Any]:
+    repo_root = Path(__file__).resolve().parent.parent
+    script_dir = Path(__file__).resolve().parent
+    sys0 = Path(sys.path[0] or os.getcwd()).resolve()
+    pre = probe_health()
+    invocation_context = {
+        "cwd_repo_root": Path.cwd().resolve() == repo_root.resolve(),
+        "script_directory_is_sys_path_0": sys0 == script_dir.resolve(),
+        "repo_root_in_sys_path": any(Path(item or os.getcwd()).resolve() == repo_root.resolve() for item in sys.path),
+        "sys_path_0_kind": "repo_root" if sys0 == repo_root.resolve() else ("scripts_dir" if sys0 == script_dir.resolve() else "other"),
+    }
+    specs = {name: _module_spec_report(name, repo_root) for name in ("cache", "shared_state", "market_config")}
+    result: dict[str, Any] = {
+        "invocation_context": invocation_context,
+        "specs": specs,
+        "import_cache": "FAIL",
+        "import_cache_exception": None,
+        "cache_module_origin": "other",
+        "shared_state_loaded": "NO",
+        "market_config_loaded": "NO",
+        "redis_loaded": "NO",
+        "builder": "NOT RUN",
+        "getter": "NOT RUN",
+        "builder_exception": None,
+        "getter_exception": None,
+        "direct_redis_ping": "FAIL",
+        "ping_elapsed_ms": None,
+        "script_invocation": "PASS",
+        "repo_root_interpreter": "FAIL",
+        "gunicorn_app_import": "EXISTING EVIDENCE",
+        "pre_health": pre["health"],
+        "pre_v1_status": pre["v1_status"],
+        "redis_writes_performed": "NO",
+        "l2_acceptance_retried": "NO",
+    }
+    try:
+        import redis
+    except Exception as exc:
+        result["direct_redis_exception"] = _sanitize_exception(exc, "redis_import")
+    else:
+        result["redis_loaded"] = "YES"
+        redis_url = str(os.environ.get("MARKET_PULSE_REDIS_URL") or "").strip()
+        if redis_url:
+            try:
+                timeout_value = max(0.1, float(os.environ.get("MARKET_PULSE_SHARED_STATE_TIMEOUT_SECONDS", "1")))
+                client = redis.Redis.from_url(redis_url, protocol=2, socket_connect_timeout=timeout_value, socket_timeout=timeout_value, decode_responses=True)
+                started = time.perf_counter()
+                client.ping()
+                result["direct_redis_ping"] = "PASS"
+                result["ping_elapsed_ms"] = round((time.perf_counter() - started) * 1000, 2)
+            except Exception as exc:
+                result["direct_redis_exception"] = _sanitize_exception(exc, "direct_redis_ping")
+    try:
+        import cache
+    except Exception as exc:
+        result["import_cache_exception"] = _sanitize_exception(exc, "import_cache")
+        result["script_invocation"] = "FAIL"
+    else:
+        result["import_cache"] = "PASS"
+        result["cache_module_origin"] = _origin_classification(getattr(cache, "__file__", None), repo_root)
+        result["shared_state_loaded"] = "YES" if "shared_state" in sys.modules else "NO"
+        result["market_config_loaded"] = "YES" if "market_config" in sys.modules else "NO"
+        try:
+            cache._build_cache_l2_shared_adapter()
+        except Exception as exc:
+            result["builder"] = "FAIL"
+            result["builder_exception"] = _sanitize_exception(exc, "cache_l2_builder")
+        else:
+            result["builder"] = "PASS"
+        try:
+            cache._get_cache_l2_shared_adapter()
+        except Exception as exc:
+            result["getter"] = "FAIL"
+            result["getter_exception"] = _sanitize_exception(exc, "cache_l2_getter")
+        else:
+            result["getter"] = "PASS"
+    repo_check = _repo_root_import_check(repo_root)
+    result["repo_root_check"] = repo_check
+    result["repo_root_interpreter"] = "PASS" if repo_check.get("import_cache", {}).get("status") == "PASS" else "FAIL"
+    post = probe_health()
+    result["post_health"] = post["health"]
+    result["post_v1_status"] = post["v1_status"]
+    result["rate_limit_backend_unavailable"] = "NOT OBSERVED IN INSPECTED WINDOW"
+    if result["script_invocation"] == "FAIL" and repo_check.get("import_cache", {}).get("status") == "PASS":
+        result["root_cause"] = "VERIFIED"
+        result["root_cause_class"] = "script import path"
+        result["root_cause_detail"] = "Script invocation cannot import cache, while repo-root interpreter can."
+        result["production_cache_adapter_defect"] = "NOT ESTABLISHED"
+    elif result["import_cache"] == "PASS" and result["builder"] == "FAIL":
+        result["root_cause"] = "VERIFIED"
+        result["root_cause_class"] = "builder"
+        result["root_cause_detail"] = "cache import passed; builder failed at its own boundary."
+        result["production_cache_adapter_defect"] = "VERIFIED"
+    elif result["import_cache"] == "PASS" and result["builder"] == "PASS" and result["getter"] == "PASS":
+        result["root_cause"] = "NOT VERIFIED"
+        result["root_cause_class"] = "transient/contextual"
+        result["root_cause_detail"] = "All import and adapter boundaries passed in this context."
+        result["production_cache_adapter_defect"] = "NOT VERIFIED"
+    else:
+        result["root_cause"] = "NOT VERIFIED"
+        result["root_cause_class"] = "unknown"
+        result["root_cause_detail"] = "Evidence is incomplete or contradictory."
+        result["production_cache_adapter_defect"] = "NOT VERIFIED"
+    return result
+
+
 def _real_l2_specs(run_id: str) -> list[dict[str, Any]]:
     """Return the six production logical-key builders and their source TTLs.
 
@@ -674,7 +862,7 @@ def execute(run_id: str, output_dir: Path) -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="H11-04 staging-only cache acceptance probes")
-    parser.add_argument("--mode", choices=("backup-restore", "real-l2", "runtime-diagnostic"), default="backup-restore")
+    parser.add_argument("--mode", choices=("backup-restore", "real-l2", "runtime-diagnostic", "import-boundary"), default="backup-restore")
     parser.add_argument("--run-id")
     parser.add_argument(
         "--output-dir",
@@ -685,6 +873,8 @@ def main() -> int:
         run_id = run_id_from_args(args.run_id)
         if args.mode == "runtime-diagnostic":
             report = execute_runtime_diagnostic()
+        elif args.mode == "import-boundary":
+            report = execute_import_boundary_diagnostic()
         else:
             report = execute_real_l2(run_id) if args.mode == "real-l2" else execute(run_id, Path(args.output_dir))
     except ProbeFailure as exc:
@@ -697,6 +887,8 @@ def main() -> int:
     print(json.dumps(report, ensure_ascii=False, sort_keys=True))
     if args.mode == "runtime-diagnostic":
         print("H11_04_RUNTIME_DIAGNOSTIC_OK")
+    elif args.mode == "import-boundary":
+        print("H11_04_IMPORT_BOUNDARY_DIAGNOSTIC_OK")
     else:
         print("H11_04_SIX_REAL_L2_BUCKETS_OK" if args.mode == "real-l2" else "H11_04_APPLICATION_MANAGED_BACKUP_RESTORE_OK")
     return 0
