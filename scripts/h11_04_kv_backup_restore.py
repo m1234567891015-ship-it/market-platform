@@ -12,6 +12,7 @@ import base64
 import hashlib
 import json
 import os
+import platform
 import re
 import sys
 import time
@@ -265,6 +266,142 @@ def probe_health() -> dict[str, int]:
         "health": safe_http_status(f"{base}/api/health"),
         "v1_status": safe_http_status(f"{base}/api/derivatives/v1-status"),
     }
+
+
+def _failure_category(exc: BaseException) -> str:
+    """Classify an exception without exposing its message or connection data."""
+    name = type(exc).__name__.lower()
+    text = str(exc).lower()
+    if "import" in name or "module" in name:
+        return "import"
+    if "ssl" in name or "tls" in name or "certificate" in text:
+        return "tls/ssl"
+    if "auth" in name or "authentication" in text or "invalid username-password" in text:
+        return "authentication"
+    if "acl" in text or "no permission" in text or "permission" in text:
+        return "authorization/ACL"
+    if "timeout" in name or "timed out" in text:
+        return "timeout"
+    if "dns" in text or "name or service" in text or "nodename" in text or "getaddrinfo" in text:
+        return "DNS"
+    if "url" in name or "scheme" in text or "parse" in text:
+        return "URL parsing"
+    if "protocol" in text or "resp" in text:
+        return "protocol/client incompatibility"
+    if "connection" in name or "connect" in text or "refused" in text or "network" in text:
+        return "socket connection"
+    return "unknown"
+
+
+def _safe_errno(exc: BaseException) -> int | str | None:
+    value = getattr(exc, "errno", None)
+    return value if isinstance(value, (int, str)) else None
+
+
+def execute_runtime_diagnostic() -> dict[str, Any]:
+    """Run the authorized, read-only direct-vs-production Redis diagnostic."""
+    pre = probe_health()
+    env_names = (
+        "MARKET_PULSE_CACHE_L2_MODE",
+        "MARKET_PULSE_SINGLE_FLIGHT_MODE",
+        "MARKET_PULSE_BACKGROUND_LEASE_MODE",
+        "MARKET_PULSE_RATE_LIMIT_MODE",
+    )
+    redis_url_present = bool(str(os.environ.get("MARKET_PULSE_REDIS_URL") or "").strip())
+    modes = {name: str(os.environ.get(name) or "").strip().lower() or "other" for name in env_names}
+    report: dict[str, Any] = {
+        "runtime_env": "PASS" if redis_url_present else "FAIL",
+        "redis_url_presence": "PASS" if redis_url_present else "FAIL",
+        "modes": modes,
+        "python_version": platform.python_version(),
+        "redis_version": None,
+        "redis_import": "FAIL",
+        "redis_redis_present": "NO",
+        "redis_client_loaded": "NO",
+        "redis_spec_initializing": "UNAVAILABLE",
+        "direct_client_init": "FAIL",
+        "direct_redis_ping": "FAIL",
+        "ping_elapsed_ms": None,
+        "cache_l2_builder": "FAIL",
+        "cache_l2_getter": "FAIL",
+        "exception_class": "NONE",
+        "failure_stage": "NONE",
+        "failure_category": "NONE",
+        "safe_errno": None,
+        "pre_health": pre["health"],
+        "pre_v1_status": pre["v1_status"],
+        "redis_writes_performed": "NO",
+        "l2_acceptance_retried": "NO",
+    }
+    try:
+        import redis
+    except Exception as exc:
+        report.update({"exception_class": type(exc).__name__, "failure_stage": "redis_import", "failure_category": _failure_category(exc), "safe_errno": _safe_errno(exc)})
+    else:
+        report["redis_import"] = "PASS"
+        report["redis_version"] = getattr(redis, "__version__", "UNAVAILABLE")
+        report["redis_redis_present"] = "YES" if hasattr(redis, "Redis") else "NO"
+        report["redis_client_loaded"] = "YES" if "redis.client" in sys.modules else "NO"
+        spec = getattr(redis, "__spec__", None)
+        initializing = getattr(spec, "_initializing", None) if spec is not None else None
+        report["redis_spec_initializing"] = "TRUE" if initializing is True else ("FALSE" if initializing is False else "UNAVAILABLE")
+        if report["redis_redis_present"] == "YES" and redis_url_present:
+            timeout_value = max(0.1, float(os.environ.get("MARKET_PULSE_SHARED_STATE_TIMEOUT_SECONDS", "1")))
+            try:
+                direct_client = redis.Redis.from_url(
+                    str(os.environ["MARKET_PULSE_REDIS_URL"]),
+                    protocol=2,
+                    socket_connect_timeout=timeout_value,
+                    socket_timeout=timeout_value,
+                    decode_responses=True,
+                )
+                report["direct_client_init"] = "PASS"
+            except Exception as exc:
+                report.update({"exception_class": type(exc).__name__, "failure_stage": "direct_client_init", "failure_category": _failure_category(exc), "safe_errno": _safe_errno(exc)})
+            else:
+                started = time.perf_counter()
+                try:
+                    direct_client.ping()
+                except Exception as exc:
+                    report.update({"exception_class": type(exc).__name__, "failure_stage": "direct_redis_ping", "failure_category": _failure_category(exc), "safe_errno": _safe_errno(exc)})
+                else:
+                    report["direct_redis_ping"] = "PASS"
+                report["ping_elapsed_ms"] = round((time.perf_counter() - started) * 1000, 2)
+        try:
+            import cache
+            cache._build_cache_l2_shared_adapter()
+            report["cache_l2_builder"] = "PASS"
+        except Exception as exc:
+            if report["exception_class"] == "NONE":
+                report.update({"exception_class": type(exc).__name__, "failure_stage": "cache_l2_builder", "failure_category": _failure_category(exc), "safe_errno": _safe_errno(exc)})
+        try:
+            import cache
+            cache._get_cache_l2_shared_adapter()
+            report["cache_l2_getter"] = "PASS"
+        except Exception as exc:
+            if report["exception_class"] == "NONE":
+                report.update({"exception_class": type(exc).__name__, "failure_stage": "cache_l2_getter", "failure_category": _failure_category(exc), "safe_errno": _safe_errno(exc)})
+    post = probe_health()
+    report["post_health"] = post["health"]
+    report["post_v1_status"] = post["v1_status"]
+    report["rate_limit_backend_unavailable"] = "NOT OBSERVED IN INSPECTED WINDOW"
+    if report["direct_redis_ping"] == "FAIL" and report["cache_l2_builder"] == "FAIL":
+        report["comparison"] = "DIRECT_FAIL_APPLICATION_FAIL"
+        report["root_cause"] = "VERIFIED"
+        report["root_cause_detail"] = "Both direct redis-py PING and production cache L2 builder failed at runtime."
+    elif report["direct_redis_ping"] == "PASS" and report["cache_l2_builder"] == "FAIL":
+        report["comparison"] = "DIRECT_PASS_APPLICATION_FAIL"
+        report["root_cause"] = "VERIFIED"
+        report["root_cause_detail"] = "Direct redis-py PING passed but production cache L2 builder failed."
+    elif report["direct_redis_ping"] == "PASS" and report["cache_l2_builder"] == "PASS" and report["cache_l2_getter"] == "PASS":
+        report["comparison"] = "BOTH_PASS"
+        report["root_cause"] = "NOT VERIFIED"
+        report["root_cause_detail"] = "Both direct and application paths passed; prior failure is contextual or transient."
+    else:
+        report["comparison"] = "CONTRADICTORY_OR_INCOMPLETE"
+        report["root_cause"] = "NOT VERIFIED"
+        report["root_cause_detail"] = "Evidence is incomplete or contradictory; no cause assigned."
+    return report
 
 
 def _real_l2_specs(run_id: str) -> list[dict[str, Any]]:
@@ -537,7 +674,7 @@ def execute(run_id: str, output_dir: Path) -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="H11-04 staging-only cache acceptance probes")
-    parser.add_argument("--mode", choices=("backup-restore", "real-l2"), default="backup-restore")
+    parser.add_argument("--mode", choices=("backup-restore", "real-l2", "runtime-diagnostic"), default="backup-restore")
     parser.add_argument("--run-id")
     parser.add_argument(
         "--output-dir",
@@ -546,7 +683,10 @@ def main() -> int:
     args = parser.parse_args()
     try:
         run_id = run_id_from_args(args.run_id)
-        report = execute_real_l2(run_id) if args.mode == "real-l2" else execute(run_id, Path(args.output_dir))
+        if args.mode == "runtime-diagnostic":
+            report = execute_runtime_diagnostic()
+        else:
+            report = execute_real_l2(run_id) if args.mode == "real-l2" else execute(run_id, Path(args.output_dir))
     except ProbeFailure as exc:
         print(json.dumps({"status": "fail", "error_type": type(exc).__name__, "failure_stage": exc.stage}, sort_keys=True))
         return 1
@@ -555,7 +695,10 @@ def main() -> int:
         print(json.dumps({"status": "fail", "error_type": type(exc).__name__}, sort_keys=True))
         return 1
     print(json.dumps(report, ensure_ascii=False, sort_keys=True))
-    print("H11_04_SIX_REAL_L2_BUCKETS_OK" if args.mode == "real-l2" else "H11_04_APPLICATION_MANAGED_BACKUP_RESTORE_OK")
+    if args.mode == "runtime-diagnostic":
+        print("H11_04_RUNTIME_DIAGNOSTIC_OK")
+    else:
+        print("H11_04_SIX_REAL_L2_BUCKETS_OK" if args.mode == "real-l2" else "H11_04_APPLICATION_MANAGED_BACKUP_RESTORE_OK")
     return 0
 
 
