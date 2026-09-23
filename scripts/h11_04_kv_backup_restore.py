@@ -34,6 +34,14 @@ BUCKETS = (
 )
 TTL_TOLERANCE_MS = 1500
 CANARY_TTL_MS = 300_000
+REAL_L2_BUCKETS = (
+    "global_markets",
+    "us_etf_center",
+    "sector_charts",
+    "stock_details",
+    "taifex_options_chain",
+    "yahoo_tw_option_chain",
+)
 
 
 class ProbeFailure(RuntimeError):
@@ -259,6 +267,202 @@ def probe_health() -> dict[str, int]:
     }
 
 
+def _real_l2_specs(run_id: str) -> list[dict[str, Any]]:
+    """Return the six production logical-key builders and their source TTLs.
+
+    These expressions intentionally mirror the application call sites.  The
+    probe then invokes cache.write_memory_cache/read_memory_cache, never a
+    generic Redis SET, so serialization, envelope and L2 namespace handling
+    remain the production implementation under test.
+    """
+    # global_markets has no free-form request field in its production key.  A
+    # deterministic valid limit derived from the run id keeps the exact
+    # production expression while the collision check below prevents overwrite.
+    global_limit = 1 + (int(hashlib.sha256(run_id.encode("utf-8")).hexdigest()[:8], 16) % 160)
+    global_category = "us-stocks"
+    global_underlying = "TXO"
+    global_source = "auto"
+    global_key = f"{global_category}:{global_limit}:{global_underlying}:default"
+    etf_query = f"h11-04-{run_id}"
+    etf_key = f"{etf_query.lower()}:7000:48"
+    sector_symbol = f"H11{run_id.replace('-', '')[:15]}"
+    sector_exchange = "TWSE"
+    sector_market = "TWSE"
+    sector_key = f"{sector_symbol}:{sector_exchange}:{sector_market}"
+    stock_market = "TWSE"
+    stock_code = f"H11{run_id.replace('-', '')[:8]}"
+    stock_market_date = "20990101"
+    stock_history_mode = "recent"
+    stock_months_back = 6
+    stock_detail_mode = "quick"
+    stock_key = f"{stock_market}:{stock_code}:{stock_market_date}:{stock_history_mode}:{stock_months_back}:{stock_detail_mode}"
+    taifex_symbol = "TXO"
+    taifex_query_date = datetime.now(timezone.utc).strftime("%Y%m%d")
+    taifex_expiry = f"H11-{run_id}"
+    taifex_key = f"{taifex_symbol}:{taifex_query_date}:{taifex_expiry}"
+    yahoo_symbol = "TXO"
+    yahoo_expiry = f"H11-{run_id}"
+    yahoo_key = f"{yahoo_symbol}:{yahoo_expiry}"
+    return [
+        {
+            "bucket": "global_markets",
+            "logical_key": global_key,
+            "ttl_seconds": 300,
+            "source": "routes_global_market.api_global_market: f'{category_key}:{limit}:{option_underlying}:{option_source if category_key == \'options\' else \'default\'}'",
+            "builder_inputs": {"category_key": global_category, "limit": global_limit, "option_underlying": global_underlying, "option_source": global_source},
+        },
+        {
+            "bucket": "us_etf_center",
+            "logical_key": etf_key,
+            "ttl_seconds": 300,
+            "source": "routes_global_market.api_us_market_etf_center: f'{query.lower()}:{directory_limit}:{quote_limit}'",
+            "builder_inputs": {"query": etf_query, "directory_limit": 7000, "quote_limit": 48},
+        },
+        {
+            "bucket": "sector_charts",
+            "logical_key": sector_key,
+            "ttl_seconds": 300,
+            "source": "routes_twse.api_yahoo_sector_chart: f'{raw_symbol}:{exchange}:{market}'",
+            "builder_inputs": {"raw_symbol": sector_symbol, "exchange": sector_exchange, "market": sector_market},
+        },
+        {
+            "bucket": "stock_details",
+            "logical_key": stock_key,
+            "ttl_seconds": 300,
+            "source": "routes_twse.api_stock_detail: f'{stock.get(\'market\', \'TWSE\')}:{stock.get(\'code\', code_key)}:{market_date}:{history_mode}:{months_back}:{detail_mode}'",
+            "builder_inputs": {"market": stock_market, "code": stock_code, "market_date": stock_market_date, "history_mode": stock_history_mode, "months_back": stock_months_back, "detail_mode": stock_detail_mode},
+        },
+        {
+            "bucket": "taifex_options_chain",
+            "logical_key": taifex_key,
+            "ttl_seconds": 300,
+            "source": "fetchers.fetch_taifex_txo_option_chain: f'{product[\'symbol\']}:{query_date}:{expiry or \'\'}'",
+            "builder_inputs": {"product_symbol": taifex_symbol, "query_date": taifex_query_date, "expiry": taifex_expiry},
+        },
+        {
+            "bucket": "yahoo_tw_option_chain",
+            "logical_key": yahoo_key,
+            "ttl_seconds": 60,
+            "source": "fetchers.fetch_yahoo_txo_option_chain: f'{product[\'symbol\']}:{expiry or \'\'}'",
+            "builder_inputs": {"product_symbol": yahoo_symbol, "expiry": yahoo_expiry},
+        },
+    ]
+
+
+def execute_real_l2(run_id: str) -> dict[str, Any]:
+    """Exercise each real L2 bucket through the production cache abstraction."""
+    stage = "pre_probe"
+    pre = probe_health()
+    if pre["health"] != 200 or pre["v1_status"] != 200:
+        raise ProbeFailure(stage)
+    stage = "runtime_config"
+    required_modes = ("MARKET_PULSE_CACHE_L2_MODE", "MARKET_PULSE_SINGLE_FLIGHT_MODE", "MARKET_PULSE_BACKGROUND_LEASE_MODE", "MARKET_PULSE_RATE_LIMIT_MODE")
+    modes = {name: str(os.environ.get(name) or "").strip().lower() for name in required_modes}
+    if not os.environ.get("MARKET_PULSE_REDIS_URL") or modes["MARKET_PULSE_CACHE_L2_MODE"] != "redis":
+        raise ProbeFailure(stage)
+    stage = "redis_ping"
+    try:
+        import cache
+        adapter = cache._get_cache_l2_shared_adapter()
+        client = adapter._client  # inspection only; all writes/reads use cache.py below
+        client.ping()
+    except Exception as exc:
+        raise ProbeFailure(stage) from exc
+    source_root = str(os.environ.get("MARKET_PULSE_SHARED_STATE_NAMESPACE", "market-pulse:v1")).strip(":")
+    stage = "source_snapshot"
+    original_keys = scan_keys(client, f"{source_root}:*")
+    original_hashes = key_snapshot(client, original_keys)
+    specs = _real_l2_specs(run_id)
+    if tuple(item["bucket"] for item in specs) != REAL_L2_BUCKETS:
+        raise ProbeFailure("source_mapping")
+    touched: list[str] = []
+    evidence: list[dict[str, Any]] = []
+    try:
+        for spec in specs:
+            bucket = spec["bucket"]
+            logical_key = spec["logical_key"]
+            ttl_seconds = int(spec["ttl_seconds"])
+            stage = f"source_mapping:{bucket}"
+            if bucket not in cache.CACHE_L2_BUCKETS or ttl_seconds <= 0:
+                raise ProbeFailure(stage)
+            namespace = cache._cache_l2_namespace(bucket)
+            raw_key = adapter._digest_key("cache", namespace, logical_key)
+            if client.exists(raw_key):
+                raise ProbeFailure(f"collision:{bucket}")
+            payload = {"h11_04_real_l2": True, "bucket": bucket, "run_id": run_id, "logical_key": logical_key, "items": [1, 2, 3]}
+            stage = f"production_write:{bucket}"
+            cache.write_memory_cache(bucket, logical_key, payload, ttl_seconds)
+            touched.append(raw_key)
+            pttl_after_write = int(client.pttl(raw_key))
+            if pttl_after_write <= 0 or pttl_after_write > ttl_seconds * 1000 + TTL_TOLERANCE_MS:
+                raise ProbeFailure(f"ttl_write:{bucket}")
+            with cache.cache_lock:
+                cache.cache_data.setdefault(bucket, {}).pop(logical_key, None)
+            stage = f"production_read:{bucket}"
+            read_payload = cache.read_memory_cache(bucket, logical_key, ttl_seconds)
+            if read_payload != payload:
+                raise ProbeFailure(f"read_mismatch:{bucket}")
+            envelope_raw = client.get(raw_key)
+            if envelope_raw is None:
+                raise ProbeFailure(f"redis_missing:{bucket}")
+            envelope = json.loads(text_key(envelope_raw))
+            if not isinstance(envelope, dict) or set(("expires_at", "payload")) - set(envelope):
+                raise ProbeFailure(f"envelope:{bucket}")
+            if envelope["payload"] != payload:
+                raise ProbeFailure(f"serialization:{bucket}")
+            evidence.append({
+                "bucket": bucket,
+                "status": "PASS",
+                "logical_key": logical_key,
+                "redis_key": raw_key,
+                "namespace": namespace,
+                "ttl_source_seconds": ttl_seconds,
+                "pttl_after_write_ms": pttl_after_write,
+                "source_of_truth": spec["source"],
+                "builder_inputs": spec["builder_inputs"],
+                "production_write": "cache.write_memory_cache",
+                "production_read": "cache.read_memory_cache",
+                "serialization": "shared_state.RedisSharedStateAdapter JSON envelope",
+            })
+        result = {
+            "status": "pass",
+            "run_id": run_id,
+            "runtime_config": {"redis_url_present": True, "cache_l2_mode": modes["MARKET_PULSE_CACHE_L2_MODE"], "shared_modes": modes},
+            "redis_ping": "PASS",
+            "six_real_l2_buckets": evidence,
+            "six_real_l2_contracts": "PASS",
+            "application_keys_mutated": "NO",
+            "validation_keys_cleaned": "PENDING",
+            "pre_probe": pre,
+        }
+    except ProbeFailure:
+        raise
+    except Exception as exc:
+        raise ProbeFailure(stage) from exc
+    finally:
+        try:
+            stage = "cleanup"
+            cleanup(client, touched)
+            with cache.cache_lock:
+                for spec in specs:
+                    cache.cache_data.setdefault(spec["bucket"], {}).pop(spec["logical_key"], None)
+            stage = "source_integrity"
+            after_keys = scan_keys(client, f"{source_root}:*")
+            if set(after_keys) != set(original_keys):
+                raise RuntimeError("original application key set changed")
+            if key_snapshot(client, original_keys) != original_hashes:
+                raise RuntimeError("original application key payload changed")
+            post = probe_health()
+            if post["health"] != 200 or post["v1_status"] != 200:
+                raise RuntimeError("post-probe application health failed")
+            if "result" in locals():
+                result["validation_keys_cleaned"] = "PASS"
+                result["post_probe"] = post
+        except Exception as exc:
+            raise ProbeFailure(stage) from exc
+    return result
+
+
 def execute(run_id: str, output_dir: Path) -> dict[str, Any]:
     stage = "pre_probe"
     pre = probe_health()
@@ -332,7 +536,8 @@ def execute(run_id: str, output_dir: Path) -> dict[str, Any]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="H11-04 free-tier logical backup/restore acceptance")
+    parser = argparse.ArgumentParser(description="H11-04 staging-only cache acceptance probes")
+    parser.add_argument("--mode", choices=("backup-restore", "real-l2"), default="backup-restore")
     parser.add_argument("--run-id")
     parser.add_argument(
         "--output-dir",
@@ -340,7 +545,8 @@ def main() -> int:
     )
     args = parser.parse_args()
     try:
-        report = execute(run_id_from_args(args.run_id), Path(args.output_dir))
+        run_id = run_id_from_args(args.run_id)
+        report = execute_real_l2(run_id) if args.mode == "real-l2" else execute(run_id, Path(args.output_dir))
     except ProbeFailure as exc:
         print(json.dumps({"status": "fail", "error_type": type(exc).__name__, "failure_stage": exc.stage}, sort_keys=True))
         return 1
@@ -349,7 +555,7 @@ def main() -> int:
         print(json.dumps({"status": "fail", "error_type": type(exc).__name__}, sort_keys=True))
         return 1
     print(json.dumps(report, ensure_ascii=False, sort_keys=True))
-    print("H11_04_APPLICATION_MANAGED_BACKUP_RESTORE_OK")
+    print("H11_04_SIX_REAL_L2_BUCKETS_OK" if args.mode == "real-l2" else "H11_04_APPLICATION_MANAGED_BACKUP_RESTORE_OK")
     return 0
 
 
