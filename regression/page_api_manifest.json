@@ -1,0 +1,241 @@
+{
+  "schema_version": 1,
+  "match_mode": "path",
+  "description": "21 個頁面的 API 導入契約。initial 為頁面載入期間的 API，interactive 為互動 HAR 中相對於 initial 新增的 API 路徑。Phase 1 先驗證 path；query string 契約另於後續階段處理。",
+  "expected_background_failures": [
+    {
+      "page": "tw-Optional-stocks.html",
+      "path": "/api/twse/stock/2330",
+      "status_codes": [503],
+      "reason": "regression fast-fail for full stock detail background request"
+    },
+    {
+      "page": "tw-Optional-stocks.html",
+      "path": "/api/twse/stock/2330/shareholders",
+      "status_codes": [503],
+      "reason": "regression fast-fail for shareholder background request"
+    },
+    {
+      "page": "tw-stock-search.html",
+      "path": "/api/twse/stock/0050",
+      "status_codes": [503],
+      "reason": "regression fast-fail for full stock detail background request"
+    },
+    {
+      "page": "tw-stock-search.html",
+      "path": "/api/twse/stock/0050/shareholders",
+      "status_codes": [503],
+      "reason": "regression fast-fail for shareholder background request"
+    },
+    {
+      "page": "tw-stock-search.html",
+      "path": "/api/twse/stock/2330",
+      "status_codes": [503],
+      "reason": "regression fast-fail for full stock detail background request"
+    },
+    {
+      "page": "tw-stock-search.html",
+      "path": "/api/twse/stock/2330/shareholders",
+      "status_codes": [503],
+      "reason": "regression fast-fail for shareholder background request"
+    },
+    {
+      "page": "us-etf.html",
+      "path": "/api/us-market/symbol/SPYU",
+      "status_codes": [503],
+      "reason": "regression fast-fail for optional ETF detail request"
+    },
+    {
+      "page": "us-watchlist.html",
+      "path": "/api/us-market/symbol/AAPL",
+      "status_codes": [503],
+      "reason": "regression fast-fail for watchlist AI background request"
+    },
+    {
+      "page": "us-watchlist.html",
+      "path": "/api/us-market/symbol/MSFT",
+      "status_codes": [503],
+      "reason": "regression fast-fail for watchlist AI background request"
+    }
+  ],
+  "pages": [
+    {
+      "file": "bonds.html",
+      "initial": ["/api/global-market/bonds"],
+      "interactive": []
+    },
+    {
+      "file": "derivatives-ai.html",
+      "initial": [
+        "/api/ai-analysis",
+        "/api/basis",
+        "/api/futures",
+        "/api/institution",
+        "/api/news",
+        "/api/options",
+        "/api/options/chain",
+        "/api/pcr",
+        "/api/us-market/options-chain/SPY"
+      ],
+      "interactive": []
+    },
+    {
+      "file": "derivatives-analytics.html",
+      "initial": [
+        "/api/ai-analysis",
+        "/api/basis",
+        "/api/futures",
+        "/api/institution",
+        "/api/news",
+        "/api/options",
+        "/api/options/chain",
+        "/api/pcr",
+        "/api/us-market/options-chain/SPY"
+      ],
+      "interactive": []
+    },
+    {
+      "file": "derivatives-assets.html",
+      "initial": [
+        "/api/futures",
+        "/api/institution",
+        "/api/news",
+        "/api/options",
+        "/api/us-market/options-chain/SPY"
+      ],
+      "interactive": []
+    },
+    {
+      "file": "derivatives-status.html",
+      "initial": ["/api/derivatives/v1-status", "/api/twse/site-data"],
+      "interactive": []
+    },
+    {
+      "file": "futures.html",
+      "initial": ["/api/futures", "/api/futures/TX/technical-candles"],
+      "interactive": []
+    },
+    {
+      "file": "index.html",
+      "initial": [
+        "/api/market/penny-sector-recommendations",
+        "/api/twse/site-data"
+      ],
+      "interactive": []
+    },
+    {
+      "file": "international-finance.html",
+      "initial": [
+        "/api/global-market/bonds",
+        "/api/global-market/precious-metals"
+      ],
+      "interactive": []
+    },
+    {
+      "file": "market-overview.html",
+      "initial": ["/api/twse/live-overview"],
+      "interactive": []
+    },
+    {
+      "file": "news.html",
+      "initial": ["/api/twse/live-overview"],
+      "interactive": []
+    },
+    {
+      "file": "options.html",
+      "initial": [
+        "/api/global-market/bonds",
+        "/api/global-market/futures",
+        "/api/global-market/precious-metals",
+        "/api/global-market/us-stocks",
+        "/api/options",
+        "/api/us-market/options-chain/SPY"
+      ],
+      "interactive": [
+        "/api/options/chain",
+        "/api/us-market/options-chain/_SPX"
+      ]
+    },
+    {
+      "file": "precious-metals.html",
+      "initial": ["/api/global-market/precious-metals"],
+      "interactive": []
+    },
+    {
+      "file": "tw-etf.html",
+      "initial": ["/api/twse/etfs"],
+      "interactive": ["/api/twse/stock/00400A"]
+    },
+    {
+      "file": "tw-Optional-stocks.html",
+      "initial": [],
+      "interactive": [
+        "/api/twse/live-search",
+        "/api/twse/site-data",
+        "/api/twse/stock/0050",
+        "/api/twse/stock/2330",
+        "/api/twse/stock/2330/institutional-history",
+        "/api/twse/stock/2330/shareholders"
+      ]
+    },
+    {
+      "file": "tw-stock-search.html",
+      "initial": [],
+      "interactive": [
+        "/api/twse/live-search",
+        "/api/twse/stock/0050",
+        "/api/twse/stock/0050/institutional-history",
+        "/api/twse/stock/0050/shareholders",
+        "/api/twse/stock/2330",
+        "/api/twse/stock/2330/institutional-history",
+        "/api/twse/stock/2330/shareholders"
+      ]
+    },
+    {
+      "file": "tw-stocks.html",
+      "initial": [
+        "/api/twse/live-sectors",
+        "/api/yahoo/sector",
+        "/api/yahoo/sector-chart"
+      ],
+      "interactive": []
+    },
+    {
+      "file": "us-etf.html",
+      "initial": ["/api/us-market/etf-center"],
+      "interactive": ["/api/us-market/symbol/SPYU"]
+    },
+    {
+      "file": "us-market-overview.html",
+      "initial": ["/api/global-market/us-stocks"],
+      "interactive": []
+    },
+    {
+      "file": "us-stock-search.html",
+      "initial": [],
+      "interactive": [
+        "/api/us-market/search",
+        "/api/us-market/symbol/AAPL",
+        "/api/us-market/symbol/MSFT"
+      ]
+    },
+    {
+      "file": "us-stocks.html",
+      "initial": [
+        "/api/global-market/us-stocks",
+        "/api/us-market/nyse-listed",
+        "/api/us-market/sector-stocks"
+      ],
+      "interactive": []
+    },
+    {
+      "file": "us-watchlist.html",
+      "initial": [],
+      "interactive": [
+        "/api/us-market/search",
+        "/api/us-market/symbol/AAPL",
+        "/api/us-market/symbol/MSFT"
+      ]
+    }
+  ]
+}

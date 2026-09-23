@@ -11,6 +11,7 @@ permissions:
 jobs:
   quality-gate:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     env:
       DERIVATIVES_DB_PATH: /tmp/market-platform-regression.sqlite3
       MARKET_PULSE_CACHE_FILE: /tmp/market-platform-cache.json
@@ -33,7 +34,11 @@ jobs:
         run: python -m pip install -r requirements.txt -r regression/requirements-regression.txt
 
       - name: Check Python syntax
-        run: python -m py_compile app.py routes_twse.py data_source_status.py test_derivatives_platform.py regression/test_data_source_contracts.py
+        run: >-
+          python -m py_compile app.py routes_twse.py data_source_status.py
+          test_derivatives_platform.py regression/test_data_source_contracts.py
+          regression/api_page_contract_check.py regression/negative_stability_check.py
+          regression/runtime_loader_check.py regression/verify_against_baseline.py
 
       - name: Check JavaScript syntax
         run: for file in js/*.js; do node --check "$file"; done
@@ -49,3 +54,26 @@ jobs:
 
       - name: Run offline quick baseline
         run: python regression/verify_against_baseline.py --quick
+
+      - name: Install Playwright Chromium
+        run: python -m playwright install --with-deps chromium
+
+      - name: Run frontend visual gate
+        run: python regression/frontend_check.py --compare --report "$RUNNER_TEMP/frontend-compare.json"
+
+      - name: Run interaction gate
+        run: python regression/interaction_check.py --compare
+
+      - name: Run runtime and loader gate
+        run: python regression/runtime_loader_check.py --compare
+
+      - name: Run negative stability gate
+        run: python regression/negative_stability_check.py --compare
+
+      - name: Upload frontend comparison report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-compare-report
+          path: ${{ runner.temp }}/frontend-compare.json
+          if-no-files-found: ignore
