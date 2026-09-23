@@ -25,6 +25,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -77,10 +78,22 @@ def _is_external_resource_error(message: str) -> bool:
 
 
 def _is_external_resource_url(url: str) -> bool:
-    from urllib.parse import urlsplit
-
     parts = urlsplit(url)
     return parts.scheme in {"http", "https"} and parts.hostname not in {None, "127.0.0.1", "localhost", "::1"}
+
+
+def _external_noise_categories(messages: list[str]) -> list[str]:
+    """把可預期的外部視覺噪音分群,但不把它從 DOM/count gate 隱藏。"""
+    categories: set[str] = set()
+    for message in messages:
+        lowered = message.lower()
+        if "fonts.googleapis.com" in lowered or "google fonts" in lowered or "web fonts" in lowered:
+            categories.add("external_font")
+        elif "net::err_" in lowered or "request failed" in lowered:
+            categories.add("external_network")
+        else:
+            categories.add("external_resource")
+    return sorted(categories)
 
 
 def _visit_page(browser, base_url: str, page_file: str, mode: str) -> dict:
@@ -255,22 +268,42 @@ def _compare(results: list[dict]) -> dict:
     baseline_by_file = {p["file"]: p for p in baseline["pages"]}
 
     failures: list[str] = []
+    page_reports: list[dict] = []
     for result in results:
         file = result["file"]
         base = baseline_by_file.get(file)
+        page_report = {
+            "file": file,
+            "counts": result["counts"],
+            "console_error_count": len(result["console_errors"]),
+            "external_error_count": len(result["external_errors"]),
+            "external_noise_categories": _external_noise_categories(result["external_errors"]),
+            "visual": {
+                "status": "not_checked",
+                "diff_pct": None,
+                "threshold_pct": PIXEL_DIFF_FAIL_THRESHOLD_PCT,
+            },
+            "failed": False,
+        }
         if base is None:
             failures.append(f"{file}: 基準中沒有這個頁面(新增頁面需先補基準)")
+            page_report["failed"] = True
+            page_report["visual"]["status"] = "missing_baseline"
+            page_reports.append(page_report)
             continue
 
         if result["console_errors"]:
             failures.append(f"{file}: 出現 {len(result['console_errors'])} 個 console error: {result['console_errors'][:3]}")
+            page_report["failed"] = True
         if result["external_errors"]:
-            print(f"  [EXTERNAL] {file}: {len(result['external_errors'])} 個外部資源錯誤: {result['external_errors'][:3]}")
+            categories = ",".join(page_report["external_noise_categories"])
+            print(f"  [EXTERNAL] {file}: {len(result['external_errors'])} 個外部資源錯誤({categories})")
 
         for key, base_value in base["counts"].items():
             current_value = result["counts"].get(key)
             if current_value != base_value:
                 failures.append(f"{file}: 元素數量 {key} 基準={base_value} 現況={current_value}")
+                page_report["failed"] = True
 
         # 工單第二部分第 4 點的特別驗證點僅作為提醒:實際 DOM 是否用 <table>/<canvas>
         # 依頁面而異(例如 tw-stocks.html 排行榜用 <article class="...-row">,
@@ -283,25 +316,78 @@ def _compare(results: list[dict]) -> dict:
         screenshot_path = BASELINE_DIR / base["screenshot"]
         if screenshot_path.exists():
             diff_pct = _pixel_diff_pct(screenshot_path.read_bytes(), result["screenshot_bytes"])
+            page_report["visual"]["diff_pct"] = round(diff_pct, 4)
             if diff_pct > PIXEL_DIFF_FAIL_THRESHOLD_PCT:
                 if result.get("external_errors"):
+                    page_report["visual"]["status"] = "external_noise"
                     print(
-                        f"  [EXTERNAL] {file}: 截圖像素差異率 {diff_pct:.2f}% > "
-                        f"{PIXEL_DIFF_FAIL_THRESHOLD_PCT}%，但同頁有外部資源錯誤，跳過程式碼回歸判定"
+                        f"  [EXTERNAL] {file}: visual diff {diff_pct:.2f}% > "
+                        f"{PIXEL_DIFF_FAIL_THRESHOLD_PCT}%；保留 DOM/count gate，略過 pixel gate"
                     )
                 else:
+                    page_report["visual"]["status"] = "fail"
                     failures.append(
                         f"[畫面差異] {file}: 截圖像素差異率 {diff_pct:.2f}% > "
                         f"{PIXEL_DIFF_FAIL_THRESHOLD_PCT}%"
                     )
+                    page_report["failed"] = True
+            else:
+                page_report["visual"]["status"] = "pass_with_external_noise" if result.get("external_errors") else "pass"
         else:
+            page_report["visual"]["status"] = "missing_screenshot"
             failures.append(f"{file}: 找不到基準截圖 {screenshot_path}")
+            page_report["failed"] = True
+        page_reports.append(page_report)
 
     ok = not failures
+    summary = {
+        "page_count": len(page_reports),
+        "failed_pages": sum(1 for item in page_reports if item["failed"]),
+        "visual_pass": sum(1 for item in page_reports if item["visual"]["status"] == "pass"),
+        "visual_pass_with_external_noise": sum(
+            1 for item in page_reports if item["visual"]["status"] == "pass_with_external_noise"
+        ),
+        "visual_external_noise": sum(1 for item in page_reports if item["visual"]["status"] == "external_noise"),
+        "visual_fail": sum(1 for item in page_reports if item["visual"]["status"] == "fail"),
+        "external_font_pages": sum(
+            1 for item in page_reports if "external_font" in item["external_noise_categories"]
+        ),
+    }
     print(f"[frontend_check] compare 結果: {'PASS' if ok else 'FAIL'} ({len(failures)} 項問題)")
+    print(
+        "[frontend_check] summary: "
+        f"pages={summary['page_count']}, failed={summary['failed_pages']}, "
+        f"visual_pass={summary['visual_pass']}, "
+        f"visual_external_noise={summary['visual_external_noise']}, "
+        f"visual_fail={summary['visual_fail']}, "
+        f"external_font_pages={summary['external_font_pages']}, "
+        f"threshold={PIXEL_DIFF_FAIL_THRESHOLD_PCT:.2f}%"
+    )
     for failure in failures:
         print(f"  [FAIL] {failure}")
-    return {"ok": ok, "failures": failures}
+    return {
+        "ok": ok,
+        "failures": failures,
+        "summary": summary,
+        "pixel_diff_fail_threshold_pct": PIXEL_DIFF_FAIL_THRESHOLD_PCT,
+        "pages": page_reports,
+    }
+
+
+def _write_report(outcome: dict, report_path: Path) -> None:
+    """輸出 CI/人工查閱用摘要;只有明確指定 --report 才寫檔。"""
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_version": 1,
+        "mode": "frontend_compare",
+        "ok": outcome.get("ok", False),
+        "summary": outcome.get("summary", {}),
+        "pixel_diff_fail_threshold_pct": outcome.get("pixel_diff_fail_threshold_pct"),
+        "pages": outcome.get("pages", []),
+        "failures": outcome.get("failures", []),
+    }
+    report_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+    print(f"[frontend_check] 已寫入報表 {report_path}")
 
 
 if __name__ == "__main__":
@@ -309,8 +395,18 @@ if __name__ == "__main__":
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--capture", action="store_true", help="建立前端基準(只在原版執行一次)")
     group.add_argument("--compare", action="store_true", help="與既有前端基準比對")
+    parser.add_argument(
+        "--report",
+        type=Path,
+        help="可選:將 compare 的逐頁 visual status 與噪音分類輸出為 JSON",
+    )
     args = parser.parse_args()
 
     outcome = run("capture" if args.capture else "compare")
+    if args.report:
+        if args.capture:
+            print("[frontend_check] --report 僅支援 --compare, capture 不輸出 compare 報表")
+        else:
+            _write_report(outcome, args.report)
     if args.compare and not outcome.get("ok", False):
         sys.exit(1)

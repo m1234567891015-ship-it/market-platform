@@ -1,9 +1,9 @@
 """工單 00 第三、四部分:與行為基準比對,判斷現版是否偏離原版行為。
 
 用法:
-    python regression/verify_against_baseline.py --quick        # offline fixture API 比對 + 安全檢查(快、穩定)
+    python regression/verify_against_baseline.py --quick        # offline fixture API + 頁面 API 契約 + 安全檢查(快、穩定)
     python regression/verify_against_baseline.py --quick --api-live  # + 即時端點(見下)
-    python regression/verify_against_baseline.py --full         # quick + --api-live + Playwright 前端比對 + 互動比對
+    python regression/verify_against_baseline.py --full         # quick + --api-live + runtime + negative + Playwright 前端比對 + 互動比對
 
 TD-17/TD-19:`--quick` 只用 `regression/baseline` 的 loopback fixture
 比對快取型端點,不啟動正式 app、不打外部資料源,因此在禁止外網時仍可
@@ -30,6 +30,7 @@ from diffing import apply_mask, deep_diff, extract_schema, schema_diff  # noqa: 
 from offline_fixtures import OfflineFixtureServer  # noqa: E402
 from route_scan import api_get_routes  # noqa: E402
 from server_harness import start_server  # noqa: E402
+from api_page_contract_check import check_contract as check_page_api_contract  # noqa: E402
 
 REGRESSION_DIR = Path(__file__).resolve().parent
 REPO_ROOT = REGRESSION_DIR.parent
@@ -358,6 +359,19 @@ def check_api_baseline() -> CheckReport:
     return report
 
 
+def check_page_api_manifest() -> CheckReport:
+    """Phase 1/2:頁面 API path、結果分類與 schema 必須符合契約 manifest。"""
+    report = CheckReport("21 頁 API 導入、錯誤分類與 schema contract")
+    errors, summary = check_page_api_contract()
+    for error in errors:
+        report.fail(error)
+    if not errors:
+        report.details.append("21/21 頁、page-load HAR 與 interaction HAR 均符合契約")
+        if summary:
+            report.details.append(summary[-1])
+    return report
+
+
 def check_api_live_baseline() -> CheckReport:
     """TD-17:比對 ALWAYS_LIVE_ENDPOINT_NAMES 這幾個設計上無快取、永遠直接
     打外部資料源的端點。獨立於 check_api_baseline(),由 --api-live/--full 呼叫,
@@ -416,11 +430,61 @@ def run_interaction_compare() -> CheckReport:
     return report
 
 
+def run_runtime_loader_compare() -> CheckReport:
+    """Phase 3:21 頁 ESM runtime 與 classic fallback loader 驗證。"""
+    report = CheckReport("runtime_loader_check.py --compare")
+    proc = subprocess.run(
+        [sys.executable, str(REGRESSION_DIR / "runtime_loader_check.py"), "--compare"],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        report.fail(proc.stdout.strip() or proc.stderr.strip())
+    elif proc.stdout.strip():
+        report.details.append(proc.stdout.strip().splitlines()[-1])
+    return report
+
+
+def run_negative_stability_compare() -> CheckReport:
+    """Phase 4:負向 API 回應與前端穩定性驗證。"""
+    report = CheckReport("negative_stability_check.py --compare")
+    proc = subprocess.run(
+        [sys.executable, str(REGRESSION_DIR / "negative_stability_check.py"), "--compare"],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode != 0:
+        report.fail(proc.stdout.strip() or proc.stderr.strip())
+    elif proc.stdout.strip():
+        report.details.append(proc.stdout.strip().splitlines()[-1])
+    return report
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--quick", action="store_true", help="快取型端點 API 比對 + 安全檢查(快、穩定,不含即時端點)")
-    group.add_argument("--full", action="store_true", help="quick + --api-live + Playwright 前端比對 + 互動行為比對")
+    group.add_argument(
+        "--quick",
+        action="store_true",
+        help="快取型端點 API + 21 頁 API 導入契約 + 安全檢查(快、穩定,不含即時端點)",
+    )
+    group.add_argument(
+        "--full",
+        action="store_true",
+        help="quick + --api-live + runtime + Playwright 前端比對 + 互動行為比對",
+    )
+    group.add_argument(
+        "--runtime",
+        action="store_true",
+        help="quick + 21 頁 ESM runtime / loader / classic fallback 驗證",
+    )
+    group.add_argument(
+        "--negative",
+        action="store_true",
+        help="quick + 負向 API 回應與前端穩定性驗證",
+    )
     parser.add_argument(
         "--interactions",
         action="store_true",
@@ -439,14 +503,21 @@ def main() -> int:
         check_escapehtml_threshold(),
         check_security_headers(),
         check_api_baseline(),
+        check_page_api_manifest(),
     ]
     if args.full or args.api_live:
         reports.append(check_api_live_baseline())
     if args.full:
         reports.append(run_frontend_compare())
         reports.append(run_interaction_compare())
+        reports.append(run_runtime_loader_compare())
+        reports.append(run_negative_stability_compare())
     elif args.interactions:
         reports.append(run_interaction_compare())
+    if args.runtime and not args.full:
+        reports.append(run_runtime_loader_compare())
+    if args.negative and not args.full:
+        reports.append(run_negative_stability_compare())
 
     for report in reports:
         report.print_result()

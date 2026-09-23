@@ -1,0 +1,158 @@
+{
+  "schema_version": 1,
+  "match_mode": "fnmatch_path",
+  "description": "頁面 API 成功回應的必要欄位與型別契約。path_pattern 以最具體的 pattern 優先匹配；Phase 2 驗證必要欄位與指定欄位型別，不比對即時數值。",
+  "type_names": ["array", "boolean", "integer", "null", "number", "object", "string"],
+  "endpoints": [
+    {
+      "path_pattern": "/api/ai-analysis",
+      "required_paths": ["data", "success"],
+      "types": {"data": "object", "success": "boolean"}
+    },
+    {
+      "path_pattern": "/api/basis",
+      "required_paths": ["data", "success"],
+      "types": {"data": "object", "success": "boolean"}
+    },
+    {
+      "path_pattern": "/api/derivatives/v1-status",
+      "required_paths": ["data", "success"],
+      "types": {"data": "object", "success": "boolean"}
+    },
+    {
+      "path_pattern": "/api/futures/*/technical-candles",
+      "required_paths": ["data", "success"],
+      "types": {"data": "object", "success": "boolean"}
+    },
+    {
+      "path_pattern": "/api/futures/*/candles",
+      "required_paths": ["data", "success"],
+      "types": {"data": "object", "success": "boolean"}
+    },
+    {
+      "path_pattern": "/api/futures/*",
+      "required_paths": ["data", "success"],
+      "types": {"data": "object", "success": "boolean"}
+    },
+    {
+      "path_pattern": "/api/futures",
+      "required_paths": ["data", "success"],
+      "types": {"data": "object", "success": "boolean"}
+    },
+    {
+      "path_pattern": "/api/global-market/*",
+      "required_paths": ["category", "items", "summary"],
+      "types": {"category": "string", "items": "array", "summary": "object"}
+    },
+    {
+      "path_pattern": "/api/institution",
+      "required_paths": ["data", "success"],
+      "types": {"data": "object", "success": "boolean"}
+    },
+    {
+      "path_pattern": "/api/market/penny-sector-recommendations",
+      "required_paths": ["available", "markets"],
+      "types": {"available": "boolean", "markets": "array"}
+    },
+    {
+      "path_pattern": "/api/news",
+      "required_paths": ["data", "success"],
+      "types": {"data": "object", "success": "boolean"}
+    },
+    {
+      "path_pattern": "/api/options/chain",
+      "required_paths": ["data", "success"],
+      "types": {"data": "object", "success": "boolean"}
+    },
+    {
+      "path_pattern": "/api/options",
+      "required_paths": ["data", "success"],
+      "types": {"data": "object", "success": "boolean"}
+    },
+    {
+      "path_pattern": "/api/pcr",
+      "required_paths": ["data", "success"],
+      "types": {"data": "object", "success": "boolean"}
+    },
+    {
+      "path_pattern": "/api/twse/etfs",
+      "required_paths": ["count", "items"],
+      "types": {"count": "integer", "items": "array"}
+    },
+    {
+      "path_pattern": "/api/twse/live-overview",
+      "required_paths": ["snapshotDate", "marketOverview", "marketStats", "stocks"],
+      "types": {"snapshotDate": "string", "marketOverview": "array", "marketStats": "object", "stocks": "array"}
+    },
+    {
+      "path_pattern": "/api/twse/live-search",
+      "required_paths": ["query", "count", "results"],
+      "types": {"query": "string", "count": "integer", "results": "array"}
+    },
+    {
+      "path_pattern": "/api/twse/live-sectors",
+      "required_paths": ["snapshotDate", "sectors"],
+      "types": {"snapshotDate": "string", "sectors": "array"}
+    },
+    {
+      "path_pattern": "/api/twse/site-data",
+      "required_paths": ["snapshotDate", "stockCount", "sectors"],
+      "types": {"snapshotDate": "string", "stockCount": "integer", "sectors": "array"}
+    },
+    {
+      "path_pattern": "/api/twse/stock/*/institutional-history",
+      "required_paths": ["code", "institutionalTrades", "institutionalTradeHistory"],
+      "types": {"code": "string", "institutionalTrades": "object", "institutionalTradeHistory": "object"}
+    },
+    {
+      "path_pattern": "/api/twse/stock/*/shareholders",
+      "required_paths": ["code", "shareholderDistribution"],
+      "types": {"code": "string", "shareholderDistribution": "object"}
+    },
+    {
+      "path_pattern": "/api/twse/stock/*",
+      "required_paths": ["code", "name", "close", "historyDays"],
+      "types": {"code": "string", "name": "string", "close": "string", "historyDays": "array"}
+    },
+    {
+      "path_pattern": "/api/us-market/etf-center",
+      "required_paths": ["category", "items", "summary"],
+      "types": {"category": "string", "items": "array", "summary": "object"}
+    },
+    {
+      "path_pattern": "/api/us-market/nyse-listed",
+      "required_paths": ["group", "results", "returned"],
+      "types": {"group": "string", "results": "array", "returned": "integer"}
+    },
+    {
+      "path_pattern": "/api/us-market/options-chain/*",
+      "required_paths": ["symbol", "calls", "puts", "summary"],
+      "types": {"symbol": "string", "calls": "array", "puts": "array", "summary": "object"}
+    },
+    {
+      "path_pattern": "/api/us-market/search",
+      "required_paths": ["query", "count", "results"],
+      "types": {"query": "string", "count": "integer", "results": "array"}
+    },
+    {
+      "path_pattern": "/api/us-market/sector-stocks",
+      "required_paths": ["sector", "items", "usable"],
+      "types": {"sector": "string", "items": "array", "usable": "integer"}
+    },
+    {
+      "path_pattern": "/api/us-market/symbol/*",
+      "required_paths": ["symbol", "name", "market", "source"],
+      "types": {"symbol": "string", "name": "string", "market": "string", "source": "string"}
+    },
+    {
+      "path_pattern": "/api/yahoo/sector-chart",
+      "required_paths": ["benchmarkComparisonSeries", "candles", "chartIntervals", "symbol"],
+      "types": {"benchmarkComparisonSeries": "object", "candles": "array", "chartIntervals": "object", "symbol": "string"}
+    },
+    {
+      "path_pattern": "/api/yahoo/sector",
+      "required_paths": ["count", "group", "index", "items"],
+      "types": {"count": "integer", "group": "string", "index": "integer", "items": "array"}
+    }
+  ]
+}
