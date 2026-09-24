@@ -455,12 +455,40 @@ Phase 5 的報表會將外部字型差異與真正 pixel diff 分開；即使 pi
 
 ## 17. 目前完成度與剩餘事項
 
-截至 2026-09-23，Phase 0～Phase 5 的檢驗優化已完成，規劃文件中的核心實作完成度為 **100%**。目前剩餘工作屬於交付與環境整合，不再是 API 導入檢驗功能缺口：
+截至 2026-09-24，Phase 0～Phase 5、CI visual determinism repair、canonical baseline migration、GitHub cloud verification 與 promotion to main 均已完成。
 
-| 狀態 | 後續事項 | 說明 |
+已完成並由 GitHub 實際驗證：
+
+| 狀態 | 項目 | 實證 |
 |---|---|---|
-| 已完成 | 正式 commit | 已建立 `4c8ada7 test: complete API import verification phases 0-5`；commit 前離線 gate 全部通過，live TWSE 3 個 endpoint 回傳受控 502，已依規則列為外部環境阻塞。 |
-| 已完成配置 | CI 整合 | `.github/workflows/p1-quality-gate.yml` 已接入 quick、frontend、interaction、runtime、negative gate 並上傳 frontend JSON 報表；`.github/workflows/api-live-health.yml` 提供工作日排程與手動 live API health job，不阻塞 PR。待 GitHub Actions 首次執行確認 runner 環境。 |
-| 已完成（測試層） | Google Fonts 視覺噪音 | 已分類為 `external_font` 並輸出到逐頁 JSON 報表；pixel diff 超標時仍保留 DOM/count gate，不誤判為程式回歸。自 hosted 字型或 baseline 重建仍屬後續可選優化，不能直接放寬 2% pixel diff 門檻。 |
+| COMPLETE | Phase 0～5 | 正式 commit：`4c8ada7`、`801942c`；本機等效 gate 與後續 GitHub-hosted gate 均完成。 |
+| COMPLETE | CI visual determinism repair | GitHub runner 已固定安裝並驗證 Noto Sans TC / Space Grotesk；2.00% pixel diff threshold 未降低。 |
+| COMPLETE | Baseline migration | 21 張 frontend canonical screenshot baseline 已遷移到 pinned GitHub Ubuntu runner environment；HAR 與 API schema 未因此修改。 |
+| COMPLETE | GitHub cloud verification | 21 頁 frontend、94 條 interaction、runtime / loader 21/21、negative stability 7 cases 全部在 GitHub-hosted runner 通過。 |
+| COMPLETE | Promotion to main | PR #6 → PR #4 → PR #3 依序完成 promotion，最終已合併至 `main`。 |
+| PASS | Final main CI | `main` HEAD `4df65ff9bc31623d4cfae10b7653acb087ee8f60`；P1 quality gate Run ID `35945662330`，event=`push`，conclusion=`SUCCESS`。 |
+| PASS | Artifact upload | Final main CI 的 frontend comparison report 上傳步驟成功。 |
 
-目前不需更新 screenshot、HAR、API schema 或既有 baseline；Google Fonts 維持「外部噪音分類 + DOM/count gate + 2% pixel gate」的安全策略。
+Final main CI 已實際通過：
+
+```text
+Python syntax                    PASS
+JavaScript syntax                PASS
+Unit + offline contracts         PASS
+Security guardrails              PASS
+E2E smoke                        PASS
+Offline quick baseline           PASS
+Playwright Chromium              PASS
+Deterministic frontend fonts     PASS
+Frontend visual gate             PASS
+Interaction gate                 PASS
+Runtime / loader gate            PASS
+Negative stability gate          PASS
+Artifact upload                  PASS
+```
+
+目前唯一尚待獨立確認的事項：
+
+- Live API workflow（`.github/workflows/api-live-health.yml`）首次排程或手動執行結果。
+
+因此，CI / visual determinism / baseline migration / promotion 工作線已正式結案；Live API health 屬獨立的外部資料源可用性驗證，不應反向改寫已完成的離線與 GitHub-hosted CI 結論。
