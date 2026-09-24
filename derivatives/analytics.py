@@ -1,7 +1,15 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+import hashlib
+import json
 from math import isfinite
 from typing import Any
+
+
+DECISION_MODEL_VERSION = "rules-based-derivatives-v1"
+DECISION_STRATEGY_VERSION = "derivatives-decision-v1"
+MODEL_CONFIDENCE_STATUS_UNAVAILABLE = "UNAVAILABLE"
 
 
 def clamp(value: float, low: float = 0, high: float = 100) -> float:
@@ -41,7 +49,141 @@ def score_label(score: float) -> str:
     return "低"
 
 
-def enrich_option_ai_decision(analysis: dict[str, Any], summary: dict[str, Any], chain: list[dict[str, Any]], spot: float | None) -> dict[str, Any]:
+def _normalise_score(value: Any) -> float | None:
+    parsed = number(value)
+    if parsed is None:
+        return None
+    return clamp(parsed)
+
+
+def build_decision_quality(
+    available_evidence: int,
+    evidence_total: int,
+    quality_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Return explainable data coverage and quality scores.
+
+    This is deliberately a data-quality heuristic, not a predictive-confidence
+    estimate. Unknown quality dimensions are omitted instead of being treated as
+    healthy. ``quality_context`` may provide explicit 0-100 scores for freshness,
+    provider health, consistency, or fallback-source use.
+    """
+    context = quality_context or {}
+    total = max(int(evidence_total or 0), 0)
+    available = max(min(int(available_evidence or 0), total), 0) if total else 0
+    evidence_score = round((available / total) * 100) if total else 0
+    dimensions: dict[str, float] = {"completeness": float(evidence_score)}
+
+    explicit_dimensions = {
+        "freshness": context.get("freshness_score"),
+        "providerHealth": context.get("provider_health_score"),
+        "consistency": context.get("consistency_score"),
+        "fallbackSource": context.get("fallback_source_score"),
+    }
+    for name, value in explicit_dimensions.items():
+        score = _normalise_score(value)
+        if score is not None:
+            dimensions[name] = score
+
+    provider_status = str(context.get("provider_status") or "").strip().lower()
+    if provider_status in {"failed", "error", "unavailable"}:
+        dimensions["providerHealth"] = 0.0
+    if context.get("stale") is True:
+        dimensions["freshness"] = 0.0
+    if "fallback_used" in context and "fallbackSource" not in dimensions:
+        dimensions["fallbackSource"] = 50.0 if context["fallback_used"] else 100.0
+
+    data_quality_score = round(sum(dimensions.values()) / len(dimensions)) if dimensions else None
+    if provider_status in {"failed", "error", "unavailable"}:
+        status = "FAILED"
+    elif data_quality_score is None or not dimensions:
+        status = "UNAVAILABLE"
+    elif evidence_score == 100 and data_quality_score >= 80:
+        status = "AVAILABLE"
+    else:
+        status = "PARTIAL"
+    return {
+        "evidenceScore": evidence_score,
+        "dataQualityScore": data_quality_score,
+        "dataQualityStatus": status,
+        "dataQualityDimensions": dimensions,
+    }
+
+
+def build_decision_provenance(
+    symbol: str,
+    input_snapshot: dict[str, Any],
+    decision_output: dict[str, Any],
+    decision_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build reproducibility metadata without adding persistence.
+
+    The hash covers only the decision inputs. Timestamps and identifiers are
+    metadata and therefore do not make identical input snapshots hash differently.
+    """
+    context = decision_context or {}
+    canonical_snapshot = json.dumps(
+        input_snapshot,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        default=str,
+    )
+    input_snapshot_hash = hashlib.sha256(canonical_snapshot.encode("utf-8")).hexdigest()
+    symbol_text = str(symbol or "unknown").strip() or "unknown"
+    model_version = str(context.get("model_version") or DECISION_MODEL_VERSION)
+    strategy_version = str(context.get("strategy_version") or DECISION_STRATEGY_VERSION)
+    market_as_of = context.get("market_as_of")
+    decision_id_seed = "|".join(
+        [symbol_text, str(market_as_of or ""), model_version, strategy_version, input_snapshot_hash]
+    )
+    decision_id = hashlib.sha256(decision_id_seed.encode("utf-8")).hexdigest()
+    decision_time = context.get("decision_time") or datetime.now(timezone.utc).isoformat()
+    confidence_method = str(context.get("confidence_method") or "NOT_CALIBRATED")
+    return {
+        "decision_id": decision_id,
+        "symbol": symbol_text,
+        "decision_time": str(decision_time),
+        "market_as_of": market_as_of,
+        "source_updated_at": context.get("source_updated_at"),
+        "model_version": model_version,
+        "strategy_version": strategy_version,
+        "input_snapshot_hash": input_snapshot_hash,
+        "confidence_method": confidence_method,
+        "decision_output": decision_output,
+    }
+
+
+def build_decision_contract(
+    *,
+    symbol: str,
+    input_snapshot: dict[str, Any],
+    decision_output: dict[str, Any],
+    available_evidence: int,
+    evidence_total: int,
+    decision_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    quality = build_decision_quality(available_evidence, evidence_total, decision_context)
+    return {
+        **quality,
+        # Snake_case aliases mirror the provenance contract while camelCase fields
+        # remain the public API convention used by the existing frontend.
+        "evidence_score": quality["evidenceScore"],
+        "data_quality_score": quality["dataQualityScore"],
+        "modelConfidence": None,
+        "modelConfidenceStatus": MODEL_CONFIDENCE_STATUS_UNAVAILABLE,
+        "model_confidence": None,
+        **build_decision_provenance(symbol, input_snapshot, decision_output, decision_context),
+    }
+
+
+def enrich_option_ai_decision(
+    analysis: dict[str, Any],
+    summary: dict[str, Any],
+    chain: list[dict[str, Any]],
+    spot: float | None,
+    decision_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     pcr = number(summary.get("putCallRatio"))
     volume_pcr = number(summary.get("volumePutCallRatio"))
     max_pain = number(summary.get("maxPain") or analysis.get("maxPain"))
@@ -77,6 +219,14 @@ def enrich_option_ai_decision(analysis: dict[str, Any], summary: dict[str, Any],
     market_score = round(clamp(directional))
     risk_score = round(clamp(risk))
     confidence_score = round(clamp(38 + evidence * 12 + (10 if len(chain) >= 10 else 0)))
+    decision_contract = build_decision_contract(
+        symbol=str((decision_context or {}).get("symbol") or analysis.get("target") or "unknown"),
+        input_snapshot={"summary": summary, "chain": chain, "spot": spot},
+        decision_output={"bias": analysis.get("bias"), "marketScore": market_score, "riskScore": risk_score},
+        available_evidence=evidence,
+        evidence_total=5,
+        decision_context=decision_context,
+    )
     cross_validation = [
         {
             "name": "PCR",
@@ -111,16 +261,22 @@ def enrich_option_ai_decision(analysis: dict[str, Any], summary: dict[str, Any],
         **analysis,
         "marketScore": market_score,
         "riskScore": risk_score,
+        **decision_contract,
+        # Compatibility field. It is the pre-Q1 evidence proxy, not predictive confidence.
         "confidenceScore": confidence_score,
         "scoreFormula": {
             "marketScore": "50 + PCR directional pressure + Volume PCR pressure + Max Pain gap direction + OI wall position, clamped 0-100.",
             "riskScore": "48 + PCR risk pressure + Volume PCR imbalance + abs(Max Pain gap) + out-of-range OI wall penalty, clamped 0-100.",
-            "confidenceScore": "38 + 12 points per available evidence layer + option-chain depth bonus, clamped 0-100.",
+            "evidenceScore": "Available required evidence layers / 5 * 100; coverage only, not predictive confidence.",
+            "dataQualityScore": "Mean of known completeness, freshness, provider-health, consistency, and fallback-source dimensions; unknown dimensions are omitted.",
+            "modelConfidence": "Unavailable until historical out-of-sample calibration exists; returned as null.",
+            "confidenceScore": "DEPRECATED compatibility field: legacy evidence proxy, not calibrated model confidence.",
             "evidenceLayers": ["PCR", "Volume PCR", "Max Pain Gap", "OI Wall", "Total OI"],
         },
         "scoreLabels": {
             "market": score_label(market_score),
             "risk": score_label(risk_score),
+            "evidence": score_label(decision_contract["evidenceScore"]),
             "confidence": score_label(confidence_score),
         },
         "crossValidation": cross_validation,
@@ -128,7 +284,12 @@ def enrich_option_ai_decision(analysis: dict[str, Any], summary: dict[str, Any],
     }
 
 
-def enrich_futures_ai_decision(analysis: dict[str, Any], item: dict[str, Any], candles: list[dict[str, Any]]) -> dict[str, Any]:
+def enrich_futures_ai_decision(
+    analysis: dict[str, Any],
+    item: dict[str, Any],
+    candles: list[dict[str, Any]],
+    decision_context: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     pct = number(item.get("pct"))
     oi = number(item.get("openInterest"))
     volume = number(item.get("volume"))
@@ -143,6 +304,21 @@ def enrich_futures_ai_decision(analysis: dict[str, Any], item: dict[str, Any], c
     market_score = 50 + (clamp((pct or 0) * 8, -22, 22) if pct is not None else 0)
     risk_score = 45 + (10 if pct is not None and pct < -0.8 else 0) + (6 if oi else 0)
     confidence_score = 35 + evidence * 14
+    context = decision_context or {
+        "symbol": item.get("symbol"),
+        "market_as_of": item.get("date"),
+        "source_updated_at": item.get("date"),
+        "provider_status": "failed" if item.get("error") else "healthy",
+        "fallback_used": str(item.get("sourceStatus") or "").lower() in {"fallback", "snapshot"},
+    }
+    decision_contract = build_decision_contract(
+        symbol=str(context.get("symbol") or analysis.get("target") or item.get("symbol") or "unknown"),
+        input_snapshot={"item": item, "candles": candles},
+        decision_output={"bias": analysis.get("bias"), "marketScore": round(clamp(market_score)), "riskScore": round(clamp(risk_score))},
+        available_evidence=evidence,
+        evidence_total=4,
+        decision_context=context,
+    )
     cross_validation = [
         {"name": "Price Change", "status": "available" if pct is not None else "missing", "signal": item.get("pct") or "--"},
         {"name": "Open Interest", "status": "available" if oi is not None else "missing", "signal": item.get("openInterest") or "--"},
@@ -161,11 +337,16 @@ def enrich_futures_ai_decision(analysis: dict[str, Any], item: dict[str, Any], c
         **analysis,
         "marketScore": round(clamp(market_score)),
         "riskScore": round(clamp(risk_score)),
+        **decision_contract,
+        # Compatibility field. It is the pre-Q1 evidence proxy, not predictive confidence.
         "confidenceScore": round(clamp(confidence_score)),
         "scoreFormula": {
             "marketScore": "50 + futures percent-change directional score, clamped 0-100.",
             "riskScore": "45 + downside momentum penalty + open-interest availability risk premium, clamped 0-100.",
-            "confidenceScore": "35 + 14 points per available evidence layer, clamped 0-100.",
+            "evidenceScore": "Available required evidence layers / 4 * 100; coverage only, not predictive confidence.",
+            "dataQualityScore": "Mean of known completeness, freshness, provider-health, consistency, and fallback-source dimensions; unknown dimensions are omitted.",
+            "modelConfidence": "Unavailable until historical out-of-sample calibration exists; returned as null.",
+            "confidenceScore": "DEPRECATED compatibility field: legacy evidence proxy, not calibrated model confidence.",
             "evidenceLayers": ["Price Change", "Open Interest", "Volume", "Candles"],
         },
         "crossValidation": cross_validation,

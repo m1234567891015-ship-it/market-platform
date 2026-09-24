@@ -654,6 +654,7 @@ def build_taifex_option_ai_analysis(
     chain: list[dict[str, Any]],
     max_pain: dict[str, Any],
     spot: float | None,
+    decision_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     pcr = summary.get("putCallRatio")
     volume_pcr = summary.get("volumePutCallRatio")
@@ -717,7 +718,7 @@ def build_taifex_option_ai_analysis(
         ],
         "disclaimer": "AI 分析僅依 TAIFEX 公開資料與系統計算產生，僅供研究參考，不保證獲利。",
     }
-    return enrich_option_ai_decision(analysis, summary, chain, spot)
+    return enrich_option_ai_decision(analysis, summary, chain, spot, decision_context=decision_context)
 
 
 def build_taifex_txo_option_payload(
@@ -784,7 +785,19 @@ def build_taifex_txo_option_payload(
         "chain": chain,
         "distribution": build_taifex_option_distribution(chain),
         "spot": spot_snapshot,
-        "analysis": build_taifex_option_ai_analysis(summary, chain, max_pain, spot),
+        "analysis": build_taifex_option_ai_analysis(
+            summary,
+            chain,
+            max_pain,
+            spot,
+            decision_context={
+                "symbol": product["symbol"],
+                "market_as_of": trade_date,
+                "source_updated_at": trade_date,
+                "provider_status": "healthy",
+                "fallback_used": False,
+            },
+        ),
         "schema": {
             "optionsProduct": product["symbol"],
             "optionsContractKey": "underlying + expiry + strike + option_type",
@@ -841,7 +854,19 @@ def build_yahoo_txo_option_payload(
         "chain": chain,
         "distribution": build_taifex_option_distribution(chain),
         "spot": spot_snapshot,
-        "analysis": build_taifex_option_ai_analysis(summary, chain, max_pain, spot),
+        "analysis": build_taifex_option_ai_analysis(
+            summary,
+            chain,
+            max_pain,
+            spot,
+            decision_context={
+                "symbol": product["symbol"],
+                "market_as_of": trade_date,
+                "source_updated_at": trade_date,
+                "provider_status": "healthy",
+                "fallback_used": True,
+            },
+        ),
         "schema": {
             "optionsProduct": product["symbol"],
             "optionsContractKey": "underlying + expiry + strike + option_type",

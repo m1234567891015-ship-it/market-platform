@@ -37,7 +37,8 @@ import routes_global_market
 import routes_twse
 import security
 from derivatives_store import DerivativesStore
-from derivatives.analytics import build_basis_payload
+from derivatives.analytics import build_basis_payload, build_decision_provenance, build_decision_quality
+from derivatives.ai import build_unavailable_ai_analysis
 
 
 FUTURES_ITEM = {
@@ -1401,6 +1402,93 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertIn("scoreFormula", analysis)
         self.assertIn("crossValidation", analysis)
         self.assertIn("strategySuggestion", analysis)
+
+    def test_generated_option_decision_contract(self):
+        analysis = builders.build_taifex_option_ai_analysis(
+            OPTIONS_CHAIN["summary"],
+            [],
+            {"strike": 21000, "loss": 0},
+            21000,
+            decision_context={
+                "symbol": "TXO",
+                "market_as_of": "2026-06-20",
+                "source_updated_at": "2026-06-20",
+                "decision_time": "2026-06-20T08:00:00+00:00",
+                "provider_status": "healthy",
+                "fallback_used": False,
+            },
+        )
+        self.assertIn("evidenceScore", analysis)
+        self.assertIn("dataQualityScore", analysis)
+        self.assertIn("evidence_score", analysis)
+        self.assertIn("data_quality_score", analysis)
+        self.assertIsNone(analysis["modelConfidence"])
+        self.assertIsNone(analysis["model_confidence"])
+        self.assertEqual(analysis["modelConfidenceStatus"], "UNAVAILABLE")
+        for field in (
+            "decision_id",
+            "symbol",
+            "decision_time",
+            "market_as_of",
+            "source_updated_at",
+            "model_version",
+            "strategy_version",
+            "input_snapshot_hash",
+            "confidence_method",
+            "decision_output",
+        ):
+            self.assertIn(field, analysis)
+        self.assertIn("scoreFormula", analysis)
+        self.assertIn("crossValidation", analysis)
+        self.assertIn("strategySuggestion", analysis)
+
+    def test_decision_quality_complete_data(self):
+        quality = build_decision_quality(
+            5,
+            5,
+            {
+                "freshness_score": 100,
+                "provider_health_score": 100,
+                "consistency_score": 100,
+                "fallback_source_score": 100,
+            },
+        )
+        self.assertEqual(quality["evidenceScore"], 100)
+        self.assertEqual(quality["dataQualityScore"], 100)
+        self.assertEqual(quality["dataQualityStatus"], "AVAILABLE")
+
+    def test_decision_quality_partial_data(self):
+        quality = build_decision_quality(2, 5, {"provider_status": "healthy"})
+        self.assertEqual(quality["evidenceScore"], 40)
+        self.assertLess(quality["dataQualityScore"], 100)
+        self.assertEqual(quality["dataQualityStatus"], "PARTIAL")
+
+    def test_decision_quality_stale_data(self):
+        quality = build_decision_quality(5, 5, {"freshness_score": 100, "stale": True})
+        self.assertEqual(quality["dataQualityDimensions"]["freshness"], 0)
+        self.assertLess(quality["dataQualityScore"], 100)
+
+    def test_decision_quality_provider_failure(self):
+        quality = build_decision_quality(0, 5, {"provider_status": "failed"})
+        self.assertEqual(quality["dataQualityStatus"], "FAILED")
+        self.assertEqual(quality["dataQualityDimensions"]["providerHealth"], 0)
+
+    def test_model_confidence_is_unavailable_without_calibration(self):
+        analysis = build_unavailable_ai_analysis("TXO", "fixture provider failure")
+        self.assertIsNone(analysis["modelConfidence"])
+        self.assertEqual(analysis["modelConfidenceStatus"], "UNAVAILABLE")
+        self.assertEqual(analysis["confidence_method"], "NOT_CALIBRATED")
+
+    def test_decision_provenance_hash_is_deterministic(self):
+        context = {
+            "decision_time": "2026-09-24T00:00:00+00:00",
+            "market_as_of": "2026-09-23",
+            "source_updated_at": "2026-09-23T08:00:00+00:00",
+        }
+        first = build_decision_provenance("TXO", {"b": 2, "a": 1}, {"bias": "區間"}, context)
+        second = build_decision_provenance("TXO", {"a": 1, "b": 2}, {"bias": "區間"}, context)
+        self.assertEqual(first["input_snapshot_hash"], second["input_snapshot_hash"])
+        self.assertEqual(first["decision_id"], second["decision_id"])
 
     def test_v1_status_contract(self):
         status = self.assert_success(self.client.get("/api/derivatives/v1-status"))
