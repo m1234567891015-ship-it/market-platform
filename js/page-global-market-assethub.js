@@ -6013,21 +6013,63 @@ initDerivativesAnalyticsPage.strategyEngine = (() => {
     const parsed = Date.parse(`${text}T00:00:00Z`);
     return Number.isFinite(parsed) ? parsed : null;
   };
+  const timestampValue = (value) => {
+    if (typeof value === "number" && Number.isFinite(value)) return value > 100000000000 ? value : value * 1000;
+    const text = String(value || "").trim();
+    if (!text) return null;
+    const parsed = Date.parse(text);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
   const daysTo = (value) => { const parsed = dateValue(value); return parsed === null ? null : Math.ceil((parsed - todayUtc()) / 86400000); };
-  const quotePremium = (quote) => {
+  const executionPrice = (quote, side = "BUY") => {
     if (!quote || typeof quote !== "object") return null;
-    for (const field of ["last", "settlement", "lastPrice"]) {
-      const value = numeric(quote[field]);
-      if (finite(value) && value > 0) return value;
-    }
     const bid = numeric(quote.bid);
     const ask = numeric(quote.ask);
-    return finite(bid) && finite(ask) && bid >= 0 && ask >= bid && ask > 0 ? (bid + ask) / 2 : null;
+    const crossed = finite(bid) && finite(ask) && ask < bid;
+    const preferredField = side === "SELL" ? "bid" : "ask";
+    const preferred = numeric(quote[preferredField]);
+    if (finite(preferred) && preferred > 0 && !crossed) return { price: preferred, source: preferredField };
+    if (finite(bid) && finite(ask) && bid > 0 && ask >= bid) return { price: (bid + ask) / 2, source: "modeled_midpoint" };
+    for (const field of ["last", "settlement", "lastPrice"]) {
+      const value = numeric(quote[field]);
+      if (finite(value) && value > 0) return { price: value, source: field };
+    }
+    return null;
   };
-  const liquidity = (quote) => {
+  const quotePremium = (quote, side = "BUY") => executionPrice(quote, side)?.price ?? null;
+  const transactionCostValue = (quote, market, field, fallback = 0) => (
+    numeric(quote?.[field])
+    ?? numeric(market?.optionsCostModel?.[field])
+    ?? numeric(market?.transactionCosts?.[field])
+    ?? fallback
+  );
+  const liquidity = (quote, market) => {
     const volume = numeric(quote?.volume);
     const openInterest = numeric(quote?.openInterest);
-    return finite(volume) && finite(openInterest) ? { verified: true, volume, openInterest } : { verified: false, volume, openInterest };
+    const bid = numeric(quote?.bid);
+    const ask = numeric(quote?.ask);
+    const midpoint = finite(bid) && finite(ask) && bid > 0 && ask >= bid ? (bid + ask) / 2 : null;
+    const spreadPct = finite(midpoint) && midpoint > 0 ? (ask - bid) / midpoint : null;
+    const spreadScore = finite(spreadPct) ? Math.max(0, Math.min(1, 1 - (spreadPct / 0.1))) : 0;
+    const quoteTimestamp = timestampValue(quote?.quoteTime ?? quote?.timestamp ?? quote?.updatedAt);
+    const quoteAgeDays = quoteTimestamp === null ? null : Math.max(0, (Date.now() - quoteTimestamp) / 86400000);
+    const freshnessScore = quoteAgeDays === null ? 0 : quoteAgeDays <= 1 ? 1 : quoteAgeDays <= 3 ? 0.5 : 0;
+    const volumeScore = finite(volume) && volume > 0 ? 1 : 0;
+    const openInterestScore = finite(openInterest) && openInterest > 0 ? 1 : 0;
+    const score = ((volumeScore + openInterestScore + spreadScore + freshnessScore) / 4) * 100;
+    return {
+      verified: finite(volume) && volume >= 0 && finite(openInterest) && openInterest >= 0,
+      volume,
+      openInterest,
+      volumeScore,
+      openInterestScore,
+      spreadPct,
+      spreadScore,
+      quoteAgeDays,
+      freshnessScore,
+      score,
+      source: market?.chain?.source?.primary || null,
+    };
   };
   const expiryFrom = (market) => String(market?.chain?.selectedExpiryDate || market?.selectedExpiryDate || "").trim();
   const baseFailure = (market) => {
@@ -6045,13 +6087,34 @@ initDerivativesAnalyticsPage.strategyEngine = (() => {
     .map((group) => ({ ...group, strike: numeric(group?.strike) }))
     .filter((group) => finite(group.strike) && group.strike > 0)
     .sort((a, b) => a.strike - b.strike);
-  const legFrom = (group, optionType, side, quantity, expiry) => {
+  const legFrom = (group, optionType, side, quantity, expiry, market) => {
     const quote = group?.[optionType];
-    const premium = quotePremium(quote);
+    const execution = executionPrice(quote, side);
+    const premium = execution?.price;
     if (!quote || !finite(premium) || premium <= 0) return { failure: `${optionType === "call" ? "Call" : "Put"} 權利金缺失` };
-    const quoteLiquidity = liquidity(quote);
+    const quoteLiquidity = liquidity(quote, market);
     if (!quoteLiquidity.verified) return { failure: `${optionType === "call" ? "Call" : "Put"} 流動性資料未驗證` };
-    return { leg: { side, optionType, strike: group.strike, premium, quantity, expiry, volume: quoteLiquidity.volume, openInterest: quoteLiquidity.openInterest } };
+    return {
+      leg: {
+        side,
+        optionType,
+        strike: group.strike,
+        premium,
+        executionPrice: premium,
+        executionSource: execution.source,
+        quantity,
+        expiry,
+        volume: quoteLiquidity.volume,
+        openInterest: quoteLiquidity.openInterest,
+        spreadPct: quoteLiquidity.spreadPct,
+        quoteAgeDays: quoteLiquidity.quoteAgeDays,
+        liquidityScore: quoteLiquidity.score,
+        commission: transactionCostValue(quote, market, "commission"),
+        exchangeFee: transactionCostValue(quote, market, "exchangeFee"),
+        slippage: transactionCostValue(quote, market, "slippage"),
+        contractMultiplier: transactionCostValue(quote, market, "contractMultiplier", 1) > 0 ? transactionCostValue(quote, market, "contractMultiplier", 1) : 1,
+      },
+    };
   };
   const adjacent = (available, spot, optionType) => {
     const candidates = available.filter((group) => quotePremium(group?.[optionType]) !== null);
@@ -6083,7 +6146,7 @@ initDerivativesAnalyticsPage.strategyEngine = (() => {
     const spot = numeric(market.spot);
     const expiry = expiryFrom(market);
     const add = (target, group, type, side, quantity = 1) => {
-      const result = legFrom(group, type, side, quantity, expiry);
+      const result = legFrom(group, type, side, quantity, expiry, market);
       if (result.failure) return result.failure;
       target.push(result.leg);
       return "";
@@ -6143,24 +6206,45 @@ initDerivativesAnalyticsPage.strategyEngine = (() => {
       }
       const selected = candidates.sort((a, b) => a.distance - b.distance)[0];
       if (!selected) return { failure: "近月／遠月缺少相同或最接近履約價的有效報價" };
-      const nearResult = legFrom(selected.nearGroup, selected.type, "SELL", 1, near.expiryDate);
-      const farResult = legFrom(selected.farGroup, selected.type, "BUY", 1, far.expiryDate);
+      const nearResult = legFrom(selected.nearGroup, selected.type, "SELL", 1, near.expiryDate, market);
+      const farResult = legFrom(selected.farGroup, selected.type, "BUY", 1, far.expiryDate, market);
       if (nearResult.failure || farResult.failure) return { failure: nearResult.failure || farResult.failure };
       return { legs: [nearResult.leg, farResult.leg], calendar: true, nearDte: daysTo(near.expiryDate), farDte: daysTo(far.expiryDate) };
     }
     return { failure: "策略合約未定義" };
   };
   const intrinsic = (leg, price) => leg.optionType === "call" ? Math.max(price - leg.strike, 0) : Math.max(leg.strike - price, 0);
+  const legMultiplier = (leg) => {
+    const parsed = numeric(leg?.contractMultiplier);
+    return parsed === null ? 1 : parsed > 0 ? parsed : null;
+  };
+  const legTransactionCost = (leg) => {
+    const quantity = numeric(leg?.quantity);
+    const multiplier = legMultiplier(leg);
+    const commission = numeric(leg?.commission) ?? 0;
+    const exchangeFee = numeric(leg?.exchangeFee) ?? 0;
+    const slippage = numeric(leg?.slippage) ?? 0;
+    if (![quantity, multiplier, commission, exchangeFee, slippage].every(finite) || quantity <= 0 || commission < 0 || exchangeFee < 0 || slippage < 0) return null;
+    return quantity * (commission + exchangeFee + (slippage * multiplier));
+  };
   const payoff = (legs, price) => {
     if (!Array.isArray(legs) || !finite(price) || legs.length === 0) return null;
     return legs.reduce((total, leg) => {
       const qty = numeric(leg.quantity); const premium = numeric(leg.premium); const strike = numeric(leg.strike);
-      if (!finite(qty) || qty <= 0 || !finite(premium) || premium <= 0 || !finite(strike)) return NaN;
+      const multiplier = legMultiplier(leg); const transactionCost = legTransactionCost(leg);
+      if (!finite(qty) || qty <= 0 || !finite(premium) || premium <= 0 || !finite(strike) || !finite(multiplier) || !finite(transactionCost)) return NaN;
       const value = intrinsic({ ...leg, strike }, price);
-      return total + (leg.side === "BUY" ? qty * (value - premium) : qty * (premium - value));
+      return total + (leg.side === "BUY" ? qty * (value - premium) : qty * (premium - value)) * multiplier - transactionCost;
     }, 0);
   };
-  const netPremium = (legs) => legs.reduce((total, leg) => total + (leg.side === "BUY" ? 1 : -1) * leg.quantity * leg.premium, 0);
+  const netPremium = (legs) => legs.reduce((total, leg) => {
+    const quantity = numeric(leg?.quantity);
+    const premium = numeric(leg?.premium);
+    const multiplier = legMultiplier(leg);
+    const transactionCost = legTransactionCost(leg);
+    if (![quantity, premium, multiplier, transactionCost].every(finite)) return NaN;
+    return total + ((leg.side === "BUY" ? 1 : -1) * quantity * premium * multiplier) + transactionCost;
+  }, 0);
   const metrics = (legs, calendar = false) => {
     const debitCredit = netPremium(legs);
     if (calendar) return { netPremium: debitCredit, netLabel: debitCredit >= 0 ? "Net Debit" : "Net Credit", exactPayoffAvailable: false, maxProfit: null, maxLoss: null, maxProfitLabel: "Model Dependent / Not Available", maxLossLabel: "Model Dependent / Not Available", breakEven: [], zones: "Model Dependent / Not Available", riskReward: "Model Dependent / Not Available" };
@@ -6203,7 +6287,9 @@ initDerivativesAnalyticsPage.strategyEngine = (() => {
   };
   const riskPenalty = (contract) => ["short-straddle", "short-strangle"].includes(contract.id) ? -18 : contract.id === "short-condor" ? -5 : ["long-straddle", "long-strangle"].includes(contract.id) ? -3 : -2;
   const scoreModel = (contract, model, marketRegime, market) => {
-    const liquidityFit = model.legs.every((leg) => leg.volume >= 0 && leg.openInterest >= 0) ? 10 : 0;
+    const liquidityFit = model.legs.length
+      ? Math.round(model.legs.reduce((sum, leg) => sum + (finite(leg.liquidityScore) ? leg.liquidityScore : 0), 0) / model.legs.length / 10)
+      : 0;
     const dte = daysTo(model.legs[0].expiry); const timeFit = dte > 30 ? 10 : dte > 14 ? 8 : dte > 7 ? 5 : 3;
     const breakdown = { directionFit: directionFit(contract, marketRegime.direction), volatilityFit: volatilityFit(contract, marketRegime.volatility), ivFit: marketRegime.ivState === "Unavailable" ? 0 : marketRegime.ivState === "Normal" ? 10 : marketRegime.ivState === "Low" ? 12 : 7, priceStructureFit: finite(numeric(market.spot)) ? 18 : 0, timeFit, liquidityFit, riskPenalty: riskPenalty(contract) };
     const score = Math.max(0, Math.min(100, Object.values(breakdown).reduce((sum, value) => sum + value, 0)));
@@ -6227,7 +6313,16 @@ initDerivativesAnalyticsPage.strategyEngine = (() => {
     const strikes = model.legs.map((leg) => leg.strike); const maxStrike = Math.max(...strikes, spot || 0); const upper = Math.max(maxStrike * 1.25, (spot || 0) * 1.25, maxStrike + 1);
     return Array.from({ length: 25 }, (_, index) => { const price = upper * index / 24; return { price, payoff: payoff(model.legs, price) }; });
   };
-  return { contracts: CONTRACTS, analyze, payoff, metrics, chartPoints, daysTo };
+  return {
+    contracts: CONTRACTS,
+    analyze,
+    payoff,
+    metrics,
+    chartPoints,
+    daysTo,
+    executionPrice,
+    liquidityScore: (quote, market) => liquidity(quote, market),
+  };
 })();
 function renderDerivativeAiReport(title, analysis = {}, error = "", id = "") {
   const idAttr = id ? ` id="${escapeHtml(id)}"` : "";
