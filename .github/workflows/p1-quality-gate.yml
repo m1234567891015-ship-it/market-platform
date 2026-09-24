@@ -41,10 +41,14 @@ jobs:
           regression/runtime_loader_check.py regression/verify_against_baseline.py
 
       - name: Check JavaScript syntax
-        run: for file in js/*.js; do node --check "$file"; done
+        run: |
+          for file in js/*.js; do node --check "$file"; done
+          node --check regression/test_q5_quant_math.js
 
       - name: Run unit and offline contract tests
-        run: python -m unittest test_derivatives_platform.py regression.test_data_source_contracts
+        run: |
+          python -m unittest test_derivatives_platform.py regression.test_data_source_contracts regression.test_q5_decision_quality
+          node regression/test_q5_quant_math.js
 
       - name: Run security guardrails
         run: python security_guardrail_check.py
