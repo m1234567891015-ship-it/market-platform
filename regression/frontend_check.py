@@ -183,7 +183,7 @@ def _visit_page(browser, base_url: str, page_file: str, mode: str) -> dict:
     }
 
 
-def run(mode: str) -> dict:
+def run(mode: str, diagnostic_dir: Path | None = None) -> dict:
     from playwright.sync_api import sync_playwright
 
     results = []
@@ -198,7 +198,7 @@ def run(mode: str) -> dict:
 
     if mode == "capture":
         return _write_baseline(results)
-    return _compare(results)
+    return _compare(results, diagnostic_dir=diagnostic_dir)
 
 
 def _write_baseline(results: list[dict]) -> dict:
@@ -261,7 +261,51 @@ def _pixel_diff_pct(baseline_png: bytes, current_png: bytes) -> float:
     return float(diff_mask.sum()) / total * 100.0
 
 
-def _compare(results: list[dict]) -> dict:
+def _write_visual_diagnostics(
+    baseline_png: bytes,
+    current_png: bytes,
+    page_file: str,
+    diagnostic_dir: Path,
+) -> dict[str, str]:
+    """Write baseline/current/diff images for a true visual failure."""
+    from io import BytesIO
+
+    import numpy as np
+    from PIL import Image
+
+    diagnostic_dir.mkdir(parents=True, exist_ok=True)
+    safe_name = page_file.replace("/", "_").replace("\\", "_")
+    baseline_path = diagnostic_dir / f"{safe_name}.baseline.png"
+    current_path = diagnostic_dir / f"{safe_name}.current.png"
+    diff_path = diagnostic_dir / f"{safe_name}.diff.png"
+
+    baseline_path.write_bytes(baseline_png)
+    current_path.write_bytes(current_png)
+
+    img_a = Image.open(BytesIO(baseline_png)).convert("RGB")
+    img_b = Image.open(BytesIO(current_png)).convert("RGB")
+    width = max(img_a.width, img_b.width)
+    height = max(img_a.height, img_b.height)
+
+    canvas_a = Image.new("RGB", (width, height), (0, 0, 0))
+    canvas_a.paste(img_a, (0, 0))
+    canvas_b = Image.new("RGB", (width, height), (0, 0, 0))
+    canvas_b.paste(img_b, (0, 0))
+
+    arr_a = np.asarray(canvas_a)
+    arr_b = np.asarray(canvas_b)
+    diff_mask = np.any(arr_a != arr_b, axis=-1)
+    diff_image = Image.fromarray((diff_mask.astype(np.uint8) * 255))
+    diff_image.save(diff_path)
+
+    return {
+        "baseline": baseline_path.name,
+        "current": current_path.name,
+        "diff": diff_path.name,
+    }
+
+
+def _compare(results: list[dict], diagnostic_dir: Path | None = None) -> dict:
     if not FRONTEND_MANIFEST_PATH.exists():
         raise SystemExit(f"找不到前端基準 {FRONTEND_MANIFEST_PATH},請先執行 --capture")
     baseline = json.loads(FRONTEND_MANIFEST_PATH.read_text(encoding="utf-8"))
@@ -284,6 +328,7 @@ def _compare(results: list[dict]) -> dict:
                 "threshold_pct": PIXEL_DIFF_FAIL_THRESHOLD_PCT,
             },
             "failed": False,
+            "diagnostic_artifacts": {},
         }
         if base is None:
             failures.append(f"{file}: 基準中沒有這個頁面(新增頁面需先補基準)")
@@ -331,6 +376,17 @@ def _compare(results: list[dict]) -> dict:
                         f"{PIXEL_DIFF_FAIL_THRESHOLD_PCT}%"
                     )
                     page_report["failed"] = True
+                    if diagnostic_dir is not None:
+                        page_report["diagnostic_artifacts"] = _write_visual_diagnostics(
+                            screenshot_path.read_bytes(),
+                            result["screenshot_bytes"],
+                            file,
+                            diagnostic_dir,
+                        )
+                        print(
+                            f"  [DIAG] {file}: 已寫入 baseline/current/diff 到 "
+                            f"{diagnostic_dir}"
+                        )
             else:
                 page_report["visual"]["status"] = "pass_with_external_noise" if result.get("external_errors") else "pass"
         else:
@@ -400,9 +456,17 @@ if __name__ == "__main__":
         type=Path,
         help="可選:將 compare 的逐頁 visual status 與噪音分類輸出為 JSON",
     )
+    parser.add_argument(
+        "--diagnostic-dir",
+        type=Path,
+        help="可選:compare 發生真正 visual fail 時輸出 baseline/current/diff PNG",
+    )
     args = parser.parse_args()
 
-    outcome = run("capture" if args.capture else "compare")
+    outcome = run(
+        "capture" if args.capture else "compare",
+        diagnostic_dir=args.diagnostic_dir,
+    )
     if args.report:
         if args.capture:
             print("[frontend_check] --report 僅支援 --compare, capture 不輸出 compare 報表")
