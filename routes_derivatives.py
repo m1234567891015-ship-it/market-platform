@@ -154,8 +154,11 @@ def api_derivatives_v1_status():
         "aiScoreFormula": {
             "marketScore": "Options: PCR, Volume PCR, Max Pain gap, OI wall; Futures: price change. All scores clamped 0-100.",
             "riskScore": "Options: PCR imbalance, Volume PCR imbalance, Max Pain gap and OI wall break; Futures: downside momentum and OI availability.",
-            "confidenceScore": "Count of available evidence layers plus chain/candle depth bonus.",
-            "sourcePendingPenalty": "Missing evidence lowers confidence and raises data-risk messaging; no fake data is generated.",
+            "evidenceScore": "Available required evidence layers divided by required layers, expressed 0-100; coverage only.",
+            "dataQualityScore": "Mean of known completeness, freshness, provider-health, consistency, and fallback-source dimensions; unknown dimensions are omitted.",
+            "modelConfidence": "Unavailable until historical out-of-sample calibration exists; decision objects return null with status UNAVAILABLE.",
+            "confidenceScore": "DEPRECATED compatibility field: legacy evidence proxy, not calibrated model confidence.",
+            "sourcePendingPenalty": "Missing evidence lowers evidence/data-quality scores and raises data-risk messaging; no fake data is generated.",
         },
         "basis": {
             "endpoint": "/api/basis?future=TX&spot=TAIEX",

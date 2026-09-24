@@ -140,9 +140,31 @@
           "status": "str"
         }
       ],
+      "dataQualityDimensions": {
+        "completeness": "float",
+        "fallbackSource": "float"
+      },
+      "dataQualityScore": "int",
+      "dataQualityStatus": "str",
+      "data_quality_score": "int",
+      "decision_id": "str",
+      "decision_output": {
+        "bias": "str",
+        "marketScore": "int",
+        "riskScore": "int"
+      },
+      "decision_time": "str",
       "disclaimer": "str",
+      "evidenceScore": "int",
+      "evidence_score": "int",
+      "input_snapshot_hash": "str",
+      "market_as_of": "str",
       "marketScore": "int",
       "maxPain": "float",
+      "modelConfidence": "null",
+      "modelConfidenceStatus": "str",
+      "model_confidence": "null",
+      "model_version": "str",
       "reasons": [
         "str"
       ],
@@ -158,18 +180,26 @@
       ],
       "scoreFormula": {
         "confidenceScore": "str",
+        "dataQualityScore": "str",
         "evidenceLayers": [
           "str"
         ],
+        "evidenceScore": "str",
         "marketScore": "str",
+        "modelConfidence": "str",
         "riskScore": "str"
       },
       "scoreLabels": {
         "confidence": "str",
+        "evidence": "str",
         "market": "str",
         "risk": "str"
       },
+      "source_updated_at": "str",
       "strategySuggestion": "str",
+      "strategy_version": "str",
+      "symbol": "str",
+      "confidence_method": "str",
       "supportLevel": "float"
     },
     "availableProducts": [

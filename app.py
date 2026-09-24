@@ -533,7 +533,19 @@ def supplement_taifex_option_payload_with_yahoo_oi(payload: dict[str, Any]) -> d
             **next_payload,
             "summary": next_summary,
             "spot": {**(payload.get("spot") or {}), **yahoo_spot, "source": "Yahoo 股市台灣選擇權頁"},
-            "analysis": build_taifex_option_ai_analysis(next_summary, chain, max_pain_for_spot, yahoo_spot_value) if chain else payload.get("analysis"),
+            "analysis": build_taifex_option_ai_analysis(
+                next_summary,
+                chain,
+                max_pain_for_spot,
+                yahoo_spot_value,
+                decision_context={
+                    "symbol": payload.get("underlying") or "TXO",
+                    "market_as_of": payload.get("tradeDate"),
+                    "source_updated_at": yahoo_spot.get("date") or payload.get("tradeDate"),
+                    "provider_status": "healthy",
+                    "fallback_used": True,
+                },
+            ) if chain else payload.get("analysis"),
             "spotSupplement": {
                 "provider": "Yahoo 股市台灣選擇權",
                 "sourceUrl": yahoo_url,
@@ -587,7 +599,19 @@ def supplement_taifex_option_payload_with_yahoo_oi(payload: dict[str, Any]) -> d
         "chain": chain,
         "summary": next_summary,
         "distribution": build_taifex_option_distribution(chain),
-        "analysis": build_taifex_option_ai_analysis(next_summary, chain, max_pain, spot),
+        "analysis": build_taifex_option_ai_analysis(
+            next_summary,
+            chain,
+            max_pain,
+            spot,
+            decision_context={
+                "symbol": next_payload.get("underlying") or "TXO",
+                "market_as_of": next_payload.get("tradeDate"),
+                "source_updated_at": next_payload.get("tradeDate"),
+                "provider_status": "healthy",
+                "fallback_used": True,
+            },
+        ),
         "oiSupplement": {
             "provider": "Yahoo 股市台灣選擇權",
             "sourceUrl": yahoo_url,
