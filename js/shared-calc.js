@@ -493,7 +493,7 @@ function calculateBacktestProfitFactor(returns) {
   if (!Array.isArray(returns) || !returns.length) return null;
   const profit = returns.filter((value) => value > 0).reduce((sum, value) => sum + value, 0);
   const loss = Math.abs(returns.filter((value) => value < 0).reduce((sum, value) => sum + value, 0));
-  if (!loss) return profit ? Infinity : 0;
+  if (!loss) return profit ? null : 0;
   return profit / loss;
 }
 function calculateMaxLosingStreak(returns) {
@@ -511,18 +511,98 @@ function calculateMaxLosingStreak(returns) {
   return maxStreak;
 }
 function summarizeBacktestSegment(returns) {
+  const profit = returns.filter((value) => value > 0).reduce((sum, value) => sum + value, 0);
+  const loss = Math.abs(returns.filter((value) => value < 0).reduce((sum, value) => sum + value, 0));
   return {
     samples: returns.length,
     winRate: calculateBacktestWinRate(returns),
     averageReturn: calculateBacktestAverageReturn(returns),
     profitFactor: calculateBacktestProfitFactor(returns),
+    profitFactorUnbounded: Boolean(returns.length && profit > 0 && !loss),
     maxDrawdown: calculateMaxDrawdownPct(returns),
     maxLosingStreak: calculateMaxLosingStreak(returns),
     sharpe: calculateSharpeLikeScore(returns),
   };
 }
-function buildBacktestModelValidation(leader) {
-  const returns = Array.isArray(leader?.returns) ? leader.returns.filter(Number.isFinite) : [];
+buildBacktestLearningModel.summarizeBacktestObservations = function summarizeBacktestObservations(observations) {
+  const rows = (Array.isArray(observations) ? observations : [])
+    .map((item) => ({ index: Number(item?.index), value: Number(item?.value) }))
+    .filter((item) => Number.isFinite(item.index) && Number.isFinite(item.value));
+  const returns = rows.map((item) => item.value);
+  return {
+    ...summarizeBacktestSegment(returns),
+    firstIndex: rows.length ? rows[0].index : null,
+    lastIndex: rows.length ? rows.at(-1).index : null,
+  };
+};
+buildBacktestLearningModel.countEffectiveBacktestSamples = function countEffectiveBacktestSamples(observations, horizon) {
+  const indices = (Array.isArray(observations) ? observations : [])
+    .map((item) => Number(item?.index))
+    .filter(Number.isFinite)
+    .sort((left, right) => left - right);
+  if (!indices.length) return 0;
+  let count = 0;
+  let lastAccepted = -Infinity;
+  indices.forEach((index) => {
+    if (index - lastAccepted >= horizon) {
+      count += 1;
+      lastAccepted = index;
+    }
+  });
+  return count;
+};
+buildBacktestLearningModel.splitBacktestObservations = function splitBacktestObservations(observations) {
+  const rows = (Array.isArray(observations) ? observations : [])
+    .filter((item) => Number.isFinite(item?.index) && Number.isFinite(item?.value))
+    .sort((left, right) => left.index - right.index);
+  const trainEnd = Math.floor(rows.length * 0.6);
+  const validationEnd = Math.floor(rows.length * 0.8);
+  return {
+    train: rows.slice(0, trainEnd),
+    validation: rows.slice(trainEnd, validationEnd),
+    test: rows.slice(validationEnd),
+  };
+};
+buildBacktestLearningModel.buildBacktestSplitMetadata = function buildBacktestSplitMetadata(observations, horizon) {
+  const split = buildBacktestLearningModel.splitBacktestObservations(observations);
+  const rawSamples = observations.length;
+  const effectiveSamples = buildBacktestLearningModel.countEffectiveBacktestSamples(observations, horizon);
+  return {
+    rawSamples,
+    effectiveSamples,
+    overlapRatio: rawSamples ? 1 - (effectiveSamples / rawSamples) : 0,
+    train: buildBacktestLearningModel.summarizeBacktestObservations(split.train),
+    validation: buildBacktestLearningModel.summarizeBacktestObservations(split.validation),
+    test: buildBacktestLearningModel.summarizeBacktestObservations(split.test),
+    splitDates: {
+      trainStartIndex: split.train[0]?.index ?? null,
+      trainEndIndex: split.train.at(-1)?.index ?? null,
+      validationStartIndex: split.validation[0]?.index ?? null,
+      validationEndIndex: split.validation.at(-1)?.index ?? null,
+      testStartIndex: split.test[0]?.index ?? null,
+      testEndIndex: split.test.at(-1)?.index ?? null,
+    },
+  };
+};
+buildBacktestLearningModel.buildBacktestSelectionScore = function buildBacktestSelectionScore(item) {
+  const validation = item?.split?.validation || {};
+  const winRate = Number.isFinite(validation.winRate) ? validation.winRate : 0;
+  const profitFactor = Number.isFinite(validation.profitFactor)
+    ? Math.min(validation.profitFactor, 3)
+    : 0;
+  const averageReturn = Number.isFinite(validation.averageReturn)
+    ? Math.max(-8, Math.min(8, validation.averageReturn))
+    : -8;
+  return (winRate * 100) + (profitFactor * 12) + averageReturn;
+};
+function buildBacktestModelValidation(leader, options = {}) {
+  const split = leader?.split || {};
+  const inReturns = Array.isArray(split.train?.returns) ? split.train.returns.filter(Number.isFinite) : [];
+  const validationReturns = Array.isArray(split.validation?.returns) ? split.validation.returns.filter(Number.isFinite) : [];
+  const outReturns = options.useTest === false
+    ? validationReturns
+    : Array.isArray(split.test?.returns) ? split.test.returns.filter(Number.isFinite) : [];
+  const returns = [...inReturns, ...validationReturns, ...outReturns];
   if (returns.length < 20) {
     return {
       status: "insufficient",
@@ -533,13 +613,12 @@ function buildBacktestModelValidation(leader) {
       source: BACKTEST_DRIFT_SOURCE,
       inSample: summarizeBacktestSegment([]),
       outSample: summarizeBacktestSegment([]),
+      testUntouchedBySelection: true,
     };
   }
 
-  const splitIndex = Math.max(10, Math.floor(returns.length * 0.7));
-  const inReturns = returns.slice(0, splitIndex);
-  const outReturns = returns.slice(splitIndex);
   const inSample = summarizeBacktestSegment(inReturns);
+  const validationSample = summarizeBacktestSegment(validationReturns);
   const outSample = summarizeBacktestSegment(outReturns);
   const reasons = [];
   const inWin = inSample.winRate ?? 0;
@@ -590,14 +669,16 @@ function buildBacktestModelValidation(leader) {
     reasons: reasons.length ? reasons : ["未觸發明顯模型失真條件"],
     source: BACKTEST_DRIFT_SOURCE,
     inSample,
+    validation: validationSample,
     outSample,
+    testUntouchedBySelection: options.useTest !== false,
   };
 }
 function buildBacktestModelRebuildResult(failedModel, candidates) {
   const candidateRows = (Array.isArray(candidates) ? candidates : [])
     .filter((item) => item && item.name !== failedModel?.name && Array.isArray(item.returns) && item.returns.length >= 20)
     .map((item) => {
-      const validation = buildBacktestModelValidation(item);
+      const validation = buildBacktestModelValidation(item, { useTest: false });
       const outWin = validation.outSample?.winRate ?? 0;
       const outPf = Number.isFinite(validation.outSample?.profitFactor) ? validation.outSample.profitFactor : 9;
       const outMdd = Number.isFinite(validation.outSample?.maxDrawdown) ? validation.outSample.maxDrawdown : 0;
@@ -780,13 +861,16 @@ function buildBacktestTrendForecast(history, signals = [], validation = null) {
     caveat: "這是基於歷史訊號與目前價量結構的機率情境與價格區間推估，不是保證價格或投資建議。",
   };
 }
-function buildBacktestLearningModel(history, horizon = 240) {
+function buildBacktestLearningModel(history, horizon = 240, options = {}) {
+  const readCost = (key, fallback) => Number.isFinite(Number(options?.[key]))
+    ? Number(options[key])
+    : fallback;
   const costModel = {
-    feePct: 0.1425,
-    sellTaxPct: 0.3,
-    slippagePct: 0.1,
-    roundTripPct: 0.1425 * 2 + 0.3 + 0.1 * 2,
+    feePct: readCost("feePct", 0.1425),
+    sellTaxPct: readCost("sellTaxPct", 0.3),
+    slippagePct: readCost("slippagePct", 0.1),
   };
+  costModel.roundTripPct = (costModel.feePct * 2) + costModel.sellTaxPct + (costModel.slippagePct * 2);
   const riskModel = {
     stopLossPct: -8,
     takeProfitPct: 20,
@@ -830,6 +914,7 @@ function buildBacktestLearningModel(history, horizon = 240) {
         totalProfit: 0,
         totalLoss: 0,
         returns: [],
+        observations: [],
         riskHits: 0,
       });
     }
@@ -838,6 +923,7 @@ function buildBacktestLearningModel(history, horizon = 240) {
     item.totalReturn += netReturnPct;
     item.grossTotalReturn += directionalReturn;
     item.returns.push(netReturnPct);
+    item.observations.push({ index: context.index ?? null, value: netReturnPct });
     allNetReturns.push(netReturnPct);
     if (netReturnPct > 0) item.totalProfit += netReturnPct;
     if (netReturnPct < 0) item.totalLoss += Math.abs(netReturnPct);
@@ -852,8 +938,13 @@ function buildBacktestLearningModel(history, horizon = 240) {
     const latest = window.at(-1);
     const previous = window.at(-2);
     const future = history[index + horizon];
-    if (!latest || !previous || !future || !latest.close) continue;
-    const futureReturnPct = ((future.close - latest.close) / latest.close) * 100;
+    const executionBar = history[index + 1];
+    if (!latest || !previous || !future || !executionBar || !latest.close) continue;
+    const executionPrice = Number.isFinite(executionBar.open)
+      ? executionBar.open
+      : executionBar.close;
+    if (!Number.isFinite(executionPrice) || executionPrice <= 0) continue;
+    const futureReturnPct = ((future.close - executionPrice) / executionPrice) * 100;
     const futureWindow = history.slice(index + 1, index + horizon + 1);
     const maxFutureGainPct = futureWindow.length
       ? ((Math.max(...futureWindow.map((item) => item.high).filter(Number.isFinite)) - latest.close) / latest.close) * 100
@@ -870,28 +961,28 @@ function buildBacktestLearningModel(history, horizon = 240) {
     const ma60 = technicalSma(closes, 60).at(-1);
 
     if ([ma20, ma60].every(Number.isFinite)) {
-      if (latest.close > ma20 && ma20 > ma60) addResult("均線多頭排列", "bullish", futureReturnPct);
-      if (latest.close < ma20 && ma20 < ma60) addResult("均線空頭排列", "bearish", futureReturnPct);
+      if (latest.close > ma20 && ma20 > ma60) addResult("均線多頭排列", "bullish", futureReturnPct, { index });
+      if (latest.close < ma20 && ma20 < ma60) addResult("均線空頭排列", "bearish", futureReturnPct, { index });
     }
     if ([ma5, ma10, ma20].every(Number.isFinite)) {
-      if (latest.close > ma5 && ma5 > ma10 && ma10 > ma20) addResult("重建候選：短均多頭排列", "bullish", futureReturnPct);
-      if (latest.close < ma5 && ma5 < ma10 && ma10 < ma20) addResult("重建候選：短均空頭排列", "bearish", futureReturnPct);
-      if (previous.close <= ma10 && latest.close > ma10 && ma10 > ma20) addResult("重建候選：10 日線轉強", "bullish", futureReturnPct);
-      if (previous.close >= ma10 && latest.close < ma10 && ma10 < ma20) addResult("重建候選：10 日線轉弱", "bearish", futureReturnPct);
+      if (latest.close > ma5 && ma5 > ma10 && ma10 > ma20) addResult("重建候選：短均多頭排列", "bullish", futureReturnPct, { index });
+      if (latest.close < ma5 && ma5 < ma10 && ma10 < ma20) addResult("重建候選：短均空頭排列", "bearish", futureReturnPct, { index });
+      if (previous.close <= ma10 && latest.close > ma10 && ma10 > ma20) addResult("重建候選：10 日線轉強", "bullish", futureReturnPct, { index });
+      if (previous.close >= ma10 && latest.close < ma10 && ma10 < ma20) addResult("重建候選：10 日線轉弱", "bearish", futureReturnPct, { index });
     }
 
     const rsi = calculateRsi(window).at(-1);
     const kd = window.length >= 9 ? calculateKd(window).at(-1) : null;
     if (Number.isFinite(rsi)) {
-      if (rsi >= 55 && rsi < 75) addResult("RSI 多方區", "bullish", futureReturnPct);
-      if (rsi >= 50 && rsi < 68) addResult("重建候選：RSI 50 多方守穩", "bullish", futureReturnPct);
-      if (rsi < 45) addResult("重建候選：RSI 45 空方跌破", "bearish", futureReturnPct);
+      if (rsi >= 55 && rsi < 75) addResult("RSI 多方區", "bullish", futureReturnPct, { index });
+      if (rsi >= 50 && rsi < 68) addResult("重建候選：RSI 50 多方守穩", "bullish", futureReturnPct, { index });
+      if (rsi < 45) addResult("重建候選：RSI 45 空方跌破", "bearish", futureReturnPct, { index });
     }
 
     const macd = window.length >= 26 ? calculateMacd(window).at(-1) : null;
     if (macd && Number.isFinite(macd.osc)) {
-      if (macd.osc > 0) addResult("MACD 正柱", "bullish", futureReturnPct);
-      if (macd.osc < 0) addResult("MACD 負柱", "bearish", futureReturnPct);
+      if (macd.osc > 0) addResult("MACD 正柱", "bullish", futureReturnPct, { index });
+      if (macd.osc < 0) addResult("MACD 負柱", "bearish", futureReturnPct, { index });
     }
 
     const recentVolumes = window.slice(-6, -1).map((item) => item.volume).filter(Number.isFinite);
@@ -902,8 +993,8 @@ function buildBacktestLearningModel(history, horizon = 240) {
 
     const band = window.length >= 20 ? calculateBollingerBands(window).at(-1) : null;
     if (band && [band.upper, band.lower].every(Number.isFinite)) {
-      if (latest.close > band.upper) addResult("布林上軌突破", "bullish", futureReturnPct);
-      if (latest.close < band.lower) addResult("布林下軌跌破", "bearish", futureReturnPct);
+      if (latest.close > band.upper) addResult("布林上軌突破", "bullish", futureReturnPct, { index });
+      if (latest.close < band.lower) addResult("布林下軌跌破", "bearish", futureReturnPct, { index });
     }
 
     const ma120 = technicalSma(closes, 120).at(-1);
@@ -922,59 +1013,59 @@ function buildBacktestLearningModel(history, horizon = 240) {
 
     if ([ma20, ma60, ma120].every(Number.isFinite)) {
       if (latest.close > ma20 && ma20 > ma60 && ma60 > ma120 && macd?.osc > 0) {
-        addResult("趨勢動能共振", "bullish", futureReturnPct, { riskTriggered: bullishRiskTriggered });
+        addResult("趨勢動能共振", "bullish", futureReturnPct, { index, riskTriggered: bullishRiskTriggered });
       }
       if (latest.close < ma20 && ma20 < ma60 && ma60 < ma120 && macd?.osc < 0) {
-        addResult("趨勢動能轉弱", "bearish", futureReturnPct, { riskTriggered: bearishRiskTriggered });
+        addResult("趨勢動能轉弱", "bearish", futureReturnPct, { index, riskTriggered: bearishRiskTriggered });
       }
     }
     if ([ma60, ma120, ma240].every(Number.isFinite)) {
       if (latest.close > ma60 && ma60 > ma120 && ma120 > ma240) {
-        addResult("長週期多頭結構", "bullish", futureReturnPct, { riskTriggered: bullishRiskTriggered });
+        addResult("長週期多頭結構", "bullish", futureReturnPct, { index, riskTriggered: bullishRiskTriggered });
       }
       if (latest.close < ma60 && ma60 < ma120 && ma120 < ma240) {
-        addResult("長週期空頭結構", "bearish", futureReturnPct, { riskTriggered: bearishRiskTriggered });
+        addResult("長週期空頭結構", "bearish", futureReturnPct, { index, riskTriggered: bearishRiskTriggered });
       }
     }
     if (priorHigh && volumeRatio && latest.close > priorHigh && volumeRatio >= 1.1) {
-      addResult("放量突破 20 日高", "bullish", futureReturnPct, { riskTriggered: bullishRiskTriggered });
+      addResult("放量突破 20 日高", "bullish", futureReturnPct, { index, riskTriggered: bullishRiskTriggered });
     }
     if (priorLow && volumeRatio && latest.close < priorLow && volumeRatio >= 1.1) {
-      addResult("放量跌破 20 日低", "bearish", futureReturnPct, { riskTriggered: bearishRiskTriggered });
+      addResult("放量跌破 20 日低", "bearish", futureReturnPct, { index, riskTriggered: bearishRiskTriggered });
     }
     if (band && [band.upper, band.middle, ma20, ma60].every(Number.isFinite) && latest.close > band.middle && ma20 > ma60 && volumeRatio && volumeRatio >= 0.9) {
-      addResult("布林中軌上方趨勢延續", "bullish", futureReturnPct, { riskTriggered: bullishRiskTriggered });
+      addResult("布林中軌上方趨勢延續", "bullish", futureReturnPct, { index, riskTriggered: bullishRiskTriggered });
     }
     if ([ma60, rsi, macd?.osc, kd?.k, kd?.d, momentum60].every(Number.isFinite)) {
       if (latest.close > ma60 && rsi >= 50 && macd.osc > 0 && kd.k >= kd.d && momentum60 > 0) {
-        addResult("趨勢動能多因子", "bullish", futureReturnPct, { riskTriggered: bullishRiskTriggered });
+        addResult("趨勢動能多因子", "bullish", futureReturnPct, { index, riskTriggered: bullishRiskTriggered });
       }
       if (latest.close < ma60 && rsi < 50 && macd.osc < 0 && kd.k < kd.d && momentum60 < 0) {
-        addResult("趨勢動能空因子", "bearish", futureReturnPct, { riskTriggered: bearishRiskTriggered });
+        addResult("趨勢動能空因子", "bearish", futureReturnPct, { index, riskTriggered: bearishRiskTriggered });
       }
     }
     if ([ma60, atrPct, band?.bandwidth].every(Number.isFinite)) {
       if (latest.close > ma60 && atrPct < 4.5 && band.bandwidth < 18) {
-        addResult("低波動趨勢基準", "bullish", futureReturnPct, { riskTriggered: bullishRiskTriggered });
+        addResult("低波動趨勢基準", "bullish", futureReturnPct, { index, riskTriggered: bullishRiskTriggered });
       }
       if (latest.close < ma60 && atrPct >= 4.5 && band.bandwidth >= 18) {
-        addResult("高波動風險基準", "bearish", futureReturnPct, { riskTriggered: bearishRiskTriggered });
+        addResult("高波動風險基準", "bearish", futureReturnPct, { index, riskTriggered: bearishRiskTriggered });
       }
     }
     if (Number.isFinite(volatilityPct)) {
       if (volatilityPct <= 18 && Number.isFinite(ma60) && latest.close > ma60 && macd?.osc > 0) {
-        addResult("低波動趨勢延續", "bullish", futureReturnPct);
+        addResult("低波動趨勢延續", "bullish", futureReturnPct, { index });
       }
       if (volatilityPct >= 35 && Number.isFinite(ma60) && latest.close < ma60 && macd?.osc < 0) {
-        addResult("高波動弱勢延伸", "bearish", futureReturnPct);
+        addResult("高波動弱勢延伸", "bearish", futureReturnPct, { index });
       }
     }
     if ([ma10, ma20, volumeRatio, rsi].every(Number.isFinite)) {
       if (latest.close > ma10 && ma10 >= ma20 && volumeRatio >= 0.9 && rsi >= 48) {
-        addResult("重建候選：短線趨勢量能確認", "bullish", futureReturnPct);
+        addResult("重建候選：短線趨勢量能確認", "bullish", futureReturnPct, { index });
       }
       if (latest.close < ma10 && ma10 <= ma20 && volumeRatio >= 0.9 && rsi < 50) {
-        addResult("重建候選：短線弱勢量能確認", "bearish", futureReturnPct);
+        addResult("重建候選：短線弱勢量能確認", "bearish", futureReturnPct, { index });
       }
     }
   }
@@ -986,14 +1077,22 @@ function buildBacktestLearningModel(history, horizon = 240) {
       winRate: item.wins / item.samples,
       averageReturn: item.totalReturn / item.samples,
       grossAverageReturn: item.grossTotalReturn / item.samples,
-      profitFactor: item.totalLoss ? item.totalProfit / item.totalLoss : (item.totalProfit ? Infinity : 0),
+      profitFactor: item.totalLoss ? item.totalProfit / item.totalLoss : (item.totalProfit ? null : 0),
+      profitFactorUnbounded: Boolean(item.totalProfit && !item.totalLoss),
       maxDrawdown: calculateMaxDrawdownPct(item.returns),
       sharpe: calculateSharpeLikeScore(item.returns),
       riskHitRate: item.riskHits / item.samples,
+      split: buildBacktestLearningModel.buildBacktestSplitMetadata(item.observations, horizon),
+      rawSamples: item.observations.length,
+      effectiveSamples: buildBacktestLearningModel.countEffectiveBacktestSamples(item.observations, horizon),
+      overlapRatio: item.observations.length
+        ? 1 - (buildBacktestLearningModel.countEffectiveBacktestSamples(item.observations, horizon) / item.observations.length)
+        : 0,
     }))
+    .filter((item) => item.split.train.samples >= 5 && item.split.validation.samples >= 5 && item.split.test.samples >= 5)
     .sort((a, b) => {
-      const scoreA = Math.abs(a.winRate - 0.5) + Math.max(-0.3, Math.min(0.3, (a.profitFactor || 0) / 10));
-      const scoreB = Math.abs(b.winRate - 0.5) + Math.max(-0.3, Math.min(0.3, (b.profitFactor || 0) / 10));
+      const scoreA = buildBacktestLearningModel.buildBacktestSelectionScore(a);
+      const scoreB = buildBacktestLearningModel.buildBacktestSelectionScore(b);
       return scoreB - scoreA;
     });
   const ranked = rankedAll.slice(0, 5);
@@ -1012,6 +1111,10 @@ function buildBacktestLearningModel(history, horizon = 240) {
       driftSource: BACKTEST_DRIFT_SOURCE,
       costModel,
       riskModel,
+      sampleMethod: "chronological non-overlapping effective sample estimate",
+      signalTiming: "T close",
+      executionTiming: "T+1 open",
+      executionPriceMethod: "T+1 open; fallback T+1 close when open is unavailable",
       qualityChecks: ["OHLCV 已檢查", "有效訊號樣本不足", "避免樣本不足時硬調權重"],
       performance: {
         maxDrawdown: calculateMaxDrawdownPct(allNetReturns),
@@ -1072,6 +1175,10 @@ function buildBacktestLearningModel(history, horizon = 240) {
     driftSource: BACKTEST_DRIFT_SOURCE,
     costModel,
     riskModel,
+    sampleMethod: "chronological non-overlapping effective sample estimate",
+    signalTiming: "T close",
+    executionTiming: "T+1 open",
+    executionPriceMethod: "T+1 open; fallback T+1 close when open is unavailable",
     qualityChecks: ["OHLCV 已檢查", "以當下可得資料計算", "納入交易成本", "納入停損停利風控觀察"],
     performance: {
       maxDrawdown: calculateMaxDrawdownPct(allNetReturns),
