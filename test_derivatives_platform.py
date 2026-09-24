@@ -36,6 +36,7 @@ import routes_derivatives
 import routes_global_market
 import routes_twse
 import security
+import us_market_search
 from derivatives_store import DerivativesStore
 from derivatives.analytics import build_basis_payload, build_decision_provenance, build_decision_quality
 from derivatives.ai import build_unavailable_ai_analysis
@@ -1595,9 +1596,9 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertTrue(any("parameter_names" in message for message in logs.output))
         self.assertFalse(any("secret-query-value" in message for message in logs.output))
 
-    @patch.object(routes_global_market, "fetch_yahoo_us_market_search", return_value=[])
-    @patch.object(routes_global_market, "fetch_nyse_us_market_search", return_value=([], {}))
-    @patch.object(routes_global_market, "search_us_listed_universe", return_value=([
+    @patch.object(us_market_search, "fetch_yahoo_us_market_search", return_value=[])
+    @patch.object(us_market_search, "fetch_nyse_us_market_search", return_value=([], {}))
+    @patch.object(us_market_search, "search_us_listed_universe", return_value=([
         {"symbol": "AAPL", "name": "Apple Inc.", "group": "美股個股", "source": "test"}
     ], {"美股個股": 1}, "test source"))
     def test_us_market_search_route_merges_mocked_sources(self, _listed, _nyse, _yahoo):
