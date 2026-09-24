@@ -8,15 +8,12 @@ contiguous cluster). Registered on the main `app` object in app.py via
 for the endpoint-naming/security-hook safety analysis that applies
 identically here.
 
-`search_us_market_universe`, `find_us_listed_symbol`,
-`US_ETF_CENTER_CACHE_SECONDS`, `lock_public_option_chain_payload` are
-EXCLUSIVE helpers (grep-confirmed zero callers outside this route cluster).
-`search_us_listed_universe` is EXCLUSIVE too but has a direct test patch
-(`test_us_market_search_route_merges_mocked_sources`) that needed repointing
-from `@patch.object(app, ...)` to `@patch.object(routes_global_market, ...)`
-in this batch's commit, along with 2 fetchers.py-name patches on the same
-test (`fetch_yahoo_us_market_search`/`fetch_nyse_us_market_search`) - same
-bare-name-resolution lesson as every prior batch this slice.
+`find_us_listed_symbol`, `US_ETF_CENTER_CACHE_SECONDS`,
+`lock_public_option_chain_payload` are EXCLUSIVE helpers (grep-confirmed zero
+callers outside this route cluster). Search-specific matching and provider
+fan-in now live in `us_market_search.py`, which owns that vertical slice's
+boundary and direct test patches. `find_us_listed_symbol` remains here because
+it is shared by the listed-symbol and symbol-detail routes.
 `unix_timestamp_from_iso_date` and `can_use_yahoo_options_fallback` are dead
 code (zero callers anywhere in the repo, confirmed by exhaustive grep,
 including inside their own neighboring routes) - moved as-is with
@@ -56,7 +53,6 @@ modules back.
 from __future__ import annotations
 
 import copy
-import logging
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -84,11 +80,8 @@ from cache import (
     write_memory_cache,
 )
 from fetchers import (
-    fetch_nasdaq_trader_us_listed_universe,
     fetch_nyse_directory_items,
-    fetch_nyse_us_market_search,
     fetch_us_listed_universe_with_fallback,
-    fetch_yahoo_us_market_search,
     normalize_us_market_search_item,
     normalize_us_symbol_for_yahoo,
     parse_float,
@@ -103,9 +96,7 @@ from market_config import (
     US_SECTOR_STOCK_GROUPS,
 )
 from parsers import TAIWAN_OPTION_DEFAULT_PRODUCT, normalize_taiwan_option_source
-
-LOGGER = logging.getLogger("market_pulse")
-
+from us_market_search import build_us_market_search_payload
 
 bp = Blueprint("global_market", __name__)
 
@@ -171,49 +162,6 @@ def api_global_market(category: str):
         finish_cache_flight(f"global-market:{cache_key}", flight)
 
 
-def search_us_market_universe(query: str, limit: int = 40) -> list[dict[str, Any]]:
-    keyword = query.strip().lower()
-    if not keyword:
-        return [normalize_us_market_search_item(item) for item in US_MARKET_SEARCH_UNIVERSE[:limit]]
-    matches = []
-    for item in US_MARKET_SEARCH_UNIVERSE:
-        symbol = str(item.get("symbol") or "").lower()
-        name = str(item.get("name") or "").lower()
-        group = str(item.get("group") or "").lower()
-        item_type = str(item.get("type") or "").lower()
-        if keyword in symbol or keyword in name or keyword in group or keyword in item_type:
-            matches.append(normalize_us_market_search_item({**item, "source": "內建美股/ETF清單"}))
-    return matches[:limit]
-
-
-def search_us_listed_universe(query: str, limit: int = 80) -> tuple[list[dict[str, Any]], dict[str, int], str]:
-    keyword = query.strip().lower()
-    keyword_alt = keyword.replace(".", "-")
-    if not keyword:
-        return [], {}, "請輸入代號或名稱後搜尋全上市美股 / ETF"
-    universe, totals, source = fetch_us_listed_universe_with_fallback(False)
-    matches: list[dict[str, Any]] = []
-    for item in universe:
-        symbol = str(item.get("symbol") or "").lower()
-        name = str(item.get("name") or "").lower()
-        group = str(item.get("group") or "").lower()
-        item_type = str(item.get("type") or "").lower()
-        exchange = str(item.get("exchange") or "").lower()
-        if (
-            symbol.startswith(keyword)
-            or keyword in symbol
-            or (keyword_alt and (symbol.startswith(keyword_alt) or keyword_alt in symbol))
-            or keyword in name
-            or keyword in group
-            or keyword in item_type
-            or keyword in exchange
-        ):
-            matches.append(normalize_us_market_search_item(item))
-            if len(matches) >= limit:
-                break
-    return matches, totals, source
-
-
 def find_us_listed_symbol(symbol: str) -> dict[str, Any] | None:
     clean_symbol = normalize_us_symbol_for_yahoo(symbol)
     universe, _totals, _source = fetch_us_listed_universe_with_fallback(False)
@@ -262,73 +210,7 @@ def api_us_market_etf_center():
 @bp.route("/api/us-market/search")
 def api_us_market_search():
     query = request.args.get("q", "").strip()
-    if not query:
-        totals: dict[str, int] = {}
-        source = "Nasdaq Trader 官方 Symbol Directory"
-        try:
-            _items, totals = fetch_nasdaq_trader_us_listed_universe(False)
-        except Exception as exc:
-            LOGGER.debug("Nasdaq Trader empty-query lookup failed", exc_info=exc)
-            totals = {
-                "美股個股": sum(1 for item in US_MARKET_SEARCH_UNIVERSE if item.get("group") == "美股個股"),
-                "美股 ETF": sum(1 for item in US_MARKET_SEARCH_UNIVERSE if item.get("group") == "美股 ETF"),
-            }
-            source = "內建美股/ETF清單"
-        return jsonify({
-            "query": query,
-            "count": 0,
-            "totals": totals,
-            "source": source,
-            "results": [],
-            "message": "請輸入代號或名稱後搜尋全上市美股 / ETF。",
-        })
-    def run_listed_search() -> tuple[list[dict[str, Any]], dict[str, int], str]:
-        try:
-            return search_us_listed_universe(query, 120)
-        except Exception as exc:
-            LOGGER.debug("Listed U.S. market search failed for query=%r", query, exc_info=exc)
-            return [], {}, ""
-
-    def run_nyse_search() -> tuple[list[dict[str, Any]], dict[str, int]]:
-        try:
-            return fetch_nyse_us_market_search(query, 60)
-        except Exception as exc:
-            LOGGER.debug("NYSE U.S. market search failed for query=%r", query, exc_info=exc)
-            return [], {}
-
-    def run_yahoo_search() -> list[dict[str, Any]]:
-        try:
-            return fetch_yahoo_us_market_search(query, 20)
-        except Exception as exc:
-            LOGGER.debug("Yahoo U.S. market search failed for query=%r", query, exc_info=exc)
-            return []
-
-    # These four sources are independent (results are merged, not tried-until-success),
-    # so they are fetched concurrently instead of one blocking call after another.
-    local_results = search_us_market_universe(query, 30)
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        listed_future = executor.submit(run_listed_search)
-        nyse_future = executor.submit(run_nyse_search)
-        yahoo_future = executor.submit(run_yahoo_search)
-        listed_results, listed_totals, listed_source = listed_future.result()
-        nyse_results, nyse_totals = nyse_future.result()
-        yahoo_results = yahoo_future.result()
-
-    merged: dict[str, dict[str, Any]] = {}
-    for item in [*listed_results, *nyse_results, *local_results, *yahoo_results]:
-        symbol = item.get("symbol")
-        if symbol and symbol not in merged:
-            merged[symbol] = item
-    results = list(merged.values())[:120]
-    totals = {**nyse_totals, **listed_totals}
-    sources = [source for source in [listed_source, "NYSE Listings Directory", "Yahoo Finance 行情補充"] if source]
-    return jsonify({
-        "query": query,
-        "count": len(results),
-        "totals": totals,
-        "source": " + ".join(dict.fromkeys(sources)) or "NYSE Listings Directory + Yahoo Finance 行情補充",
-        "results": results,
-    })
+    return jsonify(build_us_market_search_payload(query))
 
 
 @bp.route("/api/us-market/listed")
