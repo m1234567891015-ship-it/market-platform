@@ -369,6 +369,17 @@ def _compare(results: list[dict], diagnostic_dir: Path | None = None) -> dict:
                         f"  [EXTERNAL] {file}: visual diff {diff_pct:.2f}% > "
                         f"{PIXEL_DIFF_FAIL_THRESHOLD_PCT}%；保留 DOM/count gate，略過 pixel gate"
                     )
+                    if diagnostic_dir is not None:
+                        page_report["diagnostic_artifacts"] = _write_visual_diagnostics(
+                            screenshot_path.read_bytes(),
+                            result["screenshot_bytes"],
+                            file,
+                            diagnostic_dir,
+                        )
+                        print(
+                            f"  [DIAG] {file}: external-noise 仍寫入 baseline/current/diff 到 "
+                            f"{diagnostic_dir}"
+                        )
                 else:
                     page_report["visual"]["status"] = "fail"
                     failures.append(
