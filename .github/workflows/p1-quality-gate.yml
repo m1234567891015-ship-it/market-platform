@@ -58,6 +58,24 @@ jobs:
       - name: Install Playwright Chromium
         run: python -m playwright install --with-deps chromium
 
+      - name: Install deterministic frontend fonts
+        shell: bash
+        run: |
+          set -euo pipefail
+          FONT_DIR="$HOME/.local/share/fonts/market-pulse"
+          mkdir -p "$FONT_DIR"
+          curl --fail --silent --show-error --location \
+            "https://raw.githubusercontent.com/google/fonts/b950a7257470b900078f2bf3223823a8602de7e1/ofl/notosanstc/NotoSansTC%5Bwght%5D.ttf" \
+            --output "$FONT_DIR/NotoSansTC-wght.ttf"
+          curl --fail --silent --show-error --location \
+            "https://raw.githubusercontent.com/google/fonts/2861cb7b12f90c0a294a12ed666e381e2211872f/ofl/spacegrotesk/SpaceGrotesk%5Bwght%5D.ttf" \
+            --output "$FONT_DIR/SpaceGrotesk-wght.ttf"
+          test "$(git hash-object "$FONT_DIR/NotoSansTC-wght.ttf")" = "82943579ad39c281212df8f14ac999824694a6ab"
+          test "$(git hash-object "$FONT_DIR/SpaceGrotesk-wght.ttf")" = "a1b2e6c26093066510a31147e7aec9abdc8d6c5e"
+          fc-cache -f "$FONT_DIR"
+          fc-match -f '%{family}\n' "Noto Sans TC" | grep -F "Noto Sans TC"
+          fc-match -f '%{family}\n' "Space Grotesk" | grep -F "Space Grotesk"
+
       - name: Run frontend visual gate
         run: >-
           python regression/frontend_check.py --compare
