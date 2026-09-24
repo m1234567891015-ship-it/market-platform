@@ -474,12 +474,35 @@ function calculateMaxDrawdownPct(returns) {
   });
   return maxDrawdown;
 }
-function calculateSharpeLikeScore(returns) {
+/*
+ * Q3: this is a relative custom score, not a formal Sharpe Ratio.
+ * Formula: arithmetic mean(returnPct) / sample standard deviation(returnPct).
+ * Unit: percentage points per observation divided by percentage points.
+ * Range: any finite real value when finite returns have non-zero dispersion;
+ *        null for empty/one-sample/zero-volatility input.
+ * No risk-free rate, return frequency, or annualization factor is applied.
+ * Forward outcomes may also be dependent, so this score must not be read as
+ * an annualized Sharpe estimate.
+ */
+buildBacktestLearningModel.calculateRiskAdjustedReturnScore = function calculateRiskAdjustedReturnScore(returns) {
   if (!Array.isArray(returns) || returns.length < 2) return null;
   const average = returns.reduce((sum, value) => sum + value, 0) / returns.length;
   const variance = returns.reduce((sum, value) => sum + ((value - average) ** 2), 0) / (returns.length - 1);
   const sigma = Math.sqrt(variance);
   return sigma ? average / sigma : null;
+};
+buildBacktestLearningModel.calculateRiskAdjustedReturnScore.metadata = Object.freeze({
+  name: "riskAdjustedReturnScore",
+  formula: "arithmeticMeanReturnPct / sampleStandardDeviationReturnPct",
+  unit: "percentage points per observation divided by percentage points",
+  expectedRange: "(-Infinity, +Infinity) for finite non-zero-volatility input",
+  interpretation: "relative custom return-to-dispersion score; positive is better than negative",
+  annualization: "none",
+  riskFreeRate: "not applied",
+  notSharpeBecause: "no risk-free rate, frequency, or annualization convention; forward outcomes may be dependent",
+});
+function calculateSharpeLikeScore(returns) {
+  return buildBacktestLearningModel.calculateRiskAdjustedReturnScore(returns);
 }
 function calculateBacktestWinRate(returns) {
   if (!Array.isArray(returns) || !returns.length) return null;
@@ -521,7 +544,8 @@ function summarizeBacktestSegment(returns) {
     profitFactorUnbounded: Boolean(returns.length && profit > 0 && !loss),
     maxDrawdown: calculateMaxDrawdownPct(returns),
     maxLosingStreak: calculateMaxLosingStreak(returns),
-    sharpe: calculateSharpeLikeScore(returns),
+    riskAdjustedReturnScore: buildBacktestLearningModel.calculateRiskAdjustedReturnScore(returns),
+    riskAdjustedReturnScoreMeta: buildBacktestLearningModel.calculateRiskAdjustedReturnScore.metadata,
   };
 }
 buildBacktestLearningModel.summarizeBacktestObservations = function summarizeBacktestObservations(observations) {
@@ -1080,7 +1104,7 @@ function buildBacktestLearningModel(history, horizon = 240, options = {}) {
       profitFactor: item.totalLoss ? item.totalProfit / item.totalLoss : (item.totalProfit ? null : 0),
       profitFactorUnbounded: Boolean(item.totalProfit && !item.totalLoss),
       maxDrawdown: calculateMaxDrawdownPct(item.returns),
-      sharpe: calculateSharpeLikeScore(item.returns),
+      riskAdjustedReturnScore: buildBacktestLearningModel.calculateRiskAdjustedReturnScore(item.returns),
       riskHitRate: item.riskHits / item.samples,
       split: buildBacktestLearningModel.buildBacktestSplitMetadata(item.observations, horizon),
       rawSamples: item.observations.length,
@@ -1118,7 +1142,7 @@ function buildBacktestLearningModel(history, horizon = 240, options = {}) {
       qualityChecks: ["OHLCV 已檢查", "有效訊號樣本不足", "避免樣本不足時硬調權重"],
       performance: {
         maxDrawdown: calculateMaxDrawdownPct(allNetReturns),
-        sharpe: calculateSharpeLikeScore(allNetReturns),
+        riskAdjustedReturnScore: buildBacktestLearningModel.calculateRiskAdjustedReturnScore(allNetReturns),
       },
       validation: buildBacktestModelValidation(null),
       forecast: buildBacktestTrendForecast(history, [], null),
@@ -1182,7 +1206,7 @@ function buildBacktestLearningModel(history, horizon = 240, options = {}) {
     qualityChecks: ["OHLCV 已檢查", "以當下可得資料計算", "納入交易成本", "納入停損停利風控觀察"],
     performance: {
       maxDrawdown: calculateMaxDrawdownPct(allNetReturns),
-      sharpe: calculateSharpeLikeScore(allNetReturns),
+      riskAdjustedReturnScore: buildBacktestLearningModel.calculateRiskAdjustedReturnScore(allNetReturns),
       profitFactor: activeRanked.reduce((sum, item) => sum + (Number.isFinite(item.profitFactor) ? item.profitFactor : 0), 0) / activeRanked.length,
     },
     validation: activeValidation,
