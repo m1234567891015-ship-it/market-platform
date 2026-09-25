@@ -195,10 +195,12 @@ also requires confirming cost, backup, restore, and migration ownership.
 - `derivatives/`: derivatives scoring, catalog helpers, institution import, and options helpers.
 - `derivatives_store.py`: SQLite repository and schema initialization.
 - `build_portable_package.py`: creates `market-platform-portable-optimized.zip` from a clean allowlist, excluding old release folders and generated files.
+- The source ZIP excludes regression screenshots, HAR files, and baseline artifacts; those remain in the repository as separate regression evidence.
+- Rebuilding the same source tree produces a deterministic ZIP; the build command prints its SHA-256 digest for delivery records.
 
 ## Delivery Notes
 
 The R6 ZIP is generated from an explicit allowlist. It excludes archived release folders,
-old ZIPs, DOCX validation reports, personal files, obsolete backup files, and zero-byte
-leftovers. The shipped SQLite database is schema-only for reproducible delivery; runtime
-data is populated after startup or protected imports.
+old ZIPs, DOCX validation reports, personal files, obsolete backup files, zero-byte
+leftovers, and the rebuildable SQLite database. Runtime schema/data is initialized after
+startup or protected imports.
