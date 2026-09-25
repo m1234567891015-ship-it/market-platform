@@ -17,7 +17,6 @@ import tempfile
 import zipfile
 from pathlib import Path
 
-from derivatives_store import DerivativesStore
 from market_config import (
     ASSET_STATIC_FILES,
     JS_MODULE_STATIC_FILES,
@@ -27,7 +26,6 @@ from market_config import (
 
 BASE_DIR = Path(__file__).resolve().parent
 OUTPUT_NAME = "market-platform-portable-optimized.zip"
-DB_NAME = "derivatives-platform.sqlite3"
 
 BACKEND_MODULES = [
     "app.py",
@@ -37,12 +35,15 @@ BACKEND_MODULES = [
     "fetchers.py",
     "builders.py",
     "cache.py",
+    "shared_state.py",
     "security.py",
     "parsers.py",
     "routes_system.py",
     "routes_global_market.py",
     "routes_twse.py",
     "routes_derivatives.py",
+    "us_market_search.py",
+    "data_source_status.py",
     "clean_derivatives_db.py",
     "e2e_smoke.py",
     "verify_release_integrity.py",
@@ -109,17 +110,20 @@ def build(output_path: Path) -> Path:
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(BASE_DIR / relative, destination)
 
-        # Ship a schema-only DB (table structure, zero data rows) instead of
-        # copying the live working-tree database, so delivery is reproducible
-        # and never leaks a snapshot of real market data.
-        DerivativesStore(staging / DB_NAME).initialize()
-
         if output_path.exists():
             output_path.unlink()
         with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as archive:
             for path in sorted(staging.rglob("*")):
                 if path.is_file():
-                    archive.write(path, path.relative_to(staging))
+                    relative = path.relative_to(staging)
+                    # Normalize ZIP metadata so identical source trees produce
+                    # byte-identical deliverables across repeated builds.
+                    info = zipfile.ZipInfo(relative.as_posix())
+                    info.date_time = (1980, 1, 1, 0, 0, 0)
+                    info.compress_type = zipfile.ZIP_DEFLATED
+                    info.create_system = 0
+                    info.external_attr = 0o100644 << 16
+                    archive.writestr(info, path.read_bytes())
 
     return output_path
 

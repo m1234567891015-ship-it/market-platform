@@ -29,3 +29,10 @@ python live_source_validation.py
 
 `portable_check.py` 會確認頁面、資產、health API、股票查詢 API 與本機連結可用。  
 `live_source_validation.py` 會實際連線驗證 TWSE 與 TAIFEX 線上資料導入。
+
+## 交付包分層
+
+`market-platform-portable-optimized.zip` 是可重建的 source / runtime package，
+不包含 `node_modules`、`__pycache__`、SQLite、回歸截圖、HAR 與 baseline artifacts。
+回歸截圖、HAR、baseline 與測試報告留在 repository 內作為獨立 evidence package。
+同一 source tree 重複執行 `python build_portable_package.py` 會產生相同 SHA-256。
