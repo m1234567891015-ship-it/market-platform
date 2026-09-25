@@ -50,7 +50,7 @@ function buildUsMarketSentiment(selected, vix, indexReturn, vixReturn) {
       divergence = "指數走弱且 VIX 上升，市場轉向防禦。";
     } else if (indexReturn > 0 && vixReturn > 0) {
       signal = "上漲但避險同步升溫";
-      divergence = "指數上漲但 VIX 同升，代表追價信心不足或事件風險升高。";
+      divergence = "指數上漲但 VIX 同升，代表追價證據不足或事件風險升高。";
     } else if (indexReturn < 0 && vixReturn < 0) {
       signal = "跌勢恐慌降溫";
       divergence = "指數偏弱但 VIX 回落，可能是修正趨緩或賣壓收斂。";
@@ -481,10 +481,14 @@ function buildUsIndexVixAiAnalysis({ selectedIndexes = [], selected, vix, chartS
     Number.isFinite(vixReturn),
     chartState.totalPoints >= 60,
   ].filter(Boolean).length;
+  const scenarioWeights = { bullish, neutral, bearish };
 
   return {
     headline: chartState.comparison ? `${selectedIndexes.length} 指數比對 · ${forecastLabel}` : `${selectedName} · ${forecastLabel}`,
     confidence: `${confidence}/5`,
+    scenarioWeights,
+    scenarioSemanticStatus: "HEURISTIC_SCENARIO_WEIGHT",
+    probabilitiesDeprecated: true,
     modules: [
       {
         title: "AI 趨勢比對",
@@ -722,7 +726,7 @@ function renderUsMajorIndexVixCard(payload) {
               <span>Built-in AI comparison</span>
               <strong>內建 AI 比對分析</strong>
             </div>
-            <small>${escapeHtml(aiAnalysis.headline)} · 信心 ${escapeHtml(aiAnalysis.confidence)}</small>
+            <small>${escapeHtml(aiAnalysis.headline)} · 證據覆蓋 ${escapeHtml(aiAnalysis.confidence)}</small>
           </div>
           <div class="us-ai-evaluation-grid us-index-ai-grid">
             ${aiAnalysis.modules.map((module) => `
@@ -1458,25 +1462,34 @@ function buildUsMarketPulseAnalysis({ majorItems, usablePulseItems, vix, avgPct,
   const bearish = Math.round(clamp(bearishRaw, 12, 70));
   const neutral = Math.max(10, 100 - bullish - bearish);
   const normalizedTotal = bullish + neutral + bearish;
-  const forecast = {
-    horizon: "未來 3-5 個交易日",
+  const scenarioWeights = {
     bullish: Math.round((bullish / normalizedTotal) * 100),
     neutral: Math.round((neutral / normalizedTotal) * 100),
     bearish: Math.round((bearish / normalizedTotal) * 100),
   };
-  forecast.label = forecast.bullish >= forecast.bearish + 12
+  const forecast = {
+    horizon: "未來 3-5 個交易日",
+    scenarioWeights,
+    // Deprecated compatibility aliases; canonical consumers use scenarioWeights.
+    bullish: scenarioWeights.bullish,
+    neutral: scenarioWeights.neutral,
+    bearish: scenarioWeights.bearish,
+    scenarioSemanticStatus: "HEURISTIC_SCENARIO_WEIGHT",
+    probabilitiesDeprecated: true,
+  };
+  forecast.label = forecast.scenarioWeights.bullish >= forecast.scenarioWeights.bearish + 12
     ? "偏多延續"
-    : forecast.bearish >= forecast.bullish + 12
+    : forecast.scenarioWeights.bearish >= forecast.scenarioWeights.bullish + 12
       ? "修正風險升高"
-      : "區間震盪機率高";
-  forecast.summary = `${forecast.horizon} 情境推估：多方 ${forecast.bullish}%、震盪 ${forecast.neutral}%、空方 ${forecast.bearish}%。此為內建規則模型，不是價格保證。`;
+      : "區間震盪權重高";
+  forecast.summary = `${forecast.horizon} 情境推估：多方 ${forecast.scenarioWeights.bullish}%、震盪 ${forecast.scenarioWeights.neutral}%、空方 ${forecast.scenarioWeights.bearish}%。此為內建規則模型，不是價格保證。`;
   const aiModules = [
     {
       title: "趨勢評估",
       label: trendLabel,
       tone: trendTone,
       score: `${trendPower}/100`,
-      body: trendDrivers.length ? trendDrivers.join("；") : "主要指數歷史資料不足，趨勢信心偏低。",
+      body: trendDrivers.length ? trendDrivers.join("；") : "主要指數歷史資料不足，趨勢證據覆蓋偏低。",
     },
     {
       title: "風險評估",
@@ -1488,8 +1501,8 @@ function buildUsMarketPulseAnalysis({ majorItems, usablePulseItems, vix, avgPct,
     {
       title: "情境預測",
       label: forecast.label,
-      tone: forecast.bullish > forecast.bearish ? "positive" : forecast.bearish > forecast.bullish ? "negative" : "watch",
-      score: `${forecast.bullish}/${forecast.neutral}/${forecast.bearish}`,
+      tone: forecast.scenarioWeights.bullish > forecast.scenarioWeights.bearish ? "positive" : forecast.scenarioWeights.bearish > forecast.scenarioWeights.bullish ? "negative" : "watch",
+      score: `${forecast.scenarioWeights.bullish}/${forecast.scenarioWeights.neutral}/${forecast.scenarioWeights.bearish}`,
       body: forecast.summary,
     },
   ];
@@ -1508,6 +1521,7 @@ function buildUsMarketPulseAnalysis({ majorItems, usablePulseItems, vix, avgPct,
     averageText: formatPulsePct(avgPct),
     trendLabel,
     trendPower,
+    scenarioWeights: forecast.scenarioWeights,
     riskLevel,
     riskScore,
     forecast,
@@ -1599,7 +1613,7 @@ function renderGlobalSummaryCard(payload) {
         <div class="us-summary-vix is-${escapeHtml(analysis.vixBand.tone)}">
           <span>VIX risk temperature</span>
           <strong>${formatGlobalValue(vix?.close)} <small>${escapeHtml(vix?.pct || "--")}</small></strong>
-          <p>${escapeHtml(analysis.vixBand.label)} · 風險溫度 ${analysis.vixRisk ?? "--"}/100 · 信心 ${escapeHtml(analysis.confidence)}</p>
+          <p>${escapeHtml(analysis.vixBand.label)} · 風險溫度 ${analysis.vixRisk ?? "--"}/100 · 證據覆蓋 ${escapeHtml(analysis.confidence)}</p>
         </div>
       </div>
       <div class="global-summary-grid us-summary-grid">
@@ -3645,7 +3659,7 @@ function renderFuturesTechnicalSummaryCard(item, rows = []) {
           <span><small>短線</small><b>資料不足</b></span>
           <span><small>中期</small><b>等待同步</b></span>
           <span><small>長期</small><b>等待同步</b></span>
-          <span><small>分析信心</small><b>低</b></span>
+          <span><small>證據覆蓋</small><b>低</b></span>
         </div>
         <div class="technical-summary-forecast">
           <div class="technical-summary-forecast-head">
@@ -3653,9 +3667,9 @@ function renderFuturesTechnicalSummaryCard(item, rows = []) {
               <span>Forecast path</span>
               <strong>預測期貨價格與走勢</strong>
             </div>
-            <small>信心 低 · 資料累積中</small>
+            <small>證據覆蓋低 · 資料累積中</small>
           </div>
-          <p>至少需要 5 筆同畫面 K 線才會啟用基礎技術總結；更多歷史資料同步後，會顯示支撐壓力、ATR 波動、情境機率與預估期貨價格區間。</p>
+          <p>至少需要 5 筆同畫面 K 線才會啟用基礎技術總結；更多歷史資料同步後，會顯示支撐壓力、ATR 波動、情境權重與預估期貨價格區間。</p>
         </div>
         <div class="technical-summary-action">
           <strong>期貨操作節奏</strong>
@@ -3682,7 +3696,7 @@ function renderFuturesTechnicalSummaryCard(item, rows = []) {
       <p>${escapeHtml(trendSummary.summary)}</p>
       <div class="technical-summary-timeframes">
         ${trendSummary.timeframes.map((entry) => `<span><small>${escapeHtml(entry.label)}</small><b>${escapeHtml(entry.value)}</b></span>`).join("")}
-        <span><small>分析信心</small><b>${escapeHtml(trendSummary.confidence)}</b></span>
+        <span><small>證據覆蓋</small><b>${escapeHtml(trendSummary.confidence)}</b></span>
       </div>
       ${renderTechnicalTrendForecastSummary(trendSummary, { assetLabel: "期貨價格", targetTitle: "預估期貨價格區間" })}
       <p class="technical-summary-caveat">期貨預估區間以契約價格點數呈現，實際損益仍需依商品乘數、跳動點價值、保證金與轉倉成本換算。</p>
@@ -3898,7 +3912,7 @@ function renderFuturesTechnicalTheorySection(item, rows = []) {
         <span class="stock-theory-score is-${theoryTone}">${theoryLabel} · ${technicalTheory.score > 0 ? "+" : ""}${technicalTheory.score}</span>
       </div>
       <div class="stock-theory-adaptive">
-        <strong>${escapeHtml(formatFuturesContractLabel(selectedContract) || item?.symbol || "--")} · ${escapeHtml(getFuturesTechnicalIntervalLabel(selectedInterval))} · 多理論共振：${escapeHtml(technicalTheory.adaptiveConfidence || "低")}信心</strong>
+        <strong>${escapeHtml(formatFuturesContractLabel(selectedContract) || item?.symbol || "--")} · ${escapeHtml(getFuturesTechnicalIntervalLabel(selectedInterval))} · 多理論共振：${escapeHtml(technicalTheory.adaptiveConfidence || "低")}證據一致性</strong>
         <span>${escapeHtml(technicalTheory.adaptiveSummary || "目前多空理論尚未形成一致方向")}</span>
       </div>
       <div class="stock-theory-grid">

@@ -622,7 +622,7 @@ function buildAfterMarketWatchCard() {
   const action = indexPct < -1 || declining > advancing
     ? "隔日先看弱勢族群是否止穩與法人賣壓是否收斂，反彈量縮時不急追價。"
     : indexPct > 1 || advancing > declining * 1.4
-      ? "隔日留意強勢族群是否續量，若法人仍買超且開高不爆量，主線延續機率較高。"
+      ? "隔日留意強勢族群是否續量，若法人仍買超且開高不爆量，主線延續情境權重較高。"
       : "隔日等待量能、法人與族群輪動同向；若強弱族群快速互換，部位以短打與風控為主。";
 
   return {

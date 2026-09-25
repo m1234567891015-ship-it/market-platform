@@ -2254,7 +2254,7 @@ function renderWeightedSectorTrendFocus(title, subtitle, model, tone) {
         <strong>${escapeHtml(model.name)}</strong>
         <b>${model.score}/100</b>
       </div>
-      <small>${escapeHtml(subtitle)} · ${escapeHtml(model.pct)} · 信心 ${escapeHtml(model.confidence)}</small>
+      <small>${escapeHtml(subtitle)} · ${escapeHtml(model.pct)} · 證據一致性 ${escapeHtml(model.confidence)}</small>
       <p>${escapeHtml(model.thesis)}</p>
       <ul class="weighted-sector-thesis-list">
         ${model.reasons.slice(0, 3).map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}
@@ -2339,7 +2339,7 @@ function renderWeightedSectorTrendRecommendationCard(weightedIndex) {
         </div>
         ${topRows.map((item, index) => `
           <div class="weighted-sector-trend-row">
-            <span><b>${index + 1}. ${escapeHtml(item.name)}</b><small>${escapeHtml(item.action)} · ${escapeHtml(item.themeLabel)} · 信心 ${escapeHtml(item.confidence)} · ${escapeHtml(item.latestDate)}</small></span>
+            <span><b>${index + 1}. ${escapeHtml(item.name)}</b><small>${escapeHtml(item.action)} · ${escapeHtml(item.themeLabel)} · 證據一致性 ${escapeHtml(item.confidence)} · ${escapeHtml(item.latestDate)}</small></span>
             <strong>${item.score}/100</strong>
             <strong class="${Number.isFinite(item.relative20) ? item.relative20 >= 0 ? "up" : "down" : "flat"}">${Math.round(item.subScores.relativeStrength)}</strong>
             <strong>${Math.round(item.subScores.trend)}</strong>
@@ -2854,7 +2854,7 @@ function buildPortfolioFactorAssessment(positions, totals) {
   if (negativeAi > positiveAi) actions.push("組合內偏弱 AI 訊號較多，優先檢查技術結構轉弱或回測失真的持股。");
   else if (positiveAi > negativeAi && backtestRebuild === 0) actions.push("多數持股 AI 訊號偏正向且未見重建警示，可依原停損停利紀律續觀察。");
   if (backtestRebuild > 0) actions.push("存在回測模型需重建的持股，該部位不應提高權重，需等待重新校準。");
-  if (highConfidence < Math.ceil(analyzed.length / 2) && analyzed.length) actions.push("高信心個股不足半數，組合不宜因單一強勢股而放大整體曝險。");
+  if (highConfidence < Math.ceil(analyzed.length / 2) && analyzed.length) actions.push("高證據一致性個股不足半數，組合不宜因單一強勢股而放大整體曝險。");
   if (vixRisk) actions.push("VIX 進入警戒區時，避免一次建立完整部位，採分批與再平衡。");
   actions.push(...portfolioTheory.actions.slice(0, 3));
   actions.push("目前未納入槓桿、融資、配息稅務與除權息，實際投資需另行校正。");
@@ -3256,7 +3256,7 @@ function renderWatchlist() {
             </div>
           </div>
           <ul>${analysis.reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}</ul>
-          <small>信心 ${escapeHtml(analysis.confidence)} · 資料日 ${escapeHtml(analysis.date)}</small>
+          <small>證據一致性 ${escapeHtml(analysis.confidence)} · 資料日 ${escapeHtml(analysis.date)}</small>
         ` : `
           <span>AI 分析建議</span>
           <p>正在讀取完整個股資料...</p>

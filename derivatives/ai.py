@@ -25,6 +25,13 @@ def build_unavailable_ai_analysis(target: str, message: str) -> dict[str, Any]:
         **decision_contract,
         # Compatibility field. It is the old fixed evidence proxy, not predictive confidence.
         "confidenceScore": 20,
+        "deprecatedFields": {
+            "confidenceScore": {
+                "deprecated": True,
+                "replacement": "evidenceScore",
+                "semanticStatus": "EVIDENCE_STRENGTH",
+            },
+        },
         "scoreFormula": {
             "marketScore": "固定中性 50；資料源缺漏時不產生方向性分數。",
             "riskScore": "資料源缺漏時提高到 60，提示資料風險。",

@@ -2176,7 +2176,7 @@ function renderUsTechnicalTheorySection(detail, technicalTheory) {
       <p>${escapeHtml(trendSummary.summary)}</p>
       <div class="technical-summary-timeframes">
         ${trendSummary.timeframes.map((item) => `<span><small>${escapeHtml(item.label)}</small><b>${escapeHtml(item.value)}</b></span>`).join("")}
-        <span><small>分析信心</small><b>${escapeHtml(trendSummary.confidence)}</b></span>
+        <span><small>證據一致性</small><b>${escapeHtml(trendSummary.confidence)}</b></span>
       </div>
       ${renderTechnicalTrendForecastSummary(trendSummary)}
       <div class="technical-summary-columns">
@@ -2200,12 +2200,12 @@ function renderUsTechnicalTheorySection(detail, technicalTheory) {
       <div class="card-title-row">
         <div>
           <h3>進階技術分析理論</h3>
-          <p class="chart-subtitle">整合型態、價量、市場廣度、心理線與籌碼代理指標，透過多因子一致性動態調整信心。</p>
+          <p class="chart-subtitle">整合型態、價量、市場廣度、心理線與籌碼代理指標，透過多因子一致性動態調整證據一致性。</p>
         </div>
         <span class="stock-theory-score is-${theoryTone}">${theoryLabel} · ${technicalTheory.score > 0 ? "+" : ""}${technicalTheory.score}</span>
       </div>
       <div class="stock-theory-adaptive">
-        <strong>多理論共振：${escapeHtml(technicalTheory.adaptiveConfidence || "低")}信心</strong>
+        <strong>多理論共振：${escapeHtml(technicalTheory.adaptiveConfidence || "低")}證據一致性</strong>
         <span>${escapeHtml(technicalTheory.adaptiveSummary || "目前多空理論尚未形成一致方向")}</span>
       </div>
       <div class="stock-theory-grid">

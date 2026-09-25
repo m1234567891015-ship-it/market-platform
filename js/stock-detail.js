@@ -1839,7 +1839,7 @@ function renderStockDetail(detail) {
         ${technicalTrendSummary.timeframes.map((item) => `
           <span><small>${escapeHtml(item.label)}</small><b>${escapeHtml(item.value)}</b></span>
         `).join("")}
-        <span><small>分析信心</small><b>${escapeHtml(technicalTrendSummary.confidence)}</b></span>
+        <span><small>證據一致性</small><b>${escapeHtml(technicalTrendSummary.confidence)}</b></span>
       </div>
       ${renderTechnicalTrendForecastSummary(technicalTrendSummary)}
       <div class="technical-summary-columns">
@@ -1947,7 +1947,7 @@ function renderStockDetail(detail) {
     backtestAdjustment > 0
       ? "權重偏多時仍需確認量能延續，避免只因回測勝率高而追價。"
       : backtestAdjustment < 0
-        ? "權重偏空時優先控管回撤，等待重新站回關鍵均線後再提高信心。"
+        ? "權重偏空時優先控管回撤，等待重新站回關鍵均線後再提高訊號一致性。"
         : "權重中性時以區間策略與風險報酬比優先，不急著放大部位。",
   ];
   const technicalTheoryHtml = `
@@ -1955,12 +1955,12 @@ function renderStockDetail(detail) {
       <div class="card-title-row">
         <div>
           <h3>進階技術分析理論</h3>
-          <p class="chart-subtitle">整合型態、價量、市場廣度、心理線與籌碼指標，透過 ADR、ADL、OBOS、PSY 及多因子一致性動態調整信心。</p>
+          <p class="chart-subtitle">整合型態、價量、市場廣度、心理線與籌碼指標，透過 ADR、ADL、OBOS、PSY 及多因子一致性動態調整證據一致性。</p>
         </div>
         <span class="stock-theory-score is-${theoryTone}">${theoryLabel} · ${technicalTheory.score > 0 ? "+" : ""}${technicalTheory.score}</span>
       </div>
       <div class="stock-theory-adaptive">
-        <strong>多理論共振：${technicalTheory.adaptiveConfidence || "低"}信心</strong>
+        <strong>多理論共振：${technicalTheory.adaptiveConfidence || "低"}證據一致性</strong>
         <span>${technicalTheory.adaptiveSummary || "目前多空理論尚未形成一致方向"}</span>
       </div>
       <div class="stock-theory-grid">
@@ -2135,7 +2135,7 @@ function renderStockDetail(detail) {
               <span>Scenario forecast</span>
               <strong>未來走勢情境推估</strong>
             </div>
-            <small>模型信心：${escapeHtml(backtestForecast.confidence || "低")} · ${escapeHtml(backtestForecast.trendLabel || "區間震盪")}</small>
+            <small>訊號一致性：${escapeHtml(backtestForecast.confidence || "低")} · ${escapeHtml(backtestForecast.trendLabel || "區間震盪")}</small>
           </div>
           <p>${escapeHtml(backtestForecast.summary || "回測資料不足，暫以中性震盪情境觀察。")}</p>
           <div class="backtest-forecast-grid">

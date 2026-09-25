@@ -593,7 +593,7 @@ function renderTaiwanOptionAnalysis(data = {}) {
       <div class="asset-option-chain-stats">
         <span><b>${Number.isFinite(Number(analysis.marketScore)) ? Number(analysis.marketScore).toFixed(0) : "--"}</b><small>市場分數</small></span>
         <span><b>${Number.isFinite(Number(analysis.riskScore)) ? Number(analysis.riskScore).toFixed(0) : "--"}</b><small>風險分數</small></span>
-        <span><b>${Number.isFinite(Number(analysis.confidenceScore)) ? Number(analysis.confidenceScore).toFixed(0) : "--"}</b><small>AI 信心</small></span>
+        <span><b>${Number.isFinite(Number(analysis.evidenceScore)) ? Number(analysis.evidenceScore).toFixed(0) : "--"}</b><small>證據強度</small></span>
       </div>
       <ul class="tw-option-ai-reasons">
         ${reasons.slice(1, 5).map((item) => `<li>${escapeHtml(item)}</li>`).join("") || "<li>資料不足時保留欄位，不以假訊號替代。</li>"}
@@ -1681,7 +1681,7 @@ function renderAssetFinancePriceForecastBody(forecasts = [], metalKey = "all", r
         <span><small>檢視標的</small><b>${escapeHtml(focusedForecast.label)} / ${escapeHtml(activeRange.label)}</b></span>
         <span><small>20日預測</small><b class="${assetFinancePctTone(focused20?.expectedPct)}">${focused20 ? `${formatGlobalValue(focused20.target)} ${formatAssetFinancePct(focused20.expectedPct)}` : "--"}</b></span>
         <span><small>20日風險區間</small><b>${focused20 ? `${formatGlobalValue(focused20.low)} - ${formatGlobalValue(focused20.high)}` : "--"}</b></span>
-        <span><small>模型信心</small><b>${focusedForecast.confidence}/100</b></span>
+        <span><small>證據覆蓋</small><b>${focusedForecast.confidence}/100</b></span>
       `
     : `
         <span><small>預測主題</small><b>${escapeHtml(forecastTheme)}</b></span>
@@ -1698,7 +1698,7 @@ function renderAssetFinancePriceForecastBody(forecasts = [], metalKey = "all", r
           <section class="is-${escapeHtml(forecast.tone)}">
             <div class="asset-finance-forecast-head">
               <small>${escapeHtml(forecast.code)}</small>
-              <em>信心 ${forecast.confidence}/100</em>
+              <em>證據覆蓋 ${forecast.confidence}/100</em>
             </div>
             <h5>${escapeHtml(forecast.label)}</h5>
             <div class="asset-finance-forecast-current">
@@ -1790,7 +1790,7 @@ function renderAssetFinanceMetalDriversPanel(model) {
       tone: macroTone,
       status: macroTone === "down" ? "機會成本偏高" : macroTone === "up" ? "壓力降溫" : "宏觀壓力中性",
       detail: "美元與美債殖利率共同決定無息資產的持有成本；若兩者上行，黃金需靠避險或通膨預期抵消壓力。",
-      forecast: macroTone === "down" ? "下修短線目標價權重，預測更偏區間或回檔。" : macroTone === "up" ? "提高 1日與5日反彈機率，黃金預測彈性優先。" : "維持中性假設，等待美元與10Y同向突破。",
+      forecast: macroTone === "down" ? "下修短線目標價權重，預測更偏區間或回檔。" : macroTone === "up" ? "提高 1日與5日反彈情境權重，黃金預測彈性優先。" : "維持中性假設，等待美元與10Y同向突破。",
       watch: `DXY ${model.dxy?.pct || "--"}、10Y 變動 ${tenYear.item?.pct || "--"}，同步走強時降低追價。`,
     },
     {
@@ -2179,7 +2179,7 @@ function renderAssetFinanceDecisionCenterPanel(model) {
     ["成立條件", `${score}/100`, `${label}：${entryBias}`],
     ["加碼訊號", fundConfirmation ? "已確認" : "等待", addCondition],
     ["壓力來源", pressureProfile ? pressureProfile.label : macroPressure ? "總體壓力" : "未啟動", pressureProfile ? pressureProfile.focus : macroPressure ? "美元利率續強且資金未流入。" : "若資金背離或金銀比轉弱再降級。"],
-    ["下一步驗證", `信心 ${model.confidence}`, Number.isFinite(taiwanSpread) ? "對照台灣商品與國際金屬是否隔日同向。" : "等待台灣商品同步後再做在地確認。"],
+    ["下一步驗證", `證據覆蓋 ${model.confidence}`, Number.isFinite(taiwanSpread) ? "對照台灣商品與國際金屬是否隔日同向。" : "等待台灣商品同步後再做在地確認。"],
   ];
   const venueInsight = buildAssetFinanceGlobalVenueInsight(model);
   return `
@@ -2193,7 +2193,7 @@ function renderAssetFinanceDecisionCenterPanel(model) {
       </div>
       <div class="asset-finance-decision-brief">
         <strong>${escapeHtml(label)}</strong>
-        <p>${escapeHtml(aiConclusion)} 模型信心 ${model.confidence}；${escapeHtml(action)}</p>
+        <p>${escapeHtml(aiConclusion)} 證據覆蓋 ${model.confidence}；${escapeHtml(action)}</p>
       </div>
       <div class="asset-finance-decision-venue">
         <div class="asset-finance-decision-section-head">
@@ -3386,7 +3386,7 @@ function renderAssetFinanceScenarioPanel(model) {
           <p class="panel-kicker">AI scenario simulation</p>
           <h4>AI 價格 / 殖利率情境模擬</h4>
         </div>
-        <span>信心 ${model.confidence}</span>
+        <span>證據覆蓋 ${model.confidence}</span>
       </div>
       <div class="asset-finance-scenario-grid">
         ${model.scenarios.map((item) => `
@@ -3781,7 +3781,7 @@ function renderAssetFinanceBondDashboardCommentary(commentary) {
           <small>AI analysis commentary</small>
           <b>AI 分析評論：${escapeHtml(commentary.title)}</b>
         </span>
-        <em>${escapeHtml(commentary.headline)} · 信心 ${escapeHtml(commentary.confidence || "--")}</em>
+        <em>${escapeHtml(commentary.headline)} · 證據覆蓋 ${escapeHtml(commentary.confidence || "--")}</em>
       </div>
       <div class="asset-finance-single-ai-grid">
         ${commentary.metrics.map(([label, value, detail, tone]) => `
@@ -4901,8 +4901,8 @@ function buildDerivativeOverviewImpactModel(futures, options, futuresModel, opti
   const vixMove = parseMarketNumber(vix?.pct);
   const newsImpacts = newsItems.map(getDerivativeOverviewNewsImpact);
   const newsNet = newsImpacts.reduce((sum, item) => sum + item.value, 0);
-  const bullish = Number(optionsModel.probabilities?.bullish) || 0;
-  const bearish = Number(optionsModel.probabilities?.bearish) || 0;
+  const bullish = Number(optionsModel.scenarioWeights?.bullish) || 0;
+  const bearish = Number(optionsModel.scenarioWeights?.bearish) || 0;
   const optionScore = Math.round(clampAssetHubScore(
     50 + (bullish - bearish) * 0.55 - Math.max(0, optionsModel.riskScore - 55) * 0.35,
     8,
@@ -4942,7 +4942,7 @@ function buildDerivativeOverviewImpactModel(futures, options, futuresModel, opti
       score: optionScore,
       tone: toneForScore(optionScore),
       impact: labelForScore(optionScore),
-      evidence: `多 ${bullish}% / 空 ${bearish}% / 震盪 ${optionsModel.probabilities.range}%；PCR ${optionsDecimal(optionsModel.pcr)}；VIX ${Number.isFinite(optionsModel.vixValue) ? optionsModel.vixValue.toFixed(2) : "--"}。`,
+      evidence: `多 ${bullish}% / 空 ${bearish}% / 震盪 ${optionsModel.scenarioWeights.range}%；PCR ${optionsDecimal(optionsModel.pcr)}；VIX ${Number.isFinite(optionsModel.vixValue) ? optionsModel.vixValue.toFixed(2) : "--"}。`,
       conclusion: optionsModel.riskScore >= 66 ? "避險與權利金風險偏高，會壓抑追價與槓桿承受度。" : optionScore >= 58 ? "選擇權結構支持偏多情境，但仍需突破 Call OI 壓力確認。" : optionScore <= 42 ? "Put、VIX 或風險分數偏高，對盤勢形成下行壓力。" : "PCR 與 OI 接近平衡，選擇權偏向區間牽引。",
     },
     {
@@ -5202,9 +5202,9 @@ function renderDerivativesMarketOverview(futures, options) {
           <section class="options-ai-direction is-${optionsModel.riskLight.tone}">
             <small>AI 今日市場分析 · ${escapeHtml(getTaiwanOptionProductLabel(chain))}</small>
             <strong>${escapeHtml(optionsModel.direction)} · 風險 ${optionsModel.riskScore}/100</strong>
-            <p>${escapeHtml(optionsModel.primaryRisk)}；信心分數 ${optionsModel.confidenceScore}/100。</p>
+            <p>${escapeHtml(optionsModel.primaryRisk)}；證據強度 ${optionsModel.evidenceScore}/100。</p>
             <div class="options-probability-bars">
-              ${[["多方", optionsModel.probabilities.bullish, "up"], ["空方", optionsModel.probabilities.bearish, "down"], ["震盪", optionsModel.probabilities.range, "flat"]].map(([label, value, tone]) => `<span class="is-${tone}"><b>${label}</b><i style="--bar:${Number(value) || 0}%"></i><em>${Number(value) || 0}%</em></span>`).join("")}
+              ${[["多方權重", optionsModel.scenarioWeights.bullish, "up"], ["空方權重", optionsModel.scenarioWeights.bearish, "down"], ["震盪權重", optionsModel.scenarioWeights.range, "flat"]].map(([label, value, tone]) => `<span class="is-${tone}"><b>${label}</b><i style="--bar:${Number(value) || 0}%"></i><em>${Number(value) || 0}%</em></span>`).join("")}
             </div>
           </section>
           <section class="options-risk-explain">
@@ -5247,7 +5247,7 @@ function renderDerivativesMarketOverview(futures, options) {
 
     <section class="section derivatives-overview-decision-section">
         <article class="panel-card derivatives-overview-decision-card">
-          <div class="asset-hub-group-heading"><div><p class="panel-kicker">AI Decision Brief</p><h4>AI 今日結論與策略</h4></div><span>信心 ${chainAnalysis.confidenceScore ?? optionsModel.confidenceScore}/100</span></div>
+          <div class="asset-hub-group-heading"><div><p class="panel-kicker">AI Decision Brief</p><h4>AI 今日結論與策略</h4></div><span>證據強度 ${chainAnalysis.evidenceScore ?? optionsModel.evidenceScore}/100</span></div>
           <div class="derivatives-overview-decision-lead is-${optionDirectionTone}">
             <small>${escapeHtml(chainAnalysis.bias || optionsModel.direction || "盤勢同步中")}</small>
             <strong>${escapeHtml(chainAnalysis.strategySuggestion || topStrategy?.name || "等待策略條件")}</strong>
@@ -6333,7 +6333,7 @@ function renderDerivativeAiReport(title, analysis = {}, error = "", id = "") {
     <article class="panel-card tw-option-ai-card"${idAttr}>
       <div class="asset-hub-group-heading"><div><p class="panel-kicker">AI analysis</p><h3>${escapeHtml(title)}</h3></div><span>風險 ${escapeHtml(analysis.riskLevel || "--")}</span></div>
       <div class="tw-option-ai-main"><strong>${escapeHtml(analysis.bias || "資料不足")}</strong><p>${escapeHtml((analysis.reasons || [])[0] || "尚無足夠資料說明方向。")}</p></div>
-      <div class="asset-option-chain-stats"><span><b>${formatAssetOptionNumber(analysis.supportLevel)}</b><small>支撐</small></span><span><b>${formatAssetOptionNumber(analysis.resistanceLevel)}</b><small>壓力</small></span><span><b>${escapeHtml(analysis.riskLevel || "--")}</b><small>風險等級</small></span><span><b>${Number.isFinite(Number(analysis.marketScore)) ? Number(analysis.marketScore).toFixed(0) : "--"}</b><small>市場分數</small></span><span><b>${Number.isFinite(Number(analysis.riskScore)) ? Number(analysis.riskScore).toFixed(0) : "--"}</b><small>風險分數</small></span><span><b>${Number.isFinite(Number(analysis.confidenceScore)) ? Number(analysis.confidenceScore).toFixed(0) : "--"}</b><small>AI 信心</small></span></div>
+       <div class="asset-option-chain-stats"><span><b>${formatAssetOptionNumber(analysis.supportLevel)}</b><small>支撐</small></span><span><b>${formatAssetOptionNumber(analysis.resistanceLevel)}</b><small>壓力</small></span><span><b>${escapeHtml(analysis.riskLevel || "--")}</b><small>風險等級</small></span><span><b>${Number.isFinite(Number(analysis.marketScore)) ? Number(analysis.marketScore).toFixed(0) : "--"}</b><small>市場分數</small></span><span><b>${Number.isFinite(Number(analysis.riskScore)) ? Number(analysis.riskScore).toFixed(0) : "--"}</b><small>風險分數</small></span><span><b>${Number.isFinite(Number(analysis.evidenceScore)) ? Number(analysis.evidenceScore).toFixed(0) : "--"}</b><small>證據強度</small></span></div>
       <ul class="tw-option-ai-reasons">${(analysis.reasons || []).slice(1, 5).map((item) => `<li>${escapeHtml(item)}</li>`).join("") || "<li>資料不足時保留欄位，不以假訊號替代。</li>"}</ul>
       <div class="asset-hub-source-stack">${crossValidation.map((item) => `<span><b>${escapeHtml(item.name || "--")}</b><small>${escapeHtml(item.status || "--")} · ${escapeHtml(item.signal || "--")}</small></span>`).join("") || "<span><b>Cross validation</b><small>等待更多公開資料交叉驗證。</small></span>"}</div>
       <div class="tw-option-scenarios">${scenarios.map((item) => `<section><b>${escapeHtml(item.name || "--")}</b><small>${escapeHtml(item.condition || "")}</small><p>${escapeHtml(item.view || "")}</p></section>`).join("")}</div>
