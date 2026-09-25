@@ -168,6 +168,18 @@ class DerivativesPlatformApiTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertFalse(db_path.exists(), "import app must not initialize SQLite")
 
+    def test_create_app_binds_injected_store_and_keeps_wsgi_entrypoint(self):
+        with tempfile.TemporaryDirectory(prefix="market-pulse-factory-db-") as tmp_name:
+            injected = DerivativesStore(Path(tmp_name) / "factory.sqlite3")
+            factory_app = app.create_app({"TESTING": True}, derivatives_store=injected)
+
+            self.assertIs(factory_app.extensions["derivatives_store"], injected)
+            self.assertIsNotNone(app.app)
+            response = factory_app.test_client().get("/api/derivatives/v1-status")
+
+            self.assertEqual(response.status_code, 200)
+            self.assertTrue(injected.path.exists())
+
     def test_wsgi_import_does_not_start_background_updater(self):
         with tempfile.TemporaryDirectory(prefix="market-pulse-wsgi-import-check-") as tmp_name:
             env = os.environ.copy()

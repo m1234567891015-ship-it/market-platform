@@ -13,6 +13,10 @@ SSL behavior, and schema-only clean delivery packaging.
 python app.py
 ```
 
+The application also exposes `app.create_app(config=None, derivatives_store=None)`
+for isolated local or test instances. The production-compatible WSGI entrypoint
+remains `app:app`, so existing Gunicorn and Render launch commands do not change.
+
 Default local URL:
 
 ```text

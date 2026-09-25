@@ -137,7 +137,7 @@ def api_derivatives_v1_status():
 
     futures_items = [apply_taifex_defaults(item, TAIFEX_FUTURES_DAILY_URL, TAIFEX_OPTIONS_DAILY_URL) for item in TAIWAN_FUTURES_V1]
     option_items = [apply_taifex_defaults(item, TAIFEX_FUTURES_DAILY_URL, TAIFEX_OPTIONS_DAILY_URL) for item in TAIWAN_OPTIONS_V1]
-    institutional_count = len(app.DERIVATIVES_STORE.institutional_positions(str(request.args.get("product") or "TX").strip().upper(), 200))
+    institutional_count = len(app.get_derivatives_store().institutional_positions(str(request.args.get("product") or "TX").strip().upper(), 200))
     return jsonify(app.api_success_payload({
         "version": "V1.0",
         "scope": "domestic_derivatives",
@@ -342,7 +342,7 @@ def api_institutional_position():
     import app
 
     product = str(request.args.get("product") or "TX").strip().upper()
-    rows = app.DERIVATIVES_STORE.institutional_positions(product)
+    rows = app.get_derivatives_store().institutional_positions(product)
     if rows:
         payload = build_institution_payload_from_rows(product, rows, TAIFEX_FUTURES_DAILY_URL)
     else:
@@ -371,9 +371,9 @@ def api_institution_import():
     rows = [row for row in rows if row.get("institution") and row.get("product_code") and row.get("trade_date")]
     if not rows:
         return jsonify(app.api_error_payload("INVALID_PAYLOAD", "請提供 rows JSON 或 CSV，欄位需含 institution/product_code/trade_date")), 400
-    inserted = app.DERIVATIVES_STORE.record_institutional_positions(rows)
+    inserted = app.get_derivatives_store().record_institutional_positions(rows)
     product = str(rows[0].get("product_code") or "").upper()
-    payload = build_institution_payload_from_rows(product, app.DERIVATIVES_STORE.institutional_positions(product), TAIFEX_FUTURES_DAILY_URL)
+    payload = build_institution_payload_from_rows(product, app.get_derivatives_store().institutional_positions(product), TAIFEX_FUTURES_DAILY_URL)
     return jsonify(app.api_success_payload({"inserted": inserted, "product": product, "institution": payload}))
 
 
@@ -437,7 +437,7 @@ def api_derivatives_news():
             return jsonify(app.api_error_payload("EMPTY_RESULT", "目前查無市場新聞資料")), 200
         for item in items:
             item.setdefault("summary", "公開新聞標題與來源，請開啟連結查看完整內容。")
-        app.DERIVATIVES_STORE.record_news(category, items)
+        app.get_derivatives_store().record_news(category, items)
         return jsonify(app.api_success_payload({"category": category, "symbol": symbol, "items": items, "count": len(items)}))
     except Exception as exc:  # noqa: BLE001
         return app.api_exception_response("DATA_SOURCE_ERROR", app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc, 502)
@@ -465,7 +465,7 @@ def api_derivatives_ai_analysis():
                 analysis = build_derivatives_unavailable_ai_analysis(target, str(item.get("error")))
                 return jsonify(app.api_success_payload(analysis))
             analysis = build_futures_ai_analysis(item)
-        app.DERIVATIVES_STORE.record_ai_report(target, analysis, datetime.now(app.TZ).isoformat())
+        app.get_derivatives_store().record_ai_report(target, analysis, datetime.now(app.TZ).isoformat())
         return jsonify(app.api_success_payload(analysis))
     except Exception as exc:  # noqa: BLE001
         return app.api_exception_response("DATA_SOURCE_ERROR", app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc, 502)
@@ -516,7 +516,7 @@ def api_options_chain():
         return app.api_exception_response("DATA_SOURCE_ERROR", app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc, 502)
     if data.get("error"):
         return jsonify(app.api_success_payload(build_derivatives_unavailable_option_chain(str(data.get("error")), TAIFEX_OPTIONS_DAILY_URL, underlying)))
-    app.DERIVATIVES_STORE.record_option_chain(data, datetime.now(app.TZ).isoformat())
+    app.get_derivatives_store().record_option_chain(data, datetime.now(app.TZ).isoformat())
     return jsonify(app.api_success_payload(data))
 
 
@@ -544,12 +544,12 @@ def api_options_pcr():
             "volumePutCallRatio": summary.get("volumePutCallRatio"),
             "putOpenInterest": summary.get("putOpenInterest"),
             "callOpenInterest": summary.get("callOpenInterest"),
-            "history": app.DERIVATIVES_STORE.option_pcr_history(underlying),
+            "history": app.get_derivatives_store().option_pcr_history(underlying),
             "source": (data.get("source") or {}).get("primary"),
             "status": data.get("status"),
             "message": data.get("message"),
         }))
-    app.DERIVATIVES_STORE.record_option_chain(data, datetime.now(app.TZ).isoformat())
+    app.get_derivatives_store().record_option_chain(data, datetime.now(app.TZ).isoformat())
     summary = data.get("summary") or {}
     return jsonify(app.api_success_payload({
         "underlying": underlying,
@@ -559,7 +559,7 @@ def api_options_pcr():
         "volumePutCallRatio": summary.get("volumePutCallRatio"),
         "putOpenInterest": summary.get("putOpenInterest"),
         "callOpenInterest": summary.get("callOpenInterest"),
-        "history": app.DERIVATIVES_STORE.option_pcr_history(underlying),
+        "history": app.get_derivatives_store().option_pcr_history(underlying),
         "source": (data.get("source") or {}).get("primary"),
     }))
 
@@ -593,7 +593,7 @@ def api_options_maxpain():
             "status": data.get("status"),
             "message": data.get("message"),
         }))
-    app.DERIVATIVES_STORE.record_option_chain(data, datetime.now(app.TZ).isoformat())
+    app.get_derivatives_store().record_option_chain(data, datetime.now(app.TZ).isoformat())
     summary = data.get("summary") or {}
     analysis = data.get("analysis") or {}
     return jsonify(app.api_success_payload({
