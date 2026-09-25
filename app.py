@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from flask import Flask, has_request_context, jsonify, request
+from flask import Flask, current_app, has_request_context, jsonify, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from derivatives_store import DerivativesStore
@@ -289,19 +289,22 @@ remove_global_market_symbols("precious-metals", {"XAUUSD=X", "XAGUSD=X", "XPTUSD
 
 
 
-
-
-app = Flask(__name__, static_folder=None)
-if str(os.environ.get("MARKET_PULSE_TRUST_PROXY") or "").strip().lower() in {"1", "true", "yes"}:
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
-
 PUBLIC_DATA_SOURCE_ERROR_MESSAGE = "資料來源暫不可用，請稍後再試"
 PUBLIC_TAIFEX_OPEN_INTEREST_ERROR_MESSAGE = "TAIFEX 未平倉資料暫時無法載入，請稍後再試"  # DEADCODE-CANDIDATE (confirmed zero callers 2026-07-19)
 
 
+def get_derivatives_store() -> DerivativesStore:
+    """Return the store bound to the active Flask app, with legacy fallback."""
+    if has_request_context():
+        configured_store = current_app.extensions.get("derivatives_store")
+        if configured_store is not None:
+            return configured_store
+    return DERIVATIVES_STORE
+
+
 def initialize_derivatives_store() -> None:
     """Initialize persistence explicitly instead of during module import."""
-    DERIVATIVES_STORE.initialize()
+    get_derivatives_store().initialize()
 
 
 def initialize_derivatives_store_for_request() -> None:
@@ -345,14 +348,36 @@ def start_background_updater_after_rate_limit():
     return None
 
 
-app.after_request(add_security_headers)
-app.before_request(initialize_derivatives_store_for_request)
-app.before_request(enforce_api_rate_limit)
-app.before_request(start_background_updater_after_rate_limit)
-app.register_blueprint(system_bp)
-app.register_blueprint(global_market_bp)
-app.register_blueprint(twse_bp)
-app.register_blueprint(derivatives_bp)
+def create_app(config: dict[str, Any] | None = None, *, derivatives_store: DerivativesStore | None = None) -> Flask:
+    """Build a Flask application while keeping ``app:app`` compatibility."""
+    flask_app = Flask(__name__, static_folder=None)
+    if config:
+        flask_app.config.update(config)
+    if derivatives_store is None:
+        db_path = flask_app.config.get("DERIVATIVES_DB_PATH") or os.environ.get(
+            "DERIVATIVES_DB_PATH", str(BASE_DIR / "derivatives-platform.sqlite3")
+        )
+        derivatives_store = DerivativesStore(db_path)
+    flask_app.extensions["derivatives_store"] = derivatives_store
+
+    trust_proxy = flask_app.config.get("MARKET_PULSE_TRUST_PROXY", os.environ.get("MARKET_PULSE_TRUST_PROXY"))
+    if str(trust_proxy or "").strip().lower() in {"1", "true", "yes"}:
+        flask_app.wsgi_app = ProxyFix(flask_app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+    flask_app.after_request(add_security_headers)
+    flask_app.before_request(initialize_derivatives_store_for_request)
+    flask_app.before_request(enforce_api_rate_limit)
+    flask_app.before_request(start_background_updater_after_rate_limit)
+    flask_app.register_blueprint(system_bp)
+    flask_app.register_blueprint(global_market_bp)
+    flask_app.register_blueprint(twse_bp)
+    flask_app.register_blueprint(derivatives_bp)
+    return flask_app
+
+
+# Keep the existing WSGI entrypoint and legacy tests that replace this global.
+app = create_app(derivatives_store=DERIVATIVES_STORE)
+app.extensions["derivatives_store"] = None
 
 
 def taipei_now() -> datetime:
