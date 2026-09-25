@@ -158,6 +158,8 @@ def api_derivatives_v1_status():
             "dataQualityScore": "Mean of known completeness, freshness, provider-health, consistency, and fallback-source dimensions; unknown dimensions are omitted.",
             "modelConfidence": "Unavailable until historical out-of-sample calibration exists; decision objects return null with status UNAVAILABLE.",
             "confidenceScore": "DEPRECATED compatibility field: legacy evidence proxy, not calibrated model confidence.",
+            "calibrationStatus": "UNAVAILABLE until out-of-sample prediction/outcome calibration evidence meets the project contract.",
+            "probabilityLabelAllowed": "Only true when calibrationStatus is CALIBRATED; current heuristic outputs remain scenario weights.",
             "sourcePendingPenalty": "Missing evidence lowers evidence/data-quality scores and raises data-risk messaging; no fake data is generated.",
         },
         "basis": {

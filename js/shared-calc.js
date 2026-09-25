@@ -680,7 +680,7 @@ function buildBacktestModelValidation(leader, options = {}) {
   }[status] || "樣本不足";
   const recommendation = {
     healthy: "樣本外表現仍可接受，可保留目前權重校準。",
-    watch: "出現一次失真，先觀察並降低模型信心。",
+    watch: "出現一次失真，先觀察並降低訊號一致性評級。",
     recalibrate: "連續或多項失真，建議調整參數並檢查市場環境。",
     rebuild: "模型績效結構已失效，停用權重調整並重新建立模型。",
   }[status] || "樣本不足，暫不判定模型失真。";
@@ -764,7 +764,7 @@ function buildBacktestTrendForecast(history, signals = [], validation = null) {
       support: null,
       resistance: null,
       priceTargets: [],
-      caveat: "回溯測試只能估計歷史訊號後的機率傾向，不保證未來價格。",
+      caveat: "回溯測試只能估計歷史訊號後的情境權重傾向，不保證未來價格。",
     };
   }
 
@@ -860,7 +860,7 @@ function buildBacktestTrendForecast(history, signals = [], validation = null) {
       expectedReturnPct: ((median - latest.close) / latest.close) * 100,
       basis: validation?.status === "rebuild"
         ? "模型失真，僅保留寬區間風險參考"
-        : "依情境機率、ATR、支撐壓力與回測平均報酬估算",
+        : "依情境權重、ATR、支撐壓力與回測平均報酬估算",
     };
   });
   const leader = validSignals[0];
@@ -870,8 +870,8 @@ function buildBacktestTrendForecast(history, signals = [], validation = null) {
       ? "低"
       : "中";
   const summary = leader
-    ? `依 ${leader.name} 與多因子回測，未來走勢偏向${trendScore > 8 ? "多方延續" : trendScore < -8 ? "偏空修正" : "區間震盪"}；模型信心 ${confidence}。`
-    : `目前可用回測訊號不足，未來走勢以區間震盪情境為主；模型信心 ${confidence}。`;
+    ? `依 ${leader.name} 與多因子回測，未來走勢偏向${trendScore > 8 ? "多方延續" : trendScore < -8 ? "偏空修正" : "區間震盪"}；訊號一致性 ${confidence}。`
+    : `目前可用回測訊號不足，未來走勢以區間震盪情境為主；訊號一致性 ${confidence}。`;
   return {
     confidence,
     summary,
@@ -882,7 +882,7 @@ function buildBacktestTrendForecast(history, signals = [], validation = null) {
     trendScore,
     priceTargets,
     trendLabel: trendScore > 8 ? "偏多延續" : trendScore < -8 ? "偏空修正" : "區間震盪",
-    caveat: "這是基於歷史訊號與目前價量結構的機率情境與價格區間推估，不是保證價格或投資建議。",
+    caveat: "這是基於歷史訊號與目前價量結構的情境權重與價格區間推估，不是保證價格或投資建議。",
   };
 }
 function buildBacktestLearningModel(history, horizon = 240, options = {}) {
@@ -1932,7 +1932,7 @@ function buildMovingAverageIndicator(history, { isEtf = false, isFutures = false
   const practical = direction === "bullish"
     ? "優先觀察回測上揚均線不破、量能配合後的續強機會，不在乖離過大時追價。"
     : direction === "bearish"
-      ? "反彈若無法站回下彎均線，仍以風險控管為主；重新站回季線後再提高信心。"
+      ? "反彈若無法站回下彎均線，仍以風險控管為主；重新站回季線後再提高訊號一致性。"
       : "等待均線脫離糾結並由價格、斜率與成交量同向確認，再判斷趨勢方向。";
 
   return {
@@ -2118,7 +2118,7 @@ function analyzeTechnicalTheories(detail) {
     if (highs.length === 2 && topTolerance <= 0.035 && latest.close < Math.min(...recent.slice(highs[0].index, highs[1].index + 1).map((item) => item.low))) {
       addTheory("反轉型態理論", "近似雙重頂且跌破頸線，反轉風險升高", -1);
     } else if (lows.length === 2 && bottomTolerance <= 0.035 && latest.close > Math.max(...recent.slice(lows[0].index, lows[1].index + 1).map((item) => item.high))) {
-      addTheory("反轉型態理論", "近似雙重底且突破頸線，反轉向上機率提高", 1);
+      addTheory("反轉型態理論", "近似雙重底且突破頸線，反轉向上情境權重提高", 1);
     } else if (topTolerance <= 0.035) {
       addTheory("反轉型態理論", "高檔近似雙重頂，但尚未有效跌破頸線", 0);
     } else if (bottomTolerance <= 0.035) {
@@ -2518,7 +2518,7 @@ function analyzeTechnicalTheories(detail) {
     const cci = calculateCci(history).at(-1);
     if (Number.isFinite(cci)) {
       if (cci >= 100) {
-        recordScoredIndicator("price", "CCI", cci.toFixed(1), "突破 +100，商品通道動能偏強，趨勢延續機率較高", "bullish", 1);
+        recordScoredIndicator("price", "CCI", cci.toFixed(1), "突破 +100，商品通道動能偏強，趨勢延續情境權重較高", "bullish", 1);
       } else if (cci <= -100) {
         recordScoredIndicator("price", "CCI", cci.toFixed(1), "跌破 -100，弱勢動能仍在，需等回到 -100 上方再確認修復", "bearish", -1);
       } else {
@@ -2762,7 +2762,7 @@ function analyzeTechnicalTheories(detail) {
   const adaptiveSummary = [
     directionSummary,
     backtestLearning.summary,
-    scoreDirectionConflict ? "型態與綜合指標方向衝突，已自動降低信心" : "",
+    scoreDirectionConflict ? "型態與綜合指標方向衝突，已自動降低訊號一致性" : "",
     indicatorSummary,
     breadthSummary,
   ].filter(Boolean).join("；");

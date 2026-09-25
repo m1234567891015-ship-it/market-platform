@@ -337,7 +337,7 @@ function renderTechnicalTrendForecastSummary(technicalTrendSummary, options = {}
             <span>Forecast path</span>
             <strong>${escapeHtml(titleText)}</strong>
           </div>
-          <small>信心 ${escapeHtml(forecast.confidence || "低")} · ${escapeHtml(forecast.trendLabel || "區間震盪")}</small>
+          <small>訊號一致性 ${escapeHtml(forecast.confidence || "低")} · ${escapeHtml(forecast.trendLabel || "區間震盪")}</small>
         </div>
         <p>${escapeHtml(forecast.summary || `歷史資料不足，暫不輸出預測${assetLabel}與走勢區間。`)}</p>
       </div>
@@ -350,9 +350,9 @@ function renderTechnicalTrendForecastSummary(technicalTrendSummary, options = {}
           <span>Forecast path</span>
           <strong>${escapeHtml(titleText)}</strong>
         </div>
-        <small>信心 ${escapeHtml(forecast.confidence || "低")} · ${escapeHtml(forecast.trendLabel || "區間震盪")}</small>
+        <small>訊號一致性 ${escapeHtml(forecast.confidence || "低")} · ${escapeHtml(forecast.trendLabel || "區間震盪")}</small>
       </div>
-      <p>${escapeHtml(forecast.summary || "以情境機率、ATR、支撐壓力與回測平均報酬估算預測區間。")}</p>
+      <p>${escapeHtml(forecast.summary || "以情境權重、ATR、支撐壓力與回測平均報酬估算預測區間。")}</p>
       <div class="backtest-forecast-levels technical-summary-levels">
         <span>支撐區 <b>${supportText}</b></span>
         <span>壓力區 <b>${resistanceText}</b></span>
@@ -659,7 +659,7 @@ function renderUsBacktestLearningCard(technicalTheory, options = {}) {
             <span>Scenario forecast</span>
             <strong>未來走勢情境推估</strong>
           </div>
-          <small>模型信心：${escapeHtml(forecast.confidence || "低")} · ${escapeHtml(forecast.trendLabel || "區間震盪")}</small>
+          <small>訊號一致性：${escapeHtml(forecast.confidence || "低")} · ${escapeHtml(forecast.trendLabel || "區間震盪")}</small>
         </div>
         <p>${escapeHtml(forecast.summary || "回測資料不足，暫以中性震盪情境觀察。")}</p>
         <div class="backtest-forecast-grid">
@@ -875,7 +875,7 @@ function renderUsWatchlist() {
               </div>
             </div>
             <ul>${analysis.reasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join("")}</ul>
-            <small>信心 ${escapeHtml(analysis.confidence)} · 資料日 ${escapeHtml(analysis.date)}</small>
+            <small>證據一致性 ${escapeHtml(analysis.confidence)} · 資料日 ${escapeHtml(analysis.date)}</small>
           ` : `
             <span>AI 分析建議</span>
             <p>正在讀取完整美股資料...</p>

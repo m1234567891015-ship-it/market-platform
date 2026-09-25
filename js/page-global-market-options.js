@@ -275,7 +275,7 @@ function buildOptionsAiFunctionalModel(payload = {}) {
   const expiryPressure = expiryDays !== null && expiryDays <= 5 ? 8 : expiryDays !== null && expiryDays <= 12 ? 4 : 0;
   const gapPressure = maxPainGap !== null && atmStrike ? Math.min(Math.abs(maxPainGap / atmStrike) * 420, 10) : 4;
   const riskScore = Math.round(clampAssetHubScore(28 + pcrPressure + volumePressure + vixPressure + ivPressure + expiryPressure + gapPressure + decisionFactors.riskAdjustment, 12, 96));
-  const confidenceScore = Math.round(clampAssetHubScore(
+  const evidenceScore = Math.round(clampAssetHubScore(
     34
       + (rows.length ? 14 : 0)
       + (distribution.length ? 10 : 0)
@@ -304,12 +304,12 @@ function buildOptionsAiFunctionalModel(payload = {}) {
     + (Math.abs((pcr || 1) - 1) < 0.12 ? 10 : 0)
     + (expiryDays !== null && expiryDays <= 7 ? 4 : 0)
     + (Math.abs(decisionFactors.directionBias) < 0.24 ? 4 : 0);
-  const totalProb = Math.max(bullishRaw + bearishRaw + chopRaw, 1);
-  const probabilities = {
-    bullish: Math.round(bullishRaw / totalProb * 100),
-    bearish: Math.round(bearishRaw / totalProb * 100),
+  const totalScenarioScore = Math.max(bullishRaw + bearishRaw + chopRaw, 1);
+  const scenarioWeights = {
+    bullish: Math.round(bullishRaw / totalScenarioScore * 100),
+    bearish: Math.round(bearishRaw / totalScenarioScore * 100),
   };
-  probabilities.range = Math.max(0, 100 - probabilities.bullish - probabilities.bearish);
+  scenarioWeights.range = Math.max(0, 100 - scenarioWeights.bullish - scenarioWeights.bearish);
   const riskLight = riskScore >= 82
     ? { label: "紅燈", tone: "red", text: "極端風險或重大波動環境" }
     : riskScore >= 66
@@ -317,9 +317,9 @@ function buildOptionsAiFunctionalModel(payload = {}) {
       : riskScore >= 48
         ? { label: "黃燈", tone: "yellow", text: "需留意波動與 OI 變化" }
         : { label: "綠燈", tone: "green", text: "風險正常，等待訊號確認" };
-  const direction = probabilities.bullish > probabilities.bearish + 8
+  const direction = scenarioWeights.bullish > scenarioWeights.bearish + 8
     ? "偏多"
-    : probabilities.bearish > probabilities.bullish + 8
+    : scenarioWeights.bearish > scenarioWeights.bullish + 8
       ? "偏空"
       : "震盪";
   const primaryRisk = riskScore >= 66
@@ -359,8 +359,17 @@ function buildOptionsAiFunctionalModel(payload = {}) {
     gold,
     oil,
     riskScore,
-    confidenceScore,
-    probabilities,
+    evidenceScore,
+    dataQualityScore: Number.isFinite(Number(payload.dataQualityScore)) ? Number(payload.dataQualityScore) : null,
+    modelConfidence: null,
+    modelConfidenceStatus: "UNAVAILABLE",
+    calibrationStatus: "UNAVAILABLE",
+    probabilityLabelAllowed: false,
+    scenarioWeights,
+    // Deprecated compatibility alias. Internal consumers use scenarioWeights.
+    probabilities: { ...scenarioWeights },
+    probabilitiesDeprecated: true,
+    scenarioSemanticStatus: "HEURISTIC_SCENARIO_WEIGHT",
     riskLight,
     direction,
     primaryRisk,
@@ -474,8 +483,8 @@ function buildOptionsFocusAnalysis(model) {
       direction: model.direction,
       primaryRisk: `${model.primaryRisk}；${factorSummary}`,
       riskScore: model.riskScore,
-      confidenceScore: model.confidenceScore,
-      probabilities: model.probabilities,
+      evidenceScore: model.evidenceScore,
+      scenarioWeights: model.scenarioWeights,
       riskLight: model.riskLight,
       evidenceText: `判斷來源：IV、Put/Call Ratio、OI 牆、最大痛點、到期日與跨市場風險資料；${factorCoverageText}`,
       decisionText: model.direction === "偏多"
@@ -552,8 +561,8 @@ function buildOptionsFocusAnalysis(model) {
   coneBias = clampAssetHubScore(coneBias + (decisionFactors.directionBias || 0) * 0.35, -1, 1);
   const riskScore = Math.round(clampAssetHubScore(model.riskScore * 0.55 + 24 + pressure, 12, 96));
   const focusQuoteReady = focus.kind !== "regional-item" || Number.isFinite(parseMarketNumber(focus.item?.close));
-  const confidenceScore = Math.round(clampAssetHubScore(
-    model.confidenceScore
+  const evidenceScore = Math.round(clampAssetHubScore(
+    model.evidenceScore
       - 4
       + (focus.item && focusQuoteReady ? 7 : 0)
       + Math.min((decisionFactors.readyCount || 0) * 2, 8)
@@ -564,20 +573,23 @@ function buildOptionsFocusAnalysis(model) {
   const bullishRaw = 32 + (coneBias > 0 ? 18 : 0) + (model.direction === "偏多" ? 8 : 0) - (riskScore > 70 ? 8 : 0);
   const bearishRaw = 30 + (coneBias < 0 ? 18 : 0) + (riskScore >= 66 ? 8 : 0);
   const rangeRaw = 28 + (Math.abs(moveValue) < 0.25 ? 12 : 0);
-  const total = Math.max(bullishRaw + bearishRaw + rangeRaw, 1);
-  const probabilities = {
-    bullish: Math.round(bullishRaw / total * 100),
-    bearish: Math.round(bearishRaw / total * 100),
+  const totalScenarioScore = Math.max(bullishRaw + bearishRaw + rangeRaw, 1);
+  const scenarioWeights = {
+    bullish: Math.round(bullishRaw / totalScenarioScore * 100),
+    bearish: Math.round(bearishRaw / totalScenarioScore * 100),
   };
-  probabilities.range = Math.max(0, 100 - probabilities.bullish - probabilities.bearish);
+  scenarioWeights.range = Math.max(0, 100 - scenarioWeights.bullish - scenarioWeights.bearish);
   const riskLight = getOptionsRiskLightFromScore(riskScore);
   return {
     focus,
     direction,
     primaryRisk,
     riskScore,
-    confidenceScore,
-    probabilities,
+    evidenceScore,
+    scenarioWeights,
+    probabilities: { ...scenarioWeights },
+    probabilitiesDeprecated: true,
+    scenarioSemanticStatus: "HEURISTIC_SCENARIO_WEIGHT",
     riskLight,
     evidenceText: `目前焦點：${focus.name} ${focus.value} / ${focus.pct}；同步比對 ${optionLabel} PCR ${optionsDecimal(model.pcr)}、OI 牆、最大痛點與隱性決策因子。${factorCoverageText}`,
     decisionText: `${focus.name} 被選為主控因子；AI 會把該標的變動映射到 ${optionLabel} 的方向、波動率與避險需求，並由隱性決策因子校正風險分數。${factorSummary}`,
@@ -601,9 +613,9 @@ function buildOptionsInvestorPlaybook(model, analysis = buildOptionsFocusAnalysi
   const spot = getOptionsUnderlyingPrice(model) ?? model.atmStrike ?? maxPain;
   const skew = model.maxIv !== null && model.minIv !== null ? model.maxIv - model.minIv : null;
   const directionText = String(analysis.direction || "");
-  const bullish = Number(analysis.probabilities?.bullish) || 0;
-  const bearish = Number(analysis.probabilities?.bearish) || 0;
-  const range = Number(analysis.probabilities?.range) || 0;
+  const bullish = Number(analysis.scenarioWeights?.bullish) || 0;
+  const bearish = Number(analysis.scenarioWeights?.bearish) || 0;
+  const range = Number(analysis.scenarioWeights?.range) || 0;
   const focusName = analysis.focus?.name || "目前標的";
   const focusSignal = `${analysis.focus?.value || "--"} / ${analysis.focus?.pct || "--"}`;
   const hasWalls = optionsNumber(putWall) !== null && optionsNumber(callWall) !== null;
@@ -647,7 +659,7 @@ function buildOptionsInvestorPlaybook(model, analysis = buildOptionsFocusAnalysi
     formatOptionsDistanceText(spot, putWall, "支撐"),
     formatOptionsDistanceText(spot, callWall, "壓力"),
   ].join("；");
-  const dataText = `${focusName} ${focusSignal}；PCR ${optionsDecimal(model.pcr)}、信心 ${analysis.confidenceScore}/100、機率 多 ${bullish}% / 震 ${range}% / 空 ${bearish}%。`;
+  const dataText = `${focusName} ${focusSignal}；PCR ${optionsDecimal(model.pcr)}、證據強度 ${analysis.evidenceScore}/100、情境權重 多 ${bullish}% / 震 ${range}% / 空 ${bearish}%。`;
   return {
     stance,
     priority,
@@ -814,9 +826,9 @@ function renderOptionsRiskConeContent(model, analysis = buildOptionsFocusAnalysi
         data-cone-lower="${escapeHtml(formatOptionsConeValue(node.lower))}"
         data-cone-focus="${escapeHtml(analysis.focus.name)}"
         data-cone-direction="${escapeHtml(analysis.direction)}"
-        data-cone-bullish="${Number(analysis.probabilities.bullish) || 0}"
-        data-cone-bearish="${Number(analysis.probabilities.bearish) || 0}"
-        data-cone-range="${Number(analysis.probabilities.range) || 0}">
+        data-cone-bullish="${Number(analysis.scenarioWeights.bullish) || 0}"
+        data-cone-bearish="${Number(analysis.scenarioWeights.bearish) || 0}"
+        data-cone-range="${Number(analysis.scenarioWeights.range) || 0}">
       </rect>
     `;
   }).join("");
@@ -827,7 +839,7 @@ function renderOptionsRiskConeContent(model, analysis = buildOptionsFocusAnalysi
             <p class="panel-kicker">Signature Visual</p>
             <h4>風險錐：趨勢延伸與波動率風險帶</h4>
           </div>
-          <span>${escapeHtml(analysis.focus.name)} · ${escapeHtml(analysis.direction)} · 信心 ${analysis.confidenceScore}/100</span>
+          <span>${escapeHtml(analysis.focus.name)} · ${escapeHtml(analysis.direction)} · 證據強度 ${analysis.evidenceScore}/100</span>
         </div>
         <div class="options-risk-cone-layout">
           <div class="options-risk-cone-chart" aria-label="選擇權風險錐" data-options-risk-cone-chart>
@@ -973,7 +985,7 @@ function renderOptionsChainOiSummary(model, chain = {}, options = {}) {
       : getOptionsStrikeKey(maxPut?.strike) === selectedKey
         ? `接近本表 Put Wall，${putMoneyness}，下方支撐與跌破後避險需求需同步觀察。`
         : getOptionsStrikeKey(maxPainStrike) === selectedKey
-          ? `接近本表 Max Pain，${callMoneyness} / ${putMoneyness}，結算牽引與區間震盪機率較高。`
+          ? `接近本表 Max Pain，${callMoneyness} / ${putMoneyness}，結算牽引與區間震盪權重較高。`
           : selectedStrike !== null && maxPainStrike !== null && selectedStrike > Number(maxPainStrike)
             ? `位於本表 Max Pain 上方，${callMoneyness}，偏壓力側，觀察 Call OI 是否被消化。`
             : `位於本表 Max Pain 下方或附近，${putMoneyness}，偏支撐側，觀察 Put OI 是否擴張。`;
@@ -1097,7 +1109,7 @@ function renderOptionsCrossValidationInline(model, analysis = buildOptionsFocusA
     <div class="options-cross-validation-inline" id="options-cross-validation">
       <div class="asset-hub-group-heading">
         <div><p class="panel-kicker">Cross Validation Engine</p><h4>AI 多模型交叉驗證</h4></div>
-        <span>${analysis.confidenceScore}/100</span>
+        <span>證據強度 ${analysis.evidenceScore}/100</span>
       </div>
       <div class="options-model-grid is-hero">
         ${modules.map(([title, status, text]) => `
@@ -1128,7 +1140,7 @@ function renderOptionsInsightFeedContent(model, analysis = buildOptionsFocusAnal
       metric: playbook.stance,
       text: playbook.setupText,
       action: playbook.dataText,
-      confidence: analysis.confidenceScore,
+      evidenceScore: analysis.evidenceScore,
     },
     {
       tone: "call",
@@ -1136,7 +1148,7 @@ function renderOptionsInsightFeedContent(model, analysis = buildOptionsFocusAnal
       metric: optionsWhole(callWall),
       text: `Call OI 牆位在 ${optionsWhole(callWall)}，接近該區時容易遇到獲利了結、賣方防守或 Gamma 壓力。若只碰到壓力未放量，不宜直接把它解讀成趨勢突破。`,
       action: playbook.triggerText,
-      confidence: Math.max(48, analysis.confidenceScore - 8),
+      evidenceScore: Math.max(48, analysis.evidenceScore - 8),
     },
     {
       tone: "put",
@@ -1144,7 +1156,7 @@ function renderOptionsInsightFeedContent(model, analysis = buildOptionsFocusAnal
       metric: optionsWhole(putWall),
       text: `Put OI 牆位在 ${optionsWhole(putWall)}，是目前賣權避險最需要觀察的支撐帶；若跌破後 Put OI 與 VIX 同步升溫，代表避險需求擴散。`,
       action: `最大痛點 ${optionsWhole(maxPain)} 可當作中性牽引位；跌破支撐前看區間，跌破後先看風控。`,
-      confidence: Math.max(48, analysis.confidenceScore - 6),
+      evidenceScore: Math.max(48, analysis.evidenceScore - 6),
     },
     {
       tone: "gold",
@@ -1152,7 +1164,7 @@ function renderOptionsInsightFeedContent(model, analysis = buildOptionsFocusAnal
       metric: `IV ${optionsPct(model.avgIv)} / VIX ${vixText}`,
       text: `Skew ${optionsPct(skew)}，${volumeBias}。波動率上升代表保護成本變貴，也代表裸賣承擔的跳空風險提高。`,
       action: playbook.premiumText,
-      confidence: Math.max(42, analysis.confidenceScore - 4),
+      evidenceScore: Math.max(42, analysis.evidenceScore - 4),
     },
   ];
   return `
@@ -1161,7 +1173,7 @@ function renderOptionsInsightFeedContent(model, analysis = buildOptionsFocusAnal
             <section class="is-${escapeHtml(item.tone)}">
               <div class="options-insight-card-head">
                 <small>${escapeHtml(item.label)}</small>
-                <b>${Math.round(item.confidence)}/100</b>
+                <b>${Math.round(item.evidenceScore)}/100</b>
               </div>
               <strong>${escapeHtml(item.metric)}</strong>
               <p>${escapeHtml(item.text)}</p>
@@ -1292,7 +1304,7 @@ function renderOptionsHeroMergedIntelligence(model) {
   const skew = model.maxIv !== null && model.minIv !== null ? model.maxIv - model.minIv : null;
   const expiryText = model.expiryDays === null ? "待同步" : `${model.expiryDays} 天`;
   const decisionRangeText = `${optionsWhole(putWall)} - ${optionsWhole(callWall)}`;
-  const decisionProbText = `\u591a ${analysis.probabilities.bullish}% / \u9707 ${analysis.probabilities.range}% / \u7a7a ${analysis.probabilities.bearish}%`;
+  const decisionScenarioWeightText = `\u591a ${analysis.scenarioWeights.bullish}% / \u9707 ${analysis.scenarioWeights.range}% / \u7a7a ${analysis.scenarioWeights.bearish}%`;
   const actionRows = [
     ["交易節奏", playbook.priority],
     ["突破 / 失守", playbook.triggerText],
@@ -1315,13 +1327,13 @@ function renderOptionsHeroMergedIntelligence(model) {
           <span><small>\u5e02\u5834\u72c0\u614b</small><b>${escapeHtml(playbook.stance)}</b></span>
           <span><small>\u5206\u6790\u6a19\u7684</small><b>${escapeHtml(analysis.focus.name)}</b></span>
           <span><small>\u53ef\u4ea4\u6613\u5340\u9593</small><b>${escapeHtml(decisionRangeText)}</b></span>
-          <span><small>\u6a5f\u7387\u5206\u4f48</small><b>${escapeHtml(decisionProbText)}</b></span>
+           <span><small>\u60c5\u5883\u6b0a\u91cd</small><b>${escapeHtml(decisionScenarioWeightText)}</b></span>
         </div>
         <div class="options-brief-grid is-compact">
           <section><small>目前位置</small><b>${optionsWhole(getOptionsUnderlyingPrice(model) ?? model.atmStrike)}</b><p>${escapeHtml(playbook.locationText)}</p></section>
           <section><small>價位邊界</small><b>${optionsWhole(putWall)} / ${optionsWhole(callWall)}</b><p>最大痛點 ${optionsWhole(model.maxPain)}，到期 ${escapeHtml(expiryText)}；靠近邊界時先看確認訊號。</p></section>
           <section><small>策略排序</small><b>${escapeHtml(topStrategy?.name || "--")}</b><p>${topStrategy ? `${topStrategy.score}/100，${topStrategy.evidence}` : "等待鏈資料、IV 與跨市場資料完成同步。"}</p></section>
-          <section><small>資料信心</small><b>${analysis.confidenceScore}/100</b><p>${escapeHtml(`${optionLabel} ${model.rows.length ? `${model.rows.length} 檔` : "同步中"}；隱性決策因子 ${hiddenFactorStatus}。`)}</p></section>
+          <section><small>證據強度</small><b>${analysis.evidenceScore}/100</b><p>${escapeHtml(`${optionLabel} ${model.rows.length ? `${model.rows.length} 檔` : "同步中"}；隱性決策因子 ${hiddenFactorStatus}。`)}</p></section>
         </div>
         <ul class="options-brief-actions is-compact">
           ${actionRows.map(([title, text]) => `<li><b>${escapeHtml(title)}</b><span>${escapeHtml(text)}</span></li>`).join("")}
@@ -1333,9 +1345,9 @@ function renderOptionsHeroMergedIntelligence(model) {
             <p>${escapeHtml(playbook.summary)}</p>
           </div>
           <div class="options-brief-score">
-            <span><b>${analysis.probabilities.bullish}%</b><small>多方</small></span>
-            <span><b>${analysis.probabilities.bearish}%</b><small>空方</small></span>
-            <span><b>${analysis.probabilities.range}%</b><small>震盪</small></span>
+            <span><b>${analysis.scenarioWeights.bullish}%</b><small>多方權重</small></span>
+            <span><b>${analysis.scenarioWeights.bearish}%</b><small>空方權重</small></span>
+            <span><b>${analysis.scenarioWeights.range}%</b><small>震盪權重</small></span>
           </div>
         </div>
       </section>
@@ -1399,9 +1411,9 @@ function renderOptionsHeroDashboard(model) {
           <section class="options-ai-direction is-${analysis.riskLight.tone}">
             <small>AI \u4eca\u65e5\u5e02\u5834\u5206\u6790 \u00b7 ${escapeHtml(analysisScopeLabel)} \u00b7 ${escapeHtml(analysis.focus.name)}</small>
             <strong>${escapeHtml(playbook.headline)}</strong>
-            <p>${escapeHtml(playbook.setupText)}；AI 信心 ${analysis.confidenceScore}/100，風險分數 ${analysis.riskScore}/100。</p>
+            <p>${escapeHtml(playbook.setupText)}；證據強度 ${analysis.evidenceScore}/100，風險分數 ${analysis.riskScore}/100。</p>
             <div class="options-probability-bars">
-              ${[["多方", analysis.probabilities.bullish, "up"], ["空方", analysis.probabilities.bearish, "down"], ["震盪", analysis.probabilities.range, "flat"]].map(([label, value, tone]) => `
+              ${[["多方權重", analysis.scenarioWeights.bullish, "up"], ["空方權重", analysis.scenarioWeights.bearish, "down"], ["震盪權重", analysis.scenarioWeights.range, "flat"]].map(([label, value, tone]) => `
                 <span class="is-${tone}"><b>${escapeHtml(label)}</b><i style="--bar:${Number(value) || 0}%"></i><em>${Number(value) || 0}%</em></span>
               `).join("")}
             </div>
@@ -2110,7 +2122,7 @@ function buildOptionsStrategyRows(model) {
       name: "日曆 / 對角價差",
       role: "時間價值",
       score: score(30 + (isRange ? 12 : 0) + (model.avgIv !== null ? 8 : 0) + (model.expiryDays !== null && model.expiryDays >= 14 ? 10 : 0) + (model.riskScore < 70 ? 6 : -6)),
-      evidence: `方向 ${model.direction}，到期 ${expiryText}，平均 IV ${ivText}，信心 ${model.confidenceScore}/100`,
+      evidence: `方向 ${model.direction}，到期 ${expiryText}，平均 IV ${ivText}，證據強度 ${model.evidenceScore}/100`,
       control: "適合用於時間價值配置；若近月 Gamma 風險升高，需縮小部位或改用保護性結構。",
     },
   ];
@@ -3397,7 +3409,7 @@ function renderUsMarketRiskAdviceCard(model) {
       </div>
       <p class="market-risk-summary">
         <b>${escapeHtml(analysis.regime?.label || "市場風險評估")}</b>
-        <span>${escapeHtml(analysis.forecast?.label || "情境推估")} · 信心 ${escapeHtml(analysis.confidence || "--")} · ${escapeHtml(analysis.forecast?.horizon || "未來 3-5 個交易日")}</span>
+        <span>${escapeHtml(analysis.forecast?.label || "情境推估")} · 證據強度 ${escapeHtml(analysis.confidence || "--")} · ${escapeHtml(analysis.forecast?.horizon || "未來 3-5 個交易日")}</span>
       </p>
       <div class="market-risk-dashboard">
         <div class="market-risk-meter">
@@ -3410,7 +3422,7 @@ function renderUsMarketRiskAdviceCard(model) {
           <span><b>${escapeHtml(exposure.range)}</b><small>建議研究曝險</small></span>
           <span><b>${formatGlobalValue(model.vix?.close)}</b><small>VIX 最新</small></span>
           <span><b>${Number.isFinite(breadthRatio) ? `${(breadthRatio * 100).toFixed(0)}%` : "--"}</b><small>上漲占比</small></span>
-          <span><b>${analysis.forecast?.bearish ?? "--"}%</b><small>空方情境</small></span>
+          <span><b>${analysis.forecast?.scenarioWeights?.bearish ?? "--"}%</b><small>空方情境權重</small></span>
         </div>
       </div>
       <div class="market-risk-content market-risk-content-enhanced">
@@ -3553,7 +3565,7 @@ function renderUsMarketDecisionInsights(model, upSectors = [], downSectors = [],
   return `
     <div class="market-extreme-decision-head">
       <strong>AI 判讀重點</strong>
-      <span>信心 ${escapeHtml(analysis.confidence || "--")} · ${escapeHtml(analysis.forecast?.horizon || "未來 3-5 個交易日")}</span>
+      <span>證據強度 ${escapeHtml(analysis.confidence || "--")} · ${escapeHtml(analysis.forecast?.horizon || "未來 3-5 個交易日")}</span>
     </div>
     <div class="market-decision-grid">
       ${insights.map((item, index) => `
@@ -3569,9 +3581,9 @@ function renderUsMarketDecisionInsights(model, upSectors = [], downSectors = [],
       `).join("")}
     </div>
     <div class="market-decision-scenario">
-      <span>多方 ${analysis.forecast?.bullish ?? "--"}%</span>
-      <span>震盪 ${analysis.forecast?.neutral ?? "--"}%</span>
-      <span>空方 ${analysis.forecast?.bearish ?? "--"}%</span>
+      <span>多方 ${analysis.forecast?.scenarioWeights?.bullish ?? "--"}%</span>
+      <span>震盪 ${analysis.forecast?.scenarioWeights?.neutral ?? "--"}%</span>
+      <span>空方 ${analysis.forecast?.scenarioWeights?.bearish ?? "--"}%</span>
     </div>
   `;
 }

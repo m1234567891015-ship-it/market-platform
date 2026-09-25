@@ -6,10 +6,13 @@ import json
 from math import isfinite
 from typing import Any
 
+from .calibration import CALIBRATION_STATUS_UNAVAILABLE
+
 
 DECISION_MODEL_VERSION = "rules-based-derivatives-v1"
 DECISION_STRATEGY_VERSION = "derivatives-decision-v1"
 MODEL_CONFIDENCE_STATUS_UNAVAILABLE = "UNAVAILABLE"
+MIN_EVIDENCE_SCORE_FOR_DIRECTIONAL_SUGGESTION = 50
 
 
 def clamp(value: float, low: float = 0, high: float = 100) -> float:
@@ -54,6 +57,16 @@ def _normalise_score(value: Any) -> float | None:
     if parsed is None:
         return None
     return clamp(parsed)
+
+
+def passes_evidence_gate(evidence_score: Any, minimum: float = MIN_EVIDENCE_SCORE_FOR_DIRECTIONAL_SUGGESTION) -> bool:
+    parsed = _normalise_score(evidence_score)
+    return parsed is not None and parsed >= minimum
+
+
+def passes_data_quality_gate(data_quality_score: Any, minimum: float = MIN_EVIDENCE_SCORE_FOR_DIRECTIONAL_SUGGESTION) -> bool:
+    parsed = _normalise_score(data_quality_score)
+    return parsed is not None and parsed >= minimum
 
 
 def build_decision_quality(
@@ -173,6 +186,8 @@ def build_decision_contract(
         "modelConfidence": None,
         "modelConfidenceStatus": MODEL_CONFIDENCE_STATUS_UNAVAILABLE,
         "model_confidence": None,
+        "calibrationStatus": CALIBRATION_STATUS_UNAVAILABLE,
+        "probabilityLabelAllowed": False,
         **build_decision_provenance(symbol, input_snapshot, decision_output, decision_context),
     }
 
@@ -251,9 +266,9 @@ def enrich_option_ai_decision(
     ]
     if risk_score >= 70:
         suggestion = "風險分數偏高，優先降低槓桿、縮小裸賣方部位，等待 PCR 與最大痛點重新收斂。"
-    elif market_score >= 62 and confidence_score >= 58:
+    elif market_score >= 62 and passes_evidence_gate(decision_contract["evidenceScore"]):
         suggestion = "多方條件較佳，可用價差或小部位順勢觀察，停損放在主要 Put OI 支撐下方。"
-    elif market_score <= 38 and confidence_score >= 58:
+    elif market_score <= 38 and passes_evidence_gate(decision_contract["evidenceScore"]):
         suggestion = "空方壓力較高，可偏向避險或減碼，避免在主要 Put OI 跌破後追高風險。"
     else:
         suggestion = "市場分數居中，先以區間策略、觀察最大痛點與 OI 牆變化為主。"
@@ -278,6 +293,13 @@ def enrich_option_ai_decision(
             "risk": score_label(risk_score),
             "evidence": score_label(decision_contract["evidenceScore"]),
             "confidence": score_label(confidence_score),
+        },
+        "deprecatedFields": {
+            "confidenceScore": {
+                "deprecated": True,
+                "replacement": "evidenceScore",
+                "semanticStatus": "EVIDENCE_STRENGTH",
+            },
         },
         "crossValidation": cross_validation,
         "strategySuggestion": suggestion,
@@ -327,9 +349,9 @@ def enrich_futures_ai_decision(
     ]
     if risk_score >= 65:
         suggestion = "期貨風險偏高，先控槓桿與保證金，等待價格與未平倉方向一致。"
-    elif market_score >= 60 and confidence_score >= 55:
+    elif market_score >= 60 and passes_evidence_gate(decision_contract["evidenceScore"]):
         suggestion = "短線偏多，可用小部位順勢並以近 20 日支撐作風控。"
-    elif market_score <= 40 and confidence_score >= 55:
+    elif market_score <= 40 and passes_evidence_gate(decision_contract["evidenceScore"]):
         suggestion = "短線偏空，優先防守與避險，反彈未站回壓力前不追多。"
     else:
         suggestion = "訊號未形成一致方向，以區間與風險控管為主。"
@@ -348,6 +370,13 @@ def enrich_futures_ai_decision(
             "modelConfidence": "Unavailable until historical out-of-sample calibration exists; returned as null.",
             "confidenceScore": "DEPRECATED compatibility field: legacy evidence proxy, not calibrated model confidence.",
             "evidenceLayers": ["Price Change", "Open Interest", "Volume", "Candles"],
+        },
+        "deprecatedFields": {
+            "confidenceScore": {
+                "deprecated": True,
+                "replacement": "evidenceScore",
+                "semanticStatus": "EVIDENCE_STRENGTH",
+            },
         },
         "crossValidation": cross_validation,
         "strategySuggestion": suggestion,
