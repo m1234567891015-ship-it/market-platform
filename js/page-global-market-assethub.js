@@ -5853,11 +5853,13 @@ async function initDerivativesAnalyticsPage() {
   const renderStrategyDetail = (model, currentSpot) => {
     if (!model || !model.available) return `<div class="derivatives-strategy-unavailable"><h4 class="derivatives-strategy-detail-title">${model?.name || "Strategy"} · 策略分析暫不可用</h4><p>策略分析暫不可用：${model?.reason || "缺少必要資料"}。不產生策略組合或損益判斷。</p></div>`;
     const metrics = model.metrics;
-    const legs = model.legs.map((leg) => `<tr class="derivatives-strategy-leg"><td>${leg.side}</td><td>${leg.optionType === "call" ? "Call" : "Put"}</td><td>${strategyNumber(leg.strike)}</td><td>${escapeHtml(leg.expiry)}</td><td>${strategyNumber(leg.premium)}</td><td>${leg.quantity}</td></tr>`).join("");
+    const legs = model.legs.map((leg) => `<tr class="derivatives-strategy-leg"><td>${leg.side}</td><td>${leg.optionType === "call" ? "Call" : "Put"}</td><td>${strategyNumber(leg.strike)}</td><td>${escapeHtml(leg.expiry)}</td><td>${strategyNumber(leg.premium)}</td><td>${leg.quantity}</td><td>${escapeHtml(`${leg.executionStatus || "UNAVAILABLE"} · ${leg.executionSource || "unavailable"}`)}</td></tr>`).join("");
     const maxProfit = strategyMoney(metrics.maxProfit, metrics.maxProfitLabel);
     const maxLoss = strategyMoney(metrics.maxLoss, metrics.maxLossLabel);
     const dteText = model.calendar ? `Near DTE ${model.nearDte} / Far DTE ${model.farDte}` : `DTE ${initDerivativesAnalyticsPage.strategyEngine.daysTo(model.legs[0].expiry)}`;
-    return `<div class="derivatives-strategy-detail-title-row"><div><span class="chip chip-cyan">${model.label} · ${model.score}/100</span><h4 class="derivatives-strategy-detail-title">${model.name} · ${model.zh}</h4><p>${model.formula}</p></div><span class="derivatives-strategy-regime">${model.regime.direction} · ${model.regime.volatility}</span></div><div class="derivatives-strategy-leg-table-wrap"><table class="derivatives-strategy-leg-table"><thead><tr><th>Side</th><th>Type</th><th>Strike</th><th>Expiry</th><th>Premium</th><th>Qty/Ratio</th></tr></thead><tbody>${legs}</tbody></table></div><div class="derivatives-strategy-metrics"><span><b>${strategyNumber(metrics.netPremium)}</b><small>${metrics.netLabel}</small></span><span><b>${maxProfit}</b><small>Max Profit</small></span><span><b>${maxLoss}</b><small>Max Loss</small></span><span><b>${metrics.breakEven.length ? metrics.breakEven.map(strategyNumber).join(", ") : "--"}</b><small>Break-even</small></span><span><b>${metrics.riskReward}</b><small>Risk / Reward</small></span><span><b>${dteText}</b><small>Expiry / DTE</small></span></div><p class="derivatives-strategy-zones"><strong>Profit / Loss Zone：</strong>${metrics.zones}</p>${renderStrategyChart(model, currentSpot)}<div class="derivatives-strategy-score"><strong>Compatibility Score Breakdown</strong><span>Direction Fit ${model.breakdown.directionFit}</span><span>Volatility Fit ${model.breakdown.volatilityFit}</span><span>IV Fit ${model.breakdown.ivFit} · Historical IV Context = Unavailable</span><span>Price Structure Fit ${model.breakdown.priceStructureFit}</span><span>Time Fit ${model.breakdown.timeFit}</span><span>Liquidity Fit ${model.breakdown.liquidityFit}</span><span>Risk Penalty ${model.breakdown.riskPenalty}</span></div><p class="derivatives-strategy-warning">${model.warning}</p><p class="derivatives-strategy-invalidation"><strong>Invalidation：</strong>${model.invalidation}</p></div>`;
+    const marketInput = model.marketInput || {};
+    const provenanceText = `decision_as_of ${model.decisionAsOf || "unavailable"} · ${model.pointInTimeStatus || "UNAVAILABLE"} · ${marketInput.source || "unavailable"} · ${marketInput.provenance?.type || "UNAVAILABLE"} · session ${marketInput.sessionIdentity || "unavailable"}`;
+    return `<div class="derivatives-strategy-detail-title-row"><div><span class="chip chip-cyan">${model.label} · ${model.score}/100</span><h4 class="derivatives-strategy-detail-title">${model.name} · ${model.zh}</h4><p>${model.formula}</p></div><span class="derivatives-strategy-regime">${model.regime.direction} · ${model.regime.volatility}</span></div><p class="derivatives-strategy-provenance">${escapeHtml(provenanceText)}</p><div class="derivatives-strategy-leg-table-wrap"><table class="derivatives-strategy-leg-table"><thead><tr><th>Side</th><th>Type</th><th>Strike</th><th>Expiry</th><th>Premium</th><th>Qty/Ratio</th><th>Execution</th></tr></thead><tbody>${legs}</tbody></table></div><div class="derivatives-strategy-metrics"><span><b>${strategyNumber(metrics.netPremium)}</b><small>${metrics.netLabel}</small></span><span><b>${maxProfit}</b><small>Max Profit</small></span><span><b>${maxLoss}</b><small>Max Loss</small></span><span><b>${metrics.breakEven.length ? metrics.breakEven.map(strategyNumber).join(", ") : "--"}</b><small>Break-even</small></span><span><b>${metrics.riskReward}</b><small>Risk / Reward</small></span><span><b>${dteText}</b><small>Expiry / DTE</small></span><span><b>${escapeHtml(metrics.plTrustStatus || "UNTRUSTED")}</b><small>P/L Trust</small></span></div><p class="derivatives-strategy-zones"><strong>Profit / Loss Zone：</strong>${metrics.zones}</p>${renderStrategyChart(model, currentSpot)}<div class="derivatives-strategy-score"><strong>Compatibility Score Breakdown</strong><span>Direction Fit ${model.breakdown.directionFit}</span><span>Volatility Fit ${model.breakdown.volatilityFit}</span><span>IV Fit ${model.breakdown.ivFit} · Historical IV Context = Unavailable</span><span>Price Structure Fit ${model.breakdown.priceStructureFit}</span><span>Time Fit ${model.breakdown.timeFit}</span><span>Liquidity Fit ${model.breakdown.liquidityFit}</span><span>Risk Penalty ${model.breakdown.riskPenalty}</span></div><p class="derivatives-strategy-warning">${model.warning}</p><p class="derivatives-strategy-invalidation"><strong>Invalidation：</strong>${model.invalidation}</p></div>`;
   };
   const renderOptionsStrategyAnalyzer = (models, currentSpot) => {
     const available = models.filter((model) => model.available && Number.isFinite(model.score)).sort((a, b) => b.score - a.score);
@@ -6000,6 +6002,19 @@ initDerivativesAnalyticsPage.strategyEngine = (() => {
     { id: "calendar-spread", name: "Calendar Spread", zh: "日曆價差", family: "calendar", bias: "neutral", vol: "compression", formula: "SELL near 1 Call/Put + BUY far 1 Call/Put；同一或最接近履約價" },
   ];
   const finite = (value) => typeof value === "number" && Number.isFinite(value);
+  const EXECUTION_STATUS = Object.freeze({
+    EXECUTABLE: "EXECUTABLE",
+    DEGRADED_FALLBACK: "DEGRADED_FALLBACK",
+    UNAVAILABLE: "UNAVAILABLE",
+    INVALID: "INVALID",
+  });
+  const LIQUIDITY_THRESHOLDS = Object.freeze({
+    minVolume: 0,
+    minOpenInterest: 0,
+    maxSpreadRatio: 0.1,
+    freshQuoteMaxAgeDays: 1,
+    degradedQuoteMaxAgeDays: 3,
+  });
   const numeric = (value) => {
     if (value === null || value === undefined || value === "") return null;
     const parsed = Number(value);
@@ -6021,22 +6036,148 @@ initDerivativesAnalyticsPage.strategyEngine = (() => {
     return Number.isFinite(parsed) ? parsed : null;
   };
   const daysTo = (value) => { const parsed = dateValue(value); return parsed === null ? null : Math.ceil((parsed - todayUtc()) / 86400000); };
+  const POINT_IN_TIME_STATUS = Object.freeze({
+    ALIGNED: "ALIGNED",
+    ALIGNED_CACHED: "ALIGNED_CACHED",
+    ALIGNED_PREVIOUS_SESSION: "ALIGNED_PREVIOUS_SESSION",
+    DECISION_AS_OF_UNAVAILABLE: "DECISION_AS_OF_UNAVAILABLE",
+    DECISION_AS_OF_INVALID: "DECISION_AS_OF_INVALID",
+    FUTURE_DATA: "FUTURE_DATA",
+    DIFFERENT_TRADE_DATE: "DIFFERENT_TRADE_DATE",
+    SESSION_MISMATCH: "SESSION_MISMATCH",
+    MARKET_MISMATCH: "MARKET_MISMATCH",
+    MIXED_FRESH_STALE: "MIXED_FRESH_STALE",
+    STALE_INPUT: "STALE_INPUT",
+    PROVENANCE_MISMATCH: "PROVENANCE_MISMATCH",
+    TIMESTAMP_UNAVAILABLE: "TIMESTAMP_UNAVAILABLE",
+  });
+  const temporalField = (value) => {
+    if (value === null || value === undefined) return { value: null, state: "MISSING_NULL", date: null, epoch: null, precision: null };
+    if (value === "") return { value: null, state: "MISSING_EMPTY", date: null, epoch: null, precision: null };
+    if (typeof value === "number" && value === 0) return { value, state: "INVALID_ZERO", date: null, epoch: null, precision: null };
+    const text = String(value).trim();
+    if (!text) return { value: null, state: "MISSING_EMPTY", date: null, epoch: null, precision: null };
+    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(text);
+    const epoch = dateOnly ? dateValue(text) : timestampValue(value);
+    if (!Number.isFinite(epoch)) return { value: text, state: "INVALID", date: null, epoch: null, precision: null };
+    return { value: text, state: "PRESENT", date: new Date(epoch).toISOString().slice(0, 10), epoch, precision: dateOnly ? "DATE" : "TIMESTAMP" };
+  };
+  const ownValue = (item, key) => item && Object.prototype.hasOwnProperty.call(item, key) ? item[key] : undefined;
+  const asUpperStatus = (value) => {
+    const text = String(value || "").trim().toUpperCase().replace(/[ -]+/g, "_");
+    return text || null;
+  };
+  const marketInputEnvelope = (market = {}, quote = null) => {
+    const chain = market?.chain || {};
+    const explicitInput = market?.marketInput || market?.marketInputEnvelope || {};
+    const quoteSource = quote && ownValue(quote, "source") ? quote.source : undefined;
+    const chainSource = chain.source ?? market.source ?? explicitInput.source ?? null;
+    const source = quoteSource ?? chainSource;
+    const sourceLabel = typeof source === "string" ? source : source?.primary ?? source?.name ?? null;
+    const sourceMode = typeof source === "object" ? source?.mode : null;
+    const fallbackFrom = quote?.fallbackFrom ?? chain.fallbackFrom ?? explicitInput.fallbackFrom ?? null;
+    const fallbackReason = quote?.fallbackReason ?? chain.fallbackReason ?? explicitInput.fallbackReason ?? null;
+    const cached = quote?.cached ?? chain.cached ?? explicitInput.cached ?? false;
+    const stale = quote?.stale ?? chain.stale ?? explicitInput.stale ?? false;
+    const explicitProvenance = quote?.provenanceType ?? quote?.provenance?.type ?? chain.provenanceType ?? explicitInput.provenanceType;
+    const sourceType = asUpperStatus(explicitProvenance)
+      || (fallbackFrom || String(sourceMode || "").includes("fallback") ? "FALLBACK" : stale && cached ? "CACHED_PREVIOUS_SESSION" : cached ? "CACHED" : sourceLabel ? "PRIMARY" : "UNAVAILABLE");
+    const fallbackStatus = asUpperStatus(quote?.fallbackStatus ?? chain.fallbackStatus ?? explicitInput.fallbackStatus)
+      || (fallbackFrom ? "FALLBACK" : stale && cached ? "CACHED_PREVIOUS_SESSION" : cached ? "CACHED" : sourceType === "UNAVAILABLE" ? "UNAVAILABLE" : "NONE");
+    const observedRaw = quote?.observedAt ?? quote?.asOf ?? quote?.quoteTime ?? quote?.timestamp ?? quote?.updatedAt
+      ?? chain.observedAt ?? chain.asOf ?? chain.updatedAt ?? explicitInput.observedAt ?? explicitInput.asOf;
+    const tradeDateRaw = quote?.tradeDate ?? chain.tradeDate ?? market.tradeDate ?? explicitInput.tradeDate;
+    const observed = temporalField(observedRaw);
+    const tradeDate = temporalField(tradeDateRaw);
+    const explicitDecisionRaw = ownValue(market, "decisionAsOf") ? market.decisionAsOf
+      : ownValue(market, "decision_as_of") ? market.decision_as_of
+        : ownValue(chain, "decisionAsOf") ? chain.decisionAsOf
+          : ownValue(explicitInput, "decisionAsOf") ? explicitInput.decisionAsOf : undefined;
+    const explicitDecision = explicitDecisionRaw !== undefined ? temporalField(explicitDecisionRaw) : null;
+    const decision = explicitDecision || (observed.state === "PRESENT" ? observed : tradeDate.state === "PRESENT" ? tradeDate : temporalField(null));
+    const decisionAsOfSource = explicitDecision ? "EXPLICIT" : observed.state === "PRESENT" ? "OBSERVED_AT" : tradeDate.state === "PRESENT" ? "TRADE_DATE" : "UNAVAILABLE";
+    const freshnessHint = asUpperStatus(quote?.freshnessStatus ?? chain.freshnessStatus ?? explicitInput.freshnessStatus);
+    const freshnessStatus = freshnessHint || (stale ? "STALE" : fallbackStatus === "CACHED_PREVIOUS_SESSION" ? "PREVIOUS_SESSION" : observed.state === "PRESENT" || tradeDate.state === "PRESENT" ? "FRESH" : "TIMESTAMP_UNAVAILABLE");
+    const marketIdentity = {
+      market: quote?.market ?? chain.market ?? market.market ?? explicitInput.market ?? null,
+      exchange: quote?.exchange ?? chain.exchange ?? market.exchange ?? explicitInput.exchange ?? null,
+      underlying: quote?.underlying ?? chain.underlying ?? market.underlying ?? explicitInput.underlying ?? null,
+    };
+    const sessionIdentity = quote?.session ?? quote?.marketSession ?? chain.session ?? chain.marketSession ?? market.session ?? explicitInput.session ?? null;
+    return {
+      source: sourceLabel,
+      sourceType,
+      sourceMode: sourceMode || null,
+      provenance: { type: sourceType, fallbackStatus, fallbackFrom, fallbackReason },
+      observedAt: observed.value,
+      observedAtState: observed.state,
+      tradeDate: tradeDate.value,
+      tradeDateState: tradeDate.state,
+      decisionAsOf: decision.value,
+      decisionAsOfState: decision.state,
+      decisionAsOfSource,
+      freshnessStatus,
+      stale: freshnessStatus === "STALE" || freshnessStatus === "PREVIOUS_SESSION",
+      fallbackStatus,
+      marketIdentity,
+      sessionIdentity,
+      sessionStatus: sessionIdentity === null || sessionIdentity === "" ? "UNAVAILABLE" : "PRESENT",
+    };
+  };
+  const quoteFieldState = (value) => {
+    if (value === null || value === undefined || value === "") return "MISSING";
+    const parsed = numeric(value);
+    if (parsed === null || parsed < 0) return "INVALID";
+    if (parsed === 0) return "ZERO";
+    return "POSITIVE";
+  };
   const executionPrice = (quote, side = "BUY") => {
-    if (!quote || typeof quote !== "object") return null;
+    const unavailable = (status, reason) => ({
+      price: null,
+      source: "unavailable",
+      status,
+      executionClass: "NON_EXECUTABLE",
+      executable: false,
+      reason,
+    });
+    if (!quote || typeof quote !== "object") return unavailable(EXECUTION_STATUS.UNAVAILABLE, "QUOTE_UNAVAILABLE");
     const bid = numeric(quote.bid);
     const ask = numeric(quote.ask);
-    const crossed = finite(bid) && finite(ask) && ask < bid;
+    const bidState = quoteFieldState(quote.bid);
+    const askState = quoteFieldState(quote.ask);
+    const crossed = bidState === "POSITIVE" && askState === "POSITIVE" && ask < bid;
     const preferredField = side === "SELL" ? "bid" : "ask";
     const preferred = numeric(quote[preferredField]);
-    if (finite(preferred) && preferred > 0 && !crossed) return { price: preferred, source: preferredField };
-    if (finite(bid) && finite(ask) && bid > 0 && ask >= bid) return { price: (bid + ask) / 2, source: "modeled_midpoint" };
+    const preferredState = preferredField === "bid" ? bidState : askState;
+    if (finite(preferred) && preferred > 0 && !crossed) {
+      return { price: preferred, source: preferredField, status: EXECUTION_STATUS.EXECUTABLE, executionClass: "EXECUTABLE", executable: true, reason: "BID_ASK" };
+    }
+    const fallbackReason = crossed
+      ? "CROSSED_MARKET"
+      : preferredState === "MISSING"
+        ? `MISSING_${preferredField.toUpperCase()}`
+        : preferredState === "ZERO"
+          ? `${preferredField.toUpperCase()}_ZERO`
+          : `${preferredField.toUpperCase()}_INVALID`;
     for (const field of ["last", "settlement", "lastPrice"]) {
       const value = numeric(quote[field]);
-      if (finite(value) && value > 0) return { price: value, source: field };
+      if (finite(value) && value > 0) {
+        return { price: value, source: field, status: EXECUTION_STATUS.DEGRADED_FALLBACK, executionClass: "NON_EXECUTABLE", executable: false, reason: fallbackReason };
+      }
     }
-    return null;
+    if (crossed) return unavailable(EXECUTION_STATUS.INVALID, fallbackReason);
+    if (bidState === "MISSING" && askState === "MISSING") return unavailable(EXECUTION_STATUS.UNAVAILABLE, "BID_ASK_BOTH_MISSING");
+    if (preferredState === "MISSING") return unavailable(EXECUTION_STATUS.UNAVAILABLE, fallbackReason);
+    return unavailable(EXECUTION_STATUS.INVALID, fallbackReason);
   };
-  const quotePremium = (quote, side = "BUY") => executionPrice(quote, side)?.price ?? null;
+  const quotePremium = (quote, side = "BUY") => executionPrice(quote, side).price ?? null;
+  const classifyLiquidityMetric = (value) => {
+    if (value === null || value === undefined || value === "") return "MISSING";
+    const parsed = numeric(value);
+    if (parsed === null || parsed < 0) return "INVALID";
+    if (parsed === 0) return "ZERO";
+    return "POSITIVE";
+  };
   const transactionCostValue = (quote, market, field, fallback = 0) => (
     numeric(quote?.[field])
     ?? numeric(market?.optionsCostModel?.[field])
@@ -6048,17 +6189,36 @@ initDerivativesAnalyticsPage.strategyEngine = (() => {
     const openInterest = numeric(quote?.openInterest);
     const bid = numeric(quote?.bid);
     const ask = numeric(quote?.ask);
+    const quotePrice = quotePremium(quote, "BUY") ?? quotePremium(quote, "SELL");
+    const quoteValidity = finite(quotePrice) && quotePrice > 0 ? "VALID" : "INVALID";
+    const tradability = finite(bid) && bid > 0 && finite(ask) && ask > 0 && ask >= bid ? "TRADABLE" : "NOT_TRADABLE";
+    const volumeState = classifyLiquidityMetric(quote?.volume);
+    const openInterestState = classifyLiquidityMetric(quote?.openInterest);
     const midpoint = finite(bid) && finite(ask) && bid > 0 && ask >= bid ? (bid + ask) / 2 : null;
     const spreadPct = finite(midpoint) && midpoint > 0 ? (ask - bid) / midpoint : null;
-    const spreadScore = finite(spreadPct) ? Math.max(0, Math.min(1, 1 - (spreadPct / 0.1))) : 0;
+    const spreadScore = finite(spreadPct) ? Math.max(0, Math.min(1, 1 - (spreadPct / LIQUIDITY_THRESHOLDS.maxSpreadRatio))) : 0;
     const quoteTimestamp = timestampValue(quote?.quoteTime ?? quote?.timestamp ?? quote?.updatedAt);
     const quoteAgeDays = quoteTimestamp === null ? null : Math.max(0, (Date.now() - quoteTimestamp) / 86400000);
-    const freshnessScore = quoteAgeDays === null ? 0 : quoteAgeDays <= 1 ? 1 : quoteAgeDays <= 3 ? 0.5 : 0;
-    const volumeScore = finite(volume) && volume > 0 ? 1 : 0;
-    const openInterestScore = finite(openInterest) && openInterest > 0 ? 1 : 0;
+    const freshnessScore = quoteAgeDays === null ? 0 : quoteAgeDays <= LIQUIDITY_THRESHOLDS.freshQuoteMaxAgeDays ? 1 : quoteAgeDays <= LIQUIDITY_THRESHOLDS.degradedQuoteMaxAgeDays ? 0.5 : 0;
+    const volumeScore = finite(volume) && volume > LIQUIDITY_THRESHOLDS.minVolume ? 1 : 0;
+    const openInterestScore = finite(openInterest) && openInterest > LIQUIDITY_THRESHOLDS.minOpenInterest ? 1 : 0;
+    const eligibilityReasons = [];
+    if (quoteValidity !== "VALID") eligibilityReasons.push("QUOTE_INVALID");
+    if (tradability !== "TRADABLE") eligibilityReasons.push("BID_ASK_UNTRADABLE");
+    if (volumeState !== "POSITIVE") eligibilityReasons.push(`VOLUME_${volumeState}`);
+    if (openInterestState !== "POSITIVE") eligibilityReasons.push(`OPEN_INTEREST_${openInterestState}`);
+    if (!finite(spreadPct)) eligibilityReasons.push("SPREAD_UNAVAILABLE");
+    else if (spreadPct > LIQUIDITY_THRESHOLDS.maxSpreadRatio) eligibilityReasons.push("SPREAD_ABOVE_THRESHOLD");
+    const liquidityEligibility = eligibilityReasons.length === 0 ? "ELIGIBLE" : "INELIGIBLE";
     const score = ((volumeScore + openInterestScore + spreadScore + freshnessScore) / 4) * 100;
     return {
-      verified: finite(volume) && volume >= 0 && finite(openInterest) && openInterest >= 0,
+      verified: [volumeState, openInterestState].every((state) => ["ZERO", "POSITIVE"].includes(state)),
+      quoteValidity,
+      tradability,
+      liquidityEligibility,
+      eligibilityReasons,
+      volumeState,
+      openInterestState,
       volume,
       openInterest,
       volumeScore,
@@ -6094,6 +6254,7 @@ initDerivativesAnalyticsPage.strategyEngine = (() => {
     if (!quote || !finite(premium) || premium <= 0) return { failure: `${optionType === "call" ? "Call" : "Put"} 權利金缺失` };
     const quoteLiquidity = liquidity(quote, market);
     if (!quoteLiquidity.verified) return { failure: `${optionType === "call" ? "Call" : "Put"} 流動性資料未驗證` };
+    const inputEnvelope = marketInputEnvelope(market, quote);
     return {
       leg: {
         side,
@@ -6102,10 +6263,20 @@ initDerivativesAnalyticsPage.strategyEngine = (() => {
         premium,
         executionPrice: premium,
         executionSource: execution.source,
+        executionStatus: execution.status,
+        executionClass: execution.executionClass,
+        executionReason: execution.reason,
+        marketInput: inputEnvelope,
         quantity,
         expiry,
         volume: quoteLiquidity.volume,
         openInterest: quoteLiquidity.openInterest,
+        volumeState: quoteLiquidity.volumeState,
+        openInterestState: quoteLiquidity.openInterestState,
+        quoteValidity: quoteLiquidity.quoteValidity,
+        tradability: quoteLiquidity.tradability,
+        liquidityEligibility: quoteLiquidity.liquidityEligibility,
+        liquidityEligibilityReasons: quoteLiquidity.eligibilityReasons,
         spreadPct: quoteLiquidity.spreadPct,
         quoteAgeDays: quoteLiquidity.quoteAgeDays,
         liquidityScore: quoteLiquidity.score,
@@ -6227,6 +6398,64 @@ initDerivativesAnalyticsPage.strategyEngine = (() => {
     if (![quantity, multiplier, commission, exchangeFee, slippage].every(finite) || quantity <= 0 || commission < 0 || exchangeFee < 0 || slippage < 0) return null;
     return quantity * (commission + exchangeFee + (slippage * multiplier));
   };
+  const strategyPointInTime = (legs = [], market = {}) => {
+    const baseInput = marketInputEnvelope(market);
+    const inputs = legs.map((leg) => leg?.marketInput || baseInput);
+    const decisionInput = temporalField(baseInput.decisionAsOf);
+    const reasons = [];
+    if (baseInput.decisionAsOfState === "INVALID" || baseInput.decisionAsOfState === "INVALID_ZERO") reasons.push(POINT_IN_TIME_STATUS.DECISION_AS_OF_INVALID);
+    else if (decisionInput.state !== "PRESENT") reasons.push(POINT_IN_TIME_STATUS.DECISION_AS_OF_UNAVAILABLE);
+    const decisionDate = decisionInput.date;
+    const futureInput = inputs.find((input) => {
+      const observed = temporalField(input.observedAt);
+      const tradeDate = temporalField(input.tradeDate);
+      return (decisionDate && observed.date && observed.date > decisionDate) || (decisionDate && tradeDate.date && tradeDate.date > decisionDate)
+        || (decisionInput.precision === "TIMESTAMP" && observed.precision === "TIMESTAMP" && observed.epoch > decisionInput.epoch);
+    });
+    if (futureInput) reasons.push(POINT_IN_TIME_STATUS.FUTURE_DATA);
+    const distinctTradeDates = [...new Set(inputs.map((input) => input.tradeDate).filter((value) => value !== null))];
+    if (distinctTradeDates.length > 1) reasons.push(POINT_IN_TIME_STATUS.DIFFERENT_TRADE_DATE);
+    const distinctSessions = [...new Set(inputs.map((input) => input.sessionIdentity))];
+    if (distinctSessions.length > 1 || inputs.some((input) => input.sessionStatus !== "PRESENT")) reasons.push(POINT_IN_TIME_STATUS.SESSION_MISMATCH);
+    const marketKeys = inputs.map((input) => JSON.stringify(input.marketIdentity));
+    if (new Set(marketKeys).size > 1) reasons.push(POINT_IN_TIME_STATUS.MARKET_MISMATCH);
+    const freshness = new Set(inputs.map((input) => input.freshnessStatus));
+    if (freshness.has("STALE") && freshness.has("FRESH")) reasons.push(POINT_IN_TIME_STATUS.MIXED_FRESH_STALE);
+    else if (freshness.has("STALE")) reasons.push(POINT_IN_TIME_STATUS.STALE_INPUT);
+    if (inputs.some((input) => input.freshnessStatus === "TIMESTAMP_UNAVAILABLE")) reasons.push(POINT_IN_TIME_STATUS.TIMESTAMP_UNAVAILABLE);
+    const provenanceKeys = new Set(inputs.map((input) => `${input.sourceType}|${input.fallbackStatus}|${input.source || ""}`));
+    if (provenanceKeys.size > 1) reasons.push(POINT_IN_TIME_STATUS.PROVENANCE_MISMATCH);
+    const status = reasons[0] || (inputs.every((input) => input.freshnessStatus === "PREVIOUS_SESSION") ? POINT_IN_TIME_STATUS.ALIGNED_PREVIOUS_SESSION : inputs.every((input) => input.sourceType === "CACHED") ? POINT_IN_TIME_STATUS.ALIGNED_CACHED : POINT_IN_TIME_STATUS.ALIGNED);
+    return {
+      status,
+      aligned: [POINT_IN_TIME_STATUS.ALIGNED, POINT_IN_TIME_STATUS.ALIGNED_CACHED].includes(status),
+      decisionAsOf: baseInput.decisionAsOf,
+      decisionAsOfSource: baseInput.decisionAsOfSource,
+      inputs,
+      reasons,
+      envelope: baseInput,
+    };
+  };
+  const strategyExecutionTrust = (legs = [], pointInTime = null) => {
+    const failedLegs = legs.map((leg, index) => {
+      const expectedSource = leg?.side === "SELL" ? "bid" : "ask";
+      const reasons = [];
+      if (leg?.executionStatus !== EXECUTION_STATUS.EXECUTABLE) reasons.push(`EXECUTION_${leg?.executionStatus || "UNAVAILABLE"}`);
+      if (leg?.executionSource !== expectedSource) reasons.push("EXECUTION_SOURCE_MISMATCH");
+      if (leg?.quoteValidity !== "VALID") reasons.push("QUOTE_INVALID");
+      if (leg?.tradability !== "TRADABLE") reasons.push("QUOTE_NOT_TRADABLE");
+      if (leg?.liquidityEligibility !== "ELIGIBLE") reasons.push("LIQUIDITY_INELIGIBLE");
+      if (pointInTime && !pointInTime.aligned) reasons.push(`POINT_IN_TIME_${pointInTime.status}`);
+      return reasons.length ? { index, reasons } : null;
+    }).filter(Boolean);
+    return {
+      status: failedLegs.length ? "UNTRUSTED" : "TRUSTED",
+      executionStatus: failedLegs.length ? "NON_EXECUTABLE" : EXECUTION_STATUS.EXECUTABLE,
+      failedLegs,
+      failedLegIndexes: failedLegs.map((item) => item.index),
+      pointInTime: pointInTime || null,
+    };
+  };
   const payoff = (legs, price) => {
     if (!Array.isArray(legs) || !finite(price) || legs.length === 0) return null;
     return legs.reduce((total, leg) => {
@@ -6245,9 +6474,17 @@ initDerivativesAnalyticsPage.strategyEngine = (() => {
     if (![quantity, premium, multiplier, transactionCost].every(finite)) return NaN;
     return total + ((leg.side === "BUY" ? 1 : -1) * quantity * premium * multiplier) + transactionCost;
   }, 0);
-  const metrics = (legs, calendar = false) => {
+  const metrics = (legs, calendar = false, executionTrust = null) => {
+    const trust = executionTrust || strategyExecutionTrust(legs);
+    const trustFields = {
+      executionStatus: trust.executionStatus,
+      executionTrustStatus: trust.status,
+      plTrustStatus: trust.status,
+      executionGrade: trust.status === "TRUSTED" ? "EXECUTION_GRADE" : "MODEL_ONLY",
+      trustBoundary: trust,
+    };
     const debitCredit = netPremium(legs);
-    if (calendar) return { netPremium: debitCredit, netLabel: debitCredit >= 0 ? "Net Debit" : "Net Credit", exactPayoffAvailable: false, maxProfit: null, maxLoss: null, maxProfitLabel: "Model Dependent / Not Available", maxLossLabel: "Model Dependent / Not Available", breakEven: [], zones: "Model Dependent / Not Available", riskReward: "Model Dependent / Not Available" };
+    if (calendar) return { ...trustFields, netPremium: debitCredit, netLabel: debitCredit >= 0 ? "Net Debit" : "Net Credit", exactPayoffAvailable: false, maxProfit: null, maxLoss: null, maxProfitLabel: "Model Dependent / Not Available", maxLossLabel: "Model Dependent / Not Available", breakEven: [], zones: "Model Dependent / Not Available", riskReward: "Model Dependent / Not Available" };
     const strikes = uniqueSorted(legs.map((leg) => numeric(leg.strike)));
     const upper = Math.max(strikes[strikes.length - 1] * 4, strikes[strikes.length - 1] + Math.abs(debitCredit) * 4 + 1);
     const points = uniqueSorted([0, ...strikes, upper]);
@@ -6262,7 +6499,7 @@ initDerivativesAnalyticsPage.strategyEngine = (() => {
     const uniqueBe = uniqueSorted(breakEven);
     const profitUnbounded = callSlope > 0; const lossUnbounded = callSlope < 0;
     const maxProfit = profitUnbounded ? null : Math.max(...values); const maxLoss = lossUnbounded ? null : Math.min(...values);
-    return { netPremium: debitCredit, netLabel: debitCredit >= 0 ? "Net Debit" : "Net Credit", exactPayoffAvailable: true, maxProfit, maxLoss, maxProfitLabel: profitUnbounded ? "Unlimited upside" : "", maxLossLabel: lossUnbounded ? "Theoretical unlimited" : "", breakEven: uniqueBe, zones: uniqueBe.length ? `損益臨界點 ${uniqueBe.map((value) => value.toFixed(2)).join(", ")}` : "目前模型範圍內無損益臨界點", riskReward: finite(maxProfit) && finite(maxLoss) && maxLoss < 0 ? (maxProfit / Math.abs(maxLoss)).toFixed(2) : "N/A" };
+    return { ...trustFields, netPremium: debitCredit, netLabel: debitCredit >= 0 ? "Net Debit" : "Net Credit", exactPayoffAvailable: true, maxProfit, maxLoss, maxProfitLabel: profitUnbounded ? "Unlimited upside" : "", maxLossLabel: lossUnbounded ? "Theoretical unlimited" : "", breakEven: uniqueBe, zones: uniqueBe.length ? `損益臨界點 ${uniqueBe.map((value) => value.toFixed(2)).join(", ")}` : "目前模型範圍內無損益臨界點", riskReward: finite(maxProfit) && finite(maxLoss) && maxLoss < 0 ? (maxProfit / Math.abs(maxLoss)).toFixed(2) : "N/A" };
   };
   const regime = (market) => {
     const rawDirection = market?.direction || market?.marketStateModel?.marketState || "";
@@ -6288,7 +6525,7 @@ initDerivativesAnalyticsPage.strategyEngine = (() => {
   const riskPenalty = (contract) => ["short-straddle", "short-strangle"].includes(contract.id) ? -18 : contract.id === "short-condor" ? -5 : ["long-straddle", "long-strangle"].includes(contract.id) ? -3 : -2;
   const scoreModel = (contract, model, marketRegime, market) => {
     const liquidityFit = model.legs.length
-      ? Math.round(model.legs.reduce((sum, leg) => sum + (finite(leg.liquidityScore) ? leg.liquidityScore : 0), 0) / model.legs.length / 10)
+      ? Math.round(Math.min(...model.legs.map((leg) => finite(leg.liquidityScore) ? leg.liquidityScore : 0)) / 10)
       : 0;
     const dte = daysTo(model.legs[0].expiry); const timeFit = dte > 30 ? 10 : dte > 14 ? 8 : dte > 7 ? 5 : 3;
     const breakdown = { directionFit: directionFit(contract, marketRegime.direction), volatilityFit: volatilityFit(contract, marketRegime.volatility), ivFit: marketRegime.ivState === "Unavailable" ? 0 : marketRegime.ivState === "Normal" ? 10 : marketRegime.ivState === "Low" ? 12 : 7, priceStructureFit: finite(numeric(market.spot)) ? 18 : 0, timeFit, liquidityFit, riskPenalty: riskPenalty(contract) };
@@ -6296,16 +6533,29 @@ initDerivativesAnalyticsPage.strategyEngine = (() => {
     const label = score >= 80 ? "高相容" : score >= 60 ? "相容" : score >= 40 ? "中性" : score >= 20 ? "低相容" : "不相容";
     return { score, label, breakdown };
   };
+  const strategyLiquidityGate = (legs = []) => {
+    const failedLegIndexes = legs
+      .map((leg, index) => leg?.liquidityEligibility === "ELIGIBLE" ? null : index)
+      .filter((index) => index !== null);
+    return {
+      eligible: failedLegIndexes.length === 0,
+      failedLegIndexes,
+      failedLegCount: failedLegIndexes.length,
+    };
+  };
   const analyze = (market = {}) => {
     const currentRegime = regime(market);
     return CONTRACTS.map((contract) => {
       const selection = makeLegs(contract, market);
-      if (selection.failure) return { ...contract, available: false, reason: selection.failure, score: null, label: "不相容", regime: currentRegime };
-      const contractMetrics = metrics(selection.legs, selection.calendar);
+      if (selection.failure) return { ...contract, available: false, executable: false, tradable: false, liquidityEligible: false, executionStatus: "UNAVAILABLE", executionTrustStatus: "UNTRUSTED", reason: selection.failure, score: null, label: "不相容", regime: currentRegime };
+      const pointInTime = strategyPointInTime(selection.legs, market);
+      const executionTrust = strategyExecutionTrust(selection.legs, pointInTime);
+      const contractMetrics = metrics(selection.legs, selection.calendar, executionTrust);
+      const liquidityGate = strategyLiquidityGate(selection.legs);
       const scored = scoreModel(contract, { legs: selection.legs }, currentRegime, market);
       const warning = ["short-straddle", "short-strangle"].includes(contract.id) ? "高尾部風險；跳空、保證金、指派／結算風險需另行確認。Margin Requirement = Unavailable。" : "不代表獲利保證；到期前價格、波動率與流動性變化可能使結果失效。";
       const invalidation = contract.bias === "bullish" ? "現貨跌破選定結構的關鍵支撐或多頭方向假設失效。" : contract.bias === "bearish" ? "現貨突破選定結構的關鍵壓力或空頭方向假設失效。" : contract.vol === "expansion" ? "實現波動率未擴張、權利金時間價值流失或突破假設失效。" : "現貨大幅脫離結構區間、波動率／期限結構改變或流動性惡化。";
-      return { ...contract, available: true, legs: selection.legs, calendar: Boolean(selection.calendar), nearDte: selection.nearDte, farDte: selection.farDte, metrics: contractMetrics, score: scored.score, label: scored.label, breakdown: scored.breakdown, regime: currentRegime, warning, invalidation };
+      return { ...contract, available: true, executable: executionTrust.status === "TRUSTED" && liquidityGate.eligible, tradable: executionTrust.status === "TRUSTED" && liquidityGate.eligible, liquidityEligible: liquidityGate.eligible, executionStatus: executionTrust.executionStatus, executionTrustStatus: executionTrust.status, executionTrust, liquidityGate, pointInTimeStatus: pointInTime.status, decisionAsOf: pointInTime.decisionAsOf, marketInput: pointInTime.envelope, pointInTime, legs: selection.legs, calendar: Boolean(selection.calendar), nearDte: selection.nearDte, farDte: selection.farDte, metrics: contractMetrics, score: scored.score, label: scored.label, breakdown: scored.breakdown, regime: currentRegime, warning, invalidation };
     });
   };
   const chartPoints = (model, spot) => {
@@ -6315,13 +6565,20 @@ initDerivativesAnalyticsPage.strategyEngine = (() => {
   };
   return {
     contracts: CONTRACTS,
+    liquidityThresholds: LIQUIDITY_THRESHOLDS,
     analyze,
     payoff,
     metrics,
     chartPoints,
     daysTo,
     executionPrice,
+    executionStatuses: EXECUTION_STATUS,
+    executionTrust: strategyExecutionTrust,
+    marketInputEnvelope,
+    pointInTimeStatus: POINT_IN_TIME_STATUS,
+    pointInTimeCheck: strategyPointInTime,
     liquidityScore: (quote, market) => liquidity(quote, market),
+    liquidityGate: strategyLiquidityGate,
   };
 })();
 function renderDerivativeAiReport(title, analysis = {}, error = "", id = "") {
