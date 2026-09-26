@@ -64,23 +64,13 @@
       "sha256": "872ea81ed709cb3ec0ad5f42dbbd8094734520c68b5d3193c6253deeb8c0979b"
     },
     {
-      "bytes": 3899351,
-      "path": "release_proof/market-platform-worktree-p2-20.zip",
-      "sha256": "6b868bacbb15610224a402b493e826ed6242e7debb3b04b84b6148bb2fbdf2fb"
-    },
-    {
-      "bytes": 3571403,
-      "path": "release_proof/market-platform-worktree-p2-20-deterministic.zip",
-      "sha256": "eb8aadb2e9e18c8cd4cbd4f5651c7dd590570de618096aa0fc6ca93fd3f53299"
-    },
-    {
-      "bytes": 5988,
+      "bytes": 5766,
       "path": "release_proof/p2_test_evidence.json",
-      "sha256": "30d6a6adac67a85cd3ba970df7050662589b6f46cb9afcfc9c827a3e98d3a668"
+      "sha256": "adada116eb21283744a9d79c328aee693a2972d73fb248d985b7ff2db12b4e99"
     }
   ],
   "evidence_binding": "release_proof/p2_test_evidence.json",
-  "generated_at_utc": "2026-09-26T03:07:28.464916+00:00",
+  "generated_at_utc": "2026-09-26T03:16:53.687849+00:00",
   "required_source_files": [
     {
       "bytes": 39027,
@@ -218,9 +208,9 @@
       "sha256": "b5e5eb53f070cc3915f8901902c4fc0b9f3a04c62ae1731172caa0bcae0e5abf"
     },
     {
-      "bytes": 15137,
+      "bytes": 15011,
       "path": "regression/p2_release_provenance.py",
-      "sha256": "dd52c4863ea8e168f3118f42087c2e9f964f5237f788e259a8e8ac51c070af3f"
+      "sha256": "17cff086f192e24d8e12b3d1f08a0a264e5d85bada853ead5fb4310cc044466b"
     },
     {
       "bytes": 5944,
@@ -262,10 +252,8 @@
       "status_entries": [
         "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
         "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
-        " M .github/workflows/p2-release-provenance.yml",
         " M \"docs/API\\345\\260\\216\\345\\205\\245\\346\\252\\242\\351\\251\\227\\345\\204\\252\\345\\214\\226\\350\\246\\217\\345\\212\\203.md\"",
         " M regression/p2_release_provenance.py",
-        " M regression/test_p2_release_provenance.py",
         " M regression/test_q2_backtest_methodology.js",
         " M regression/test_q5_quant_math.js",
         "?? docs/CODEX_Q2_R2_QUANT_INTEGRITY_EXECUTION.md",
@@ -277,17 +265,15 @@
         "?? twse_mi_index.json"
       ],
       "worktree_dirty": true,
-      "worktree_state_sha256": "9115a1bb6c148383cc188e5b945897c80708c726d4ae6d22b6a7527bbf7fcd1a"
+      "worktree_state_sha256": "64771763e1b874723ca4c83e54ece5d3f41496ab9b44084797581c3210255a34"
     },
     "git_head_sha": "8adc26cf9bac8f18c31d2a90dfa32cab97182a7c",
     "platform": "Windows-10-10.0.19045-SP0",
     "status_entries": [
       "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
       "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
-      " M .github/workflows/p2-release-provenance.yml",
       " M \"docs/API\\345\\260\\216\\345\\205\\245\\346\\252\\242\\351\\251\\227\\345\\204\\252\\345\\214\\226\\350\\246\\217\\345\\212\\203.md\"",
       " M regression/p2_release_provenance.py",
-      " M regression/test_p2_release_provenance.py",
       " M regression/test_q2_backtest_methodology.js",
       " M regression/test_q5_quant_math.js",
       "?? docs/CODEX_Q2_R2_QUANT_INTEGRITY_EXECUTION.md",
@@ -299,6 +285,6 @@
       "?? twse_mi_index.json"
     ],
     "worktree_dirty": true,
-    "worktree_state_sha256": "9115a1bb6c148383cc188e5b945897c80708c726d4ae6d22b6a7527bbf7fcd1a"
+    "worktree_state_sha256": "64771763e1b874723ca4c83e54ece5d3f41496ab9b44084797581c3210255a34"
   }
 }

@@ -56,8 +56,6 @@ ARTIFACT_FILES = [
     "docs/P2_FRONTEND_CONSOLIDATION_EVIDENCE_2026-09-25.md",
     "docs/優化作業基線_2026-09-21.md",
     ".github/workflows/p2-release-provenance.yml",
-    "release_proof/market-platform-worktree-p2-20.zip",
-    "release_proof/market-platform-worktree-p2-20-deterministic.zip",
 ]
 
 P2_SCOPE_FILES = set(SOURCE_FILES + ARTIFACT_FILES)

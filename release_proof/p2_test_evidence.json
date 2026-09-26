@@ -131,10 +131,8 @@
       "status_entries": [
         "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
         "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
-        " M .github/workflows/p2-release-provenance.yml",
         " M \"docs/API\\345\\260\\216\\345\\205\\245\\346\\252\\242\\351\\251\\227\\345\\204\\252\\345\\214\\226\\350\\246\\217\\345\\212\\203.md\"",
         " M regression/p2_release_provenance.py",
-        " M regression/test_p2_release_provenance.py",
         " M regression/test_q2_backtest_methodology.js",
         " M regression/test_q5_quant_math.js",
         "?? docs/CODEX_Q2_R2_QUANT_INTEGRITY_EXECUTION.md",
@@ -146,17 +144,15 @@
         "?? twse_mi_index.json"
       ],
       "worktree_dirty": true,
-      "worktree_state_sha256": "9115a1bb6c148383cc188e5b945897c80708c726d4ae6d22b6a7527bbf7fcd1a"
+      "worktree_state_sha256": "64771763e1b874723ca4c83e54ece5d3f41496ab9b44084797581c3210255a34"
     },
     "git_head_sha": "8adc26cf9bac8f18c31d2a90dfa32cab97182a7c",
     "platform": "Windows-10-10.0.19045-SP0",
     "status_entries": [
       "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
       "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
-      " M .github/workflows/p2-release-provenance.yml",
       " M \"docs/API\\345\\260\\216\\345\\205\\245\\346\\252\\242\\351\\251\\227\\345\\204\\252\\345\\214\\226\\350\\246\\217\\345\\212\\203.md\"",
       " M regression/p2_release_provenance.py",
-      " M regression/test_p2_release_provenance.py",
       " M regression/test_q2_backtest_methodology.js",
       " M regression/test_q5_quant_math.js",
       "?? docs/CODEX_Q2_R2_QUANT_INTEGRITY_EXECUTION.md",
@@ -168,6 +164,6 @@
       "?? twse_mi_index.json"
     ],
     "worktree_dirty": true,
-    "worktree_state_sha256": "9115a1bb6c148383cc188e5b945897c80708c726d4ae6d22b6a7527bbf7fcd1a"
+    "worktree_state_sha256": "64771763e1b874723ca4c83e54ece5d3f41496ab9b44084797581c3210255a34"
   }
 }
