@@ -8,7 +8,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import platform
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -59,6 +61,14 @@ ARTIFACT_FILES = [
 ]
 
 P2_SCOPE_FILES = set(SOURCE_FILES + ARTIFACT_FILES)
+COMPATIBILITY_FILES = {
+    "regression/p2_release_provenance.py",
+    "regression/test_p2_release_provenance.py",
+    ".github/workflows/p2-release-provenance.yml",
+    "release_proof/p2_release_manifest.json",
+    "release_proof/p2_test_evidence.json",
+}
+HEX_SHA = re.compile(r"^[0-9a-f]{40}$")
 
 
 def run(*args: str) -> str:
@@ -110,6 +120,70 @@ def is_ancestor(ancestor: str, descendant: str) -> bool:
     ).returncode == 0
 
 
+def committed_source_sha(identity: dict[str, object]) -> str:
+    return str(identity.get("committed_source_sha") or identity.get("git_head_sha") or "")
+
+
+def bound_source_from_existing_manifest(current_head: str) -> str:
+    if MANIFEST_PATH.is_file():
+        try:
+            existing = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+            bound = committed_source_sha(existing.get("source_identity", {}))
+            if HEX_SHA.fullmatch(bound) and (bound == current_head or is_ancestor(bound, current_head)):
+                return bound
+        except (OSError, ValueError, TypeError):
+            pass
+    return current_head
+
+
+def source_scope_drift(bound_source: str, current_head: str) -> list[str]:
+    if bound_source == current_head:
+        return []
+    drift: list[str] = []
+    semantic_files = sorted(P2_SCOPE_FILES - COMPATIBILITY_FILES - PROVENANCE_OUTPUTS)
+    for relative in semantic_files:
+        path = ROOT / relative
+        if not path.is_file():
+            drift.append(relative)
+            continue
+        try:
+            committed = subprocess.check_output(
+                ("git", "show", f"{bound_source}:{relative}"),
+                cwd=ROOT,
+                stderr=subprocess.DEVNULL,
+            )
+        except subprocess.CalledProcessError:
+            drift.append(relative)
+            continue
+        if hashlib.sha256(committed).hexdigest() != sha256(path):
+            drift.append(relative)
+    return drift
+
+
+def validate_committed_source_identity(
+    identity: dict[str, object],
+    current_head: str,
+    current_status: list[str],
+    *,
+    ci_environment: bool,
+    changed_paths: list[str] | None = None,
+) -> list[str]:
+    errors: list[str] = []
+    bound_source = committed_source_sha(identity)
+    if not HEX_SHA.fullmatch(bound_source):
+        errors.append("manifest does not contain a real 40-character committed source SHA")
+        return errors
+    if bound_source != current_head and not is_ancestor(bound_source, current_head):
+        errors.append("committed source SHA is not current HEAD or its ancestor")
+    paths = changed_paths if changed_paths is not None else p2_scope_status(current_status)
+    semantic_changes = sorted({status_path(path) or path for path in paths} - COMPATIBILITY_FILES - PROVENANCE_OUTPUTS)
+    if semantic_changes:
+        errors.append("P2 source scope drift after bound commit: " + ", ".join(semantic_changes))
+    if ci_environment and current_status:
+        errors.append("CI checkout is not clean")
+    return errors
+
+
 def file_records(paths: list[str]) -> list[dict[str, object]]:
     records = []
     for relative in paths:
@@ -143,16 +217,22 @@ def evidence_records(source_identity: dict[str, object]) -> list[dict[str, objec
 def source_identity() -> dict[str, object]:
     head = run("git", "rev-parse", "--verify", "HEAD")
     status = git_status()
-    return {
-        "git_head_sha": head,
+    bound_source = bound_source_from_existing_manifest(head)
+    generation_context = {
         "worktree_dirty": bool(status),
         "worktree_state_sha256": worktree_digest(status),
         "status_entries": status,
+        "platform": platform.platform(),
+    }
+    return {
+        "committed_source_sha": bound_source,
+        "git_head_sha": bound_source,
+        **generation_context,
+        "generation_context": generation_context,
     }
 
 
-def build_manifest() -> dict[str, object]:
-    identity = source_identity()
+def build_manifest(identity: dict[str, object]) -> dict[str, object]:
     evidence = {"schema": "p2-test-evidence-v1", "source_identity": identity, "records": evidence_records(identity)}
     return {
         "schema": "p2-release-provenance-v1",
@@ -185,10 +265,16 @@ def write_manifest() -> None:
     PROOF_DIR.mkdir(exist_ok=True)
     identity = source_identity()
     evidence = {"schema": "p2-test-evidence-v1", "source_identity": identity, "records": evidence_records(identity)}
-    EVIDENCE_PATH.write_text(json.dumps(evidence, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    manifest = build_manifest()
-    MANIFEST_PATH.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    write_json(EVIDENCE_PATH, evidence)
+    manifest = build_manifest(identity)
+    write_json(MANIFEST_PATH, manifest)
     print(f"P2_PROVENANCE_WRITTEN: {MANIFEST_PATH.relative_to(ROOT)}")
+
+
+def write_json(path: Path, payload: dict[str, object]) -> None:
+    serialized = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    with path.open("w", encoding="utf-8", newline="\n") as handle:
+        handle.write(serialized)
 
 
 def validate() -> list[str]:
@@ -200,27 +286,14 @@ def validate() -> list[str]:
     identity = manifest.get("source_identity", {})
     current_head = run("git", "rev-parse", "--verify", "HEAD")
     current_status = git_status()
-    current_identity = {
-        "git_head_sha": current_head,
-        "worktree_dirty": bool(current_status),
-        "worktree_state_sha256": worktree_digest(current_status),
-        "status_entries": current_status,
-    }
-    if identity.get("git_head_sha") != current_head:
-        bound_head = identity.get("git_head_sha", "")
-        if not bound_head or not is_ancestor(bound_head, current_head):
-            errors.append("source identity mismatch: git_head_sha is not current HEAD or its ancestor")
-        elif p2_scope_status(current_status):
-            errors.append("P2 tracked scope is dirty after the bound source commit")
-    for key in ("worktree_dirty", "worktree_state_sha256", "status_entries"):
-        if identity.get(key) != current_identity[key]:
-            errors.append(f"source identity mismatch: {key}")
-    if not identity.get("git_head_sha") or len(identity["git_head_sha"]) != 40:
-        errors.append("manifest does not contain a real 40-character HEAD SHA")
-    if not identity.get("worktree_dirty") and identity.get("status_entries"):
-        errors.append("clean manifest has status entries")
-    if identity.get("worktree_dirty") and not identity.get("status_entries"):
-        errors.append("dirty manifest is missing status entries")
+    errors.extend(validate_committed_source_identity(
+        identity,
+        current_head,
+        current_status,
+        ci_environment=os.environ.get("CI", "").lower() == "true",
+    ))
+    bound_source = committed_source_sha(identity)
+    errors.extend(source_scope_drift(bound_source, current_head))
     if evidence.get("source_identity") != identity:
         errors.append("evidence binding source identity mismatch")
     for record in manifest.get("required_source_files", []) + manifest.get("evidence_artifacts", []):
