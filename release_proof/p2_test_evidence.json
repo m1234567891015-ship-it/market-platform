@@ -144,7 +144,7 @@
         "?? twse_mi_index.json"
       ],
       "worktree_dirty": true,
-      "worktree_state_sha256": "784f535b78b8af6e94a7b1554670979e61d2ae6ae2c9316e9a2522a8ab07f120"
+      "worktree_state_sha256": "c75a5c483f2c6db6a6fbbb1356ff54c8aa8535d2fdcb8f050d81f72afb3b30b6"
     },
     "git_head_sha": "8adc26cf9bac8f18c31d2a90dfa32cab97182a7c",
     "platform": "Windows-10-10.0.19045-SP0",
@@ -164,6 +164,6 @@
       "?? twse_mi_index.json"
     ],
     "worktree_dirty": true,
-    "worktree_state_sha256": "784f535b78b8af6e94a7b1554670979e61d2ae6ae2c9316e9a2522a8ab07f120"
+    "worktree_state_sha256": "c75a5c483f2c6db6a6fbbb1356ff54c8aa8535d2fdcb8f050d81f72afb3b30b6"
   }
 }
