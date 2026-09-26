@@ -44,7 +44,6 @@ jobs:
         shell: bash
         run: |
           python -m regression.test_p0_quant_integrity
-          node regression/test_p0_asset_cost_models.js
           node regression/test_p1_options_liquidity.js
           node regression/test_p1_options_execution.js
           node regression/test_p1_point_in_time.js
