@@ -131,8 +131,9 @@
       "status_entries": [
         "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
         "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
-        " M .github/workflows/p2-release-provenance.yml",
+        " M build_portable_package.py",
         " M \"docs/API\\345\\260\\216\\345\\205\\245\\346\\252\\242\\351\\251\\227\\345\\204\\252\\345\\214\\226\\350\\246\\217\\345\\212\\203.md\"",
+        " M regression/test_p2_artifact_hygiene.py",
         " M regression/test_q2_backtest_methodology.js",
         " M regression/test_q5_quant_math.js",
         "?? docs/CODEX_Q2_R2_QUANT_INTEGRITY_EXECUTION.md",
@@ -144,15 +145,16 @@
         "?? twse_mi_index.json"
       ],
       "worktree_dirty": true,
-      "worktree_state_sha256": "c75a5c483f2c6db6a6fbbb1356ff54c8aa8535d2fdcb8f050d81f72afb3b30b6"
+      "worktree_state_sha256": "f040a4e575990cc93b76606d9219fbe30efcdbe8039a123b99a9be3cc6978d83"
     },
     "git_head_sha": "8adc26cf9bac8f18c31d2a90dfa32cab97182a7c",
     "platform": "Windows-10-10.0.19045-SP0",
     "status_entries": [
       "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
       "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
-      " M .github/workflows/p2-release-provenance.yml",
+      " M build_portable_package.py",
       " M \"docs/API\\345\\260\\216\\345\\205\\245\\346\\252\\242\\351\\251\\227\\345\\204\\252\\345\\214\\226\\350\\246\\217\\345\\212\\203.md\"",
+      " M regression/test_p2_artifact_hygiene.py",
       " M regression/test_q2_backtest_methodology.js",
       " M regression/test_q5_quant_math.js",
       "?? docs/CODEX_Q2_R2_QUANT_INTEGRITY_EXECUTION.md",
@@ -164,6 +166,6 @@
       "?? twse_mi_index.json"
     ],
     "worktree_dirty": true,
-    "worktree_state_sha256": "c75a5c483f2c6db6a6fbbb1356ff54c8aa8535d2fdcb8f050d81f72afb3b30b6"
+    "worktree_state_sha256": "f040a4e575990cc93b76606d9219fbe30efcdbe8039a123b99a9be3cc6978d83"
   }
 }
