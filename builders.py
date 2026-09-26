@@ -259,6 +259,7 @@ from fetchers import (
     extract_balanced_segment,
     extract_visible_text_lines,
     fetch_barchart_options_context,
+    fetch_cboe_options_payload,
     fetch_etf_dividend_info,
     fetch_fred_observation_rows,
     fetch_international_market_indexes,
@@ -333,6 +334,8 @@ from parsers import (
     get_taiwan_option_product,
     market_payload_has_complete_index_tables,
     merge_site_data_with_fallback,
+    normalize_cboe_option_contract,
+    parse_cboe_expiration_request,
     parse_all_stocks,
     parse_index_activities,
     parse_institutions,
@@ -348,7 +351,6 @@ from market_config import (
     ASSET_CATEGORY_SOURCE_INFO,
     ASSET_REGION_ORDER,
     CACHE_TTL_SECONDS,
-    CBOE_OPTIONS_BASE,
     GLOBAL_MACRO_ASSET_SCHEMA,
     GLOBAL_MARKET_CATEGORIES,
     OPTIONS_CHAIN_CACHE_SECONDS,
@@ -1570,75 +1572,6 @@ BYBIT_OPTIONS_BASE_COIN_BY_SYMBOL = {
 }
 
 
-def parse_cboe_option_symbol(contract_symbol: str) -> dict[str, Any] | None:
-    match = re.match(r"^(.+?)(\d{6})([CP])(\d{8})$", str(contract_symbol or "").strip().upper())
-    if not match:
-        return None
-    root, date_code, option_type, strike_code = match.groups()
-    year = 2000 + int(date_code[:2])
-    month = int(date_code[2:4])
-    day = int(date_code[4:6])
-    try:
-        expiration_dt = datetime(year, month, day, tzinfo=timezone.utc)
-    except ValueError:
-        return None
-    return {
-        "root": root,
-        "expiration": int(expiration_dt.timestamp()),
-        "expirationDate": expiration_dt.strftime("%Y-%m-%d"),
-        "optionType": "call" if option_type == "C" else "put",
-        "strike": int(strike_code) / 1000,
-    }
-
-
-def parse_cboe_expiration_request(value: str | None) -> int | None:
-    clean = str(value or "").strip()
-    if not clean:
-        return None
-    if clean.isdigit():
-        if len(clean) == 6:
-            parsed = parse_cboe_option_symbol(f"X{clean}C00000000")
-            return int(parsed["expiration"]) if parsed else None
-        timestamp = int(clean)
-        return timestamp // 1000 if timestamp > 100000000000 else timestamp
-    for date_format in ("%Y-%m-%d", "%Y/%m/%d"):
-        try:
-            return int(datetime.strptime(clean, date_format).replace(tzinfo=timezone.utc).timestamp())
-        except ValueError:
-            continue
-    return None
-
-
-def normalize_cboe_option_contract(contract: dict[str, Any], clean_symbol: str) -> dict[str, Any] | None:
-    parsed = parse_cboe_option_symbol(str(contract.get("option") or ""))
-    if not parsed or parsed["root"] != clean_symbol:
-        return None
-    last_price = contract.get("last_trade_price")
-    if last_price is None:
-        last_price = contract.get("theo")
-    return {
-        "contractSymbol": contract.get("option") or "",
-        "strike": parsed["strike"],
-        "lastPrice": last_price,
-        "bid": contract.get("bid"),
-        "ask": contract.get("ask"),
-        "change": contract.get("change"),
-        "percentChange": contract.get("percent_change"),
-        "volume": contract.get("volume"),
-        "openInterest": contract.get("open_interest"),
-        "impliedVolatility": contract.get("iv"),
-        "expiration": parsed["expiration"],
-        "expirationDate": parsed["expirationDate"],
-        "inTheMoney": None,
-        "delta": contract.get("delta"),
-        "gamma": contract.get("gamma"),
-        "theta": contract.get("theta"),
-        "vega": contract.get("vega"),
-        "rho": contract.get("rho"),
-        "type": parsed["optionType"],
-    }
-
-
 def pick_cboe_expiration(expirations: list[int], requested: int | None = None) -> int | None:
     import app
 
@@ -1676,8 +1609,7 @@ def build_cboe_options_chain(symbol: str, expiration: str | None = None) -> dict
         cached_chain = read_memory_cache("us_options_chains", cache_key, OPTIONS_CHAIN_CACHE_SECONDS)
         if cached_chain is not None:
             return copy.deepcopy(cached_chain)
-    url = f"{CBOE_OPTIONS_BASE}/{quote(clean_symbol)}.json"
-    payload = fetch_json(url, timeout=15)
+    payload, url = fetch_cboe_options_payload(clean_symbol)
     data = payload.get("data") if isinstance(payload, dict) else None
     raw_options = data.get("options") if isinstance(data, dict) else None
     if not isinstance(raw_options, list):
@@ -6683,12 +6615,12 @@ def build_global_market_payload(
             }
     try:
         if category == "futures":
-            app.DERIVATIVES_STORE.record_futures_payload(payload)
+            app.get_derivatives_store().record_futures_payload(payload)
         elif category == "options":
             option_chain = payload.get("taiwanOptionChain") or {}
-            app.DERIVATIVES_STORE.record_option_chain(option_chain, str(payload.get("updatedAt") or ""))
+            app.get_derivatives_store().record_option_chain(option_chain, str(payload.get("updatedAt") or ""))
             if option_chain.get("analysis"):
-                app.DERIVATIVES_STORE.record_ai_report(str(option_chain.get("underlying") or option_underlying), option_chain["analysis"], str(payload.get("updatedAt") or ""))
+                app.get_derivatives_store().record_ai_report(str(option_chain.get("underlying") or option_underlying), option_chain["analysis"], str(payload.get("updatedAt") or ""))
     except Exception as exc:  # noqa: BLE001
         app.LOGGER.exception("Failed to persist derivatives payload", exc_info=exc)
     return payload

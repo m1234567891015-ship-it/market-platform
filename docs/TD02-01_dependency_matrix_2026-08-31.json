@@ -155,6 +155,7 @@
       "from_candidate_module": "runtime/bootstrap",
       "from_source": "js/main.js",
       "symbols": [
+        "formatUpdateText",
         "renderHome",
         "renderMarketPage"
       ],
@@ -384,6 +385,7 @@
         "analyzeTechnicalTheories",
         "averageFuturesValues",
         "buildFuturesTechnicalSnapshot",
+        "buildMarketBreadthIndicators",
         "technicalSma"
       ],
       "to_candidate_module": "runtime/shared-calc",
@@ -418,6 +420,7 @@
         "getFuturesTechnicalIntervalLabel",
         "getSelectedFuturesTechnicalContract",
         "getSelectedFuturesTechnicalInterval",
+        "twEtfState",
         "usMajorIndexChartSymbol",
         "usMajorIndexChartSymbols",
         "usMajorIndexPanOffsets",
@@ -720,6 +723,8 @@
       "from_source": "js/page-tw.js",
       "symbols": [
         "analyzeTechnicalTheories",
+        "buildBacktestLearningModel",
+        "buildMarketBreadthIndicators",
         "buildPortfolioTheoryAssessment",
         "getSimulationSignal",
         "movingAverage"
@@ -731,7 +736,6 @@
       "from_candidate_module": "route/page-tw",
       "from_source": "js/page-tw.js",
       "symbols": [
-        "PORTFOLIO_COST_MODEL",
         "PORTFOLIO_FACTOR_SOURCE",
         "PORTFOLIO_SIM_STORAGE_KEY",
         "SECTOR_SYNC_PICKER_LIMIT",
@@ -846,7 +850,8 @@
       "from_candidate_module": "route/page-us",
       "from_source": "js/page-us.js",
       "symbols": [
-        "analyzeTechnicalTheories"
+        "analyzeTechnicalTheories",
+        "buildMarketBreadthIndicators"
       ],
       "to_candidate_module": "runtime/shared-calc",
       "to_source": "js/shared-calc.js"
@@ -864,6 +869,7 @@
         "US_NYSE_DIRECTORY_PAGE_SIZE",
         "US_PORTFOLIO_SIM_STORAGE_KEY",
         "stockChipTabState",
+        "twEtfState",
         "usNyseDirectoryState",
         "usStockSearchRequestId",
         "usWatchlistAnalysisCache",
@@ -914,6 +920,7 @@
       "from_candidate_module": "runtime/render-shared",
       "from_source": "js/render-shared.js",
       "symbols": [
+        "buildBacktestLearningModel",
         "buildGlobalMarketDetail",
         "buildPortfolioTheoryAssessment",
         "getSimulationSignal"
@@ -957,9 +964,8 @@
         "BACKTEST_BENCHMARK_SOURCE",
         "BACKTEST_DRIFT_SOURCE",
         "BACKTEST_FACTOR_BASELINE",
-        "MARKET_BREADTH_STORAGE_KEY",
-        "data",
-        "localAllStocks"
+        "PORTFOLIO_COST_MODEL",
+        "data"
       ],
       "to_candidate_module": "runtime/state",
       "to_source": "js/state.js"
@@ -1015,6 +1021,7 @@
       "from_source": "js/stock-detail.js",
       "symbols": [
         "analyzeTechnicalTheories",
+        "buildMarketBreadthIndicators",
         "normalizePortfolioHistory"
       ],
       "to_candidate_module": "runtime/shared-calc",
@@ -1042,6 +1049,7 @@
         "stockMarginRangeState",
         "stockMarginSummaryModeState",
         "stockMarginTableTypeState",
+        "twEtfState",
         "watchlistKey"
       ],
       "to_candidate_module": "runtime/state",
@@ -1082,16 +1090,16 @@
       "owner": "js/page-us.js + js/page-global-market-options.js",
       "property": "currentGlobalMarketPayload",
       "read_lines": [
-        1911,
-        2052,
-        2087,
-        2093,
-        2106
+        1925,
+        2066,
+        2101,
+        2107,
+        2120
       ],
       "reason": "cross-route window payload handoff; replace with an explicit store/import before removing the bridge",
       "write_lines": [
         1287,
-        3850
+        3862
       ]
     }
   ],
@@ -1131,18 +1139,18 @@
       "js/charts.js": "3e99c92a566a13c971b53e5f1ff36ae539b64fb022aae936689746cfdbde9778",
       "js/core.js": "1e7f0db186037ff9dbc401403ba68fc1b06066d1a75943f0a56bf66f6cead446",
       "js/legacy-unclassified.js": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "js/main.js": "fca8270594ee527779d17c143a2b67af2e1b09096d2b7362809d704e17f92c4e",
-      "js/page-global-market-assethub.js": "bd0fee213b4c52564d9d350eb7a5960dc07d2548a3a4cb3a7ed835086597a4b4",
-      "js/page-global-market-futures.js": "d99b7dd24bc95629aae2c6095205a8a6e1346ca9bee3be2f466ea2570bc41e62",
-      "js/page-global-market-options.js": "f9a29f0e95ec59bc04c08f02f6157ea1587c98ad6fdc58a8ef30f5969cb0750d",
-      "js/page-home.js": "d8daa0bc91723025fbc9b6552b84b2d39f0b3ede6d57cdea474861b2e67561ec",
-      "js/page-tw.js": "18d2a1cd53b10cad242ce830f99e438f55e6124c6e19bfb8e6273b335c53fa6f",
-      "js/page-us.js": "6622d036578855a453236f5268341e8dc1629855f5f2f1c72d445c27eabf309f",
-      "js/render-shared.js": "2b4454d71f8e9641aec64aa81ab45a91fe882153adaae4b056e76c47f648309b",
-      "js/shared-calc.js": "d2537b9c3a47aebe884848c99a671a3f85d63a6a1ab7cf0e017cc3111917a6c3",
-      "js/state.js": "94f4bd58cf071615374090a6bd589542bd70cfabed2e4b2dd59a85624739e520",
-      "js/stock-detail.js": "98ce9621186e99b00019949ac9ecc3ac09029242ae8b1a361735dd7fba06d5bf",
-      "pwa.js": "53ecfce06e11f6c72ad0741ce2a9051fcbcf25c5df3272139a314e3df2029b64"
+      "js/main.js": "e523382d1440d13fa98e0ac95451a0ae3c51e05cda11acbfb065c1241ef1818f",
+      "js/page-global-market-assethub.js": "ea171286f17635284ac0b5974a45a9691653e3d77afa498d82954253ded1f352",
+      "js/page-global-market-futures.js": "5eb12f1ce070b8d0a4a67268627f09ede4a5d059f295de1318a54a9a269d61d2",
+      "js/page-global-market-options.js": "132859f137025dda7138c07eed34bc8ad4cb7510a0099c3a77ef8090b35da593",
+      "js/page-home.js": "8781d1e483a1f798b1140583ac5a06c036e8a2d36ea9058ca70c04fe64ffcc36",
+      "js/page-tw.js": "6c0a37f4b932d2af6304521d154d5beec6880c8814b825a153a2909671a32a79",
+      "js/page-us.js": "1f1ede2345dfb86707b6a523cbf7a9a2b6674e0b5f4b6122d723896de5317dd5",
+      "js/render-shared.js": "2d39d93294d17cdc6aa6eb95bf234c73e755d36ea278df10e34cac567a15f67d",
+      "js/shared-calc.js": "453f401c1dfd74d59f828bf3a51f2dcbb87572e7f354bd7855827c0c009d4460",
+      "js/state.js": "3054ccc81de9679112ca2882c13239492339060e81a7e247fe7eea00c41a433a",
+      "js/stock-detail.js": "ed199c94348c778c29f5ad9bbe8af4441073ff5777b75e8c09fab69d1fbad43a",
+      "pwa.js": "6d1a47c1321747bcc628dbf42a60d695a4476a56d0e5f290b58d89de901c22a7"
     },
     "status_addon_order": [
       "pwa.js",
@@ -1635,6 +1643,7 @@
           "candidate_module": "route/page-home",
           "source": "js/page-home.js",
           "symbols": [
+            "formatUpdateText",
             "renderHome",
             "renderMarketPage"
           ]
@@ -1690,6 +1699,12 @@
           "owner_source": "js/api.js",
           "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
           "symbol": "fetchWithTimeout"
+        },
+        {
+          "owner_candidate_module": "route/page-home",
+          "owner_source": "js/page-home.js",
+          "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
+          "symbol": "formatUpdateText"
         },
         {
           "owner_candidate_module": "route/global-market-assethub",
@@ -1803,19 +1818,19 @@
       "source": "js/main.js",
       "top_level_immediate_references": [
         {
-          "line": 89,
+          "line": 108,
           "symbols": [
             "initSearchPage"
           ]
         },
         {
-          "line": 90,
+          "line": 109,
           "symbols": [
             "initWatchlistPage"
           ]
         },
         {
-          "line": 91,
+          "line": 110,
           "symbols": [
             "initGlobalMarketPage",
             "loadYahooSectorCategory"
@@ -2438,6 +2453,7 @@
             "analyzeTechnicalTheories",
             "averageFuturesValues",
             "buildFuturesTechnicalSnapshot",
+            "buildMarketBreadthIndicators",
             "technicalSma"
           ]
         },
@@ -2470,6 +2486,7 @@
             "getFuturesTechnicalIntervalLabel",
             "getSelectedFuturesTechnicalContract",
             "getSelectedFuturesTechnicalInterval",
+            "twEtfState",
             "usMajorIndexChartSymbol",
             "usMajorIndexChartSymbols",
             "usMajorIndexPanOffsets",
@@ -2675,6 +2692,12 @@
           "owner_source": "js/shared-calc.js",
           "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
           "symbol": "buildFuturesTechnicalSnapshot"
+        },
+        {
+          "owner_candidate_module": "runtime/shared-calc",
+          "owner_source": "js/shared-calc.js",
+          "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
+          "symbol": "buildMarketBreadthIndicators"
         },
         {
           "owner_candidate_module": "runtime/render-shared",
@@ -2933,6 +2956,12 @@
           "owner_source": "js/core.js",
           "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
           "symbol": "toneClass"
+        },
+        {
+          "owner_candidate_module": "runtime/state",
+          "owner_source": "js/state.js",
+          "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
+          "symbol": "twEtfState"
         },
         {
           "owner_candidate_module": "runtime/state",
@@ -4196,6 +4225,8 @@
           "source": "js/shared-calc.js",
           "symbols": [
             "analyzeTechnicalTheories",
+            "buildBacktestLearningModel",
+            "buildMarketBreadthIndicators",
             "buildPortfolioTheoryAssessment",
             "getSimulationSignal",
             "movingAverage"
@@ -4205,7 +4236,6 @@
           "candidate_module": "runtime/state",
           "source": "js/state.js",
           "symbols": [
-            "PORTFOLIO_COST_MODEL",
             "PORTFOLIO_FACTOR_SOURCE",
             "PORTFOLIO_SIM_STORAGE_KEY",
             "SECTOR_SYNC_PICKER_LIMIT",
@@ -4380,12 +4410,6 @@
           "owner_candidate_module": "runtime/state",
           "owner_source": "js/state.js",
           "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
-          "symbol": "PORTFOLIO_COST_MODEL"
-        },
-        {
-          "owner_candidate_module": "runtime/state",
-          "owner_source": "js/state.js",
-          "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
           "symbol": "PORTFOLIO_FACTOR_SOURCE"
         },
         {
@@ -4459,6 +4483,18 @@
           "owner_source": "js/charts.js",
           "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
           "symbol": "bindHorizontalChartPan"
+        },
+        {
+          "owner_candidate_module": "runtime/shared-calc",
+          "owner_source": "js/shared-calc.js",
+          "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
+          "symbol": "buildBacktestLearningModel"
+        },
+        {
+          "owner_candidate_module": "runtime/shared-calc",
+          "owner_source": "js/shared-calc.js",
+          "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
+          "symbol": "buildMarketBreadthIndicators"
         },
         {
           "owner_candidate_module": "runtime/render-shared",
@@ -4842,7 +4878,8 @@
           "candidate_module": "runtime/shared-calc",
           "source": "js/shared-calc.js",
           "symbols": [
-            "analyzeTechnicalTheories"
+            "analyzeTechnicalTheories",
+            "buildMarketBreadthIndicators"
           ]
         },
         {
@@ -4858,6 +4895,7 @@
             "US_NYSE_DIRECTORY_PAGE_SIZE",
             "US_PORTFOLIO_SIM_STORAGE_KEY",
             "stockChipTabState",
+            "twEtfState",
             "usNyseDirectoryState",
             "usStockSearchRequestId",
             "usWatchlistAnalysisCache",
@@ -5015,6 +5053,12 @@
           "symbol": "bindHorizontalChartPan"
         },
         {
+          "owner_candidate_module": "runtime/shared-calc",
+          "owner_source": "js/shared-calc.js",
+          "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
+          "symbol": "buildMarketBreadthIndicators"
+        },
+        {
           "owner_candidate_module": "runtime/render-shared",
           "owner_source": "js/render-shared.js",
           "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
@@ -5165,6 +5209,12 @@
           "symbol": "toneClass"
         },
         {
+          "owner_candidate_module": "runtime/state",
+          "owner_source": "js/state.js",
+          "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
+          "symbol": "twEtfState"
+        },
+        {
           "owner_candidate_module": "runtime/render-shared",
           "owner_source": "js/render-shared.js",
           "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
@@ -5243,6 +5293,7 @@
           "candidate_module": "runtime/shared-calc",
           "source": "js/shared-calc.js",
           "symbols": [
+            "buildBacktestLearningModel",
             "buildGlobalMarketDetail",
             "buildPortfolioTheoryAssessment",
             "getSimulationSignal"
@@ -5347,6 +5398,12 @@
           "owner_source": "js/state.js",
           "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
           "symbol": "activeYahooSectorCategories"
+        },
+        {
+          "owner_candidate_module": "runtime/shared-calc",
+          "owner_source": "js/shared-calc.js",
+          "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
+          "symbol": "buildBacktestLearningModel"
         },
         {
           "owner_candidate_module": "runtime/shared-calc",
@@ -5498,9 +5555,8 @@
             "BACKTEST_BENCHMARK_SOURCE",
             "BACKTEST_DRIFT_SOURCE",
             "BACKTEST_FACTOR_BASELINE",
-            "MARKET_BREADTH_STORAGE_KEY",
-            "data",
-            "localAllStocks"
+            "PORTFOLIO_COST_MODEL",
+            "data"
           ]
         }
       ],
@@ -5605,7 +5661,7 @@
           "owner_candidate_module": "runtime/state",
           "owner_source": "js/state.js",
           "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
-          "symbol": "MARKET_BREADTH_STORAGE_KEY"
+          "symbol": "PORTFOLIO_COST_MODEL"
         },
         {
           "owner_candidate_module": "runtime/state",
@@ -5618,12 +5674,6 @@
           "owner_source": "js/core.js",
           "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
           "symbol": "formatGlobalVolume"
-        },
-        {
-          "owner_candidate_module": "runtime/state",
-          "owner_source": "js/state.js",
-          "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
-          "symbol": "localAllStocks"
         },
         {
           "owner_candidate_module": "runtime/core",
@@ -5639,7 +5689,14 @@
         }
       ],
       "source": "js/shared-calc.js",
-      "top_level_immediate_references": []
+      "top_level_immediate_references": [
+        {
+          "line": 508,
+          "symbols": [
+            "PORTFOLIO_COST_MODEL"
+          ]
+        }
+      ]
     },
     {
       "bundle": "common-runtime",
@@ -5854,6 +5911,7 @@
           "source": "js/shared-calc.js",
           "symbols": [
             "analyzeTechnicalTheories",
+            "buildMarketBreadthIndicators",
             "normalizePortfolioHistory"
           ]
         },
@@ -5879,6 +5937,7 @@
             "stockMarginRangeState",
             "stockMarginSummaryModeState",
             "stockMarginTableTypeState",
+            "twEtfState",
             "watchlistKey"
           ]
         }
@@ -5935,6 +5994,12 @@
           "owner_source": "js/charts.js",
           "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
           "symbol": "bindHorizontalChartPan"
+        },
+        {
+          "owner_candidate_module": "runtime/shared-calc",
+          "owner_source": "js/shared-calc.js",
+          "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
+          "symbol": "buildMarketBreadthIndicators"
         },
         {
           "owner_candidate_module": "runtime/render-shared",
@@ -6103,6 +6168,12 @@
           "owner_source": "js/core.js",
           "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
           "symbol": "toneClass"
+        },
+        {
+          "owner_candidate_module": "runtime/state",
+          "owner_source": "js/state.js",
+          "reason": "cross-slice read/call; replace with an explicit ESM import before bridge removal",
+          "symbol": "twEtfState"
         },
         {
           "owner_candidate_module": "runtime/state",
@@ -7359,7 +7430,7 @@
         "js/main.js"
       ],
       "kind": "function",
-      "line": 6292,
+      "line": 6694,
       "source": "js/page-global-market-assethub.js",
       "symbol": "initDerivativesAiPage"
     },
@@ -7826,7 +7897,7 @@
       "candidate_module": "route/global-market-assethub",
       "consumers": [],
       "kind": "function",
-      "line": 6250,
+      "line": 6652,
       "source": "js/page-global-market-assethub.js",
       "symbol": "renderDerivativeAiArchitectureCard"
     },
@@ -7834,7 +7905,7 @@
       "candidate_module": "route/global-market-assethub",
       "consumers": [],
       "kind": "function",
-      "line": 6232,
+      "line": 6634,
       "source": "js/page-global-market-assethub.js",
       "symbol": "renderDerivativeAiReport"
     },
@@ -8028,7 +8099,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 2549,
+      "line": 2563,
       "source": "js/page-global-market-futures.js",
       "symbol": "bindDerivativeWatchlistControls"
     },
@@ -8036,7 +8107,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 839,
+      "line": 843,
       "source": "js/page-global-market-futures.js",
       "symbol": "bindUsIndexChartHover"
     },
@@ -8046,7 +8117,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 752,
+      "line": 756,
       "source": "js/page-global-market-futures.js",
       "symbol": "bindUsMajorIndexVixCard"
     },
@@ -8056,7 +8127,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 1240,
+      "line": 1244,
       "source": "js/page-global-market-futures.js",
       "symbol": "bindUsSectorIndexComparisonCard"
     },
@@ -8066,7 +8137,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 2075,
+      "line": 2089,
       "source": "js/page-global-market-futures.js",
       "symbol": "bindUsSectorStocksBrowser"
     },
@@ -8076,7 +8147,7 @@
         "js/page-global-market-assethub.js"
       ],
       "kind": "function",
-      "line": 2580,
+      "line": 2594,
       "source": "js/page-global-market-futures.js",
       "symbol": "buildFuturesCenterModel"
     },
@@ -8084,7 +8155,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 3115,
+      "line": 3129,
       "source": "js/page-global-market-futures.js",
       "symbol": "buildFuturesScopeDetailStats"
     },
@@ -8092,7 +8163,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 3562,
+      "line": 3576,
       "source": "js/page-global-market-futures.js",
       "symbol": "buildFuturesStockStyleChartDetail"
     },
@@ -8100,7 +8171,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 3303,
+      "line": 3317,
       "source": "js/page-global-market-futures.js",
       "symbol": "buildFuturesTechnicalOutlook"
     },
@@ -8108,7 +8179,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 3206,
+      "line": 3220,
       "source": "js/page-global-market-futures.js",
       "symbol": "buildFuturesTechnicalRenderItem"
     },
@@ -8118,7 +8189,7 @@
         "js/page-global-market-assethub.js"
       ],
       "kind": "function",
-      "line": 1314,
+      "line": 1318,
       "source": "js/page-global-market-futures.js",
       "symbol": "buildGlobalMarketInsight"
     },
@@ -8136,7 +8207,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 1323,
+      "line": 1327,
       "source": "js/page-global-market-futures.js",
       "symbol": "buildUsMarketPulseAnalysis"
     },
@@ -8152,7 +8223,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 958,
+      "line": 962,
       "source": "js/page-global-market-futures.js",
       "symbol": "buildUsSectorComparisonAnalysis"
     },
@@ -8160,7 +8231,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 924,
+      "line": 928,
       "source": "js/page-global-market-futures.js",
       "symbol": "buildUsSectorComparisonModel"
     },
@@ -8168,7 +8239,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 1742,
+      "line": 1756,
       "source": "js/page-global-market-futures.js",
       "symbol": "buildUsSectorScopeItems"
     },
@@ -8176,7 +8247,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 1990,
+      "line": 2004,
       "source": "js/page-global-market-futures.js",
       "symbol": "fetchUsSectorDirectoryPayload"
     },
@@ -8184,7 +8255,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 2023,
+      "line": 2037,
       "source": "js/page-global-market-futures.js",
       "symbol": "fetchUsSectorScopePayload"
     },
@@ -8192,7 +8263,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 3297,
+      "line": 3311,
       "source": "js/page-global-market-futures.js",
       "symbol": "formatFuturesContractLabel"
     },
@@ -8202,7 +8273,7 @@
         "js/page-global-market-assethub.js"
       ],
       "kind": "function",
-      "line": 3543,
+      "line": 3557,
       "source": "js/page-global-market-futures.js",
       "symbol": "formatFuturesIndicatorValue"
     },
@@ -8210,7 +8281,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 3177,
+      "line": 3191,
       "source": "js/page-global-market-futures.js",
       "symbol": "formatFuturesPctValue"
     },
@@ -8221,7 +8292,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 2384,
+      "line": 2398,
       "source": "js/page-global-market-futures.js",
       "symbol": "getAssetPlatformConfig"
     },
@@ -8229,7 +8300,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 3600,
+      "line": 3614,
       "source": "js/page-global-market-futures.js",
       "symbol": "getDefaultFuturesStockStyleVisibleCount"
     },
@@ -8240,7 +8311,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 2572,
+      "line": 2586,
       "source": "js/page-global-market-futures.js",
       "symbol": "getFuturesMarketScope"
     },
@@ -8248,7 +8319,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 2691,
+      "line": 2705,
       "source": "js/page-global-market-futures.js",
       "symbol": "getFuturesRegionToggleKey"
     },
@@ -8258,7 +8329,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 3092,
+      "line": 3106,
       "source": "js/page-global-market-futures.js",
       "symbol": "getFuturesScopeDetailConfig"
     },
@@ -8266,7 +8337,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 3180,
+      "line": 3194,
       "source": "js/page-global-market-futures.js",
       "symbol": "getFuturesStockStyleChartKey"
     },
@@ -8276,7 +8347,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 3188,
+      "line": 3202,
       "source": "js/page-global-market-futures.js",
       "symbol": "getFuturesStockStyleMaPeriods"
     },
@@ -8286,7 +8357,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 3194,
+      "line": 3208,
       "source": "js/page-global-market-futures.js",
       "symbol": "getFuturesStockStyleOverlayIndicators"
     },
@@ -8296,7 +8367,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 3198,
+      "line": 3212,
       "source": "js/page-global-market-futures.js",
       "symbol": "getFuturesStockStylePanelIndicators"
     },
@@ -8304,7 +8375,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 3605,
+      "line": 3619,
       "source": "js/page-global-market-futures.js",
       "symbol": "getFuturesStockStyleZoomState"
     },
@@ -8314,7 +8385,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 1008,
+      "line": 1012,
       "source": "js/page-global-market-futures.js",
       "symbol": "getUsBenchmarkDisplayName"
     },
@@ -8364,7 +8435,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 2183,
+      "line": 2197,
       "source": "js/page-global-market-futures.js",
       "symbol": "getUsMarketPayloadCounts"
     },
@@ -8374,7 +8445,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 1017,
+      "line": 1021,
       "source": "js/page-global-market-futures.js",
       "symbol": "getUsSectorDisplayName"
     },
@@ -8382,7 +8453,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 1041,
+      "line": 1045,
       "source": "js/page-global-market-futures.js",
       "symbol": "getUsSectorOptionsForBenchmark"
     },
@@ -8390,7 +8461,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 1703,
+      "line": 1717,
       "source": "js/page-global-market-futures.js",
       "symbol": "getUsSectorStockLabel"
     },
@@ -8398,7 +8469,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 1678,
+      "line": 1692,
       "source": "js/page-global-market-futures.js",
       "symbol": "getUsSectorStockSelectionStore"
     },
@@ -8406,7 +8477,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 2541,
+      "line": 2555,
       "source": "js/page-global-market-futures.js",
       "symbol": "hasDerivativeWatchSymbol"
     },
@@ -8416,7 +8487,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 2047,
+      "line": 2061,
       "source": "js/page-global-market-futures.js",
       "symbol": "loadUsSectorStocks"
     },
@@ -8424,7 +8495,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 1774,
+      "line": 1788,
       "source": "js/page-global-market-futures.js",
       "symbol": "mergeUsSectorDirectoryWithScope"
     },
@@ -8432,7 +8503,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 1733,
+      "line": 1747,
       "source": "js/page-global-market-futures.js",
       "symbol": "normalizeUsScopeSymbol"
     },
@@ -8440,7 +8511,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 3183,
+      "line": 3197,
       "source": "js/page-global-market-futures.js",
       "symbol": "parseFuturesChartStateList"
     },
@@ -8448,7 +8519,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 2533,
+      "line": 2547,
       "source": "js/page-global-market-futures.js",
       "symbol": "readDerivativesWatchlist"
     },
@@ -8458,7 +8529,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 2460,
+      "line": 2474,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderAssetPlatformDashboard"
     },
@@ -8468,7 +8539,7 @@
         "js/page-global-market-assethub.js"
       ],
       "kind": "function",
-      "line": 2507,
+      "line": 2521,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderDerivativeNameMappingCard"
     },
@@ -8478,7 +8549,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 2545,
+      "line": 2559,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderDerivativeWatchButton"
     },
@@ -8486,7 +8557,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 4202,
+      "line": 4222,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderDerivativesFuturesDataSections"
     },
@@ -8496,7 +8567,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 4107,
+      "line": 4127,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderDerivativesFuturesPanel"
     },
@@ -8506,7 +8577,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 3080,
+      "line": 3094,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderFuturesAnalysisCenter"
     },
@@ -8514,7 +8585,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 2630,
+      "line": 2644,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderFuturesCenterHero"
     },
@@ -8522,7 +8593,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 2700,
+      "line": 2714,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderFuturesCenterRegionalMarket"
     },
@@ -8530,7 +8601,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 3144,
+      "line": 3158,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderFuturesDetailScopeInsight"
     },
@@ -8538,7 +8609,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 2810,
+      "line": 2824,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderFuturesInvestmentFramework"
     },
@@ -8546,7 +8617,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 2751,
+      "line": 2765,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderFuturesInvestmentLiveDataPanel"
     },
@@ -8554,7 +8625,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 3432,
+      "line": 3446,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderFuturesKlineVolumeChart"
     },
@@ -8562,7 +8633,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 4012,
+      "line": 4032,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderFuturesMarketDepthNotice"
     },
@@ -8570,7 +8641,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 4025,
+      "line": 4045,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderFuturesQuoteContextStack"
     },
@@ -8578,7 +8649,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 3956,
+      "line": 3976,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderFuturesQuoteOutlookCard"
     },
@@ -8586,7 +8657,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 4035,
+      "line": 4055,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderFuturesQuoteTrendAnalysis"
     },
@@ -8594,7 +8665,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 3706,
+      "line": 3723,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderFuturesStockStyleTechnicalChart"
     },
@@ -8602,7 +8673,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 3372,
+      "line": 3386,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderFuturesTechnicalContracts"
     },
@@ -8610,7 +8681,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 3402,
+      "line": 3416,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderFuturesTechnicalOutlookCard"
     },
@@ -8618,7 +8689,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 3614,
+      "line": 3628,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderFuturesTechnicalSummaryCard"
     },
@@ -8626,7 +8697,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 3780,
+      "line": 3797,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderFuturesTechnicalTheorySection"
     },
@@ -8634,7 +8705,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 3548,
+      "line": 3562,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderFuturesTechnicalTimeframeControls"
     },
@@ -8642,7 +8713,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 1644,
+      "line": 1658,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderGlobalMarketCards"
     },
@@ -8653,7 +8724,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 2154,
+      "line": 2168,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderGlobalMarketSections"
     },
@@ -8663,7 +8734,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 1519,
+      "line": 1533,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderGlobalSummaryCard"
     },
@@ -8689,7 +8760,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 613,
+      "line": 617,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderUsMajorIndexVixCard"
     },
@@ -8697,7 +8768,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 2193,
+      "line": 2207,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderUsMarketScopeNote"
     },
@@ -8713,7 +8784,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 513,
+      "line": 517,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderUsMultiIndexVixSvg"
     },
@@ -8721,7 +8792,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 2361,
+      "line": 2375,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderUsPlatformArchitecture"
     },
@@ -8729,7 +8800,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 2202,
+      "line": 2216,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderUsPlatformDashboard"
     },
@@ -8737,7 +8808,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 1054,
+      "line": 1058,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderUsSectorComparisonSvg"
     },
@@ -8747,7 +8818,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 1144,
+      "line": 1148,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderUsSectorIndexComparisonCard"
     },
@@ -8755,7 +8826,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 1707,
+      "line": 1721,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderUsSectorIndexSummaryContent"
     },
@@ -8763,7 +8834,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 1898,
+      "line": 1912,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderUsSectorStockItems"
     },
@@ -8773,7 +8844,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 1831,
+      "line": 1845,
       "source": "js/page-global-market-futures.js",
       "symbol": "renderUsSectorStocksBrowser"
     },
@@ -8789,7 +8860,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 1697,
+      "line": 1711,
       "source": "js/page-global-market-futures.js",
       "symbol": "saveUsSectorStockSelection"
     },
@@ -8799,7 +8870,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 3203,
+      "line": 3217,
       "source": "js/page-global-market-futures.js",
       "symbol": "setFuturesStockStyleStateList"
     },
@@ -8807,7 +8878,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 1977,
+      "line": 1991,
       "source": "js/page-global-market-futures.js",
       "symbol": "syncUsSectorStockSelectorState"
     },
@@ -8815,7 +8886,7 @@
       "candidate_module": "route/global-market-futures",
       "consumers": [],
       "kind": "function",
-      "line": 1736,
+      "line": 1750,
       "source": "js/page-global-market-futures.js",
       "symbol": "usSectorItemMatchesQuery"
     },
@@ -8823,7 +8894,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1535,
+      "line": 1547,
       "source": "js/page-global-market-options.js",
       "symbol": "attachOptionsMarketChainMeta"
     },
@@ -8831,7 +8902,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2240,
+      "line": 2252,
       "source": "js/page-global-market-options.js",
       "symbol": "bindDerivativeAssetLoadMore"
     },
@@ -8839,7 +8910,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2312,
+      "line": 2324,
       "source": "js/page-global-market-options.js",
       "symbol": "bindDerivativesFuturesPanel"
     },
@@ -8847,7 +8918,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2616,
+      "line": 2628,
       "source": "js/page-global-market-options.js",
       "symbol": "bindDerivativesOptionsPanel"
     },
@@ -8855,7 +8926,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2479,
+      "line": 2491,
       "source": "js/page-global-market-options.js",
       "symbol": "bindOptionsRiskConeHover"
     },
@@ -8863,7 +8934,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3221,
+      "line": 3233,
       "source": "js/page-global-market-options.js",
       "symbol": "bindUsMarketOverviewControls"
     },
@@ -8881,7 +8952,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1081,
+      "line": 1093,
       "source": "js/page-global-market-options.js",
       "symbol": "buildOptionsCrossValidationModules"
     },
@@ -8889,7 +8960,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 454,
+      "line": 463,
       "source": "js/page-global-market-options.js",
       "symbol": "buildOptionsFocusAnalysis"
     },
@@ -8905,7 +8976,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 597,
+      "line": 609,
       "source": "js/page-global-market-options.js",
       "symbol": "buildOptionsInvestorPlaybook"
     },
@@ -8913,7 +8984,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1708,
+      "line": 1720,
       "source": "js/page-global-market-options.js",
       "symbol": "buildOptionsModelFromPublicChain"
     },
@@ -8921,7 +8992,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1196,
+      "line": 1208,
       "source": "js/page-global-market-options.js",
       "symbol": "buildOptionsRegionalSummary"
     },
@@ -8929,7 +9000,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 675,
+      "line": 687,
       "source": "js/page-global-market-options.js",
       "symbol": "buildOptionsRiskConeProjection"
     },
@@ -8939,7 +9010,7 @@
         "js/page-global-market-assethub.js"
       ],
       "kind": "function",
-      "line": 2051,
+      "line": 2063,
       "source": "js/page-global-market-options.js",
       "symbol": "buildOptionsStrategyRows"
     },
@@ -8947,7 +9018,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3650,
+      "line": 3662,
       "source": "js/page-global-market-options.js",
       "symbol": "buildUsMarketNewsFallbackTitle"
     },
@@ -8955,7 +9026,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2978,
+      "line": 2990,
       "source": "js/page-global-market-options.js",
       "symbol": "buildUsMarketRankItems"
     },
@@ -8971,7 +9042,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2793,
+      "line": 2805,
       "source": "js/page-global-market-options.js",
       "symbol": "fetchOptionsAiExtraMarket"
     },
@@ -8979,7 +9050,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2566,
+      "line": 2578,
       "source": "js/page-global-market-options.js",
       "symbol": "fetchOptionsMarketChainPayload"
     },
@@ -8995,7 +9066,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1664,
+      "line": 1676,
       "source": "js/page-global-market-options.js",
       "symbol": "formatMarketOptionChainIv"
     },
@@ -9003,7 +9074,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1670,
+      "line": 1682,
       "source": "js/page-global-market-options.js",
       "symbol": "formatMarketOptionContractPrice"
     },
@@ -9011,7 +9082,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 665,
+      "line": 677,
       "source": "js/page-global-market-options.js",
       "symbol": "formatOptionsConeValue"
     },
@@ -9019,7 +9090,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 587,
+      "line": 599,
       "source": "js/page-global-market-options.js",
       "symbol": "formatOptionsDistanceText"
     },
@@ -9027,7 +9098,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2888,
+      "line": 2900,
       "source": "js/page-global-market-options.js",
       "symbol": "formatUsMarketPct"
     },
@@ -9035,7 +9106,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3054,
+      "line": 3066,
       "source": "js/page-global-market-options.js",
       "symbol": "formatUsMarketRankingAmount"
     },
@@ -9043,7 +9114,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3093,
+      "line": 3105,
       "source": "js/page-global-market-options.js",
       "symbol": "formatUsMarketRankingChange"
     },
@@ -9061,7 +9132,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 439,
+      "line": 448,
       "source": "js/page-global-market-options.js",
       "symbol": "getOptionsActiveFocus"
     },
@@ -9069,7 +9140,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2121,
+      "line": 2133,
       "source": "js/page-global-market-options.js",
       "symbol": "getOptionsActiveStrategy"
     },
@@ -9101,7 +9172,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1175,
+      "line": 1187,
       "source": "js/page-global-market-options.js",
       "symbol": "getOptionsDocumentCategory"
     },
@@ -9109,7 +9180,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 421,
+      "line": 430,
       "source": "js/page-global-market-options.js",
       "symbol": "getOptionsFocusItems"
     },
@@ -9117,7 +9188,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 374,
+      "line": 383,
       "source": "js/page-global-market-options.js",
       "symbol": "getOptionsFocusMove"
     },
@@ -9125,7 +9196,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 389,
+      "line": 398,
       "source": "js/page-global-market-options.js",
       "symbol": "getOptionsFocusScopeLabel"
     },
@@ -9149,7 +9220,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1563,
+      "line": 1575,
       "source": "js/page-global-market-options.js",
       "symbol": "getOptionsMarketChainItemForFocus"
     },
@@ -9157,7 +9228,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1553,
+      "line": 1565,
       "source": "js/page-global-market-options.js",
       "symbol": "getOptionsMarketChainSelectorContext"
     },
@@ -9165,7 +9236,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1532,
+      "line": 1544,
       "source": "js/page-global-market-options.js",
       "symbol": "getOptionsMarketOptionChainSymbol"
     },
@@ -9173,7 +9244,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1519,
+      "line": 1531,
       "source": "js/page-global-market-options.js",
       "symbol": "getOptionsMarketOptionChainSymbols"
     },
@@ -9189,7 +9260,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 378,
+      "line": 387,
       "source": "js/page-global-market-options.js",
       "symbol": "getOptionsRegionItemFocusKey"
     },
@@ -9197,7 +9268,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 394,
+      "line": 403,
       "source": "js/page-global-market-options.js",
       "symbol": "getOptionsRegionalFocusItems"
     },
@@ -9205,7 +9276,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1543,
+      "line": 1555,
       "source": "js/page-global-market-options.js",
       "symbol": "getOptionsRegionalFocusKeyBySymbol"
     },
@@ -9213,7 +9284,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 408,
+      "line": 417,
       "source": "js/page-global-market-options.js",
       "symbol": "getOptionsRegionalItemFocusItems"
     },
@@ -9221,7 +9292,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 445,
+      "line": 454,
       "source": "js/page-global-market-options.js",
       "symbol": "getOptionsRiskLightFromScore"
     },
@@ -9229,7 +9300,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2045,
+      "line": 2057,
       "source": "js/page-global-market-options.js",
       "symbol": "getOptionsStrategyGrade"
     },
@@ -9237,7 +9308,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 865,
+      "line": 877,
       "source": "js/page-global-market-options.js",
       "symbol": "getOptionsStrikeKey"
     },
@@ -9245,7 +9316,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 371,
+      "line": 380,
       "source": "js/page-global-market-options.js",
       "symbol": "getOptionsUnderlyingPrice"
     },
@@ -9253,7 +9324,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 869,
+      "line": 881,
       "source": "js/page-global-market-options.js",
       "symbol": "getSelectedOptionsStrike"
     },
@@ -9279,7 +9350,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1502,
+      "line": 1514,
       "source": "js/page-global-market-options.js",
       "symbol": "getTaiwanOptionUnderlyingFromMarketItem"
     },
@@ -9287,7 +9358,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2828,
+      "line": 2840,
       "source": "js/page-global-market-options.js",
       "symbol": "getUsMarketOverviewModel"
     },
@@ -9295,7 +9366,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3044,
+      "line": 3056,
       "source": "js/page-global-market-options.js",
       "symbol": "getUsMarketRankingTurnover"
     },
@@ -9303,7 +9374,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3030,
+      "line": 3042,
       "source": "js/page-global-market-options.js",
       "symbol": "getUsMarketSectorRankingContext"
     },
@@ -9311,7 +9382,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3003,
+      "line": 3015,
       "source": "js/page-global-market-options.js",
       "symbol": "getUsMarketSectorRankingGroups"
     },
@@ -9319,7 +9390,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3039,
+      "line": 3051,
       "source": "js/page-global-market-options.js",
       "symbol": "getUsMarketSectorRankingName"
     },
@@ -9327,7 +9398,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3062,
+      "line": 3074,
       "source": "js/page-global-market-options.js",
       "symbol": "getUsMarketSectorSortValue"
     },
@@ -9335,7 +9406,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2883,
+      "line": 2895,
       "source": "js/page-global-market-options.js",
       "symbol": "getUsMarketTone"
     },
@@ -9343,7 +9414,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1185,
+      "line": 1197,
       "source": "js/page-global-market-options.js",
       "symbol": "groupOptionsItemsByDocumentCategory"
     },
@@ -9351,7 +9422,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2264,
+      "line": 2276,
       "source": "js/page-global-market-options.js",
       "symbol": "hydrateDerivativesFuturesCandles"
     },
@@ -9359,7 +9430,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2798,
+      "line": 2810,
       "source": "js/page-global-market-options.js",
       "symbol": "hydrateOptionsAiExtras"
     },
@@ -9367,7 +9438,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2575,
+      "line": 2587,
       "source": "js/page-global-market-options.js",
       "symbol": "hydrateSelectedOptionsMarketChain"
     },
@@ -9377,7 +9448,7 @@
         "js/main.js"
       ],
       "kind": "function",
-      "line": 3962,
+      "line": 3974,
       "source": "js/page-global-market-options.js",
       "symbol": "initGlobalMarketPage"
     },
@@ -9385,7 +9456,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1508,
+      "line": 1520,
       "source": "js/page-global-market-options.js",
       "symbol": "isOptionsMarketChainCandidateSymbol"
     },
@@ -9393,7 +9464,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 385,
+      "line": 394,
       "source": "js/page-global-market-options.js",
       "symbol": "isOptionsRegionFocusActive"
     },
@@ -9401,7 +9472,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3733,
+      "line": 3745,
       "source": "js/page-global-market-options.js",
       "symbol": "localizeUsMarketNewsTag"
     },
@@ -9409,7 +9480,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3666,
+      "line": 3678,
       "source": "js/page-global-market-options.js",
       "symbol": "localizeUsMarketNewsTitle"
     },
@@ -9417,7 +9488,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1693,
+      "line": 1705,
       "source": "js/page-global-market-options.js",
       "symbol": "normalizeMarketOptionContractForOi"
     },
@@ -9433,7 +9504,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3643,
+      "line": 3655,
       "source": "js/page-global-market-options.js",
       "symbol": "normalizeUsNewsText"
     },
@@ -9449,7 +9520,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 880,
+      "line": 892,
       "source": "js/page-global-market-options.js",
       "symbol": "optionsSignedWhole"
     },
@@ -9457,7 +9528,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1675,
+      "line": 1687,
       "source": "js/page-global-market-options.js",
       "symbol": "pairMarketOptionContracts"
     },
@@ -9465,7 +9536,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1785,
+      "line": 1797,
       "source": "js/page-global-market-options.js",
       "symbol": "pickMarketOptionChainRows"
     },
@@ -9473,7 +9544,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2541,
+      "line": 2553,
       "source": "js/page-global-market-options.js",
       "symbol": "refreshDerivativesOptionsCurrentExpiry"
     },
@@ -9481,7 +9552,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2224,
+      "line": 2236,
       "source": "js/page-global-market-options.js",
       "symbol": "renderDerivativesFuturesSinglePage"
     },
@@ -9497,7 +9568,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2230,
+      "line": 2242,
       "source": "js/page-global-market-options.js",
       "symbol": "renderDerivativesOptionsSinglePage"
     },
@@ -9505,7 +9576,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2235,
+      "line": 2247,
       "source": "js/page-global-market-options.js",
       "symbol": "renderDerivativesSinglePageContent"
     },
@@ -9515,7 +9586,7 @@
         "js/page-global-market-futures.js"
       ],
       "kind": "function",
-      "line": 3847,
+      "line": 3859,
       "source": "js/page-global-market-options.js",
       "symbol": "renderGlobalMarketPage"
     },
@@ -9523,7 +9594,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2217,
+      "line": 2229,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsAiFunctionalPage"
     },
@@ -9531,7 +9602,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1360,
+      "line": 1372,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsAiRiskModuleDeck"
     },
@@ -9539,7 +9610,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 910,
+      "line": 922,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsChainOiSummary"
     },
@@ -9547,7 +9618,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1487,
+      "line": 1499,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsChainSourceTabs"
     },
@@ -9555,7 +9626,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 886,
+      "line": 898,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsChainStats"
     },
@@ -9563,7 +9634,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1420,
+      "line": 1432,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsChainTableClean"
     },
@@ -9571,7 +9642,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1094,
+      "line": 1106,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsCrossValidationInline"
     },
@@ -9579,7 +9650,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2015,
+      "line": 2027,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsGreeksCenter"
     },
@@ -9587,7 +9658,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1380,
+      "line": 1392,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsHeroDashboard"
     },
@@ -9595,7 +9666,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1239,
+      "line": 1251,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsHeroMarketPanelV2"
     },
@@ -9603,7 +9674,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1282,
+      "line": 1294,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsHeroMergedIntelligence"
     },
@@ -9611,7 +9682,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1114,
+      "line": 1126,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsInsightFeedContent"
     },
@@ -9619,7 +9690,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1580,
+      "line": 1592,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsMarketChainSelector"
     },
@@ -9627,7 +9698,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1884,
+      "line": 1896,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsMarketOptionChainPanel"
     },
@@ -9635,7 +9706,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1813,
+      "line": 1825,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsMarketOptionChainTable"
     },
@@ -9643,7 +9714,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1798,
+      "line": 1810,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsMarketOptionExpirationSelect"
     },
@@ -9651,7 +9722,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1949,
+      "line": 1961,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsMarketWorkbench"
     },
@@ -9659,7 +9730,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1640,
+      "line": 1652,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsOfficialTaiwanChainPanel"
     },
@@ -9667,7 +9738,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1208,
+      "line": 1220,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsRegionAnalysisQuoteGrid"
     },
@@ -9675,7 +9746,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 760,
+      "line": 772,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsRiskConeContent"
     },
@@ -9683,7 +9754,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2192,
+      "line": 2204,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsRiskDashboard"
     },
@@ -9691,7 +9762,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1976,
+      "line": 1988,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsSpotBenchmarkStrip"
     },
@@ -9699,7 +9770,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2147,
+      "line": 2159,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsStrategyCenter"
     },
@@ -9707,7 +9778,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2126,
+      "line": 2138,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsStrategyDetail"
     },
@@ -9715,7 +9786,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 1999,
+      "line": 2011,
       "source": "js/page-global-market-options.js",
       "symbol": "renderOptionsVolatilityCenter"
     },
@@ -9733,7 +9804,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3452,
+      "line": 3464,
       "source": "js/page-global-market-options.js",
       "symbol": "renderUsMarketDecisionInsights"
     },
@@ -9741,7 +9812,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3578,
+      "line": 3590,
       "source": "js/page-global-market-options.js",
       "symbol": "renderUsMarketExtremeObservation"
     },
@@ -9749,7 +9820,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3240,
+      "line": 3252,
       "source": "js/page-global-market-options.js",
       "symbol": "renderUsMarketInsightPanel"
     },
@@ -9757,7 +9828,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2959,
+      "line": 2971,
       "source": "js/page-global-market-options.js",
       "symbol": "renderUsMarketInstitutionRows"
     },
@@ -9765,7 +9836,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2910,
+      "line": 2922,
       "source": "js/page-global-market-options.js",
       "symbol": "renderUsMarketInstitutionSummary"
     },
@@ -9773,7 +9844,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3744,
+      "line": 3756,
       "source": "js/page-global-market-options.js",
       "symbol": "renderUsMarketNewsGrid"
     },
@@ -9781,7 +9852,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2892,
+      "line": 2904,
       "source": "js/page-global-market-options.js",
       "symbol": "renderUsMarketOverviewCards"
     },
@@ -9789,7 +9860,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3785,
+      "line": 3797,
       "source": "js/page-global-market-options.js",
       "symbol": "renderUsMarketOverviewLikeTaiwan"
     },
@@ -9797,7 +9868,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2986,
+      "line": 2998,
       "source": "js/page-global-market-options.js",
       "symbol": "renderUsMarketRankList"
     },
@@ -9805,7 +9876,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3287,
+      "line": 3299,
       "source": "js/page-global-market-options.js",
       "symbol": "renderUsMarketRiskAdviceCard"
     },
@@ -9813,7 +9884,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3140,
+      "line": 3152,
       "source": "js/page-global-market-options.js",
       "symbol": "renderUsMarketSectorLineChart"
     },
@@ -9821,7 +9892,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3204,
+      "line": 3216,
       "source": "js/page-global-market-options.js",
       "symbol": "renderUsMarketSectorRanking"
     },
@@ -9829,7 +9900,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3130,
+      "line": 3142,
       "source": "js/page-global-market-options.js",
       "symbol": "renderUsMarketSectorRankingName"
     },
@@ -9837,7 +9908,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3177,
+      "line": 3189,
       "source": "js/page-global-market-options.js",
       "symbol": "renderUsMarketSectorRankingTable"
     },
@@ -9845,7 +9916,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3101,
+      "line": 3113,
       "source": "js/page-global-market-options.js",
       "symbol": "renderUsMarketSectorRankingTabs"
     },
@@ -9853,7 +9924,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3112,
+      "line": 3124,
       "source": "js/page-global-market-options.js",
       "symbol": "renderUsMarketSectorSortControl"
     },
@@ -9861,7 +9932,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 2610,
+      "line": 2622,
       "source": "js/page-global-market-options.js",
       "symbol": "scheduleDerivativesOptionsAutoRefresh"
     },
@@ -9869,7 +9940,7 @@
       "candidate_module": "route/global-market-options",
       "consumers": [],
       "kind": "function",
-      "line": 3069,
+      "line": 3081,
       "source": "js/page-global-market-options.js",
       "symbol": "sortUsMarketSectorRankingItems"
     },
@@ -9885,7 +9956,7 @@
       "candidate_module": "route/page-home",
       "consumers": [],
       "kind": "function",
-      "line": 570,
+      "line": 573,
       "source": "js/page-home.js",
       "symbol": "buildAfterMarketWatchCard"
     },
@@ -9893,7 +9964,7 @@
       "candidate_module": "route/page-home",
       "consumers": [],
       "kind": "function",
-      "line": 686,
+      "line": 689,
       "source": "js/page-home.js",
       "symbol": "buildInstitutionContinuityModel"
     },
@@ -9909,7 +9980,7 @@
       "candidate_module": "route/page-home",
       "consumers": [],
       "kind": "function",
-      "line": 734,
+      "line": 737,
       "source": "js/page-home.js",
       "symbol": "buildMarketAiInsightModel"
     },
@@ -9917,7 +9988,7 @@
       "candidate_module": "route/page-home",
       "consumers": [],
       "kind": "function",
-      "line": 417,
+      "line": 420,
       "source": "js/page-home.js",
       "symbol": "buildMarketRiskAdvice"
     },
@@ -9925,7 +9996,7 @@
       "candidate_module": "route/page-home",
       "consumers": [],
       "kind": "function",
-      "line": 482,
+      "line": 485,
       "source": "js/page-home.js",
       "symbol": "buildMarketThemeNewsCards"
     },
@@ -9941,7 +10012,7 @@
       "candidate_module": "route/page-home",
       "consumers": [],
       "kind": "function",
-      "line": 631,
+      "line": 634,
       "source": "js/page-home.js",
       "symbol": "formatInstitutionAmount"
     },
@@ -9963,7 +10034,9 @@
     },
     {
       "candidate_module": "route/page-home",
-      "consumers": [],
+      "consumers": [
+        "js/main.js"
+      ],
       "kind": "function",
       "line": 278,
       "source": "js/page-home.js",
@@ -9973,7 +10046,7 @@
       "candidate_module": "route/page-home",
       "consumers": [],
       "kind": "function",
-      "line": 1009,
+      "line": 1012,
       "source": "js/page-home.js",
       "symbol": "getMarketExtremeSummary"
     },
@@ -9981,7 +10054,7 @@
       "candidate_module": "route/page-home",
       "consumers": [],
       "kind": "function",
-      "line": 1002,
+      "line": 1005,
       "source": "js/page-home.js",
       "symbol": "getMarketLimitSamples"
     },
@@ -9989,7 +10062,7 @@
       "candidate_module": "route/page-home",
       "consumers": [],
       "kind": "function",
-      "line": 995,
+      "line": 998,
       "source": "js/page-home.js",
       "symbol": "getMarketSortedSectors"
     },
@@ -10005,7 +10078,7 @@
       "candidate_module": "route/page-home",
       "consumers": [],
       "kind": "function",
-      "line": 638,
+      "line": 641,
       "source": "js/page-home.js",
       "symbol": "getVixSentiment"
     },
@@ -10039,7 +10112,7 @@
       "candidate_module": "route/page-home",
       "consumers": [],
       "kind": "function",
-      "line": 1025,
+      "line": 1028,
       "source": "js/page-home.js",
       "symbol": "renderLimitMoveStockLink"
     },
@@ -10047,7 +10120,7 @@
       "candidate_module": "route/page-home",
       "consumers": [],
       "kind": "function",
-      "line": 1037,
+      "line": 1040,
       "source": "js/page-home.js",
       "symbol": "renderMarketExtremeObservationCard"
     },
@@ -10055,7 +10128,7 @@
       "candidate_module": "route/page-home",
       "consumers": [],
       "kind": "function",
-      "line": 957,
+      "line": 960,
       "source": "js/page-home.js",
       "symbol": "renderMarketInsightPanel"
     },
@@ -10063,7 +10136,7 @@
       "candidate_module": "route/page-home",
       "consumers": [],
       "kind": "function",
-      "line": 940,
+      "line": 943,
       "source": "js/page-home.js",
       "symbol": "renderMarketInsightRankList"
     },
@@ -10081,7 +10154,7 @@
         "js/main.js"
       ],
       "kind": "function",
-      "line": 1107,
+      "line": 1110,
       "source": "js/page-home.js",
       "symbol": "renderMarketPage"
     },
@@ -10177,7 +10250,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 1596,
+      "line": 1599,
       "source": "js/page-tw.js",
       "symbol": "alignIndexSeries"
     },
@@ -10185,7 +10258,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 1925,
+      "line": 1928,
       "source": "js/page-tw.js",
       "symbol": "averageFinite"
     },
@@ -10209,7 +10282,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 4013,
+      "line": 4032,
       "source": "js/page-tw.js",
       "symbol": "bindTwEtfEvents"
     },
@@ -10217,7 +10290,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 2680,
+      "line": 2683,
       "source": "js/page-tw.js",
       "symbol": "bindWeightedPanelHover"
     },
@@ -10225,7 +10298,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 1573,
+      "line": 1576,
       "source": "js/page-tw.js",
       "symbol": "buildInternationalSelectionMetrics"
     },
@@ -10233,7 +10306,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 2772,
+      "line": 2781,
       "source": "js/page-tw.js",
       "symbol": "buildPortfolioFactorAssessment"
     },
@@ -10265,7 +10338,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 1558,
+      "line": 1561,
       "source": "js/page-tw.js",
       "symbol": "buildSingleIndexQuoteMetrics"
     },
@@ -10273,7 +10346,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 1537,
+      "line": 1540,
       "source": "js/page-tw.js",
       "symbol": "buildVixSentimentMetrics"
     },
@@ -10281,7 +10354,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3034,
+      "line": 3043,
       "source": "js/page-tw.js",
       "symbol": "buildWatchlistAiAnalysis"
     },
@@ -10289,7 +10362,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 2205,
+      "line": 2208,
       "source": "js/page-tw.js",
       "symbol": "buildWeightedSectorMarketContext"
     },
@@ -10297,7 +10370,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 2163,
+      "line": 2166,
       "source": "js/page-tw.js",
       "symbol": "buildWeightedSectorThemeContext"
     },
@@ -10305,7 +10378,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 1947,
+      "line": 1950,
       "source": "js/page-tw.js",
       "symbol": "buildWeightedSectorTrendModels"
     },
@@ -10313,7 +10386,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 1918,
+      "line": 1921,
       "source": "js/page-tw.js",
       "symbol": "calculateReturnPct"
     },
@@ -10321,7 +10394,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 2757,
+      "line": 2760,
       "source": "js/page-tw.js",
       "symbol": "classifyPortfolioAsset"
     },
@@ -10337,7 +10410,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 2763,
+      "line": 2766,
       "source": "js/page-tw.js",
       "symbol": "estimatePortfolioTransactionCost"
     },
@@ -10353,7 +10426,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 2752,
+      "line": 2755,
       "source": "js/page-tw.js",
       "symbol": "formatSimulationMoney"
     },
@@ -10361,7 +10434,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 1527,
+      "line": 1530,
       "source": "js/page-tw.js",
       "symbol": "getComparisonItemLatestValue"
     },
@@ -10369,7 +10442,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 1532,
+      "line": 1535,
       "source": "js/page-tw.js",
       "symbol": "getComparisonItemPreviousValue"
     },
@@ -10377,7 +10450,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 1473,
+      "line": 1476,
       "source": "js/page-tw.js",
       "symbol": "getInternationalIndexItems"
     },
@@ -10385,7 +10458,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 2741,
+      "line": 2744,
       "source": "js/page-tw.js",
       "symbol": "getPortfolioSimulation"
     },
@@ -10417,7 +10490,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3784,
+      "line": 3803,
       "source": "js/page-tw.js",
       "symbol": "getTwEtfPage"
     },
@@ -10425,7 +10498,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 2351,
+      "line": 2354,
       "source": "js/page-tw.js",
       "symbol": "getVixRiskTemperature"
     },
@@ -10433,7 +10506,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 2355,
+      "line": 2358,
       "source": "js/page-tw.js",
       "symbol": "getVixRiskToneClass"
     },
@@ -10441,7 +10514,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 1451,
+      "line": 1454,
       "source": "js/page-tw.js",
       "symbol": "getVolatilityBundle"
     },
@@ -10449,7 +10522,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 1901,
+      "line": 1904,
       "source": "js/page-tw.js",
       "symbol": "getWeightedComponentSectorCandidates"
     },
@@ -10465,7 +10538,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 1914,
+      "line": 1917,
       "source": "js/page-tw.js",
       "symbol": "getWeightedSectorThemeMatches"
     },
@@ -10491,7 +10564,7 @@
         "js/main.js"
       ],
       "kind": "function",
-      "line": 3668,
+      "line": 3687,
       "source": "js/page-tw.js",
       "symbol": "initSearchPage"
     },
@@ -10501,7 +10574,7 @@
         "js/main.js"
       ],
       "kind": "function",
-      "line": 4171,
+      "line": 4190,
       "source": "js/page-tw.js",
       "symbol": "initTwEtfPage"
     },
@@ -10511,7 +10584,7 @@
         "js/main.js"
       ],
       "kind": "function",
-      "line": 3391,
+      "line": 3403,
       "source": "js/page-tw.js",
       "symbol": "initWatchlistPage"
     },
@@ -10527,7 +10600,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 1524,
+      "line": 1527,
       "source": "js/page-tw.js",
       "symbol": "isVixComparisonItem"
     },
@@ -10535,7 +10608,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3447,
+      "line": 3459,
       "source": "js/page-tw.js",
       "symbol": "loadFullStockDetailFromLive"
     },
@@ -10543,7 +10616,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 1496,
+      "line": 1499,
       "source": "js/page-tw.js",
       "symbol": "loadInternationalIndexesIfNeeded"
     },
@@ -10551,7 +10624,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3524,
+      "line": 3536,
       "source": "js/page-tw.js",
       "symbol": "loadShareholderDistributionFromLive"
     },
@@ -10559,7 +10632,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3564,
+      "line": 3576,
       "source": "js/page-tw.js",
       "symbol": "loadStockDetail"
     },
@@ -10567,7 +10640,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 4103,
+      "line": 4122,
       "source": "js/page-tw.js",
       "symbol": "loadTwEtfDetail"
     },
@@ -10575,7 +10648,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 4118,
+      "line": 4137,
       "source": "js/page-tw.js",
       "symbol": "loadTwEtfPage"
     },
@@ -10583,7 +10656,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3293,
+      "line": 3305,
       "source": "js/page-tw.js",
       "symbol": "loadWatchlistAiAnalyses"
     },
@@ -10625,7 +10698,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 1454,
+      "line": 1457,
       "source": "js/page-tw.js",
       "symbol": "normalizeInternationalIndexItem"
     },
@@ -10641,7 +10714,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 1930,
+      "line": 1933,
       "source": "js/page-tw.js",
       "symbol": "percentileScore"
     },
@@ -10657,7 +10730,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3612,
+      "line": 3624,
       "source": "js/page-tw.js",
       "symbol": "pickPreferredStockResult"
     },
@@ -10673,7 +10746,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 1620,
+      "line": 1623,
       "source": "js/page-tw.js",
       "symbol": "renderFreeIndexComparisonChart"
     },
@@ -10681,7 +10754,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 1714,
+      "line": 1717,
       "source": "js/page-tw.js",
       "symbol": "renderIndexComparisonInsight"
     },
@@ -10689,7 +10762,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3499,
+      "line": 3511,
       "source": "js/page-tw.js",
       "symbol": "renderLiveSearchStockPreview"
     },
@@ -10697,7 +10770,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 2882,
+      "line": 2891,
       "source": "js/page-tw.js",
       "symbol": "renderPortfolioSimulator"
     },
@@ -10705,7 +10778,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3411,
+      "line": 3423,
       "source": "js/page-tw.js",
       "symbol": "renderSearchResults"
     },
@@ -10747,7 +10820,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 1332,
+      "line": 1335,
       "source": "js/page-tw.js",
       "symbol": "renderSectorSyncViewV2"
     },
@@ -10763,7 +10836,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 2375,
+      "line": 2378,
       "source": "js/page-tw.js",
       "symbol": "renderSectorVixSparkline"
     },
@@ -10771,7 +10844,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 2738,
+      "line": 2741,
       "source": "js/page-tw.js",
       "symbol": "renderSectorsPage"
     },
@@ -10779,7 +10852,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 1763,
+      "line": 1766,
       "source": "js/page-tw.js",
       "symbol": "renderSingleIndexComparisonInsight"
     },
@@ -10787,7 +10860,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3881,
+      "line": 3900,
       "source": "js/page-tw.js",
       "symbol": "renderTwEtfAnalysisBullets"
     },
@@ -10795,7 +10868,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3732,
+      "line": 3751,
       "source": "js/page-tw.js",
       "symbol": "renderTwEtfCompareTable"
     },
@@ -10803,7 +10876,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3903,
+      "line": 3922,
       "source": "js/page-tw.js",
       "symbol": "renderTwEtfComponentsCard"
     },
@@ -10811,7 +10884,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3974,
+      "line": 3993,
       "source": "js/page-tw.js",
       "symbol": "renderTwEtfDetail"
     },
@@ -10819,7 +10892,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3934,
+      "line": 3953,
       "source": "js/page-tw.js",
       "symbol": "renderTwEtfDividendCard"
     },
@@ -10827,7 +10900,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3762,
+      "line": 3781,
       "source": "js/page-tw.js",
       "symbol": "renderTwEtfFilterForm"
     },
@@ -10835,7 +10908,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 4057,
+      "line": 4076,
       "source": "js/page-tw.js",
       "symbol": "renderTwEtfPage"
     },
@@ -10843,7 +10916,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3799,
+      "line": 3818,
       "source": "js/page-tw.js",
       "symbol": "renderTwEtfPager"
     },
@@ -10851,7 +10924,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3717,
+      "line": 3736,
       "source": "js/page-tw.js",
       "symbol": "renderTwEtfRankingList"
     },
@@ -10859,7 +10932,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3844,
+      "line": 3863,
       "source": "js/page-tw.js",
       "symbol": "renderTwEtfTable"
     },
@@ -10867,7 +10940,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 2427,
+      "line": 2430,
       "source": "js/page-tw.js",
       "symbol": "renderVixRuleList"
     },
@@ -10875,7 +10948,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 2359,
+      "line": 2362,
       "source": "js/page-tw.js",
       "symbol": "renderVixTemperatureMeter"
     },
@@ -10883,7 +10956,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 2452,
+      "line": 2455,
       "source": "js/page-tw.js",
       "symbol": "renderVolatilitySwitchCard"
     },
@@ -10893,7 +10966,7 @@
         "js/main.js"
       ],
       "kind": "function",
-      "line": 3208,
+      "line": 3220,
       "source": "js/page-tw.js",
       "symbol": "renderWatchlist"
     },
@@ -10901,7 +10974,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3175,
+      "line": 3187,
       "source": "js/page-tw.js",
       "symbol": "renderWatchlistAiSummary"
     },
@@ -10909,7 +10982,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3352,
+      "line": 3364,
       "source": "js/page-tw.js",
       "symbol": "renderWatchlistSearchResults"
     },
@@ -10917,7 +10990,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 2502,
+      "line": 2505,
       "source": "js/page-tw.js",
       "symbol": "renderWeightedChartZoomControls"
     },
@@ -10925,7 +10998,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 2514,
+      "line": 2517,
       "source": "js/page-tw.js",
       "symbol": "renderWeightedIndexPanel"
     },
@@ -10933,7 +11006,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 2262,
+      "line": 2265,
       "source": "js/page-tw.js",
       "symbol": "renderWeightedSectorThemeContext"
     },
@@ -10941,7 +11014,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 2236,
+      "line": 2239,
       "source": "js/page-tw.js",
       "symbol": "renderWeightedSectorTrendFocus"
     },
@@ -10949,7 +11022,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 2289,
+      "line": 2292,
       "source": "js/page-tw.js",
       "symbol": "renderWeightedSectorTrendRecommendationCard"
     },
@@ -10957,7 +11030,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 1807,
+      "line": 1810,
       "source": "js/page-tw.js",
       "symbol": "renderWeightedTechnicalInsightCard"
     },
@@ -10973,7 +11046,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3619,
+      "line": 3631,
       "source": "js/page-tw.js",
       "symbol": "runStockSearch"
     },
@@ -10981,7 +11054,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 2749,
+      "line": 2752,
       "source": "js/page-tw.js",
       "symbol": "savePortfolioSimulation"
     },
@@ -10989,7 +11062,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 1938,
+      "line": 1941,
       "source": "js/page-tw.js",
       "symbol": "scoreRangePosition"
     },
@@ -11005,7 +11078,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3824,
+      "line": 3843,
       "source": "js/page-tw.js",
       "symbol": "setTwEtfPage"
     },
@@ -11023,7 +11096,7 @@
         "js/main.js"
       ],
       "kind": "function",
-      "line": 1521,
+      "line": 1524,
       "source": "js/page-tw.js",
       "symbol": "startVixPolling"
     },
@@ -11031,7 +11104,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3704,
+      "line": 3723,
       "source": "js/page-tw.js",
       "symbol": "twEtfCompactNumber"
     },
@@ -11039,7 +11112,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3877,
+      "line": 3896,
       "source": "js/page-tw.js",
       "symbol": "twEtfHasValue"
     },
@@ -11047,7 +11120,7 @@
       "candidate_module": "route/page-tw",
       "consumers": [],
       "kind": "function",
-      "line": 3711,
+      "line": 3730,
       "source": "js/page-tw.js",
       "symbol": "twEtfItemLink"
     },
@@ -11079,7 +11152,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 2706,
+      "line": 2709,
       "source": "js/page-us.js",
       "symbol": "buildUsWatchlistAiAnalysis"
     },
@@ -11259,7 +11332,7 @@
         "js/main.js"
       ],
       "kind": "function",
-      "line": 2661,
+      "line": 2664,
       "source": "js/page-us.js",
       "symbol": "initUsStockSearchPage"
     },
@@ -11267,7 +11340,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 2881,
+      "line": 2887,
       "source": "js/page-us.js",
       "symbol": "initUsVolumeMomentumCursor"
     },
@@ -11277,7 +11350,7 @@
         "js/main.js"
       ],
       "kind": "function",
-      "line": 2870,
+      "line": 2876,
       "source": "js/page-us.js",
       "symbol": "initUsWatchlistPage"
     },
@@ -11317,7 +11390,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 2601,
+      "line": 2604,
       "source": "js/page-us.js",
       "symbol": "loadUsStockSymbol"
     },
@@ -11325,7 +11398,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 2819,
+      "line": 2825,
       "source": "js/page-us.js",
       "symbol": "loadUsWatchlistAiAnalyses"
     },
@@ -11533,7 +11606,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 2565,
+      "line": 2568,
       "source": "js/page-us.js",
       "symbol": "renderUsStockSearchDetail"
     },
@@ -11541,7 +11614,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 2568,
+      "line": 2571,
       "source": "js/page-us.js",
       "symbol": "renderUsStockSearchResults"
     },
@@ -11565,7 +11638,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 2626,
+      "line": 2629,
       "source": "js/page-us.js",
       "symbol": "runUsStockSearch"
     },
@@ -11583,7 +11656,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 1147,
+      "line": 1153,
       "source": "js/render-shared.js",
       "symbol": "aggregateHistory"
     },
@@ -11625,7 +11698,7 @@
       "candidate_module": "runtime/render-shared",
       "consumers": [],
       "kind": "function",
-      "line": 914,
+      "line": 920,
       "source": "js/render-shared.js",
       "symbol": "buildUsPortfolioFactorAssessment"
     },
@@ -11686,7 +11759,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 1242,
+      "line": 1248,
       "source": "js/render-shared.js",
       "symbol": "fetchDerivativesApi"
     },
@@ -11694,7 +11767,7 @@
       "candidate_module": "runtime/render-shared",
       "consumers": [],
       "kind": "function",
-      "line": 1137,
+      "line": 1143,
       "source": "js/render-shared.js",
       "symbol": "getPeriodKey"
     },
@@ -11746,7 +11819,7 @@
         "js/page-tw.js"
       ],
       "kind": "function",
-      "line": 1132,
+      "line": 1138,
       "source": "js/render-shared.js",
       "symbol": "getWeekKey"
     },
@@ -11861,7 +11934,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 1176,
+      "line": 1182,
       "source": "js/render-shared.js",
       "symbol": "renderCombinedIndicatorPanel"
     },
@@ -11935,7 +12008,7 @@
         "js/page-us.js"
       ],
       "kind": "function",
-      "line": 1001,
+      "line": 1007,
       "source": "js/render-shared.js",
       "symbol": "renderUsPortfolioSimulator"
     },
@@ -11945,7 +12018,7 @@
         "js/page-us.js"
       ],
       "kind": "function",
-      "line": 827,
+      "line": 833,
       "source": "js/render-shared.js",
       "symbol": "renderUsWatchlist"
     },
@@ -11953,7 +12026,7 @@
       "candidate_module": "runtime/render-shared",
       "consumers": [],
       "kind": "function",
-      "line": 798,
+      "line": 804,
       "source": "js/render-shared.js",
       "symbol": "renderUsWatchlistAiSummary"
     },
@@ -11998,7 +12071,7 @@
         "js/page-tw.js"
       ],
       "kind": "function",
-      "line": 1126,
+      "line": 1132,
       "source": "js/render-shared.js",
       "symbol": "sliceVisibleWindow"
     },
@@ -12020,7 +12093,7 @@
         "js/page-us.js"
       ],
       "kind": "function",
-      "line": 1289,
+      "line": 1295,
       "source": "js/render-shared.js",
       "symbol": "twEtfWeightText"
     },
@@ -12053,7 +12126,7 @@
         "js/stock-detail.js"
       ],
       "kind": "function",
-      "line": 1834,
+      "line": 2450,
       "source": "js/shared-calc.js",
       "symbol": "analyzeTechnicalTheories"
     },
@@ -12064,15 +12137,18 @@
         "js/page-global-market-futures.js"
       ],
       "kind": "function",
-      "line": 2712,
+      "line": 3336,
       "source": "js/shared-calc.js",
       "symbol": "averageFuturesValues"
     },
     {
       "candidate_module": "runtime/shared-calc",
-      "consumers": [],
+      "consumers": [
+        "js/page-tw.js",
+        "js/render-shared.js"
+      ],
       "kind": "function",
-      "line": 783,
+      "line": 1311,
       "source": "js/shared-calc.js",
       "symbol": "buildBacktestLearningModel"
     },
@@ -12080,7 +12156,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 596,
+      "line": 1051,
       "source": "js/shared-calc.js",
       "symbol": "buildBacktestModelRebuildResult"
     },
@@ -12088,7 +12164,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 524,
+      "line": 968,
       "source": "js/shared-calc.js",
       "symbol": "buildBacktestModelValidation"
     },
@@ -12096,7 +12172,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 652,
+      "line": 1113,
       "source": "js/shared-calc.js",
       "symbol": "buildBacktestTrendForecast"
     },
@@ -12104,7 +12180,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 1620,
+      "line": 2236,
       "source": "js/shared-calc.js",
       "symbol": "buildChipIndicator"
     },
@@ -12112,7 +12188,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 1394,
+      "line": 2010,
       "source": "js/shared-calc.js",
       "symbol": "buildFuturesBacktestFramework"
     },
@@ -12120,7 +12196,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 263,
+      "line": 252,
       "source": "js/shared-calc.js",
       "symbol": "buildFuturesBreadthProxyIndicators"
     },
@@ -12131,7 +12207,7 @@
         "js/page-global-market-futures.js"
       ],
       "kind": "function",
-      "line": 2922,
+      "line": 3546,
       "source": "js/shared-calc.js",
       "symbol": "buildFuturesTechnicalSnapshot"
     },
@@ -12141,7 +12217,7 @@
         "js/render-shared.js"
       ],
       "kind": "function",
-      "line": 2666,
+      "line": 3290,
       "source": "js/shared-calc.js",
       "symbol": "buildGlobalMarketDetail"
     },
@@ -12149,13 +12225,18 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 1087,
+      "line": 1703,
       "source": "js/shared-calc.js",
       "symbol": "buildInstitutionalBacktestFramework"
     },
     {
       "candidate_module": "runtime/shared-calc",
-      "consumers": [],
+      "consumers": [
+        "js/page-global-market-futures.js",
+        "js/page-tw.js",
+        "js/page-us.js",
+        "js/stock-detail.js"
+      ],
       "kind": "function",
       "line": 220,
       "source": "js/shared-calc.js",
@@ -12165,7 +12246,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 1653,
+      "line": 2269,
       "source": "js/shared-calc.js",
       "symbol": "buildMovingAverageIndicator"
     },
@@ -12186,7 +12267,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 3242,
+      "line": 3866,
       "source": "js/shared-calc.js",
       "symbol": "calculateAtr"
     },
@@ -12194,7 +12275,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 445,
+      "line": 434,
       "source": "js/shared-calc.js",
       "symbol": "calculateBacktestAtrPct"
     },
@@ -12202,7 +12283,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 488,
+      "line": 500,
       "source": "js/shared-calc.js",
       "symbol": "calculateBacktestAverageReturn"
     },
@@ -12210,7 +12291,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 492,
+      "line": 728,
       "source": "js/shared-calc.js",
       "symbol": "calculateBacktestProfitFactor"
     },
@@ -12218,7 +12299,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 484,
+      "line": 496,
       "source": "js/shared-calc.js",
       "symbol": "calculateBacktestWinRate"
     },
@@ -12228,7 +12309,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 3175,
+      "line": 3799,
       "source": "js/shared-calc.js",
       "symbol": "calculateBias"
     },
@@ -12238,7 +12319,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 1490,
+      "line": 2106,
       "source": "js/shared-calc.js",
       "symbol": "calculateBollingerBands"
     },
@@ -12248,7 +12329,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 3256,
+      "line": 3880,
       "source": "js/shared-calc.js",
       "symbol": "calculateCci"
     },
@@ -12258,7 +12339,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 3182,
+      "line": 3806,
       "source": "js/shared-calc.js",
       "symbol": "calculateDmi"
     },
@@ -12268,7 +12349,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 1508,
+      "line": 2124,
       "source": "js/shared-calc.js",
       "symbol": "calculateFibonacciRetracement"
     },
@@ -12276,7 +12357,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 2836,
+      "line": 3460,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesAtr"
     },
@@ -12284,7 +12365,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 2845,
+      "line": 3469,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesCci"
     },
@@ -12292,7 +12373,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 2863,
+      "line": 3487,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesDmiAdx"
     },
@@ -12300,7 +12381,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 2723,
+      "line": 3347,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesEmaSeries"
     },
@@ -12308,7 +12389,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 2820,
+      "line": 3444,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesKd"
     },
@@ -12316,7 +12397,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 2755,
+      "line": 3379,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesKdSeries"
     },
@@ -12324,7 +12405,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 2791,
+      "line": 3415,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesMfi"
     },
@@ -12332,7 +12413,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 2782,
+      "line": 3406,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesObvSeries"
     },
@@ -12340,7 +12421,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 2891,
+      "line": 3515,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesParabolicSar"
     },
@@ -12348,7 +12429,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 2740,
+      "line": 3364,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesRollingAverageSeries"
     },
@@ -12356,7 +12437,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 2805,
+      "line": 3429,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesRollingIndicatorSeries"
     },
@@ -12364,7 +12445,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 2808,
+      "line": 3432,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesRsi"
     },
@@ -12372,7 +12453,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 2748,
+      "line": 3372,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesRsiSeries"
     },
@@ -12380,7 +12461,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 2774,
+      "line": 3398,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesVwapSeries"
     },
@@ -12388,7 +12469,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 2855,
+      "line": 3479,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesWilliamsR"
     },
@@ -12398,7 +12479,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 3336,
+      "line": 3960,
       "source": "js/shared-calc.js",
       "symbol": "calculateIchimoku"
     },
@@ -12408,7 +12489,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 3130,
+      "line": 3754,
       "source": "js/shared-calc.js",
       "symbol": "calculateKd"
     },
@@ -12418,7 +12499,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 3143,
+      "line": 3767,
       "source": "js/shared-calc.js",
       "symbol": "calculateMacd"
     },
@@ -12426,7 +12507,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 463,
+      "line": 452,
       "source": "js/shared-calc.js",
       "symbol": "calculateMaxDrawdownPct"
     },
@@ -12434,7 +12515,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 499,
+      "line": 735,
       "source": "js/shared-calc.js",
       "symbol": "calculateMaxLosingStreak"
     },
@@ -12444,7 +12525,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 3276,
+      "line": 3900,
       "source": "js/shared-calc.js",
       "symbol": "calculateMfi"
     },
@@ -12454,7 +12535,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 3297,
+      "line": 3921,
       "source": "js/shared-calc.js",
       "symbol": "calculateMomentum"
     },
@@ -12464,7 +12545,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 3232,
+      "line": 3856,
       "source": "js/shared-calc.js",
       "symbol": "calculateObv"
     },
@@ -12474,7 +12555,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 3302,
+      "line": 3926,
       "source": "js/shared-calc.js",
       "symbol": "calculateParabolicSarSeries"
     },
@@ -12514,7 +12595,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 363,
+      "line": 352,
       "source": "js/shared-calc.js",
       "symbol": "calculatePsy"
     },
@@ -12524,7 +12605,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 3157,
+      "line": 3781,
       "source": "js/shared-calc.js",
       "symbol": "calculateRsi"
     },
@@ -12532,7 +12613,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 477,
+      "line": 493,
       "source": "js/shared-calc.js",
       "symbol": "calculateSharpeLikeScore"
     },
@@ -12542,7 +12623,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 1568,
+      "line": 2184,
       "source": "js/shared-calc.js",
       "symbol": "calculateSmartMoneyConcepts"
     },
@@ -12552,7 +12633,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 1530,
+      "line": 2146,
       "source": "js/shared-calc.js",
       "symbol": "calculateSupportResistance"
     },
@@ -12562,7 +12643,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 3267,
+      "line": 3891,
       "source": "js/shared-calc.js",
       "symbol": "calculateWilliamsR"
     },
@@ -12570,7 +12651,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 372,
+      "line": 361,
       "source": "js/shared-calc.js",
       "symbol": "classifyVolumePriceNinePatterns"
     },
@@ -12578,7 +12659,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 3116,
+      "line": 3740,
       "source": "js/shared-calc.js",
       "symbol": "exponentialMovingAverage"
     },
@@ -12597,7 +12678,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 3090,
+      "line": 3714,
       "source": "js/shared-calc.js",
       "symbol": "isValidTechnicalOhlc"
     },
@@ -12605,7 +12686,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 2716,
+      "line": 3340,
       "source": "js/shared-calc.js",
       "symbol": "lastFiniteFuturesValue"
     },
@@ -12616,7 +12697,7 @@
         "js/page-tw.js"
       ],
       "kind": "function",
-      "line": 2659,
+      "line": 3283,
       "source": "js/shared-calc.js",
       "symbol": "movingAverage"
     },
@@ -12626,7 +12707,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 3095,
+      "line": 3719,
       "source": "js/shared-calc.js",
       "symbol": "normalizeHistory"
     },
@@ -12644,7 +12725,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 3057,
+      "line": 3681,
       "source": "js/shared-calc.js",
       "symbol": "parseRocDate"
     },
@@ -12652,7 +12733,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 513,
+      "line": 749,
       "source": "js/shared-calc.js",
       "symbol": "summarizeBacktestSegment"
     },
@@ -12688,7 +12769,7 @@
         "js/page-global-market-assethub.js"
       ],
       "kind": "state-or-constant",
-      "line": 491,
+      "line": 516,
       "source": "js/state.js",
       "symbol": "ASSET_FINANCE_TREND_FILTERS"
     },
@@ -12698,7 +12779,7 @@
         "js/page-global-market-assethub.js"
       ],
       "kind": "state-or-constant",
-      "line": 484,
+      "line": 509,
       "source": "js/state.js",
       "symbol": "ASSET_FINANCE_TREND_RANGES"
     },
@@ -12708,7 +12789,7 @@
         "js/page-global-market-assethub.js"
       ],
       "kind": "state-or-constant",
-      "line": 476,
+      "line": 501,
       "source": "js/state.js",
       "symbol": "ASSET_HUB_OPTION_CHAIN_UNDERLYINGS"
     },
@@ -12718,7 +12799,7 @@
         "js/page-global-market-assethub.js"
       ],
       "kind": "state-or-constant",
-      "line": 445,
+      "line": 470,
       "source": "js/state.js",
       "symbol": "ASSET_HUB_REGION_ORDER"
     },
@@ -12728,7 +12809,7 @@
         "js/page-global-market-assethub.js"
       ],
       "kind": "state-or-constant",
-      "line": 446,
+      "line": 471,
       "source": "js/state.js",
       "symbol": "ASSET_HUB_SCHEMA_FALLBACK"
     },
@@ -12738,7 +12819,7 @@
         "js/shared-calc.js"
       ],
       "kind": "state-or-constant",
-      "line": 171,
+      "line": 196,
       "source": "js/state.js",
       "symbol": "BACKTEST_BENCHMARK_SOURCE"
     },
@@ -12748,7 +12829,7 @@
         "js/shared-calc.js"
       ],
       "kind": "state-or-constant",
-      "line": 176,
+      "line": 201,
       "source": "js/state.js",
       "symbol": "BACKTEST_DRIFT_SOURCE"
     },
@@ -12758,7 +12839,7 @@
         "js/shared-calc.js"
       ],
       "kind": "state-or-constant",
-      "line": 181,
+      "line": 206,
       "source": "js/state.js",
       "symbol": "BACKTEST_FACTOR_BASELINE"
     },
@@ -12768,7 +12849,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 433,
+      "line": 458,
       "source": "js/state.js",
       "symbol": "DERIVATIVES_OPTIONS_AUTO_REFRESH_MS"
     },
@@ -12778,7 +12859,7 @@
         "js/page-global-market-futures.js"
       ],
       "kind": "state-or-constant",
-      "line": 277,
+      "line": 302,
       "source": "js/state.js",
       "symbol": "DERIVATIVES_WATCHLIST_STORAGE_KEY"
     },
@@ -12788,7 +12869,7 @@
         "js/page-global-market-futures.js"
       ],
       "kind": "state-or-constant",
-      "line": 278,
+      "line": 303,
       "source": "js/state.js",
       "symbol": "DERIVATIVE_ASSET_NAME_MAP"
     },
@@ -12798,7 +12879,7 @@
         "js/render-shared.js"
       ],
       "kind": "state-or-constant",
-      "line": 107,
+      "line": 132,
       "source": "js/state.js",
       "symbol": "EXCLUDED_SECTOR_SOURCE_NAMES"
     },
@@ -12808,7 +12889,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 252,
+      "line": 277,
       "source": "js/state.js",
       "symbol": "FUTURES_TECHNICAL_INDICATOR_OPTIONS"
     },
@@ -12819,15 +12900,13 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 247,
+      "line": 272,
       "source": "js/state.js",
       "symbol": "FUTURES_TECHNICAL_INTERVAL_OPTIONS"
     },
     {
       "candidate_module": "runtime/state",
-      "consumers": [
-        "js/shared-calc.js"
-      ],
+      "consumers": [],
       "kind": "state-or-constant",
       "line": 29,
       "source": "js/state.js",
@@ -12839,7 +12918,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 387,
+      "line": 412,
       "source": "js/state.js",
       "symbol": "OPTIONS_DOCUMENT_CATEGORY_ORDER"
     },
@@ -12849,7 +12928,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 420,
+      "line": 445,
       "source": "js/state.js",
       "symbol": "OPTIONS_MARKET_CHAIN_FUTURES_SYMBOLS"
     },
@@ -12859,17 +12938,17 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 400,
+      "line": 425,
       "source": "js/state.js",
       "symbol": "OPTIONS_MARKET_CHAIN_SYMBOL_ALIASES"
     },
     {
       "candidate_module": "runtime/state",
       "consumers": [
-        "js/page-tw.js"
+        "js/shared-calc.js"
       ],
       "kind": "state-or-constant",
-      "line": 164,
+      "line": 189,
       "source": "js/state.js",
       "symbol": "PORTFOLIO_COST_MODEL"
     },
@@ -12880,7 +12959,7 @@
         "js/render-shared.js"
       ],
       "kind": "state-or-constant",
-      "line": 159,
+      "line": 184,
       "source": "js/state.js",
       "symbol": "PORTFOLIO_FACTOR_SOURCE"
     },
@@ -12910,7 +12989,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 385,
+      "line": 410,
       "source": "js/state.js",
       "symbol": "TAIWAN_OPTION_CHAIN_UNDERLYINGS"
     },
@@ -12920,7 +12999,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 374,
+      "line": 399,
       "source": "js/state.js",
       "symbol": "TAIWAN_OPTION_PRODUCT_FALLBACKS"
     },
@@ -12932,7 +13011,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 276,
+      "line": 301,
       "source": "js/state.js",
       "symbol": "TECHNICAL_PANEL_INDICATOR_KEYS"
     },
@@ -12944,7 +13023,7 @@
         "js/stock-detail.js"
       ],
       "kind": "state-or-constant",
-      "line": 260,
+      "line": 285,
       "source": "js/state.js",
       "symbol": "TECHNICAL_PANEL_INDICATOR_OPTIONS"
     },
@@ -12974,7 +13053,7 @@
         "js/page-us.js"
       ],
       "kind": "state-or-constant",
-      "line": 209,
+      "line": 234,
       "source": "js/state.js",
       "symbol": "US_ETF_CATEGORY_DEFINITIONS"
     },
@@ -12984,7 +13063,7 @@
         "js/page-us.js"
       ],
       "kind": "state-or-constant",
-      "line": 223,
+      "line": 248,
       "source": "js/state.js",
       "symbol": "US_ETF_CATEGORY_LABELS"
     },
@@ -12994,7 +13073,7 @@
         "js/page-us.js"
       ],
       "kind": "state-or-constant",
-      "line": 194,
+      "line": 219,
       "source": "js/state.js",
       "symbol": "US_ETF_DEFAULT_PAGE_SIZE"
     },
@@ -13004,7 +13083,7 @@
         "js/page-us.js"
       ],
       "kind": "state-or-constant",
-      "line": 224,
+      "line": 249,
       "source": "js/state.js",
       "symbol": "US_ETF_DIRECTORY_SORT_OPTIONS"
     },
@@ -13014,7 +13093,7 @@
         "js/page-us.js"
       ],
       "kind": "state-or-constant",
-      "line": 195,
+      "line": 220,
       "source": "js/state.js",
       "symbol": "US_ETF_PAGE_SIZE_OPTIONS"
     },
@@ -13025,7 +13104,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 97,
+      "line": 122,
       "source": "js/state.js",
       "symbol": "US_INDUSTRY_SECTOR_SYMBOLS"
     },
@@ -13036,7 +13115,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 98,
+      "line": 123,
       "source": "js/state.js",
       "symbol": "US_MAJOR_INDEX_SECTOR_SYMBOLS"
     },
@@ -13047,7 +13126,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 95,
+      "line": 120,
       "source": "js/state.js",
       "symbol": "US_MAJOR_INDEX_SYMBOLS"
     },
@@ -13058,7 +13137,7 @@
         "js/page-us.js"
       ],
       "kind": "state-or-constant",
-      "line": 193,
+      "line": 218,
       "source": "js/state.js",
       "symbol": "US_NYSE_DIRECTORY_PAGE_SIZE"
     },
@@ -13079,7 +13158,7 @@
         "js/page-global-market-futures.js"
       ],
       "kind": "state-or-constant",
-      "line": 94,
+      "line": 119,
       "source": "js/state.js",
       "symbol": "US_SECTOR_STOCK_SELECTION_KEY"
     },
@@ -13090,7 +13169,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 96,
+      "line": 121,
       "source": "js/state.js",
       "symbol": "US_SP500_SECTOR_SYMBOLS"
     },
@@ -13118,7 +13197,7 @@
         "js/page-tw.js"
       ],
       "kind": "state-or-constant",
-      "line": 109,
+      "line": 134,
       "source": "js/state.js",
       "symbol": "WEIGHTED_SECTOR_THEME_RULES"
     },
@@ -13209,7 +13288,7 @@
         "js/page-global-market-assethub.js"
       ],
       "kind": "state-or-constant",
-      "line": 499,
+      "line": 524,
       "source": "js/state.js",
       "symbol": "assetFinanceTrendChartCounter"
     },
@@ -13246,7 +13325,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 232,
+      "line": 257,
       "source": "js/state.js",
       "symbol": "derivativesFuturesDetailSymbol"
     },
@@ -13257,7 +13336,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 234,
+      "line": 259,
       "source": "js/state.js",
       "symbol": "derivativesFuturesFrameworkScope"
     },
@@ -13268,7 +13347,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 233,
+      "line": 258,
       "source": "js/state.js",
       "symbol": "derivativesFuturesMarketScope"
     },
@@ -13279,7 +13358,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 235,
+      "line": 260,
       "source": "js/state.js",
       "symbol": "derivativesFuturesRegionalExpandedKeys"
     },
@@ -13290,7 +13369,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 240,
+      "line": 265,
       "source": "js/state.js",
       "symbol": "derivativesFuturesStockStyleMaState"
     },
@@ -13301,7 +13380,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 241,
+      "line": 266,
       "source": "js/state.js",
       "symbol": "derivativesFuturesStockStyleOverlayState"
     },
@@ -13312,7 +13391,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 244,
+      "line": 269,
       "source": "js/state.js",
       "symbol": "derivativesFuturesStockStylePanState"
     },
@@ -13323,7 +13402,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 242,
+      "line": 267,
       "source": "js/state.js",
       "symbol": "derivativesFuturesStockStylePanelState"
     },
@@ -13334,7 +13413,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 243,
+      "line": 268,
       "source": "js/state.js",
       "symbol": "derivativesFuturesStockStyleVisibleState"
     },
@@ -13342,7 +13421,7 @@
       "candidate_module": "runtime/state",
       "consumers": [],
       "kind": "state-or-constant",
-      "line": 236,
+      "line": 261,
       "source": "js/state.js",
       "symbol": "derivativesFuturesTechnicalChartStates"
     },
@@ -13352,7 +13431,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 237,
+      "line": 262,
       "source": "js/state.js",
       "symbol": "derivativesFuturesTechnicalContractState"
     },
@@ -13362,7 +13441,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 239,
+      "line": 264,
       "source": "js/state.js",
       "symbol": "derivativesFuturesTechnicalIndicatorState"
     },
@@ -13372,7 +13451,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 238,
+      "line": 263,
       "source": "js/state.js",
       "symbol": "derivativesFuturesTechnicalIntervalState"
     },
@@ -13382,7 +13461,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 246,
+      "line": 271,
       "source": "js/state.js",
       "symbol": "derivativesFuturesTechnicalLoadingKeys"
     },
@@ -13392,7 +13471,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 245,
+      "line": 270,
       "source": "js/state.js",
       "symbol": "derivativesFuturesTechnicalSeriesCache"
     },
@@ -13402,7 +13481,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 436,
+      "line": 461,
       "source": "js/state.js",
       "symbol": "derivativesOptionsAutoRefreshInFlight"
     },
@@ -13412,7 +13491,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 435,
+      "line": 460,
       "source": "js/state.js",
       "symbol": "derivativesOptionsAutoRefreshPayload"
     },
@@ -13422,7 +13501,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 434,
+      "line": 459,
       "source": "js/state.js",
       "symbol": "derivativesOptionsAutoRefreshTimer"
     },
@@ -13433,7 +13512,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 428,
+      "line": 453,
       "source": "js/state.js",
       "symbol": "derivativesOptionsChainSource"
     },
@@ -13443,7 +13522,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 438,
+      "line": 463,
       "source": "js/state.js",
       "symbol": "derivativesOptionsMarketChainInFlightKey"
     },
@@ -13453,7 +13532,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 432,
+      "line": 457,
       "source": "js/state.js",
       "symbol": "derivativesOptionsRegionalExpandedKeys"
     },
@@ -13463,7 +13542,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 430,
+      "line": 455,
       "source": "js/state.js",
       "symbol": "derivativesOptionsSelectedFocus"
     },
@@ -13473,7 +13552,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 427,
+      "line": 452,
       "source": "js/state.js",
       "symbol": "derivativesOptionsSelectedStrategy"
     },
@@ -13484,7 +13563,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 431,
+      "line": 456,
       "source": "js/state.js",
       "symbol": "derivativesOptionsSelectedStrike"
     },
@@ -13495,7 +13574,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 429,
+      "line": 454,
       "source": "js/state.js",
       "symbol": "derivativesOptionsSelectedUnderlying"
     },
@@ -13505,7 +13584,7 @@
         "js/page-global-market-futures.js"
       ],
       "kind": "function",
-      "line": 361,
+      "line": 386,
       "source": "js/state.js",
       "symbol": "getFuturesTechnicalCachedPayload"
     },
@@ -13515,7 +13594,7 @@
         "js/page-global-market-futures.js"
       ],
       "kind": "function",
-      "line": 341,
+      "line": 366,
       "source": "js/state.js",
       "symbol": "getFuturesTechnicalIndicatorStateKey"
     },
@@ -13525,7 +13604,7 @@
         "js/page-global-market-futures.js"
       ],
       "kind": "function",
-      "line": 337,
+      "line": 362,
       "source": "js/state.js",
       "symbol": "getFuturesTechnicalIntervalLabel"
     },
@@ -13535,7 +13614,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 354,
+      "line": 379,
       "source": "js/state.js",
       "symbol": "getFuturesTechnicalSeriesCacheKey"
     },
@@ -13546,7 +13625,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "function",
-      "line": 321,
+      "line": 346,
       "source": "js/state.js",
       "symbol": "getSelectedFuturesTechnicalContract"
     },
@@ -13554,7 +13633,7 @@
       "candidate_module": "runtime/state",
       "consumers": [],
       "kind": "function",
-      "line": 348,
+      "line": 373,
       "source": "js/state.js",
       "symbol": "getSelectedFuturesTechnicalIndicatorView"
     },
@@ -13564,7 +13643,7 @@
         "js/page-global-market-futures.js"
       ],
       "kind": "function",
-      "line": 331,
+      "line": 356,
       "source": "js/state.js",
       "symbol": "getSelectedFuturesTechnicalInterval"
     },
@@ -13575,7 +13654,7 @@
         "js/stock-detail.js"
       ],
       "kind": "function",
-      "line": 142,
+      "line": 167,
       "source": "js/state.js",
       "symbol": "getWatchlist"
     },
@@ -13640,8 +13719,7 @@
       "consumers": [
         "js/main.js",
         "js/page-home.js",
-        "js/page-tw.js",
-        "js/shared-calc.js"
+        "js/page-tw.js"
       ],
       "kind": "state-or-constant",
       "line": 2,
@@ -13664,7 +13742,7 @@
         "js/core.js"
       ],
       "kind": "state-or-constant",
-      "line": 105,
+      "line": 130,
       "source": "js/state.js",
       "symbol": "nativeInnerHtmlDescriptor"
     },
@@ -13672,7 +13750,7 @@
       "candidate_module": "runtime/state",
       "consumers": [],
       "kind": "state-or-constant",
-      "line": 440,
+      "line": 465,
       "source": "js/state.js",
       "symbol": "optionsAiExtrasCache"
     },
@@ -13682,7 +13760,7 @@
         "js/page-global-market-options.js"
       ],
       "kind": "state-or-constant",
-      "line": 441,
+      "line": 466,
       "source": "js/state.js",
       "symbol": "optionsAiExtrasLoading"
     },
@@ -13693,7 +13771,7 @@
         "js/stock-detail.js"
       ],
       "kind": "function",
-      "line": 151,
+      "line": 176,
       "source": "js/state.js",
       "symbol": "saveWatchlist"
     },
@@ -13967,7 +14045,10 @@
     {
       "candidate_module": "runtime/state",
       "consumers": [
-        "js/page-tw.js"
+        "js/page-global-market-futures.js",
+        "js/page-tw.js",
+        "js/page-us.js",
+        "js/stock-detail.js"
       ],
       "kind": "state-or-constant",
       "line": 70,
@@ -13978,7 +14059,7 @@
       "candidate_module": "runtime/state",
       "consumers": [],
       "kind": "state-or-constant",
-      "line": 208,
+      "line": 233,
       "source": "js/state.js",
       "symbol": "usEtfSelectedSymbol"
     },
@@ -13988,7 +14069,7 @@
         "js/page-global-market-futures.js"
       ],
       "kind": "state-or-constant",
-      "line": 77,
+      "line": 102,
       "source": "js/state.js",
       "symbol": "usMajorIndexChartSymbol"
     },
@@ -13998,7 +14079,7 @@
         "js/page-global-market-futures.js"
       ],
       "kind": "state-or-constant",
-      "line": 78,
+      "line": 103,
       "source": "js/state.js",
       "symbol": "usMajorIndexChartSymbols"
     },
@@ -14008,7 +14089,7 @@
         "js/page-global-market-futures.js"
       ],
       "kind": "state-or-constant",
-      "line": 81,
+      "line": 106,
       "source": "js/state.js",
       "symbol": "usMajorIndexPanOffsets"
     },
@@ -14018,7 +14099,7 @@
         "js/page-global-market-futures.js"
       ],
       "kind": "state-or-constant",
-      "line": 79,
+      "line": 104,
       "source": "js/state.js",
       "symbol": "usMajorIndexShowVix"
     },
@@ -14028,7 +14109,7 @@
         "js/page-global-market-futures.js"
       ],
       "kind": "state-or-constant",
-      "line": 80,
+      "line": 105,
       "source": "js/state.js",
       "symbol": "usMajorIndexZoomCounts"
     },
@@ -14048,7 +14129,7 @@
         "js/page-us.js"
       ],
       "kind": "state-or-constant",
-      "line": 196,
+      "line": 221,
       "source": "js/state.js",
       "symbol": "usNyseDirectoryState"
     },
@@ -14058,7 +14139,7 @@
         "js/page-global-market-futures.js"
       ],
       "kind": "state-or-constant",
-      "line": 83,
+      "line": 108,
       "source": "js/state.js",
       "symbol": "usSectorBenchmarkSymbol"
     },
@@ -14068,7 +14149,7 @@
         "js/page-global-market-futures.js"
       ],
       "kind": "state-or-constant",
-      "line": 82,
+      "line": 107,
       "source": "js/state.js",
       "symbol": "usSectorCompareSymbol"
     },
@@ -14078,7 +14159,7 @@
         "js/page-global-market-futures.js"
       ],
       "kind": "state-or-constant",
-      "line": 86,
+      "line": 111,
       "source": "js/state.js",
       "symbol": "usSectorNyseStockState"
     },
@@ -14088,7 +14169,7 @@
         "js/page-global-market-futures.js"
       ],
       "kind": "state-or-constant",
-      "line": 84,
+      "line": 109,
       "source": "js/state.js",
       "symbol": "usSectorStockBenchmarkSymbol"
     },
@@ -14098,7 +14179,7 @@
         "js/page-global-market-futures.js"
       ],
       "kind": "state-or-constant",
-      "line": 85,
+      "line": 110,
       "source": "js/state.js",
       "symbol": "usSectorStockSymbol"
     },
@@ -14108,7 +14189,7 @@
         "js/page-us.js"
       ],
       "kind": "state-or-constant",
-      "line": 443,
+      "line": 468,
       "source": "js/state.js",
       "symbol": "usStockSearchRequestId"
     },
@@ -14177,7 +14258,7 @@
         "js/stock-detail.js"
       ],
       "kind": "function",
-      "line": 155,
+      "line": 180,
       "source": "js/state.js",
       "symbol": "watchlistKey"
     },
@@ -14245,7 +14326,7 @@
         "js/page-us.js"
       ],
       "kind": "function",
-      "line": 2879,
+      "line": 2882,
       "source": "js/stock-detail.js",
       "symbol": "getStockDetailCacheKey"
     },
@@ -14253,7 +14334,7 @@
       "candidate_module": "route/stock-detail",
       "consumers": [],
       "kind": "function",
-      "line": 2681,
+      "line": 2684,
       "source": "js/stock-detail.js",
       "symbol": "initInstitutionChartCursor"
     },
@@ -14261,7 +14342,7 @@
       "candidate_module": "route/stock-detail",
       "consumers": [],
       "kind": "function",
-      "line": 2751,
+      "line": 2754,
       "source": "js/stock-detail.js",
       "symbol": "initMajorHolderChartCursor"
     },
@@ -14269,7 +14350,7 @@
       "candidate_module": "route/stock-detail",
       "consumers": [],
       "kind": "function",
-      "line": 2818,
+      "line": 2821,
       "source": "js/stock-detail.js",
       "symbol": "initMarginBalanceChartCursor"
     },
@@ -14356,19 +14437,19 @@
       "candidate_module": "runtime/bootstrap",
       "references": [
         {
-          "line": 89,
+          "line": 108,
           "symbols": [
             "initSearchPage"
           ]
         },
         {
-          "line": 90,
+          "line": 109,
           "symbols": [
             "initWatchlistPage"
           ]
         },
         {
-          "line": 91,
+          "line": 110,
           "symbols": [
             "initGlobalMarketPage",
             "loadYahooSectorCategory"
@@ -14422,9 +14503,16 @@
     },
     {
       "candidate_module": "runtime/shared-calc",
-      "references": [],
+      "references": [
+        {
+          "line": 508,
+          "symbols": [
+            "PORTFOLIO_COST_MODEL"
+          ]
+        }
+      ],
       "source": "js/shared-calc.js",
-      "status": "no-cross-slice-immediate-reference"
+      "status": "bridge-or-import-required"
     },
     {
       "candidate_module": "runtime/state",

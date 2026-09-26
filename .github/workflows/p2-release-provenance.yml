@@ -1,0 +1,81 @@
+name: P2 release provenance gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_live_baseline:
+        description: Run the external-provider full baseline
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  provenance-and-deterministic-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DERIVATIVES_DB_PATH: /tmp/market-platform-regression.sqlite3
+      MARKET_PULSE_CACHE_FILE: /tmp/market-platform-cache.json
+      MARKET_PULSE_DISABLE_BACKGROUND: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Validate provenance manifest and evidence binding
+        run: python regression/test_p2_release_provenance.py
+      - name: Check Python syntax
+        run: python -m py_compile app.py builders.py fetchers.py parsers.py regression/p2_release_provenance.py regression/test_p2_release_provenance.py
+      - name: Check JavaScript syntax
+        shell: bash
+        run: for file in js/*.js; do node --check "$file"; done
+      - name: Run P0 and P1 regression
+        shell: bash
+        run: |
+          python -m regression.test_p0_quant_integrity
+          node regression/test_p0_asset_cost_models.js
+          node regression/test_p1_options_liquidity.js
+          node regression/test_p1_options_execution.js
+          node regression/test_p1_point_in_time.js
+          node regression/test_options_strategy_analyzer.js
+      - name: Run P2 and TD02 regression
+        shell: bash
+        run: |
+          python -m regression.test_p2_backend_boundaries
+          node regression/test_p2_frontend_contract.js
+          python -m regression.test_td02_01_dependency_matrix
+      - name: Run unit, security, and E2E gates
+        shell: bash
+        run: |
+          python -m unittest test_derivatives_platform.py
+          python security_guardrail_check.py
+          python e2e_smoke.py
+      - name: Run offline canonical baseline
+        run: python regression/verify_against_baseline.py --quick
+      - name: Verify worktree diff formatting
+        shell: bash
+        run: git diff --check
+
+  full-live-baseline:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_live_baseline == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Run canonical full baseline
+        run: python regression/verify_against_baseline.py --full

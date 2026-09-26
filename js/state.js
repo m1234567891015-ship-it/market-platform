@@ -74,6 +74,31 @@ const twEtfState = {
   category: "all",
   sort: "return_desc",
 };
+twEtfState.getMarketBreadthContext = (detail) => {
+  let history = [];
+  try {
+    const stored = JSON.parse(localStorage.getItem(MARKET_BREADTH_STORAGE_KEY) || "[]");
+    history = Array.isArray(stored) ? stored : [];
+  } catch {
+    history = [];
+  }
+  return {
+    detail: {
+    ...detail,
+    snapshotDate: detail?.snapshotDate || data?.snapshotDate || new Date().toISOString().slice(0, 10),
+    },
+    stocks: localAllStocks,
+    history,
+  };
+};
+twEtfState.saveMarketBreadthHistory = (history) => {
+  if (!Array.isArray(history)) return;
+  try {
+    localStorage.setItem(MARKET_BREADTH_STORAGE_KEY, JSON.stringify(history));
+  } catch {
+    // Storage can be unavailable in private or restricted browser contexts.
+  }
+};
 let usMajorIndexChartSymbol = "^GSPC";
 let usMajorIndexChartSymbols = ["^GSPC"];
 let usMajorIndexShowVix = true;

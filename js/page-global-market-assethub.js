@@ -6389,14 +6389,61 @@ initDerivativesAnalyticsPage.strategyEngine = (() => {
     const parsed = numeric(leg?.contractMultiplier);
     return parsed === null ? 1 : parsed > 0 ? parsed : null;
   };
+  const optionsCostModel = {
+    assetClass: "OPTIONS",
+    costBasis: "provider-supplied per-leg friction treated as round-trip cost",
+    leg: (leg) => {
+      const quantity = numeric(leg?.quantity);
+      const multiplier = legMultiplier(leg);
+      const commission = numeric(leg?.commission) ?? 0;
+      const exchangeFee = numeric(leg?.exchangeFee) ?? 0;
+      const slippage = numeric(leg?.slippage) ?? 0;
+      const bidAskCost = numeric(leg?.bidAskCost) ?? 0;
+      if (![quantity, multiplier, commission, exchangeFee, slippage, bidAskCost].every(finite) || quantity <= 0 || commission < 0 || exchangeFee < 0 || slippage < 0 || bidAskCost < 0) return null;
+      const commissionCost = quantity * commission;
+      const regulatoryCost = quantity * exchangeFee;
+      const slippageCost = quantity * slippage * multiplier;
+      const otherCost = quantity * bidAskCost;
+      const roundTripCost = commissionCost + regulatoryCost + slippageCost + otherCost;
+      return {
+        assetClass: "OPTIONS",
+        quantity,
+        multiplier,
+        commissionCost,
+        taxCost: 0,
+        regulatoryCost,
+        slippageCost,
+        otherCost,
+        totalEntryCost: roundTripCost / 2,
+        totalExitCost: roundTripCost / 2,
+        roundTripCost,
+        bidAskExecutionSource: leg?.executionSource || "unavailable",
+      };
+    },
+    strategy: (legs) => {
+      if (!Array.isArray(legs) || !legs.length) return { supported: false, assetClass: "OPTIONS", status: "invalid", reason: "MISSING_OPTION_LEGS" };
+      const breakdowns = legs.map((leg) => optionsCostModel.leg(leg));
+      if (breakdowns.some((item) => !item)) return { supported: false, assetClass: "OPTIONS", status: "invalid", reason: "INVALID_OPTION_LEG" };
+      const sum = (key) => breakdowns.reduce((total, item) => total + item[key], 0);
+      return {
+        supported: true,
+        assetClass: "OPTIONS",
+        status: "supported",
+        legs: breakdowns,
+        commissionCost: sum("commissionCost"),
+        taxCost: 0,
+        regulatoryCost: sum("regulatoryCost"),
+        slippageCost: sum("slippageCost"),
+        otherCost: sum("otherCost"),
+        totalEntryCost: sum("totalEntryCost"),
+        totalExitCost: sum("totalExitCost"),
+        roundTripCost: sum("roundTripCost"),
+      };
+    },
+  };
   const legTransactionCost = (leg) => {
-    const quantity = numeric(leg?.quantity);
-    const multiplier = legMultiplier(leg);
-    const commission = numeric(leg?.commission) ?? 0;
-    const exchangeFee = numeric(leg?.exchangeFee) ?? 0;
-    const slippage = numeric(leg?.slippage) ?? 0;
-    if (![quantity, multiplier, commission, exchangeFee, slippage].every(finite) || quantity <= 0 || commission < 0 || exchangeFee < 0 || slippage < 0) return null;
-    return quantity * (commission + exchangeFee + (slippage * multiplier));
+    const breakdown = optionsCostModel.leg(leg);
+    return breakdown ? breakdown.roundTripCost : null;
   };
   const strategyPointInTime = (legs = [], market = {}) => {
     const baseInput = marketInputEnvelope(market);
@@ -6564,12 +6611,15 @@ initDerivativesAnalyticsPage.strategyEngine = (() => {
     return Array.from({ length: 25 }, (_, index) => { const price = upper * index / 24; return { price, payoff: payoff(model.legs, price) }; });
   };
   return {
+    assetClass: "OPTIONS",
+    costModel: optionsCostModel,
     contracts: CONTRACTS,
     liquidityThresholds: LIQUIDITY_THRESHOLDS,
     analyze,
     payoff,
     metrics,
     chartPoints,
+    costBreakdown: (legs) => optionsCostModel.strategy(legs),
     daysTo,
     executionPrice,
     executionStatuses: EXECUTION_STATUS,

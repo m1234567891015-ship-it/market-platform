@@ -348,6 +348,19 @@ def start_background_updater_after_rate_limit():
     return None
 
 
+def handle_not_found(error):
+    if request.path.startswith("/api/"):
+        return jsonify(api_error_payload("NOT_FOUND", "找不到指定的 API 或資源")), 404
+    return str(getattr(error, "description", "Not Found")), 404
+
+
+def handle_internal_error(error):
+    LOGGER.exception("Unhandled server error", exc_info=error)
+    if request.path.startswith("/api/"):
+        return jsonify(api_error_payload("INTERNAL_ERROR", "服務暫時無法處理請求")), 500
+    return "Internal Server Error", 500
+
+
 def create_app(config: dict[str, Any] | None = None, *, derivatives_store: DerivativesStore | None = None) -> Flask:
     """Build a Flask application while keeping ``app:app`` compatibility."""
     flask_app = Flask(__name__, static_folder=None)
@@ -368,6 +381,8 @@ def create_app(config: dict[str, Any] | None = None, *, derivatives_store: Deriv
     flask_app.before_request(initialize_derivatives_store_for_request)
     flask_app.before_request(enforce_api_rate_limit)
     flask_app.before_request(start_background_updater_after_rate_limit)
+    flask_app.register_error_handler(404, handle_not_found)
+    flask_app.register_error_handler(500, handle_internal_error)
     flask_app.register_blueprint(system_bp)
     flask_app.register_blueprint(global_market_bp)
     flask_app.register_blueprint(twse_bp)
@@ -709,21 +724,6 @@ def global_market_refresh_requested() -> bool:
         return request.args.get("refresh") in {"1", "true", "yes"}
     except RuntimeError:
         return False
-
-
-@app.errorhandler(404)
-def handle_not_found(error):
-    if request.path.startswith("/api/"):
-        return jsonify(api_error_payload("NOT_FOUND", "找不到指定的 API 或資源")), 404
-    return str(getattr(error, "description", "Not Found")), 404
-
-
-@app.errorhandler(500)
-def handle_internal_error(error):
-    LOGGER.exception("Unhandled server error", exc_info=error)
-    if request.path.startswith("/api/"):
-        return jsonify(api_error_payload("INTERNAL_ERROR", "服務暫時無法處理請求")), 500
-    return "Internal Server Error", 500
 
 
 if __name__ == "__main__":
