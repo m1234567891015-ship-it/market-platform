@@ -125,7 +125,7 @@
   ],
   "schema": "p2-test-evidence-v1",
   "source_identity": {
-    "committed_source_sha": "8adc26cf9bac8f18c31d2a90dfa32cab97182a7c",
+    "committed_source_sha": "e6d4aeac0aa6766ff783b51c300a50f718d6ca82",
     "generation_context": {
       "platform": "Windows-10-10.0.19045-SP0",
       "status_entries": [
@@ -144,9 +144,9 @@
         "?? twse_mi_index.json"
       ],
       "worktree_dirty": true,
-      "worktree_state_sha256": "c75a5c483f2c6db6a6fbbb1356ff54c8aa8535d2fdcb8f050d81f72afb3b30b6"
+      "worktree_state_sha256": "260ebe11e84c4d2abdabc5cd46e5eea39d6f23c55e60f739a0522b71cd68ee52"
     },
-    "git_head_sha": "8adc26cf9bac8f18c31d2a90dfa32cab97182a7c",
+    "git_head_sha": "e6d4aeac0aa6766ff783b51c300a50f718d6ca82",
     "platform": "Windows-10-10.0.19045-SP0",
     "status_entries": [
       "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
@@ -164,6 +164,6 @@
       "?? twse_mi_index.json"
     ],
     "worktree_dirty": true,
-    "worktree_state_sha256": "c75a5c483f2c6db6a6fbbb1356ff54c8aa8535d2fdcb8f050d81f72afb3b30b6"
+    "worktree_state_sha256": "260ebe11e84c4d2abdabc5cd46e5eea39d6f23c55e60f739a0522b71cd68ee52"
   }
 }

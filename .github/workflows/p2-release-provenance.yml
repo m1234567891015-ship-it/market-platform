@@ -55,6 +55,7 @@ jobs:
         run: |
           python -m regression.test_p2_backend_boundaries
           node regression/test_p2_frontend_contract.js
+          python -m regression.test_p2_artifact_hygiene
           python -m regression.test_td02_01_dependency_matrix
       - name: Run unit, security, and E2E gates
         shell: bash

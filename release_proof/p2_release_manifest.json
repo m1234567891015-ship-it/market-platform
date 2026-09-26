@@ -59,18 +59,18 @@
       "sha256": "e630082537d7f07ffb5bc5b8628449d6df9580da4f1028569ff1f5110217f82b"
     },
     {
-      "bytes": 2967,
+      "bytes": 3023,
       "path": ".github/workflows/p2-release-provenance.yml",
-      "sha256": "3d3ed52c955250705d9515a574abb17ccc2839e70de937315f49ca06ae886104"
+      "sha256": "219244f824afd12e9d6e274d360ca93c111865b9e83a0db7dce06371df9acb2a"
     },
     {
       "bytes": 5782,
       "path": "release_proof/p2_test_evidence.json",
-      "sha256": "4c140f6904806c8cd91174c70ef08e653690af7551c68a010c7a8cc2cc730d18"
+      "sha256": "e818706aed29d53150b06d574153ade4a871a05c0c10b771594e6220b9fb3563"
     }
   ],
   "evidence_binding": "release_proof/p2_test_evidence.json",
-  "generated_at_utc": "2026-09-26T03:50:17.206792+00:00",
+  "generated_at_utc": "2026-09-26T06:59:47.054640+00:00",
   "required_source_files": [
     {
       "bytes": 39027,
@@ -218,9 +218,9 @@
       "sha256": "bef38441e00b31f6854e71fa900c6bb015acd3228b1f7992e56f41834f1e55b4"
     },
     {
-      "bytes": 4197,
+      "bytes": 3873,
       "path": "regression/test_p2_artifact_hygiene.py",
-      "sha256": "b03c4486881d6361a4b106cae974e6cba8e666310c9877c6eb6bb00034fce586"
+      "sha256": "79448e3b894ea4f5e2cc4575f80cf0ae0391adccc77e043ef3e38c255877d36c"
     },
     {
       "bytes": 4010,
@@ -246,7 +246,7 @@
   },
   "schema": "p2-release-provenance-v1",
   "source_identity": {
-    "committed_source_sha": "8adc26cf9bac8f18c31d2a90dfa32cab97182a7c",
+    "committed_source_sha": "e6d4aeac0aa6766ff783b51c300a50f718d6ca82",
     "generation_context": {
       "platform": "Windows-10-10.0.19045-SP0",
       "status_entries": [
@@ -265,9 +265,9 @@
         "?? twse_mi_index.json"
       ],
       "worktree_dirty": true,
-      "worktree_state_sha256": "c75a5c483f2c6db6a6fbbb1356ff54c8aa8535d2fdcb8f050d81f72afb3b30b6"
+      "worktree_state_sha256": "260ebe11e84c4d2abdabc5cd46e5eea39d6f23c55e60f739a0522b71cd68ee52"
     },
-    "git_head_sha": "8adc26cf9bac8f18c31d2a90dfa32cab97182a7c",
+    "git_head_sha": "e6d4aeac0aa6766ff783b51c300a50f718d6ca82",
     "platform": "Windows-10-10.0.19045-SP0",
     "status_entries": [
       "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
@@ -285,6 +285,6 @@
       "?? twse_mi_index.json"
     ],
     "worktree_dirty": true,
-    "worktree_state_sha256": "c75a5c483f2c6db6a6fbbb1356ff54c8aa8535d2fdcb8f050d81f72afb3b30b6"
+    "worktree_state_sha256": "260ebe11e84c4d2abdabc5cd46e5eea39d6f23c55e60f739a0522b71cd68ee52"
   }
 }

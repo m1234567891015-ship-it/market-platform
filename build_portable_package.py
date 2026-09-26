@@ -73,6 +73,7 @@ MISC_FILES = [
 # Whole-directory copies (minus __pycache__): no per-file allowlist constant
 # exists for these in market_config.py the way there is for JS_MODULE_STATIC_FILES.
 WHOLE_DIRS = ["derivatives", "tests"]
+OPTIONAL_RUNTIME_FILES = {"twse-cache.json"}
 
 
 def _iter_dir_files(dir_name: str) -> list[Path]:
@@ -95,14 +96,21 @@ def collect_allowlisted_files() -> list[Path]:
     for dir_name in WHOLE_DIRS:
         relative_paths.extend(_iter_dir_files(dir_name))
 
-    missing = [str(path) for path in relative_paths if not (BASE_DIR / path).is_file()]
+    missing = [
+        str(path)
+        for path in relative_paths
+        if not (BASE_DIR / path).is_file() and path.as_posix() not in OPTIONAL_RUNTIME_FILES
+    ]
     if missing:
         raise FileNotFoundError(f"Allowlisted files missing from working tree: {missing}")
-    return relative_paths
+    return [path for path in relative_paths if (BASE_DIR / path).is_file()]
 
 
 def build(output_path: Path) -> Path:
-    files = collect_allowlisted_files()
+    files = [
+        path for path in collect_allowlisted_files()
+        if path.as_posix() not in OPTIONAL_RUNTIME_FILES
+    ]
     with tempfile.TemporaryDirectory(prefix="market-pulse-portable-") as tmp_name:
         staging = Path(tmp_name)
         for relative in files:
