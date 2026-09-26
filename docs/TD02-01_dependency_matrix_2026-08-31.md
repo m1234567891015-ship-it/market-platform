@@ -7,7 +7,7 @@
 
 - 21 頁目前 production script order 有 1 種：`market-pulse-esm-loader.js`。
 - classic fallback 輸入順序共 17 個檔案，global symbol owner 共 895 個，與 baseline SHA-256 `694e4c8d1c4244befbf37e59cb482575b101bdca1f047497e417cc6b612d519e` 對齊。
-- 目前偵測到 69 條跨 slice dependency edges、468 個跨 slice symbol references。
+- 目前偵測到 69 條跨 slice dependency edges、476 個跨 slice symbol references。
 - 需要 TD02-02 處理的互相依賴元件：2 組；TD02-01 不接線、不定義正式 bridge API。
 
 ## 2. 現況載入與回退契約
@@ -39,7 +39,7 @@
 | `js/page-tw.js` | `route/page-tw` | `route-bundle` | 14 | 111 | tw-etf.html, tw-Optional-stocks.html, tw-stock-search.html, tw-stocks.html | — | js/api.js, js/charts.js, js/core.js, js/main.js, js/render-shared.js, js/shared-calc.js, js/state.js, js/stock-detail.js |
 | `js/page-us.js` | `route/page-us` | `route-bundle` | 10 | 65 | us-etf.html, us-stock-search.html, us-watchlist.html | — | js/api.js, js/charts.js, js/core.js, js/render-shared.js, js/shared-calc.js, js/state.js, js/stock-detail.js |
 | `js/render-shared.js` | `runtime/render-shared` | `common-runtime` | 6 | 46 | shared/all pages | — | js/api.js, js/core.js, js/shared-calc.js, js/state.js |
-| `js/shared-calc.js` | `runtime/shared-calc` | `common-runtime` | 5 | 72 | shared/all pages | — | js/core.js, js/state.js |
+| `js/shared-calc.js` | `runtime/shared-calc` | `common-runtime` | 5 | 72 | shared/all pages | PORTFOLIO_COST_MODEL | js/core.js, js/state.js |
 | `js/state.js` | `runtime/state` | `common-runtime` | 2 | 152 | shared/all pages | — | — |
 | `js/stock-detail.js` | `route/stock-detail` | `common-runtime` | 8 | 10 | shared/all pages | — | js/api.js, js/charts.js, js/core.js, js/render-shared.js, js/shared-calc.js, js/state.js |
 | `pwa.js` | `runtime/pwa` | `common-runtime` | 1 | 0 | shared/all pages | — | — |
@@ -61,7 +61,7 @@
 | `js/main.js` | `js/core.js` (`runtime/core`) | `setText` |
 | `js/main.js` | `js/page-global-market-assethub.js` (`route/global-market-assethub`) | `initAssetHubPage`, `initDerivativesAiPage`, `initDerivativesAnalyticsPage` |
 | `js/main.js` | `js/page-global-market-options.js` (`route/global-market-options`) | `initGlobalMarketPage` |
-| `js/main.js` | `js/page-home.js` (`route/page-home`) | `renderHome`, `renderMarketPage` |
+| `js/main.js` | `js/page-home.js` (`route/page-home`) | `formatUpdateText`, `renderHome`, `renderMarketPage` |
 | `js/main.js` | `js/page-tw.js` (`route/page-tw`) | `initSearchPage`, `initTwEtfPage`, `initWatchlistPage`, `loadYahooSectorCategory`, `renderSectorPageV2`, `renderWatchlist`, `startVixPolling` |
 | `js/main.js` | `js/page-us.js` (`route/page-us`) | `initUsEtfPage`, `initUsStockSearchPage`, `initUsWatchlistPage` |
 | `js/main.js` | `js/state.js` (`runtime/state`) | `data`, `localAllStocks` |
@@ -78,8 +78,8 @@
 | `js/page-global-market-futures.js` | `js/page-global-market-assethub.js` (`route/global-market-assethub`) | `clampAssetHubScore`, `findAssetHubItem`, `getAssetHubItems`, `getAssetHubMetric`, `getAssetHubRegion`, `getAssetHubUsableItems`, `groupAssetHubItemsByRegion`, `renderAssetHubOnlineTable`, `renderAssetHubQuoteGrid`, `renderFuturesBacktestLearningCard` |
 | `js/page-global-market-futures.js` | `js/page-global-market-options.js` (`route/global-market-options`) | `renderGlobalMarketPage` |
 | `js/page-global-market-futures.js` | `js/render-shared.js` (`runtime/render-shared`) | `buildPath`, `buildTechnicalTrendSummary`, `buildUsStockSearchUrl`, `getVixSentimentBand`, `normalizeGlobalOhlcvSeries`, `normalizeGlobalSeries`, `renderTechnicalTrendForecastSummary` |
-| `js/page-global-market-futures.js` | `js/shared-calc.js` (`runtime/shared-calc`) | `analyzeTechnicalTheories`, `averageFuturesValues`, `buildFuturesTechnicalSnapshot`, `technicalSma` |
-| `js/page-global-market-futures.js` | `js/state.js` (`runtime/state`) | `DERIVATIVES_WATCHLIST_STORAGE_KEY`, `DERIVATIVE_ASSET_NAME_MAP`, `FUTURES_TECHNICAL_INTERVAL_OPTIONS`, `TECHNICAL_PANEL_INDICATOR_KEYS`, `TECHNICAL_PANEL_INDICATOR_OPTIONS`, `US_INDUSTRY_SECTOR_SYMBOLS`, `US_MAJOR_INDEX_SECTOR_SYMBOLS`, `US_MAJOR_INDEX_SYMBOLS`, `US_NYSE_DIRECTORY_PAGE_SIZE`, `US_SECTOR_STOCK_SELECTION_KEY`, `US_SP500_SECTOR_SYMBOLS`, `derivativesFuturesDetailSymbol`, `derivativesFuturesFrameworkScope`, `derivativesFuturesMarketScope`, `derivativesFuturesRegionalExpandedKeys`, `derivativesFuturesStockStyleMaState`, `derivativesFuturesStockStyleOverlayState`, `derivativesFuturesStockStylePanState`, `derivativesFuturesStockStylePanelState`, `derivativesFuturesStockStyleVisibleState`, `getFuturesTechnicalCachedPayload`, `getFuturesTechnicalIndicatorStateKey`, `getFuturesTechnicalIntervalLabel`, `getSelectedFuturesTechnicalContract`, `getSelectedFuturesTechnicalInterval`, `usMajorIndexChartSymbol`, `usMajorIndexChartSymbols`, `usMajorIndexPanOffsets`, `usMajorIndexShowVix`, `usMajorIndexZoomCounts`, `usSectorBenchmarkSymbol`, `usSectorCompareSymbol`, `usSectorNyseStockState`, `usSectorStockBenchmarkSymbol`, `usSectorStockSymbol` |
+| `js/page-global-market-futures.js` | `js/shared-calc.js` (`runtime/shared-calc`) | `analyzeTechnicalTheories`, `averageFuturesValues`, `buildFuturesTechnicalSnapshot`, `buildMarketBreadthIndicators`, `technicalSma` |
+| `js/page-global-market-futures.js` | `js/state.js` (`runtime/state`) | `DERIVATIVES_WATCHLIST_STORAGE_KEY`, `DERIVATIVE_ASSET_NAME_MAP`, `FUTURES_TECHNICAL_INTERVAL_OPTIONS`, `TECHNICAL_PANEL_INDICATOR_KEYS`, `TECHNICAL_PANEL_INDICATOR_OPTIONS`, `US_INDUSTRY_SECTOR_SYMBOLS`, `US_MAJOR_INDEX_SECTOR_SYMBOLS`, `US_MAJOR_INDEX_SYMBOLS`, `US_NYSE_DIRECTORY_PAGE_SIZE`, `US_SECTOR_STOCK_SELECTION_KEY`, `US_SP500_SECTOR_SYMBOLS`, `derivativesFuturesDetailSymbol`, `derivativesFuturesFrameworkScope`, `derivativesFuturesMarketScope`, `derivativesFuturesRegionalExpandedKeys`, `derivativesFuturesStockStyleMaState`, `derivativesFuturesStockStyleOverlayState`, `derivativesFuturesStockStylePanState`, `derivativesFuturesStockStylePanelState`, `derivativesFuturesStockStyleVisibleState`, `getFuturesTechnicalCachedPayload`, `getFuturesTechnicalIndicatorStateKey`, `getFuturesTechnicalIntervalLabel`, `getSelectedFuturesTechnicalContract`, `getSelectedFuturesTechnicalInterval`, `twEtfState`, `usMajorIndexChartSymbol`, `usMajorIndexChartSymbols`, `usMajorIndexPanOffsets`, `usMajorIndexShowVix`, `usMajorIndexZoomCounts`, `usSectorBenchmarkSymbol`, `usSectorCompareSymbol`, `usSectorNyseStockState`, `usSectorStockBenchmarkSymbol`, `usSectorStockSymbol` |
 | `js/page-global-market-options.js` | `js/api.js` (`runtime/api`) | `fetchWithTimeout` |
 | `js/page-global-market-options.js` | `js/charts.js` (`runtime/charts`) | `bindChartHover`, `bindHorizontalChartPan` |
 | `js/page-global-market-options.js` | `js/core.js` (`runtime/core`) | `assetHubTone`, `escapeHtml`, `formatAssetHubExpiration`, `formatGlobalValue`, `formatGlobalVolume`, `parseMarketNumber`, `safeUrl`, `toneClass` |
@@ -97,28 +97,28 @@
 | `js/page-tw.js` | `js/core.js` (`runtime/core`) | `clampScore`, `escapeHtml`, `formatGlobalValue`, `formatSignedPercentValue`, `parseAnalysisNumber`, `parseMarketNumber`, `safeUrl`, `setText`, `toneClass` |
 | `js/page-tw.js` | `js/main.js` (`runtime/bootstrap`) | `loadLiveData` |
 | `js/page-tw.js` | `js/render-shared.js` (`runtime/render-shared`) | `buildPath`, `getSectorPageGroups`, `getVixSentimentBand`, `getWeekKey`, `isExcludedSector`, `renderScrollableClassTable`, `renderSectorSortControl`, `renderSectorStockName`, `sliceVisibleWindow`, `sortSectorItemsByActiveMode`, `twEtfWeightText` |
-| `js/page-tw.js` | `js/shared-calc.js` (`runtime/shared-calc`) | `analyzeTechnicalTheories`, `buildPortfolioTheoryAssessment`, `getSimulationSignal`, `movingAverage` |
-| `js/page-tw.js` | `js/state.js` (`runtime/state`) | `PORTFOLIO_COST_MODEL`, `PORTFOLIO_FACTOR_SOURCE`, `PORTFOLIO_SIM_STORAGE_KEY`, `SECTOR_SYNC_PICKER_LIMIT`, `TW_ETF_DEFAULT_PAGE_SIZE`, `TW_ETF_PAGE_SIZE_OPTIONS`, `WEIGHTED_SECTOR_THEME_RULES`, `activeRenderedStockDetail`, `activeStockCode`, `activeStockMarket`, `activeYahooSectorCategories`, `activeYahooSectorStocks`, `data`, `defaultYahooSectorCategoryAttempts`, `getWatchlist`, `internationalIndexesPromise`, `localAllStocks`, `saveWatchlist`, `sectorComparisonPanOffsets`, `sectorComparisonZoomCounts`, `sectorSortState`, `stockDetailRequestId`, `stockFullDetailCache`, `stockFullDetailPending`, `stockSearchRequestId`, `stockShareholderCache`, `stockShareholderPending`, `twEtfPayload`, `twEtfSelectedCode`, `twEtfState`, `watchlistAnalysisCache`, `watchlistDetailCache`, `watchlistKey`, `yahooSectorChartErrors`, `yahooSectorChartLoading`, `yahooSectorQuoteCache`, `yahooSectorRequestId` |
+| `js/page-tw.js` | `js/shared-calc.js` (`runtime/shared-calc`) | `analyzeTechnicalTheories`, `buildBacktestLearningModel`, `buildMarketBreadthIndicators`, `buildPortfolioTheoryAssessment`, `getSimulationSignal`, `movingAverage` |
+| `js/page-tw.js` | `js/state.js` (`runtime/state`) | `PORTFOLIO_FACTOR_SOURCE`, `PORTFOLIO_SIM_STORAGE_KEY`, `SECTOR_SYNC_PICKER_LIMIT`, `TW_ETF_DEFAULT_PAGE_SIZE`, `TW_ETF_PAGE_SIZE_OPTIONS`, `WEIGHTED_SECTOR_THEME_RULES`, `activeRenderedStockDetail`, `activeStockCode`, `activeStockMarket`, `activeYahooSectorCategories`, `activeYahooSectorStocks`, `data`, `defaultYahooSectorCategoryAttempts`, `getWatchlist`, `internationalIndexesPromise`, `localAllStocks`, `saveWatchlist`, `sectorComparisonPanOffsets`, `sectorComparisonZoomCounts`, `sectorSortState`, `stockDetailRequestId`, `stockFullDetailCache`, `stockFullDetailPending`, `stockSearchRequestId`, `stockShareholderCache`, `stockShareholderPending`, `twEtfPayload`, `twEtfSelectedCode`, `twEtfState`, `watchlistAnalysisCache`, `watchlistDetailCache`, `watchlistKey`, `yahooSectorChartErrors`, `yahooSectorChartLoading`, `yahooSectorQuoteCache`, `yahooSectorRequestId` |
 | `js/page-tw.js` | `js/stock-detail.js` (`route/stock-detail`) | `getStockDetailCacheKey`, `renderStockDetail` |
 | `js/page-us.js` | `js/api.js` (`runtime/api`) | `fetchWithTimeout` |
 | `js/page-us.js` | `js/charts.js` (`runtime/charts`) | `bindChartHover`, `bindHorizontalChartPan`, `getChartHistory`, `renderTechnicalChart` |
 | `js/page-us.js` | `js/core.js` (`runtime/core`) | `escapeHtml`, `formatGlobalValue`, `formatGlobalVolume`, `formatSignedPercentValue`, `parseAnalysisNumber`, `parseMarketNumber`, `safeUrl`, `setText`, `toneClass` |
 | `js/page-us.js` | `js/render-shared.js` (`runtime/render-shared`) | `buildTechnicalTrendSummary`, `buildUsSearchDetail`, `buildUsStockSearchUrl`, `buildYahooFinanceUrl`, `getUsWatchlist`, `normalizeGlobalSeries`, `renderTechnicalTrendForecastSummary`, `renderUsBacktestLearningCard`, `renderUsPortfolioSimulator`, `renderUsWatchlist`, `saveUsWatchlist`, `twEtfWeightText`, `upsertUsWatchlistSymbol`, `usWatchlistKey` |
-| `js/page-us.js` | `js/shared-calc.js` (`runtime/shared-calc`) | `analyzeTechnicalTheories` |
-| `js/page-us.js` | `js/state.js` (`runtime/state`) | `TECHNICAL_PANEL_INDICATOR_OPTIONS`, `US_ETF_CATEGORY_DEFINITIONS`, `US_ETF_CATEGORY_LABELS`, `US_ETF_DEFAULT_PAGE_SIZE`, `US_ETF_DIRECTORY_SORT_OPTIONS`, `US_ETF_PAGE_SIZE_OPTIONS`, `US_NYSE_DIRECTORY_PAGE_SIZE`, `US_PORTFOLIO_SIM_STORAGE_KEY`, `stockChipTabState`, `usNyseDirectoryState`, `usStockSearchRequestId`, `usWatchlistAnalysisCache`, `usWatchlistDetailCache` |
+| `js/page-us.js` | `js/shared-calc.js` (`runtime/shared-calc`) | `analyzeTechnicalTheories`, `buildMarketBreadthIndicators` |
+| `js/page-us.js` | `js/state.js` (`runtime/state`) | `TECHNICAL_PANEL_INDICATOR_OPTIONS`, `US_ETF_CATEGORY_DEFINITIONS`, `US_ETF_CATEGORY_LABELS`, `US_ETF_DEFAULT_PAGE_SIZE`, `US_ETF_DIRECTORY_SORT_OPTIONS`, `US_ETF_PAGE_SIZE_OPTIONS`, `US_NYSE_DIRECTORY_PAGE_SIZE`, `US_PORTFOLIO_SIM_STORAGE_KEY`, `stockChipTabState`, `twEtfState`, `usNyseDirectoryState`, `usStockSearchRequestId`, `usWatchlistAnalysisCache`, `usWatchlistDetailCache` |
 | `js/page-us.js` | `js/stock-detail.js` (`route/stock-detail`) | `getStockDetailCacheKey` |
 | `js/render-shared.js` | `js/api.js` (`runtime/api`) | `fetchWithTimeout` |
 | `js/render-shared.js` | `js/core.js` (`runtime/core`) | `escapeHtml`, `formatBacktestPercent`, `formatBacktestRatio`, `formatChartDate`, `formatGlobalValue`, `formatUsDetailMetric`, `formatUsSimulationMoney`, `parseAnalysisNumber`, `parseMarketNumber`, `safeUrl`, `setText`, `toneClass` |
-| `js/render-shared.js` | `js/shared-calc.js` (`runtime/shared-calc`) | `buildGlobalMarketDetail`, `buildPortfolioTheoryAssessment`, `getSimulationSignal` |
+| `js/render-shared.js` | `js/shared-calc.js` (`runtime/shared-calc`) | `buildBacktestLearningModel`, `buildGlobalMarketDetail`, `buildPortfolioTheoryAssessment`, `getSimulationSignal` |
 | `js/render-shared.js` | `js/state.js` (`runtime/state`) | `EXCLUDED_SECTOR_SOURCE_NAMES`, `PORTFOLIO_FACTOR_SOURCE`, `US_PORTFOLIO_SIM_STORAGE_KEY`, `US_WATCHLIST_STORAGE_KEY`, `activeYahooSectorCategories`, `data`, `sectorSortState`, `usWatchlistAnalysisCache`, `usWatchlistDetailCache`, `yahooSectorQuoteCache` |
 | `js/shared-calc.js` | `js/core.js` (`runtime/core`) | `formatGlobalVolume`, `parseAnalysisNumber`, `parseMarketNumber` |
-| `js/shared-calc.js` | `js/state.js` (`runtime/state`) | `BACKTEST_BENCHMARK_SOURCE`, `BACKTEST_DRIFT_SOURCE`, `BACKTEST_FACTOR_BASELINE`, `MARKET_BREADTH_STORAGE_KEY`, `data`, `localAllStocks` |
+| `js/shared-calc.js` | `js/state.js` (`runtime/state`) | `BACKTEST_BENCHMARK_SOURCE`, `BACKTEST_DRIFT_SOURCE`, `BACKTEST_FACTOR_BASELINE`, `PORTFOLIO_COST_MODEL`, `data` |
 | `js/stock-detail.js` | `js/api.js` (`runtime/api`) | `fetchWithTimeout` |
 | `js/stock-detail.js` | `js/charts.js` (`runtime/charts`) | `bindChartHover`, `bindHorizontalChartPan`, `getChartHistory`, `renderTechnicalChart` |
 | `js/stock-detail.js` | `js/core.js` (`runtime/core`) | `escapeHtml`, `formatChartDate`, `formatRocDateFromDate`, `parseAnalysisNumber`, `parseMarketNumber`, `safeUrl`, `toneClass` |
 | `js/stock-detail.js` | `js/render-shared.js` (`runtime/render-shared`) | `buildTechnicalTrendSummary`, `renderTechnicalTrendForecastSummary` |
-| `js/stock-detail.js` | `js/shared-calc.js` (`runtime/shared-calc`) | `analyzeTechnicalTheories`, `normalizePortfolioHistory` |
-| `js/stock-detail.js` | `js/state.js` (`runtime/state`) | `TECHNICAL_PANEL_INDICATOR_OPTIONS`, `activeRenderedStockDetail`, `activeStockMarket`, `data`, `getWatchlist`, `saveWatchlist`, `stockChipTabState`, `stockInstitutionHistoryAttempted`, `stockInstitutionHistoryCache`, `stockInstitutionHistoryPending`, `stockInstitutionPeriodState`, `stockInstitutionRangeHistoryCache`, `stockInstitutionRangeState`, `stockInstitutionSeriesState`, `stockMarginPeriodState`, `stockMarginRangeState`, `stockMarginSummaryModeState`, `stockMarginTableTypeState`, `watchlistKey` |
+| `js/stock-detail.js` | `js/shared-calc.js` (`runtime/shared-calc`) | `analyzeTechnicalTheories`, `buildMarketBreadthIndicators`, `normalizePortfolioHistory` |
+| `js/stock-detail.js` | `js/state.js` (`runtime/state`) | `TECHNICAL_PANEL_INDICATOR_OPTIONS`, `activeRenderedStockDetail`, `activeStockMarket`, `data`, `getWatchlist`, `saveWatchlist`, `stockChipTabState`, `stockInstitutionHistoryAttempted`, `stockInstitutionHistoryCache`, `stockInstitutionHistoryPending`, `stockInstitutionPeriodState`, `stockInstitutionRangeHistoryCache`, `stockInstitutionRangeState`, `stockInstitutionSeriesState`, `stockMarginPeriodState`, `stockMarginRangeState`, `stockMarginSummaryModeState`, `stockMarginTableTypeState`, `twEtfState`, `watchlistKey` |
 
 ## 5. 循環與頂層初始化
 
@@ -132,9 +132,10 @@
 | source | line | symbols | gate |
 |---|---:|---|---|
 | `js/core.js` | 63 | `nativeInnerHtmlDescriptor` | ESM execution must import or bridge before evaluation |
-| `js/main.js` | 89 | `initSearchPage` | ESM execution must import or bridge before evaluation |
-| `js/main.js` | 90 | `initWatchlistPage` | ESM execution must import or bridge before evaluation |
-| `js/main.js` | 91 | `initGlobalMarketPage`, `loadYahooSectorCategory` | ESM execution must import or bridge before evaluation |
+| `js/main.js` | 108 | `initSearchPage` | ESM execution must import or bridge before evaluation |
+| `js/main.js` | 109 | `initWatchlistPage` | ESM execution must import or bridge before evaluation |
+| `js/main.js` | 110 | `initGlobalMarketPage`, `loadYahooSectorCategory` | ESM execution must import or bridge before evaluation |
+| `js/shared-calc.js` | 508 | `PORTFOLIO_COST_MODEL` | ESM execution must import or bridge before evaluation |
 
 ## 6. Dynamic window bridge
 
@@ -143,7 +144,7 @@
 | `TWSE_ALL_STOCKS` | external/server-seeded window property | 2 | — | state.js reads an optional preloaded seed before live fetch; preserve as an explicit runtime input |
 | `TWSE_DATA` | external/server-seeded window property | 1 | — | state.js reads an optional preloaded seed before live fetch; preserve as an explicit runtime input |
 | `__MARKET_PULSE_SAFE_INNER_HTML__` | js/core.js | 64 | 68 | idempotence sentinel for the innerHTML safety guard; keep private to the safety adapter |
-| `currentGlobalMarketPayload` | js/page-us.js + js/page-global-market-options.js | 1911, 2052, 2087, 2093, 2106 | 1287, 3850 | cross-route window payload handoff; replace with an explicit store/import before removing the bridge |
+| `currentGlobalMarketPayload` | js/page-us.js + js/page-global-market-options.js | 1925, 2066, 2101, 2107, 2120 | 1287, 3862 | cross-route window payload handoff; replace with an explicit store/import before removing the bridge |
 
 ## 7. TD02-02 handoff rules
 

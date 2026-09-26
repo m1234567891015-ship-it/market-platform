@@ -2766,11 +2766,17 @@ function classifyPortfolioAsset(stock) {
 function estimatePortfolioTransactionCost(position) {
   if (!(position?.shares > 0) || !(position?.entryPrice > 0) || !(position?.currentPrice > 0)) return 0;
   const isEtf = classifyPortfolioAsset(position.stock) === "ETF";
-  const buyValue = position.entryPrice * position.shares;
-  const sellValue = position.currentPrice * position.shares;
-  const buyCost = buyValue * ((PORTFOLIO_COST_MODEL.feePct + PORTFOLIO_COST_MODEL.slippagePct) / 100);
-  const sellCost = sellValue * ((PORTFOLIO_COST_MODEL.feePct + (isEtf ? PORTFOLIO_COST_MODEL.etfTaxPct : PORTFOLIO_COST_MODEL.stockTaxPct) + PORTFOLIO_COST_MODEL.slippagePct) / 100);
-  return buyCost + sellCost;
+  const breakdown = buildBacktestLearningModel.calculateAssetTransactionCost({
+    assetClass: "TW_EQUITY",
+    securityType: isEtf ? "ETF" : "EQUITY",
+    entrySide: "BUY",
+    exitSide: "SELL",
+    entryPrice: position.entryPrice,
+    exitPrice: position.currentPrice,
+    quantity: position.shares,
+    multiplier: 1,
+  });
+  return breakdown.supported ? breakdown.roundTripCost : 0;
 }
 function buildPortfolioFactorAssessment(positions, totals) {
   const active = positions.filter((item) => item.shares > 0);
@@ -3048,7 +3054,10 @@ function buildWatchlistAiAnalysis(stock, detail) {
   const dividendYield = parseAnalysisNumber(detail.valuation?.dividendYield);
   const institutional = parseAnalysisNumber(detail.institutionalTrades?.totalValue);
   const largeHolderRatio = parseAnalysisNumber(detail.shareholderDistribution?.largeHolderRatio);
-  const technicalTheory = analyzeTechnicalTheories(detail);
+  const marketBreadthContext = twEtfState.getMarketBreadthContext(detail);
+  const marketBreadth = buildMarketBreadthIndicators(marketBreadthContext.detail, marketBreadthContext.stocks, marketBreadthContext.history);
+  twEtfState.saveMarketBreadthHistory(marketBreadth?.nextHistory);
+  const technicalTheory = analyzeTechnicalTheories(detail, { marketBreadth });
   score += technicalTheory.score;
   evidenceCount += technicalTheory.evidenceCount;
 

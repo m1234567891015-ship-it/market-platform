@@ -2446,7 +2446,10 @@ function renderUsMarketDetailTo(rootId, item) {
     return;
   }
   const detail = buildUsSearchDetail(item);
-  const technicalTheory = analyzeTechnicalTheories(detail);
+  const marketBreadthContext = twEtfState.getMarketBreadthContext(detail);
+  const marketBreadth = buildMarketBreadthIndicators(marketBreadthContext.detail, marketBreadthContext.stocks, marketBreadthContext.history);
+  twEtfState.saveMarketBreadthHistory(marketBreadth?.nextHistory);
+  const technicalTheory = analyzeTechnicalTheories(detail, { marketBreadth });
   const chartViewId = `${rootId}-technical-chart-view`;
   const statusId = rootId === "us-stock-detail" ? "us-stock-search-status" : "us-watchlist-status";
   const watchlistAdded = isUsStockInWatchlist({ symbol: detail.code });
@@ -2704,7 +2707,10 @@ async function initUsStockSearchPage() {
   setText("us-stock-search-status", "請輸入美股或 ETF 代號 / 名稱後開始搜尋。");
 }
 function buildUsWatchlistAiAnalysis(stock, detail) {
-  const technicalTheory = analyzeTechnicalTheories(detail);
+  const marketBreadthContext = twEtfState.getMarketBreadthContext(detail);
+  const marketBreadth = buildMarketBreadthIndicators(marketBreadthContext.detail, marketBreadthContext.stocks, marketBreadthContext.history);
+  twEtfState.saveMarketBreadthHistory(marketBreadth?.nextHistory);
+  const technicalTheory = analyzeTechnicalTheories(detail, { marketBreadth });
   const valuation = detail.valuation || {};
   const margin = detail.marginTrading || {};
   const close = parseAnalysisNumber(detail.close ?? stock.close);

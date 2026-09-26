@@ -1,0 +1,169 @@
+{
+  "records": [
+    {
+      "artifacts": [
+        "docs/P2_BACKEND_CONSOLIDATION_EVIDENCE_2026-09-25.md"
+      ],
+      "command": "python -m regression.test_p0_quant_integrity",
+      "id": "p0-quant-integrity",
+      "result": "PASS"
+    },
+    {
+      "artifacts": [
+        "docs/P2_BACKEND_CONSOLIDATION_EVIDENCE_2026-09-25.md"
+      ],
+      "command": "node regression/test_p0_asset_cost_models.js",
+      "id": "p0-asset-cost",
+      "result": "PASS"
+    },
+    {
+      "artifacts": [
+        "docs/P2_FRONTEND_CONSOLIDATION_EVIDENCE_2026-09-25.md"
+      ],
+      "command": "node regression/test_p1_options_liquidity.js",
+      "id": "p1-liquidity",
+      "result": "PASS"
+    },
+    {
+      "artifacts": [
+        "docs/P2_FRONTEND_CONSOLIDATION_EVIDENCE_2026-09-25.md"
+      ],
+      "command": "node regression/test_p1_options_execution.js",
+      "id": "p1-execution",
+      "result": "PASS"
+    },
+    {
+      "artifacts": [
+        "docs/P2_FRONTEND_CONSOLIDATION_EVIDENCE_2026-09-25.md"
+      ],
+      "command": "node regression/test_p1_point_in_time.js",
+      "id": "p1-point-in-time",
+      "result": "PASS"
+    },
+    {
+      "artifacts": [
+        "docs/P2_FRONTEND_CONSOLIDATION_EVIDENCE_2026-09-25.md"
+      ],
+      "command": "node regression/test_options_strategy_analyzer.js",
+      "id": "existing-options",
+      "result": "PASS"
+    },
+    {
+      "artifacts": [
+        "docs/P2_BACKEND_CONSOLIDATION_EVIDENCE_2026-09-25.md"
+      ],
+      "command": "python -m regression.test_p2_backend_boundaries",
+      "id": "p2-backend-boundaries",
+      "result": "PASS"
+    },
+    {
+      "artifacts": [
+        "docs/P2_FRONTEND_CONSOLIDATION_EVIDENCE_2026-09-25.md"
+      ],
+      "command": "node regression/test_p2_frontend_contract.js",
+      "id": "p2-frontend-contract",
+      "result": "PASS"
+    },
+    {
+      "artifacts": [
+        "docs/TD02-01_dependency_matrix_2026-08-31.json",
+        "docs/TD02-01_dependency_matrix_2026-08-31.md"
+      ],
+      "command": "python -m regression.test_td02_01_dependency_matrix",
+      "id": "td02-matrix",
+      "result": "PASS"
+    },
+    {
+      "artifacts": [
+        "docs/P2_BACKEND_CONSOLIDATION_EVIDENCE_2026-09-25.md"
+      ],
+      "command": "python -m unittest test_derivatives_platform.py",
+      "id": "python-unit",
+      "result": "PASS"
+    },
+    {
+      "artifacts": [
+        "docs/P2_BACKEND_CONSOLIDATION_EVIDENCE_2026-09-25.md"
+      ],
+      "command": "python security_guardrail_check.py",
+      "id": "security-guardrail",
+      "result": "PASS"
+    },
+    {
+      "artifacts": [
+        "docs/P2_BACKEND_CONSOLIDATION_EVIDENCE_2026-09-25.md"
+      ],
+      "command": "python e2e_smoke.py",
+      "id": "e2e-smoke",
+      "result": "PASS"
+    },
+    {
+      "artifacts": [
+        "docs/P2_BACKEND_CONSOLIDATION_EVIDENCE_2026-09-25.md"
+      ],
+      "command": "python -m py_compile app.py builders.py fetchers.py parsers.py",
+      "id": "python-compile",
+      "result": "PASS"
+    },
+    {
+      "artifacts": [
+        "docs/P2_FRONTEND_CONSOLIDATION_EVIDENCE_2026-09-25.md"
+      ],
+      "command": "node --check js/*.js",
+      "id": "frontend-syntax",
+      "result": "PASS"
+    },
+    {
+      "artifacts": [
+        "docs/優化作業基線_2026-09-21.md"
+      ],
+      "command": "python regression/verify_against_baseline.py --full",
+      "evidence_source": "owner-local-reported",
+      "id": "full-baseline",
+      "result": "VERIFY_OK"
+    }
+  ],
+  "schema": "p2-test-evidence-v1",
+  "source_identity": {
+    "committed_source_sha": "8adc26cf9bac8f18c31d2a90dfa32cab97182a7c",
+    "generation_context": {
+      "platform": "Windows-10-10.0.19045-SP0",
+      "status_entries": [
+        "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
+        "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
+        " M .github/workflows/p2-release-provenance.yml",
+        " M \"docs/API\\345\\260\\216\\345\\205\\245\\346\\252\\242\\351\\251\\227\\345\\204\\252\\345\\214\\226\\350\\246\\217\\345\\212\\203.md\"",
+        " M regression/test_q2_backtest_methodology.js",
+        " M regression/test_q5_quant_math.js",
+        "?? docs/CODEX_Q2_R2_QUANT_INTEGRITY_EXECUTION.md",
+        "?? docs/MARKET_PLATFORM_QUANT_OPTIMIZATION_EXECUTION_PLAN.md",
+        "?? p0_full_verify_recheck.txt",
+        "?? regression/test_p0_asset_cost_models.js",
+        "?? regression/test_q2_r2_purged_stop_execution.js",
+        "?? twse_headers.txt",
+        "?? twse_mi_index.json"
+      ],
+      "worktree_dirty": true,
+      "worktree_state_sha256": "c75a5c483f2c6db6a6fbbb1356ff54c8aa8535d2fdcb8f050d81f72afb3b30b6"
+    },
+    "git_head_sha": "8adc26cf9bac8f18c31d2a90dfa32cab97182a7c",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "status_entries": [
+      "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
+      "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
+      " M .github/workflows/p2-release-provenance.yml",
+      " M \"docs/API\\345\\260\\216\\345\\205\\245\\346\\252\\242\\351\\251\\227\\345\\204\\252\\345\\214\\226\\350\\246\\217\\345\\212\\203.md\"",
+      " M regression/test_q2_backtest_methodology.js",
+      " M regression/test_q5_quant_math.js",
+      "?? docs/CODEX_Q2_R2_QUANT_INTEGRITY_EXECUTION.md",
+      "?? docs/MARKET_PLATFORM_QUANT_OPTIMIZATION_EXECUTION_PLAN.md",
+      "?? p0_full_verify_recheck.txt",
+      "?? regression/test_p0_asset_cost_models.js",
+      "?? regression/test_q2_r2_purged_stop_execution.js",
+      "?? twse_headers.txt",
+      "?? twse_mi_index.json"
+    ],
+    "worktree_dirty": true,
+    "worktree_state_sha256": "c75a5c483f2c6db6a6fbbb1356ff54c8aa8535d2fdcb8f050d81f72afb3b30b6"
+  }
+}

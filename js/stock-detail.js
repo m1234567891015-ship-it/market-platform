@@ -1820,7 +1820,10 @@ function renderStockDetail(detail) {
       </section>
     `;
 
-  const technicalTheory = analyzeTechnicalTheories(detail);
+  const marketBreadthContext = twEtfState.getMarketBreadthContext(detail);
+  const marketBreadth = buildMarketBreadthIndicators(marketBreadthContext.detail, marketBreadthContext.stocks, marketBreadthContext.history);
+  twEtfState.saveMarketBreadthHistory(marketBreadth?.nextHistory);
+  const technicalTheory = analyzeTechnicalTheories(detail, { marketBreadth });
   const technicalTrendSummary = buildTechnicalTrendSummary(detail, technicalTheory);
   technicalSummaryHtml = `
     <article class="stock-market-context technical-trend-summary is-${technicalTrendSummary.tone}">

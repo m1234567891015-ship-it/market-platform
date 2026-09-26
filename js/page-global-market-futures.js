@@ -3679,7 +3679,10 @@ function renderFuturesTechnicalSummaryCard(item, rows = []) {
     `;
   }
   const detail = buildFuturesStockStyleChartDetail(item, analysisRows);
-  const technicalTheory = analyzeTechnicalTheories(detail);
+  const marketBreadthContext = twEtfState.getMarketBreadthContext(detail);
+  const marketBreadth = buildMarketBreadthIndicators(marketBreadthContext.detail, marketBreadthContext.stocks, marketBreadthContext.history);
+  twEtfState.saveMarketBreadthHistory(marketBreadth?.nextHistory);
+  const technicalTheory = analyzeTechnicalTheories(detail, { marketBreadth });
   const trendSummary = buildTechnicalTrendSummary(detail, technicalTheory);
   return `
     <article class="stock-market-context technical-trend-summary is-${escapeHtml(trendSummary.tone || "neutral")} futures-technical-summary-card">
@@ -3833,7 +3836,10 @@ function renderFuturesTechnicalTheorySection(item, rows = []) {
     `;
   }
   const detail = buildFuturesStockStyleChartDetail(item, analysisRows);
-  const technicalTheory = analyzeTechnicalTheories(detail);
+  const marketBreadthContext = twEtfState.getMarketBreadthContext(detail);
+  const marketBreadth = buildMarketBreadthIndicators(marketBreadthContext.detail, marketBreadthContext.stocks, marketBreadthContext.history);
+  twEtfState.saveMarketBreadthHistory(marketBreadth?.nextHistory);
+  const technicalTheory = analyzeTechnicalTheories(detail, { marketBreadth });
   const snapshot = buildFuturesTechnicalSnapshot(analysisRows);
   const theoryTone = technicalTheory.score >= 3 ? "positive" : technicalTheory.score <= -3 ? "negative" : "neutral";
   const theoryLabel = theoryTone === "positive" ? "偏多結構" : theoryTone === "negative" ? "偏空結構" : "中性整理";

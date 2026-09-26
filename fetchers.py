@@ -234,6 +234,7 @@ from cache import (
 from fetch_registry import SourceSpec, fetch_from_registry, register
 from market_config import (
     CACHE_TTL_SECONDS,
+    CBOE_OPTIONS_BASE,
     FRED_GRAPH_CSV_BASE,
     GLOBAL_MARKET_CACHE_SECONDS,
     GOOGLE_NEWS_RSS_BASE,
@@ -1848,6 +1849,19 @@ def fetch_json(url: str, timeout: int = 30) -> Any:
     req = Request(url, headers=headers)
     with _urlopen_with_ssl_fallback(req, timeout) as response:
         return json.loads(response.read().decode("utf-8"))
+
+
+def fetch_cboe_options_payload(clean_symbol: str) -> tuple[dict[str, Any], str]:
+    """Fetch one Cboe options payload and return it with its source URL.
+
+    Provider transport stays here; contract parsing and normalized output stay
+    in ``parsers.py`` and orchestration stays in ``builders.py``.
+    """
+    url = f"{CBOE_OPTIONS_BASE}/{quote(clean_symbol)}.json"
+    payload = fetch_json(url, timeout=15)
+    return payload, url
+
+
 def fetch_nasdaq_json(path: str, timeout: int = 12) -> Any:
     url = path if path.startswith("http") else f"{NASDAQ_API_BASE}{path}"
     req = Request(url, headers={
@@ -3230,11 +3244,11 @@ def fetch_yahoo_us_market_search(query: str, limit: int = 20) -> list[dict[str, 
 
 
 def fetch_yahoo_options_payload(clean_symbol: str, expiration: str | None = None, retry: bool = True) -> dict[str, Any]:
-    import builders  # deferred: parse_cboe_expiration_request moved to builders.py in TD-01 slice 4 (was app.py-resident when this comment was originally written in slice 3 batch 5) - deferred to avoid a load-time fetchers.py<->builders.py cycle, same reasoning as every `import app` deferred-import elsewhere in this file, just targeting builders.py directly since that's this name's actual home now
+    from parsers import parse_cboe_expiration_request  # deferred: parsers imports fetchers for shared transport helpers
 
     crumb = get_yahoo_options_crumb(clean_symbol)
     params = {"crumb": crumb}
-    requested_expiration = builders.parse_cboe_expiration_request(expiration)
+    requested_expiration = parse_cboe_expiration_request(expiration)
     if requested_expiration is not None:
         params["date"] = str(requested_expiration)
     url = f"{YAHOO_OPTIONS_CHAIN_BASE}/{quote(clean_symbol, safe='')}?{urlencode(params)}"

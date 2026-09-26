@@ -172,7 +172,7 @@ import copy
 import math
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
+from datetime import datetime, timezone
 from html import unescape
 from typing import Any
 
@@ -409,6 +409,76 @@ YAHOO_TW_FUTURE_TECHNICAL_GROUPS = {
         ],
     },
 }
+
+
+def parse_cboe_option_symbol(contract_symbol: str) -> dict[str, Any] | None:
+    """Normalize Cboe's OCC-style contract symbol without performing I/O."""
+    match = re.match(r"^(.+?)(\d{6})([CP])(\d{8})$", str(contract_symbol or "").strip().upper())
+    if not match:
+        return None
+    root, date_code, option_type, strike_code = match.groups()
+    year = 2000 + int(date_code[:2])
+    month = int(date_code[2:4])
+    day = int(date_code[4:6])
+    try:
+        expiration_dt = datetime(year, month, day, tzinfo=timezone.utc)
+    except ValueError:
+        return None
+    return {
+        "root": root,
+        "expiration": int(expiration_dt.timestamp()),
+        "expirationDate": expiration_dt.strftime("%Y-%m-%d"),
+        "optionType": "call" if option_type == "C" else "put",
+        "strike": int(strike_code) / 1000,
+    }
+
+
+def parse_cboe_expiration_request(value: str | None) -> int | None:
+    clean = str(value or "").strip()
+    if not clean:
+        return None
+    if clean.isdigit():
+        if len(clean) == 6:
+            parsed = parse_cboe_option_symbol(f"X{clean}C00000000")
+            return int(parsed["expiration"]) if parsed else None
+        timestamp = int(clean)
+        return timestamp // 1000 if timestamp > 100000000000 else timestamp
+    for date_format in ("%Y-%m-%d", "%Y/%m/%d"):
+        try:
+            return int(datetime.strptime(clean, date_format).replace(tzinfo=timezone.utc).timestamp())
+        except ValueError:
+            continue
+    return None
+
+
+def normalize_cboe_option_contract(contract: dict[str, Any], clean_symbol: str) -> dict[str, Any] | None:
+    parsed = parse_cboe_option_symbol(str(contract.get("option") or ""))
+    if not parsed or parsed["root"] != clean_symbol:
+        return None
+    last_price = contract.get("last_trade_price")
+    if last_price is None:
+        last_price = contract.get("theo")
+    return {
+        "contractSymbol": contract.get("option") or "",
+        "strike": parsed["strike"],
+        "lastPrice": last_price,
+        "bid": contract.get("bid"),
+        "ask": contract.get("ask"),
+        "change": contract.get("change"),
+        "percentChange": contract.get("percent_change"),
+        "volume": contract.get("volume"),
+        "openInterest": contract.get("open_interest"),
+        "impliedVolatility": contract.get("iv"),
+        "expiration": parsed["expiration"],
+        "expirationDate": parsed["expirationDate"],
+        "inTheMoney": None,
+        "delta": contract.get("delta"),
+        "gamma": contract.get("gamma"),
+        "theta": contract.get("theta"),
+        "vega": contract.get("vega"),
+        "rho": contract.get("rho"),
+        "type": parsed["optionType"],
+    }
 
 
 def normal_cdf(value: float) -> float:

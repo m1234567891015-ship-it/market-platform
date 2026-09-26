@@ -790,10 +790,16 @@ function classifyUsPortfolioAsset(stock) {
 }
 function estimateUsPortfolioTransactionCost(position) {
   if (!(position?.shares > 0) || !(position?.entryPrice > 0) || !(position?.currentPrice > 0)) return 0;
-  const buyValue = position.entryPrice * position.shares;
-  const sellValue = position.currentPrice * position.shares;
-  const rate = 0.0015;
-  return (buyValue + sellValue) * rate;
+  const breakdown = buildBacktestLearningModel.calculateAssetTransactionCost({
+    assetClass: "US_EQUITY",
+    entrySide: "BUY",
+    exitSide: "SELL",
+    entryPrice: position.entryPrice,
+    exitPrice: position.currentPrice,
+    quantity: position.shares,
+    multiplier: 1,
+  });
+  return breakdown.supported ? breakdown.roundTripCost : 0;
 }
 function renderUsWatchlistAiSummary(items) {
   const container = document.getElementById("us-watchlist-ai-summary");
