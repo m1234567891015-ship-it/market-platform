@@ -59,18 +59,18 @@
       "sha256": "e630082537d7f07ffb5bc5b8628449d6df9580da4f1028569ff1f5110217f82b"
     },
     {
-      "bytes": 2967,
+      "bytes": 3023,
       "path": ".github/workflows/p2-release-provenance.yml",
-      "sha256": "3d3ed52c955250705d9515a574abb17ccc2839e70de937315f49ca06ae886104"
+      "sha256": "219244f824afd12e9d6e274d360ca93c111865b9e83a0db7dce06371df9acb2a"
     },
     {
-      "bytes": 4210,
+      "bytes": 5782,
       "path": "release_proof/p2_test_evidence.json",
-      "sha256": "116be265f18f55f04ee8ffe4bd814d7c5fceb015ed809285cefac675346f9d20"
+      "sha256": "e818706aed29d53150b06d574153ade4a871a05c0c10b771594e6220b9fb3563"
     }
   ],
   "evidence_binding": "release_proof/p2_test_evidence.json",
-  "generated_at_utc": "2026-09-26T06:39:10.453564+00:00",
+  "generated_at_utc": "2026-09-26T06:59:47.054640+00:00",
   "required_source_files": [
     {
       "bytes": 39027,
@@ -250,17 +250,41 @@
     "generation_context": {
       "platform": "Windows-10-10.0.19045-SP0",
       "status_entries": [
-        "D release_proof/p2_release_manifest.json"
+        "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
+        "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
+        " M .github/workflows/p2-release-provenance.yml",
+        " M \"docs/API\\345\\260\\216\\345\\205\\245\\346\\252\\242\\351\\251\\227\\345\\204\\252\\345\\214\\226\\350\\246\\217\\345\\212\\203.md\"",
+        " M regression/test_q2_backtest_methodology.js",
+        " M regression/test_q5_quant_math.js",
+        "?? docs/CODEX_Q2_R2_QUANT_INTEGRITY_EXECUTION.md",
+        "?? docs/MARKET_PLATFORM_QUANT_OPTIMIZATION_EXECUTION_PLAN.md",
+        "?? p0_full_verify_recheck.txt",
+        "?? regression/test_p0_asset_cost_models.js",
+        "?? regression/test_q2_r2_purged_stop_execution.js",
+        "?? twse_headers.txt",
+        "?? twse_mi_index.json"
       ],
       "worktree_dirty": true,
-      "worktree_state_sha256": "30bea08d0275509f2a14391a023b4dd636fe47fe5a3be9019ae6bdbed0b8d970"
+      "worktree_state_sha256": "260ebe11e84c4d2abdabc5cd46e5eea39d6f23c55e60f739a0522b71cd68ee52"
     },
     "git_head_sha": "e6d4aeac0aa6766ff783b51c300a50f718d6ca82",
     "platform": "Windows-10-10.0.19045-SP0",
     "status_entries": [
-      "D release_proof/p2_release_manifest.json"
+      "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
+      "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
+      " M .github/workflows/p2-release-provenance.yml",
+      " M \"docs/API\\345\\260\\216\\345\\205\\245\\346\\252\\242\\351\\251\\227\\345\\204\\252\\345\\214\\226\\350\\246\\217\\345\\212\\203.md\"",
+      " M regression/test_q2_backtest_methodology.js",
+      " M regression/test_q5_quant_math.js",
+      "?? docs/CODEX_Q2_R2_QUANT_INTEGRITY_EXECUTION.md",
+      "?? docs/MARKET_PLATFORM_QUANT_OPTIMIZATION_EXECUTION_PLAN.md",
+      "?? p0_full_verify_recheck.txt",
+      "?? regression/test_p0_asset_cost_models.js",
+      "?? regression/test_q2_r2_purged_stop_execution.js",
+      "?? twse_headers.txt",
+      "?? twse_mi_index.json"
     ],
     "worktree_dirty": true,
-    "worktree_state_sha256": "30bea08d0275509f2a14391a023b4dd636fe47fe5a3be9019ae6bdbed0b8d970"
+    "worktree_state_sha256": "260ebe11e84c4d2abdabc5cd46e5eea39d6f23c55e60f739a0522b71cd68ee52"
   }
 }

@@ -129,17 +129,41 @@
     "generation_context": {
       "platform": "Windows-10-10.0.19045-SP0",
       "status_entries": [
-        "D release_proof/p2_release_manifest.json"
+        "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
+        "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
+        " M .github/workflows/p2-release-provenance.yml",
+        " M \"docs/API\\345\\260\\216\\345\\205\\245\\346\\252\\242\\351\\251\\227\\345\\204\\252\\345\\214\\226\\350\\246\\217\\345\\212\\203.md\"",
+        " M regression/test_q2_backtest_methodology.js",
+        " M regression/test_q5_quant_math.js",
+        "?? docs/CODEX_Q2_R2_QUANT_INTEGRITY_EXECUTION.md",
+        "?? docs/MARKET_PLATFORM_QUANT_OPTIMIZATION_EXECUTION_PLAN.md",
+        "?? p0_full_verify_recheck.txt",
+        "?? regression/test_p0_asset_cost_models.js",
+        "?? regression/test_q2_r2_purged_stop_execution.js",
+        "?? twse_headers.txt",
+        "?? twse_mi_index.json"
       ],
       "worktree_dirty": true,
-      "worktree_state_sha256": "30bea08d0275509f2a14391a023b4dd636fe47fe5a3be9019ae6bdbed0b8d970"
+      "worktree_state_sha256": "260ebe11e84c4d2abdabc5cd46e5eea39d6f23c55e60f739a0522b71cd68ee52"
     },
     "git_head_sha": "e6d4aeac0aa6766ff783b51c300a50f718d6ca82",
     "platform": "Windows-10-10.0.19045-SP0",
     "status_entries": [
-      "D release_proof/p2_release_manifest.json"
+      "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
+      "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
+      " M .github/workflows/p2-release-provenance.yml",
+      " M \"docs/API\\345\\260\\216\\345\\205\\245\\346\\252\\242\\351\\251\\227\\345\\204\\252\\345\\214\\226\\350\\246\\217\\345\\212\\203.md\"",
+      " M regression/test_q2_backtest_methodology.js",
+      " M regression/test_q5_quant_math.js",
+      "?? docs/CODEX_Q2_R2_QUANT_INTEGRITY_EXECUTION.md",
+      "?? docs/MARKET_PLATFORM_QUANT_OPTIMIZATION_EXECUTION_PLAN.md",
+      "?? p0_full_verify_recheck.txt",
+      "?? regression/test_p0_asset_cost_models.js",
+      "?? regression/test_q2_r2_purged_stop_execution.js",
+      "?? twse_headers.txt",
+      "?? twse_mi_index.json"
     ],
     "worktree_dirty": true,
-    "worktree_state_sha256": "30bea08d0275509f2a14391a023b4dd636fe47fe5a3be9019ae6bdbed0b8d970"
+    "worktree_state_sha256": "260ebe11e84c4d2abdabc5cd46e5eea39d6f23c55e60f739a0522b71cd68ee52"
   }
 }
