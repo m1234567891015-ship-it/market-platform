@@ -59,9 +59,9 @@
       "sha256": "e630082537d7f07ffb5bc5b8628449d6df9580da4f1028569ff1f5110217f82b"
     },
     {
-      "bytes": 3023,
+      "bytes": 4486,
       "path": ".github/workflows/p2-release-provenance.yml",
-      "sha256": "219244f824afd12e9d6e274d360ca93c111865b9e83a0db7dce06371df9acb2a"
+      "sha256": "f1f420364ca46ee8e5cc095dcc9e71bbf6a403cf775df1d68a1f0385a250013b"
     },
     {
       "bytes": 5782,
