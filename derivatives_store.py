@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
+from datetime import datetime
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -318,7 +319,13 @@ class DerivativesStore:
                         updated_at,
                     ),
                 )
-                trade_time = str(item.get("date") or updated_at)
+                market_date_value = item.get("marketAsOf") if "marketAsOf" in item else item.get("date")
+                market_date = str(market_date_value or "").strip()
+                try:
+                    market_date = datetime.strptime(market_date, "%Y-%m-%d").strftime("%Y-%m-%d")
+                except ValueError:
+                    continue
+                trade_time = market_date
                 quote_values = (
                     symbol, _number(item.get("close")), _number(item.get("bid")), _number(item.get("ask")),
                     _number(item.get("open")), _number(item.get("high")), _number(item.get("low")),
@@ -346,7 +353,7 @@ class DerivativesStore:
                     )
                 open_interest = _number(item.get("openInterest"))
                 if open_interest is not None:
-                    oi_date = str(item.get("date") or updated_at)
+                    oi_date = market_date
                     existing_oi = connection.execute(
                         """
                         SELECT net_oi FROM open_interest
