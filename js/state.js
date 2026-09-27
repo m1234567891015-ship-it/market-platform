@@ -191,6 +191,28 @@ const PORTFOLIO_COST_MODEL = {
   stockTaxPct: 0.3,
   etfTaxPct: 0.1,
   slippagePct: 0.1,
+  futuresBacktestExecutionAssumptions: Object.freeze({
+    source: "Project Owner authorized P0-B1 BASE assumptions",
+    commissionCurrency: "TWD",
+    commissionUnit: "per-contract-one-way",
+    products: Object.freeze({
+      TX: Object.freeze({ brokerCommissionPerContract: 45, slippageTicks: 1 }),
+      MTX: Object.freeze({ brokerCommissionPerContract: 22.5, slippageTicks: 1 }),
+      TMF: Object.freeze({ brokerCommissionPerContract: 11, slippageTicks: 1 }),
+      TE: Object.freeze({ brokerCommissionPerContract: 50, slippageTicks: 1 }),
+      TF: Object.freeze({ brokerCommissionPerContract: 50, slippageTicks: 1 }),
+    }),
+  }),
+  taifexFuturesFeeReference: Object.freeze({
+    source: "https://www.taifex.com.tw/cht/4/feeSchedules",
+    products: Object.freeze({
+      TX: Object.freeze({ exchangeTradingFeePerContract: 12, clearingFeePerContract: 8, currency: "TWD" }),
+      MTX: Object.freeze({ exchangeTradingFeePerContract: 7.5, clearingFeePerContract: 5, currency: "TWD" }),
+      TMF: Object.freeze({ exchangeTradingFeePerContract: 4.8, clearingFeePerContract: 3.2, currency: "TWD" }),
+      TE: Object.freeze({ exchangeTradingFeePerContract: 12, clearingFeePerContract: 8, currency: "TWD" }),
+      TF: Object.freeze({ exchangeTradingFeePerContract: 12, clearingFeePerContract: 8, currency: "TWD" }),
+    }),
+  }),
 };
 
 const BACKTEST_BENCHMARK_SOURCE = {

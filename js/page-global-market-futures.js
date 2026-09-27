@@ -3595,6 +3595,7 @@ function buildFuturesStockStyleChartDetail(item, rows = []) {
   const latest = historyDays.at(-1) || {};
   const first = historyDays[0] || {};
   return {
+    symbol: item?.symbol || item?.productSymbol || "",
     code: formatFuturesContractLabel(selectedContract) || item?.symbol || "--",
     name: item?.name || item?.symbol || "--",
     close: Number.isFinite(latest.close) ? formatGlobalValue(latest.close) : "--",

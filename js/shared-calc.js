@@ -505,6 +505,76 @@ buildBacktestLearningModel.calculateNetReturn = function calculateNetReturn(gros
   if (!Number.isFinite(grossDirectionalReturnPct) || !Number.isFinite(roundTripCostPct)) return null;
   return grossDirectionalReturnPct - roundTripCostPct;
 };
+buildBacktestLearningModel.futuresContractSpecifications = Object.freeze({
+  TX: Object.freeze({ symbol: "TX", market: "TAIFEX", multiplier: 200, tickSize: 1, transactionTaxRate: 0.00002, currency: "TWD", source: "https://www.taifex.com.tw/cht/2/tX" }),
+  MTX: Object.freeze({ symbol: "MTX", market: "TAIFEX", multiplier: 50, tickSize: 1, transactionTaxRate: 0.00002, currency: "TWD", source: "https://www.taifex.com.tw/cht/2/mTX" }),
+  TMF: Object.freeze({ symbol: "TMF", market: "TAIFEX", multiplier: 10, tickSize: 1, transactionTaxRate: 0.00002, currency: "TWD", source: "https://www.taifex.com.tw/cht/2/tMF" }),
+  TE: Object.freeze({ symbol: "TE", market: "TAIFEX", multiplier: 4000, tickSize: 0.05, transactionTaxRate: 0.00002, currency: "TWD", source: "https://www.taifex.com.tw/cht/2/tE" }),
+  TF: Object.freeze({ symbol: "TF", market: "TAIFEX", multiplier: 1000, tickSize: 0.2, transactionTaxRate: 0.00002, currency: "TWD", source: "https://www.taifex.com.tw/cht/2/tF" }),
+});
+buildBacktestLearningModel.getFuturesContractSpecification = function getFuturesContractSpecification(symbol) {
+  const cleanSymbol = String(symbol || "").trim().toUpperCase();
+  const specification = buildBacktestLearningModel.futuresContractSpecifications[cleanSymbol];
+  return specification
+    ? { supported: true, status: "supported", ...specification }
+    : { supported: false, status: "unavailable", symbol: cleanSymbol || null, reason: "UNVERIFIED_FUTURES_CONTRACT_SPECIFICATION" };
+};
+buildBacktestLearningModel.resolveFuturesExecutionAssumptions = function resolveFuturesExecutionAssumptions(symbol, overrides = {}) {
+  const contractSpec = buildBacktestLearningModel.getFuturesContractSpecification(symbol);
+  if (!contractSpec.supported) return contractSpec;
+  const normalizedSymbol = contractSpec.symbol;
+  const applicationConfig = typeof PORTFOLIO_COST_MODEL !== "undefined"
+    ? PORTFOLIO_COST_MODEL.futuresBacktestExecutionAssumptions
+    : null;
+  const configured = applicationConfig?.products?.[normalizedSymbol] || {};
+  const hasOwn = (key) => Object.prototype.hasOwnProperty.call(overrides, key);
+  const explicitCommissionKey = hasOwn("brokerCommissionPerContract")
+    ? "brokerCommissionPerContract"
+    : hasOwn("commissionPerContract")
+      ? "commissionPerContract"
+      : hasOwn("commission")
+        ? "commission"
+        : null;
+  const brokerCommissionPerContract = explicitCommissionKey
+    ? overrides[explicitCommissionKey]
+    : configured.brokerCommissionPerContract;
+  const slippageTicks = hasOwn("slippageTicks") ? overrides.slippageTicks : configured.slippageTicks;
+  const hasNumber = (value) => value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value));
+  const missing = [];
+  if (!hasNumber(brokerCommissionPerContract) || Number(brokerCommissionPerContract) < 0) missing.push("brokerCommissionPerContract");
+  if (!hasNumber(slippageTicks) || Number(slippageTicks) < 0) missing.push("slippageTicks");
+  if (missing.length) {
+    return {
+      supported: false,
+      status: "unavailable",
+      assetClass: "FUTURES",
+      instrumentSymbol: normalizedSymbol,
+      reason: missing.includes("brokerCommissionPerContract")
+        ? "MISSING_OR_INVALID_BROKER_COMMISSION_CONFIGURATION"
+        : "MISSING_OR_INVALID_SLIPPAGE_CONFIGURATION",
+      missing,
+    };
+  }
+  const feeReference = typeof PORTFOLIO_COST_MODEL !== "undefined"
+    ? PORTFOLIO_COST_MODEL.taifexFuturesFeeReference
+    : null;
+  return {
+    supported: true,
+    status: "supported",
+    assetClass: "FUTURES",
+    instrumentSymbol: normalizedSymbol,
+    brokerCommissionPerContract: Number(brokerCommissionPerContract),
+    slippageTicks: Number(slippageTicks),
+    executionAssumptionSource: explicitCommissionKey || hasOwn("slippageTicks")
+      ? "explicit backtest configuration"
+      : applicationConfig?.source || null,
+    commissionCurrency: applicationConfig?.commissionCurrency || contractSpec.currency,
+    commissionUnit: applicationConfig?.commissionUnit || "per-contract-one-way",
+    feeReference: feeReference?.products?.[normalizedSymbol]
+      ? { ...feeReference.products[normalizedSymbol], source: feeReference.source }
+      : null,
+  };
+};
 buildBacktestLearningModel.getAssetCostModel = function getAssetCostModel(assetClass, overrides = {}) {
   const normalizedAssetClass = String(assetClass || "").trim().toUpperCase();
   const portfolioDefaults = typeof PORTFOLIO_COST_MODEL !== "undefined" ? PORTFOLIO_COST_MODEL : {};
@@ -527,11 +597,12 @@ buildBacktestLearningModel.getAssetCostModel = function getAssetCostModel(assetC
     },
     FUTURES: {
       market: "TAIFEX",
-      commissionPerContract: 0,
-      levyPerContract: 0,
-      slippageTicks: 0,
-      tickSize: 1,
-      multiplier: 1,
+      brokerCommissionPerContract: null,
+      slippageTicks: null,
+      tickSize: null,
+      multiplier: null,
+      transactionTaxRate: null,
+      currency: null,
     },
     OPTIONS: {
       market: "TAIFEX",
@@ -552,6 +623,53 @@ buildBacktestLearningModel.getAssetCostModel = function getAssetCostModel(assetC
     };
   }
   const config = { ...base };
+  let futuresSpec = null;
+  if (normalizedAssetClass === "FUTURES") {
+    const suppliedSpec = overrides.contractSpec && typeof overrides.contractSpec === "object" ? overrides.contractSpec : null;
+    const symbol = overrides.instrumentSymbol ?? overrides.symbol ?? overrides.product ?? suppliedSpec?.symbol;
+    const canonicalSpec = buildBacktestLearningModel.getFuturesContractSpecification(symbol);
+    if (suppliedSpec && !canonicalSpec.supported && (typeof suppliedSpec.source !== "string" || !suppliedSpec.source.trim())) {
+      return { supported: false, assetClass: normalizedAssetClass, status: "unavailable", reason: "UNVERIFIED_FUTURES_CONTRACT_SPECIFICATION", instrumentSymbol: symbol || null };
+    }
+    futuresSpec = suppliedSpec
+      ? { ...canonicalSpec, ...suppliedSpec, ...(canonicalSpec.supported ? { source: canonicalSpec.source } : {}), supported: true }
+      : canonicalSpec;
+    if (canonicalSpec.supported && suppliedSpec) {
+      const hasConflictingSpec = ["multiplier", "tickSize", "transactionTaxRate", "currency"].some((key) => (
+        suppliedSpec[key] !== undefined
+        && suppliedSpec[key] !== null
+        && String(suppliedSpec[key]) !== String(canonicalSpec[key])
+      ));
+      if (hasConflictingSpec) {
+        return { supported: false, assetClass: normalizedAssetClass, status: "invalid", reason: "FUTURES_CONTRACT_SPECIFICATION_CONFLICT", instrumentSymbol: canonicalSpec.symbol };
+      }
+    }
+    if (canonicalSpec.supported && ["multiplier", "contractMultiplier", "tickSize", "transactionTaxRate", "currency"].some((key) => (
+      overrides[key] !== undefined
+      && overrides[key] !== null
+      && String(overrides[key]) !== String(canonicalSpec[key === "contractMultiplier" ? "multiplier" : key])
+    ))) {
+      return { supported: false, assetClass: normalizedAssetClass, status: "invalid", reason: "FUTURES_CONTRACT_SPECIFICATION_CONFLICT", instrumentSymbol: canonicalSpec.symbol };
+    }
+    if (futuresSpec.supported) {
+      config.multiplier = futuresSpec.multiplier;
+      config.tickSize = futuresSpec.tickSize;
+      config.transactionTaxRate = futuresSpec.transactionTaxRate;
+      config.currency = futuresSpec.currency;
+      config.market = futuresSpec.market;
+      config.instrumentSymbol = futuresSpec.symbol;
+      config.contractSpecSource = futuresSpec.source || "explicit contractSpec";
+    } else if (suppliedSpec) {
+      ["multiplier", "tickSize", "transactionTaxRate", "currency", "market", "instrumentSymbol"].forEach((key) => {
+        if (suppliedSpec[key] !== undefined) config[key] = suppliedSpec[key];
+      });
+      config.contractSpecSource = suppliedSpec.source || "explicit contractSpec";
+    }
+    config.executionAssumptionSource = overrides.executionAssumptionSource || null;
+    config.feeReference = overrides.feeReference || null;
+    config.commissionCurrency = overrides.commissionCurrency || config.currency;
+    config.commissionUnit = overrides.commissionUnit || "per-contract-one-way";
+  }
   const aliases = normalizedAssetClass === "TW_EQUITY" || normalizedAssetClass === "US_EQUITY"
     ? {
         commissionPct: overrides.commissionPct ?? overrides.feePct,
@@ -559,14 +677,17 @@ buildBacktestLearningModel.getAssetCostModel = function getAssetCostModel(assetC
         sellTaxPct: overrides.sellTaxPct,
         etfTaxPct: overrides.etfTaxPct,
         regulatoryPct: overrides.regulatoryPct,
-      }
+    }
     : normalizedAssetClass === "FUTURES"
       ? {
-          commissionPerContract: overrides.commissionPerContract,
-          levyPerContract: overrides.levyPerContract,
+          brokerCommissionPerContract: overrides.brokerCommissionPerContract
+            ?? overrides.commissionPerContract
+            ?? overrides.commission,
           slippageTicks: overrides.slippageTicks,
           tickSize: overrides.tickSize,
           multiplier: overrides.multiplier ?? overrides.contractMultiplier,
+          transactionTaxRate: overrides.transactionTaxRate,
+          currency: overrides.currency,
         }
       : {
           commissionPerContract: overrides.commissionPerContract ?? overrides.commission,
@@ -578,6 +699,41 @@ buildBacktestLearningModel.getAssetCostModel = function getAssetCostModel(assetC
   Object.entries(aliases).forEach(([key, value]) => {
     if (value !== undefined && value !== null && Number.isFinite(Number(value))) config[key] = Number(value);
   });
+  if (normalizedAssetClass === "FUTURES") {
+    const hasNumber = (value) => value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value));
+    const positive = (value) => hasNumber(value) && Number(value) > 0;
+    const nonNegative = (value) => hasNumber(value) && Number(value) >= 0;
+    const complete = positive(config.multiplier)
+      && positive(config.tickSize)
+      && nonNegative(config.brokerCommissionPerContract)
+      && nonNegative(config.slippageTicks)
+      && nonNegative(config.transactionTaxRate)
+      && typeof config.currency === "string"
+      && Boolean(config.currency.trim());
+    if (!complete) {
+      const missing = ["multiplier", "tickSize", "brokerCommissionPerContract", "slippageTicks", "transactionTaxRate", "currency"].filter((key) => {
+        const value = config[key];
+        return key === "currency" ? typeof value !== "string" || !value.trim() : !hasNumber(value) || (key === "multiplier" || key === "tickSize" ? Number(value) <= 0 : Number(value) < 0);
+      });
+      return {
+        supported: false,
+        status: "unavailable",
+        assetClass: normalizedAssetClass,
+        instrumentSymbol: config.instrumentSymbol || futuresSpec?.symbol || null,
+        contractSpecSource: config.contractSpecSource || null,
+        reason: missing.includes("brokerCommissionPerContract")
+          ? "MISSING_OR_INVALID_BROKER_COMMISSION_CONFIGURATION"
+          : missing.includes("slippageTicks")
+            ? "MISSING_OR_INVALID_SLIPPAGE_CONFIGURATION"
+            : missing.includes("multiplier")
+          ? "MISSING_FUTURES_MULTIPLIER"
+          : missing.includes("tickSize") && Number(config.slippageTicks) > 0
+            ? "MISSING_FUTURES_TICK_SIZE"
+            : futuresSpec?.reason || "MISSING_FUTURES_CONTRACT_ECONOMICS",
+        missing,
+      };
+    }
+  }
   return {
     supported: true,
     status: "supported",
@@ -590,6 +746,70 @@ buildBacktestLearningModel.calculateAssetTransactionCost = function calculateAss
   const model = buildBacktestLearningModel.getAssetCostModel(assetClass, request);
   if (!model.supported) return model;
   const finiteNonNegative = (value) => Number.isFinite(Number(value)) && Number(value) >= 0;
+  if (assetClass === "FUTURES") {
+    const hasNumber = (value) => value !== undefined && value !== null && value !== "" && Number.isFinite(Number(value));
+    const quantityValue = request.contracts ?? request.quantity;
+    const quantity = Number(quantityValue);
+    const multiplier = Number(request.multiplier ?? request.contractMultiplier ?? model.multiplier);
+    const tickSize = Number(request.tickSize ?? model.tickSize);
+    const slippageTicks = Number(request.slippageTicks ?? model.slippageTicks);
+    const commission = Number(request.brokerCommissionPerContract ?? request.commissionPerContract ?? request.commission ?? model.brokerCommissionPerContract);
+    const transactionTaxRate = Number(request.transactionTaxRate ?? model.transactionTaxRate);
+    const entryPrice = Number(request.entryPrice);
+    const exitPrice = Number(request.exitPrice);
+    const entrySide = String(request.entrySide || (String(request.direction || "LONG").toUpperCase() === "SHORT" ? "SELL" : "BUY")).toUpperCase();
+    const exitSide = String(request.exitSide || (entrySide === "SELL" ? "BUY" : "SELL")).toUpperCase();
+    if (!hasNumber(quantityValue) || quantity <= 0) return { supported: false, assetClass, status: "invalid", reason: "MISSING_OR_INVALID_CONTRACT_QUANTITY" };
+    if (!hasNumber(request.multiplier ?? request.contractMultiplier ?? model.multiplier) || multiplier <= 0) return { supported: false, assetClass, status: "unavailable", reason: "MISSING_FUTURES_MULTIPLIER" };
+    if (!hasNumber(request.tickSize ?? model.tickSize) || tickSize <= 0) return { supported: false, assetClass, status: "unavailable", reason: "MISSING_FUTURES_TICK_SIZE" };
+    if (!hasNumber(request.slippageTicks ?? model.slippageTicks) || slippageTicks < 0) return { supported: false, assetClass, status: "unavailable", reason: "MISSING_OR_INVALID_SLIPPAGE_CONFIGURATION" };
+    if (!hasNumber(request.brokerCommissionPerContract ?? request.commissionPerContract ?? request.commission ?? model.brokerCommissionPerContract) || commission < 0) return { supported: false, assetClass, status: "unavailable", reason: "MISSING_OR_INVALID_BROKER_COMMISSION_CONFIGURATION" };
+    if (!hasNumber(request.transactionTaxRate ?? model.transactionTaxRate) || transactionTaxRate < 0) return { supported: false, assetClass, status: "unavailable", reason: "MISSING_OR_INVALID_TRANSACTION_TAX_RATE" };
+    if (![entryPrice, exitPrice].every((value) => Number.isFinite(value) && value > 0)) return { supported: false, assetClass, status: "invalid", reason: "MISSING_EXECUTION_PRICE" };
+    if (![entrySide, exitSide].every((side) => ["BUY", "SELL"].includes(side))) return { supported: false, assetClass, status: "invalid", reason: "INVALID_SIDE" };
+    const perSideCommission = quantity * commission;
+    const entryNotional = entryPrice * quantity * multiplier;
+    const exitNotional = exitPrice * quantity * multiplier;
+    const perSideTax = (notional) => notional * transactionTaxRate;
+    const entryTax = perSideTax(entryNotional);
+    const exitTax = perSideTax(exitNotional);
+    const perSideSlippage = quantity * slippageTicks * tickSize * multiplier;
+    const totalEntryCost = perSideCommission + entryTax + perSideSlippage;
+    const totalExitCost = perSideCommission + exitTax + perSideSlippage;
+    const totalCost = totalEntryCost + totalExitCost;
+    const grossPnl = (entrySide === "BUY" ? exitPrice - entryPrice : entryPrice - exitPrice) * quantity * multiplier;
+    return {
+      supported: true,
+      status: "supported",
+      assetClass,
+      market: model.market,
+      instrumentSymbol: model.instrumentSymbol || null,
+      contractSpecSource: model.contractSpecSource || null,
+      executionAssumptionSource: model.executionAssumptionSource || null,
+      feeReference: model.feeReference || null,
+      currency: model.currency,
+      side: { entry: entrySide, exit: exitSide },
+      entryPrice,
+      exitPrice,
+      quantity,
+      multiplier,
+      tickSize,
+      brokerCommissionPerContract: commission,
+      transactionTaxRate,
+      slippageTicks,
+      grossPnl,
+      commissionCost: perSideCommission * 2,
+      taxCost: entryTax + exitTax,
+      slippageCost: perSideSlippage * 2,
+      otherCost: 0,
+      totalEntryCost,
+      totalExitCost,
+      totalCost,
+      roundTripCost: totalCost,
+      netPnl: grossPnl - totalCost,
+      normalizedCostPct: entryNotional > 0 ? (totalCost / entryNotional) * 100 : null,
+    };
+  }
   const quantity = Number(request.quantity ?? request.contracts ?? 1);
   const multiplier = Number(request.multiplier ?? request.contractMultiplier ?? model.multiplier ?? 1);
   if (!finiteNonNegative(quantity) || quantity <= 0 || !finiteNonNegative(multiplier) || multiplier <= 0) {
@@ -691,16 +911,6 @@ buildBacktestLearningModel.calculateAssetTransactionCost = function calculateAss
   };
 
   if (assetClass === "TW_EQUITY" || assetClass === "US_EQUITY") return calculateEquity();
-  if (assetClass === "FUTURES") {
-    const futures = calculateDerivative({
-      ...request,
-      commissionPerContract: model.commissionPerContract,
-      exchangeFee: model.levyPerContract,
-      slippagePerUnit: (model.slippageTicks * model.tickSize),
-      multiplier,
-    });
-    return futures;
-  }
   if (assetClass === "OPTIONS" && Array.isArray(request.legs)) {
     const legs = request.legs.map((leg) => calculateDerivative(leg));
     if (legs.some((leg) => !leg.supported)) return { supported: false, assetClass, status: "invalid", reason: "INVALID_OPTION_LEG" };
@@ -1327,7 +1537,7 @@ function buildBacktestLearningModel(history, horizon = 240, options = {}) {
         entryPrice: 100,
         exitPrice: 100,
         quantity: 1,
-        multiplier: 1,
+        multiplier: costSpec.multiplier,
         securityType: options.securityType,
       })
     : costSpec;
@@ -1347,7 +1557,7 @@ function buildBacktestLearningModel(history, horizon = 240, options = {}) {
       horizon,
       successThreshold: 5,
       testedBars: 0,
-      summary: "資產類別未支援，已停止成本模型回測",
+      summary: assetClass === "FUTURES" ? "期貨合約規格或交易成本資料不足，已停止淨績效回測" : "資產類別未支援，已停止成本模型回測",
       signals: [],
       factors: BACKTEST_FACTOR_BASELINE,
       benchmarkSource: BACKTEST_BENCHMARK_SOURCE,
@@ -1355,7 +1565,7 @@ function buildBacktestLearningModel(history, horizon = 240, options = {}) {
       assetClass,
       costModel,
       riskModel,
-      qualityChecks: ["UNKNOWN_ASSET_CLASS：成本模型未支援，拒絕套用其他資產類別預設"],
+      qualityChecks: [assetClass === "FUTURES" ? `期貨成本模型不可用：${costSpec.reason}` : "UNKNOWN_ASSET_CLASS：成本模型未支援，拒絕套用其他資產類別預設"],
       performance: null,
       validation: buildBacktestModelValidation(null),
       forecast: buildBacktestTrendForecast(history, [], null),
@@ -1397,7 +1607,7 @@ function buildBacktestLearningModel(history, horizon = 240, options = {}) {
       entryPrice: trade.entryPrice,
       exitPrice: trade.exitPrice,
       quantity: 1,
-      multiplier: 1,
+      multiplier: costSpec.multiplier,
       securityType: options.securityType,
     });
     if (!tradeCost.supported || !Number.isFinite(tradeCost.normalizedCostPct)) return;
@@ -1412,6 +1622,12 @@ function buildBacktestLearningModel(history, horizon = 240, options = {}) {
         grossTotalReturn: 0,
         totalProfit: 0,
         totalLoss: 0,
+        totalGrossPnl: 0,
+        totalCommissionCost: 0,
+        totalTaxCost: 0,
+        totalSlippageCost: 0,
+        totalCost: 0,
+        totalNetPnl: 0,
         returns: [],
         observations: [],
         riskHits: 0,
@@ -1421,6 +1637,14 @@ function buildBacktestLearningModel(history, horizon = 240, options = {}) {
     item.samples += 1;
     item.totalReturn += netReturnPct;
     item.grossTotalReturn += directionalReturn;
+    if (assetClass === "FUTURES") {
+      item.totalGrossPnl += tradeCost.grossPnl;
+      item.totalCommissionCost += tradeCost.commissionCost;
+      item.totalTaxCost += tradeCost.taxCost;
+      item.totalSlippageCost += tradeCost.slippageCost;
+      item.totalCost += tradeCost.totalCost;
+      item.totalNetPnl += tradeCost.netPnl;
+    }
     item.returns.push(netReturnPct);
     item.observations.push({
       index: context.index ?? trade.signalIndex,
@@ -1433,6 +1657,16 @@ function buildBacktestLearningModel(history, horizon = 240, options = {}) {
       direction: trade.direction,
       value: netReturnPct,
       riskTriggered: trade.riskTriggered,
+      ...(assetClass === "FUTURES" ? {
+        grossPnl: tradeCost.grossPnl,
+        commissionCost: tradeCost.commissionCost,
+        taxCost: tradeCost.taxCost,
+        slippageCost: tradeCost.slippageCost,
+        totalCost: tradeCost.totalCost,
+        netPnl: tradeCost.netPnl,
+        currency: tradeCost.currency,
+        multiplier: tradeCost.multiplier,
+      } : {}),
     });
     allNetReturns.push(netReturnPct);
     if (netReturnPct > 0) item.totalProfit += netReturnPct;
@@ -3192,9 +3426,16 @@ function analyzeTechnicalTheories(detail, { marketBreadth = null } = {}) {
     : String(detail.market || "").toUpperCase() === "US"
       ? "US_EQUITY"
       : "TW_EQUITY";
+  const futuresExecutionAssumptions = backtestAssetClass === "FUTURES"
+    ? buildBacktestLearningModel.resolveFuturesExecutionAssumptions(
+        detail.symbol || detail.contractSymbol || detail.productSymbol,
+      )
+    : null;
   const backtestLearning = buildBacktestLearningModel(history, 240, {
     assetClass: backtestAssetClass,
     securityType: detail.isEtf ? "ETF" : "EQUITY",
+    instrumentSymbol: detail.symbol || detail.contractSymbol || detail.productSymbol,
+    ...(futuresExecutionAssumptions?.supported ? futuresExecutionAssumptions : {}),
   });
   backtestLearning.institutionalFramework = isFuturesDetail
     ? buildFuturesBacktestFramework(detail, history, backtestLearning)

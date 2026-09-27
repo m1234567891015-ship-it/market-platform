@@ -585,19 +585,17 @@ def parse_yahoo_tw_future_number(value: Any) -> float | None:
 
 
 def parse_yahoo_taiwan_future_quotes(html: str) -> dict[str, dict[str, Any]]:
-    import app
-
     lines = [line.strip() for line in extract_visible_text_lines(html) if line.strip()]
     if not lines:
         return {}
     quote_date = ""
+    source_updated_at = ""
     for line in lines:
         if "資料時間" in line:
+            source_updated_at = source_updated_at or line
             quote_date = parse_yahoo_tw_future_date(line)
             if quote_date:
                 break
-    if not quote_date:
-        quote_date = datetime.now(app.TZ).strftime("%Y-%m-%d")
     quotes: dict[str, dict[str, Any]] = {}
     row_width = 13
     for index, line in enumerate(lines):
@@ -631,6 +629,8 @@ def parse_yahoo_taiwan_future_quotes(html: str) -> dict[str, dict[str, Any]]:
             "yahooCode": code,
             "name": lines[index - 1] if index > 0 else symbol,
             "date": quote_date,
+            "marketAsOf": quote_date or None,
+            "sourceUpdatedAt": source_updated_at or None,
             "bid": parse_yahoo_tw_future_number(bid_text),
             "ask": parse_yahoo_tw_future_number(ask_text),
             "close": close_value,

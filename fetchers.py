@@ -3805,6 +3805,9 @@ def fetch_yahoo_taiwan_future_quotes(timeout: int = 10) -> dict[str, dict[str, A
             return copy.deepcopy(cached_items)
     html = fetch_text(app.YAHOO_TW_FUTURE_UNCOVERED_URL, timeout=timeout)
     quotes = app.parse_yahoo_taiwan_future_quotes(html)
+    observed_at = app.taipei_now().isoformat(timespec="seconds")
+    for quote in quotes.values():
+        quote["observedAt"] = observed_at
     with cache_lock:
         cache_data["yahoo_tw_future_quotes"] = {"stored_at": now, "items": copy.deepcopy(quotes)}
     return quotes
