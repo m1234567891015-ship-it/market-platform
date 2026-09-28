@@ -34,14 +34,14 @@
       "sha256": "421b0f8ef54e19f868a36c1cc35b392707c7d5da1fb7e98fb2037b76c38f0015"
     },
     {
-      "bytes": 461372,
+      "bytes": 461601,
       "path": "docs/TD02-01_dependency_matrix_2026-08-31.json",
-      "sha256": "57d0e7f4ef0d8901bf68670bbebc666a2ee44d862343f91d2a6ba8ebed855585"
+      "sha256": "f2396a9f11f33e900fd8aba10b191e61371a705d8915791154bc992707328be8"
     },
     {
-      "bytes": 27010,
+      "bytes": 27143,
       "path": "docs/TD02-01_dependency_matrix_2026-08-31.md",
-      "sha256": "bc0118264d21ea4a6fc72441e6fe72e33495e3643f1bac1164390acce90a6fe7"
+      "sha256": "5ea477750a876b3566ef06e6e597b1db718a5519262b3d86290c41fe7a85d057"
     },
     {
       "bytes": 13066,
@@ -64,13 +64,13 @@
       "sha256": "f1f420364ca46ee8e5cc095dcc9e71bbf6a403cf775df1d68a1f0385a250013b"
     },
     {
-      "bytes": 5782,
+      "bytes": 4797,
       "path": "release_proof/p2_test_evidence.json",
-      "sha256": "e818706aed29d53150b06d574153ade4a871a05c0c10b771594e6220b9fb3563"
+      "sha256": "930b4348835dc422e37957cad846ecdf66d50a28b6f585b25be9f0722ae01539"
     }
   ],
   "evidence_binding": "release_proof/p2_test_evidence.json",
-  "generated_at_utc": "2026-09-26T06:59:47.054640+00:00",
+  "generated_at_utc": "2026-09-28T03:48:50.447030+00:00",
   "required_source_files": [
     {
       "bytes": 39027,
@@ -83,14 +83,14 @@
       "sha256": "2b8b34388f12fa2ea39e392569ea23aadd4afc2322852468a1a0102fedde1772"
     },
     {
-      "bytes": 217721,
+      "bytes": 217862,
       "path": "fetchers.py",
-      "sha256": "08060dd673b7e4d1eb4c4ef314a37d5c86f726bdf8601412693caadb130132bc"
+      "sha256": "68a47dce4a92519b5caa88d5bcc5dba4ea209c991f19a7f355fc8ab41cc7939d"
     },
     {
-      "bytes": 72614,
+      "bytes": 72701,
       "path": "parsers.py",
-      "sha256": "e430139dffb708c4044c8cf8ac698446c9ef5a77b3b7b736de101ec69ff19523"
+      "sha256": "aa04046cab9e81c774b072abde2079296d2e52a6d7d01757d32d5c6ce1274360"
     },
     {
       "bytes": 33700,
@@ -103,9 +103,9 @@
       "sha256": "2a978ad8f71c9e59a65af3c99c6fa2c943e2651dcdf1c176bf43f9c0fcd14a24"
     },
     {
-      "bytes": 24993,
+      "bytes": 25330,
       "path": "derivatives_store.py",
-      "sha256": "f540b0d8a874d22ba801f176eb68d3fb91da8b76b12e6e38516acee8e9fcb14f"
+      "sha256": "2a05aa8ecfcca162351bc14dbd409fc8aedcabf4c32638c9e88044076b779bb0"
     },
     {
       "bytes": 8622,
@@ -138,14 +138,14 @@
       "sha256": "83d359bd4c0241bfa91ad70a84cbe4eb6b68d47f71c5cf01d3c84524aab2ce3c"
     },
     {
-      "bytes": 193274,
+      "bytes": 208149,
       "path": "js/shared-calc.js",
-      "sha256": "453f401c1dfd74d59f828bf3a51f2dcbb87572e7f354bd7855827c0c009d4460"
+      "sha256": "72e41beffaa078c503e9313959c7a81d95c494e0ea3df98cc24929de8eff78fd"
     },
     {
-      "bytes": 19815,
+      "bytes": 21151,
       "path": "js/state.js",
-      "sha256": "3054ccc81de9679112ca2882c13239492339060e81a7e247fe7eea00c41a433a"
+      "sha256": "036fe103c65c4e1e9db309a6edeee153c0abb0aeb71da4472696d787400e4bf4"
     },
     {
       "bytes": 72237,
@@ -163,9 +163,9 @@
       "sha256": "132859f137025dda7138c07eed34bc8ad4cb7510a0099c3a77ef8090b35da593"
     },
     {
-      "bytes": 232369,
+      "bytes": 232424,
       "path": "js/page-global-market-futures.js",
-      "sha256": "5eb12f1ce070b8d0a4a67268627f09ede4a5d059f295de1318a54a9a269d61d2"
+      "sha256": "b59849d362a738b569adea211934efeaf0cffbce8a02c0ece3ed92852a9fe727"
     },
     {
       "bytes": 216788,
@@ -203,19 +203,24 @@
       "sha256": "aa23a400bed5982ad93159157726bd3ef517a005699cc9ee65e88d574504d58b"
     },
     {
+      "bytes": 5636,
+      "path": "regression/test_p2_asset_cost_contract.js",
+      "sha256": "82907c27087023b9a582a734ee38e564784aefa797f50a3cbc42e5910a5dd729"
+    },
+    {
       "bytes": 6519,
       "path": "regression/test_td02_01_dependency_matrix.py",
       "sha256": "b5e5eb53f070cc3915f8901902c4fc0b9f3a04c62ae1731172caa0bcae0e5abf"
     },
     {
-      "bytes": 15011,
+      "bytes": 31823,
       "path": "regression/p2_release_provenance.py",
-      "sha256": "17cff086f192e24d8e12b3d1f08a0a264e5d85bada853ead5fb4310cc044466b"
+      "sha256": "f6e56e4d6532256a7666e789148e07d4bd637dd21d5d8b1c8be36c8088623057"
     },
     {
-      "bytes": 5944,
+      "bytes": 18375,
       "path": "regression/test_p2_release_provenance.py",
-      "sha256": "bef38441e00b31f6854e71fa900c6bb015acd3228b1f7992e56f41834f1e55b4"
+      "sha256": "38700d201a789f1f62563cbac9ea21c6a6da72c098577dd2ca891b5dec0bad8c"
     },
     {
       "bytes": 3873,
@@ -246,45 +251,21 @@
   },
   "schema": "p2-release-provenance-v1",
   "source_identity": {
-    "committed_source_sha": "e6d4aeac0aa6766ff783b51c300a50f718d6ca82",
+    "committed_source_sha": "9860708cf9fef6bd36293ab66526e4d9336a41ea",
     "generation_context": {
       "platform": "Windows-10-10.0.19045-SP0",
       "status_entries": [
-        "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
-        "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
-        " M .github/workflows/p2-release-provenance.yml",
-        " M \"docs/API\\345\\260\\216\\345\\205\\245\\346\\252\\242\\351\\251\\227\\345\\204\\252\\345\\214\\226\\350\\246\\217\\345\\212\\203.md\"",
-        " M regression/test_q2_backtest_methodology.js",
-        " M regression/test_q5_quant_math.js",
-        "?? docs/CODEX_Q2_R2_QUANT_INTEGRITY_EXECUTION.md",
-        "?? docs/MARKET_PLATFORM_QUANT_OPTIMIZATION_EXECUTION_PLAN.md",
-        "?? p0_full_verify_recheck.txt",
-        "?? regression/test_p0_asset_cost_models.js",
-        "?? regression/test_q2_r2_purged_stop_execution.js",
-        "?? twse_headers.txt",
-        "?? twse_mi_index.json"
+        "D release_proof/p2_release_manifest.json"
       ],
       "worktree_dirty": true,
-      "worktree_state_sha256": "260ebe11e84c4d2abdabc5cd46e5eea39d6f23c55e60f739a0522b71cd68ee52"
+      "worktree_state_sha256": "abf005f66442d808e3b4fadb137214890144e5c88d5b7a8c667876be369028b2"
     },
-    "git_head_sha": "e6d4aeac0aa6766ff783b51c300a50f718d6ca82",
+    "git_head_sha": "9860708cf9fef6bd36293ab66526e4d9336a41ea",
     "platform": "Windows-10-10.0.19045-SP0",
     "status_entries": [
-      "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
-      "warning: unable to access 'C:\\Users\\User/.config/git/ignore': Permission denied",
-      " M .github/workflows/p2-release-provenance.yml",
-      " M \"docs/API\\345\\260\\216\\345\\205\\245\\346\\252\\242\\351\\251\\227\\345\\204\\252\\345\\214\\226\\350\\246\\217\\345\\212\\203.md\"",
-      " M regression/test_q2_backtest_methodology.js",
-      " M regression/test_q5_quant_math.js",
-      "?? docs/CODEX_Q2_R2_QUANT_INTEGRITY_EXECUTION.md",
-      "?? docs/MARKET_PLATFORM_QUANT_OPTIMIZATION_EXECUTION_PLAN.md",
-      "?? p0_full_verify_recheck.txt",
-      "?? regression/test_p0_asset_cost_models.js",
-      "?? regression/test_q2_r2_purged_stop_execution.js",
-      "?? twse_headers.txt",
-      "?? twse_mi_index.json"
+      "D release_proof/p2_release_manifest.json"
     ],
     "worktree_dirty": true,
-    "worktree_state_sha256": "260ebe11e84c4d2abdabc5cd46e5eea39d6f23c55e60f739a0522b71cd68ee52"
+    "worktree_state_sha256": "abf005f66442d808e3b4fadb137214890144e5c88d5b7a8c667876be369028b2"
   }
 }
