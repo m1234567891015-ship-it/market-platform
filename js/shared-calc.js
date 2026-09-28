@@ -46,6 +46,84 @@ function calculatePortfolioCorrelation(left, right) {
   const denominator = Math.sqrt(denomA * denomB);
   return denominator ? numerator / denominator : null;
 }
+buildBacktestLearningModel.calculateHistoricalPortfolioVar = function calculateHistoricalPortfolioVar(positions, totalValue) {
+  // 60 synchronized daily returns leave at least three empirical observations in the 5% tail.
+  const minimumSampleCount = 60;
+  const unavailable = (sampleCount = 0) => ({
+    supported: false,
+    status: "unavailable",
+    confidenceLevel: 0.95,
+    horizon: "1 trading day",
+    method: "historical_simulation_nearest_rank",
+    sampleCount,
+    minimumSampleCount,
+    portfolioReturns: [],
+    varPct: null,
+    varAmount: null,
+    esPct: null,
+    esAmount: null,
+    reason: "insufficient_history",
+  });
+  const active = (Array.isArray(positions) ? positions : []).filter((position) => Number(position?.shares) > 0);
+  if (!active.length || !(Number.isFinite(totalValue) && totalValue > 0)) return unavailable();
+  const weightedSeries = [];
+  for (const position of active) {
+    const marketValue = Number(position.marketValue);
+    const weight = marketValue / totalValue;
+    const rows = position.detail?.historyDays;
+    if (!(Number.isFinite(weight) && weight >= 0) || !Array.isArray(rows) || rows.length < 2) return unavailable();
+    const prices = [];
+    const dates = new Set();
+    for (const row of rows) {
+      const date = String(row?.date || row?.label || "");
+      const rawClose = row?.close;
+      const close = rawClose === null || rawClose === undefined || String(rawClose).trim() === ""
+        ? NaN
+        : Number(String(rawClose).replace(/,/g, ""));
+      const parsedDate = new Date(`${date}T00:00:00.000Z`);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date || !(Number.isFinite(close) && close > 0) || dates.has(date)) return unavailable();
+      dates.add(date);
+      prices.push({ date, close });
+    }
+    prices.sort((a, b) => a.date.localeCompare(b.date));
+    const returnsByDate = new Map();
+    for (let index = 1; index < prices.length; index += 1) {
+      const previous = prices[index - 1];
+      const current = prices[index];
+      returnsByDate.set(current.date, (current.close - previous.close) / previous.close);
+    }
+    weightedSeries.push({ weight, returnsByDate });
+  }
+  const synchronizedDates = [...weightedSeries[0].returnsByDate.keys()]
+    .filter((date) => weightedSeries.every((series) => series.returnsByDate.has(date)))
+    .sort((a, b) => a.localeCompare(b));
+  const portfolioReturns = synchronizedDates.map((date) => weightedSeries.reduce(
+    (sum, series) => sum + series.weight * series.returnsByDate.get(date), 0,
+  ));
+  if (portfolioReturns.length < minimumSampleCount) return unavailable(portfolioReturns.length);
+  const sortedReturns = [...portfolioReturns].sort((a, b) => a - b);
+  // Nearest-rank q05 is ceil(5% * n) - 1; ES95 averages every return at or below q05.
+  const tailIndex = Math.min(sortedReturns.length - 1, Math.ceil(0.05 * sortedReturns.length) - 1);
+  const q05 = sortedReturns[tailIndex];
+  const tail = sortedReturns.filter((value) => value <= q05);
+  const varPct = Math.max(0, -q05);
+  const esPct = Math.max(0, -tail.reduce((sum, value) => sum + value, 0) / tail.length);
+  return {
+    supported: true,
+    status: "supported",
+    confidenceLevel: 0.95,
+    horizon: "1 trading day",
+    method: "historical_simulation_nearest_rank",
+    sampleCount: portfolioReturns.length,
+    minimumSampleCount,
+    portfolioReturns,
+    varPct,
+    varAmount: varPct * totalValue,
+    esPct,
+    esAmount: esPct * totalValue,
+    reason: null,
+  };
+};
 function calculatePeriodReturn(history, days) {
   if (!Array.isArray(history) || history.length < 2) return null;
   const end = history.at(-1)?.close;

@@ -1,6 +1,6 @@
 (function () {
   const moduleSource = "derivatives-status-esm.js?v=td02-remain-02-20260901-1";
-  const fallbackSource = "derivatives-status-addon.min.js?v=td18-minify-5da203183f90e574";
+  const fallbackSource = "derivatives-status-addon.min.js?v=td18-minify-62ce16e931200311";
   let fallbackStarted = false;
 
   function markState(value) {

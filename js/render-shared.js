@@ -934,7 +934,8 @@ function buildUsPortfolioFactorAssessment(positions, totals) {
     .map((item) => Math.abs(parseAnalysisNumber(item.detail?.pct ?? item.stock.pct) ?? 0))
     .filter(Number.isFinite);
   const avgMove = pctMoves.length ? pctMoves.reduce((sum, value) => sum + value, 0) / pctMoves.length : 0;
-  const var95 = totals.totalValue * (avgMove / 100) * 1.65;
+  const historicalVar = buildBacktestLearningModel.calculateHistoricalPortfolioVar(active, totals.totalValue);
+  const var95 = historicalVar.supported ? historicalVar.varAmount : null;
   const sharpeLike = avgMove ? netReturn / avgMove : null;
   const positiveAi = analyzed.filter((item) => item.tone === "positive").length;
   const negativeAi = analyzed.filter((item) => item.tone === "negative").length;
@@ -953,7 +954,7 @@ function buildUsPortfolioFactorAssessment(positions, totals) {
       actions: ["建立部位前先設定單筆停損與停利條件，並規劃單一標的權重上限。"],
       theoryDetails: portfolioTheory.details,
       theoryActions: portfolioTheory.actions,
-      metrics: { maxWeight, stopRiskRatio, var95, sharpeLike, avgMove, ...portfolioTheory.metrics },
+      metrics: { maxWeight, stopRiskRatio, var95, historicalVar, sharpeLike, avgMove, ...portfolioTheory.metrics },
       source: PORTFOLIO_FACTOR_SOURCE,
     };
   }
@@ -962,7 +963,9 @@ function buildUsPortfolioFactorAssessment(positions, totals) {
     `資產配置：${Object.entries(assetCounts).map(([key, count]) => `${key} ${count} 檔`).join("、") || "未分類"}。`,
     `交易成本以單邊手續費與滑價合計 0.15% 估算，成本後淨損益 ${formatUsSimulationMoney(totals.netPnl)}。`,
     `單一商品最高權重 ${maxWeight.toFixed(1)}%，組合停損風險約 ${stopRiskRatio.toFixed(1)}%。`,
-    `以目前自選標的日波動估算 95% 單日 VaR 約 ${formatUsSimulationMoney(var95)}。`,
+    historicalVar.supported
+      ? `歷史模擬 95% 單日 VaR 約 ${formatUsSimulationMoney(historicalVar.varAmount)}（${(historicalVar.varPct * 100).toFixed(2)}%）；樣本 ${historicalVar.sampleCount} 日。`
+      : `歷史模擬 95% 單日 VaR 資料不足（同步樣本 ${historicalVar.sampleCount}/${historicalVar.minimumSampleCount} 日）。`,
     `資產投資組合理論：${portfolioTheory.label}，已納入均值-變異、相關性、分散化比率與風險貢獻。`,
   ];
   if (analyzed.length) {
@@ -1000,7 +1003,7 @@ function buildUsPortfolioFactorAssessment(positions, totals) {
     actions,
     theoryDetails: portfolioTheory.details,
     theoryActions: portfolioTheory.actions,
-    metrics: { maxWeight, stopRiskRatio, var95, sharpeLike, avgMove, averageAiScore, ...portfolioTheory.metrics },
+    metrics: { maxWeight, stopRiskRatio, var95, historicalVar, sharpeLike, avgMove, averageAiScore, ...portfolioTheory.metrics },
     source: PORTFOLIO_FACTOR_SOURCE,
   };
 }
@@ -1070,7 +1073,7 @@ function renderUsPortfolioSimulator(items = getUsWatchlist()) {
     <div><span>組合報酬率</span><strong class="${totalReturn > 0 ? "up" : totalReturn < 0 ? "down" : "flat"}">${totalReturn >= 0 ? "+" : ""}${totalReturn.toFixed(2)}%</strong></div>
     <div><span>淨報酬率</span><strong class="${netReturn > 0 ? "up" : netReturn < 0 ? "down" : "flat"}">${netReturn >= 0 ? "+" : ""}${netReturn.toFixed(2)}%</strong></div>
     <div><span>停損風險金額</span><strong>${formatUsSimulationMoney(totalRisk)}</strong></div>
-    <div><span>95% VaR 估計</span><strong>${formatUsSimulationMoney(portfolioAssessment.metrics.var95 || 0)}</strong></div>
+    <div><span>歷史 95% VaR</span><strong>${Number.isFinite(portfolioAssessment.metrics.var95) ? formatUsSimulationMoney(portfolioAssessment.metrics.var95) : "Unavailable"}</strong></div>
     <div><span>單一最高權重</span><strong>${(portfolioAssessment.metrics.maxWeight || 0).toFixed(1)}%</strong></div>
     <div><span>組合年化波動</span><strong>${Number.isFinite(portfolioAssessment.metrics.portfolioVolatility) ? `${portfolioAssessment.metrics.portfolioVolatility.toFixed(1)}%` : "--"}</strong></div>
     <div><span>有效持股數</span><strong>${Number.isFinite(portfolioAssessment.metrics.effectivePositions) ? `${portfolioAssessment.metrics.effectivePositions.toFixed(1)} 檔` : "--"}</strong></div>
