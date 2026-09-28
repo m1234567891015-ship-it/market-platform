@@ -39,7 +39,7 @@
 | `js/page-tw.js` | `route/page-tw` | `route-bundle` | 14 | 111 | tw-etf.html, tw-Optional-stocks.html, tw-stock-search.html, tw-stocks.html | — | js/api.js, js/charts.js, js/core.js, js/main.js, js/render-shared.js, js/shared-calc.js, js/state.js, js/stock-detail.js |
 | `js/page-us.js` | `route/page-us` | `route-bundle` | 10 | 65 | us-etf.html, us-stock-search.html, us-watchlist.html | — | js/api.js, js/charts.js, js/core.js, js/render-shared.js, js/shared-calc.js, js/state.js, js/stock-detail.js |
 | `js/render-shared.js` | `runtime/render-shared` | `common-runtime` | 6 | 46 | shared/all pages | — | js/api.js, js/core.js, js/shared-calc.js, js/state.js |
-| `js/shared-calc.js` | `runtime/shared-calc` | `common-runtime` | 5 | 72 | shared/all pages | PORTFOLIO_COST_MODEL | js/core.js, js/state.js |
+| `js/shared-calc.js` | `runtime/shared-calc` | `common-runtime` | 5 | 72 | shared/all pages | PORTFOLIO_COST_MODEL, PORTFOLIO_COST_MODEL | js/core.js, js/state.js |
 | `js/state.js` | `runtime/state` | `common-runtime` | 2 | 152 | shared/all pages | — | — |
 | `js/stock-detail.js` | `route/stock-detail` | `common-runtime` | 8 | 10 | shared/all pages | — | js/api.js, js/charts.js, js/core.js, js/render-shared.js, js/shared-calc.js, js/state.js |
 | `pwa.js` | `runtime/pwa` | `common-runtime` | 1 | 0 | shared/all pages | — | — |
@@ -135,7 +135,8 @@
 | `js/main.js` | 108 | `initSearchPage` | ESM execution must import or bridge before evaluation |
 | `js/main.js` | 109 | `initWatchlistPage` | ESM execution must import or bridge before evaluation |
 | `js/main.js` | 110 | `initGlobalMarketPage`, `loadYahooSectorCategory` | ESM execution must import or bridge before evaluation |
-| `js/shared-calc.js` | 508 | `PORTFOLIO_COST_MODEL` | ESM execution must import or bridge before evaluation |
+| `js/shared-calc.js` | 522 | `PORTFOLIO_COST_MODEL` | ESM execution must import or bridge before evaluation |
+| `js/shared-calc.js` | 578 | `PORTFOLIO_COST_MODEL` | ESM execution must import or bridge before evaluation |
 
 ## 6. Dynamic window bridge
 
