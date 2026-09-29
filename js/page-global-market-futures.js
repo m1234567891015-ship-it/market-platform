@@ -2278,7 +2278,7 @@ function renderUsPlatformDashboard(payload) {
       en: "Portfolio",
       tone: "blue",
       href: "tw-Optional-stocks.html#portfolio",
-      desc: "評估資產配置、投資組合績效、Sharpe、Beta、Alpha 與最大回撤。",
+      desc: "評估資產配置、投資組合績效、報酬／平均日變動比、Beta、Alpha 與最大回撤。",
       items: ["資產配置", "績效", "VaR", "最大回撤"],
     },
     {

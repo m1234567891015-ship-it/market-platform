@@ -135,8 +135,8 @@
 | `js/main.js` | 108 | `initSearchPage` | ESM execution must import or bridge before evaluation |
 | `js/main.js` | 109 | `initWatchlistPage` | ESM execution must import or bridge before evaluation |
 | `js/main.js` | 110 | `initGlobalMarketPage`, `loadYahooSectorCategory` | ESM execution must import or bridge before evaluation |
-| `js/shared-calc.js` | 702 | `PORTFOLIO_COST_MODEL` | ESM execution must import or bridge before evaluation |
-| `js/shared-calc.js` | 758 | `PORTFOLIO_COST_MODEL` | ESM execution must import or bridge before evaluation |
+| `js/shared-calc.js` | 706 | `PORTFOLIO_COST_MODEL` | ESM execution must import or bridge before evaluation |
+| `js/shared-calc.js` | 762 | `PORTFOLIO_COST_MODEL` | ESM execution must import or bridge before evaluation |
 
 ## 6. Dynamic window bridge
 
@@ -145,7 +145,7 @@
 | `TWSE_ALL_STOCKS` | external/server-seeded window property | 2 | — | state.js reads an optional preloaded seed before live fetch; preserve as an explicit runtime input |
 | `TWSE_DATA` | external/server-seeded window property | 1 | — | state.js reads an optional preloaded seed before live fetch; preserve as an explicit runtime input |
 | `__MARKET_PULSE_SAFE_INNER_HTML__` | js/core.js | 64 | 68 | idempotence sentinel for the innerHTML safety guard; keep private to the safety adapter |
-| `currentGlobalMarketPayload` | js/page-us.js + js/page-global-market-options.js | 1925, 2066, 2101, 2107, 2120 | 1287, 3862 | cross-route window payload handoff; replace with an explicit store/import before removing the bridge |
+| `currentGlobalMarketPayload` | js/page-us.js + js/page-global-market-options.js | 1925, 2066, 2101, 2107, 2120 | 1288, 3862 | cross-route window payload handoff; replace with an explicit store/import before removing the bridge |
 
 ## 7. TD02-02 handoff rules
 
