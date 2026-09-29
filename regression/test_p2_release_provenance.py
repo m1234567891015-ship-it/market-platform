@@ -29,6 +29,22 @@ OLD_ANCESTOR_SHA = "9860708cf9fef6bd36293ab66526e4d9336a41ea"
 
 
 class P2ReleaseProvenanceTests(unittest.TestCase):
+    def _historical_manifest_fixture(self):
+        temporary_directory = tempfile.TemporaryDirectory(prefix="p2-historical-manifest-")
+        manifest_path = Path(temporary_directory.name) / "manifest.json"
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "source_identity": {
+                        "committed_source_sha": OLD_ANCESTOR_SHA,
+                        "git_head_sha": OLD_ANCESTOR_SHA,
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        return temporary_directory, manifest_path
+
     def _identity_with_git_status(
         self,
         *,
@@ -302,12 +318,14 @@ class P2ReleaseProvenanceTests(unittest.TestCase):
             self.assertTrue(identity["worktree_state_sha256"])
 
     def test_explicit_source_sha_overrides_old_ancestor(self) -> None:
-        self.assertEqual(
-            provenance.bound_source_from_existing_manifest(CURRENT_SOURCE_SHA),
-            OLD_ANCESTOR_SHA,
-        )
-        with redirect_stderr(io.StringIO()):
-            identity = provenance.source_identity(CURRENT_SOURCE_SHA)
+        temporary_directory, manifest_path = self._historical_manifest_fixture()
+        with temporary_directory, patch.object(provenance, "MANIFEST_PATH", manifest_path):
+            self.assertEqual(
+                provenance.bound_source_from_existing_manifest(CURRENT_SOURCE_SHA),
+                OLD_ANCESTOR_SHA,
+            )
+            with redirect_stderr(io.StringIO()):
+                identity = provenance.source_identity(CURRENT_SOURCE_SHA)
         self.assertEqual(identity["committed_source_sha"], CURRENT_SOURCE_SHA)
         self.assertEqual(identity["git_head_sha"], CURRENT_SOURCE_SHA)
         self.assertNotEqual(identity["committed_source_sha"], OLD_ANCESTOR_SHA)
@@ -321,8 +339,10 @@ class P2ReleaseProvenanceTests(unittest.TestCase):
             provenance.source_identity(OLD_ANCESTOR_SHA)
 
     def test_default_source_identity_preserves_existing_ancestor_binding(self) -> None:
-        with redirect_stderr(io.StringIO()):
-            identity = provenance.source_identity()
+        temporary_directory, manifest_path = self._historical_manifest_fixture()
+        with temporary_directory, patch.object(provenance, "MANIFEST_PATH", manifest_path):
+            with redirect_stderr(io.StringIO()):
+                identity = provenance.source_identity()
         self.assertEqual(identity["committed_source_sha"], OLD_ANCESTOR_SHA)
         self.assertEqual(identity["git_head_sha"], OLD_ANCESTOR_SHA)
 
