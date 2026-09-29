@@ -135,8 +135,8 @@
 | `js/main.js` | 108 | `initSearchPage` | ESM execution must import or bridge before evaluation |
 | `js/main.js` | 109 | `initWatchlistPage` | ESM execution must import or bridge before evaluation |
 | `js/main.js` | 110 | `initGlobalMarketPage`, `loadYahooSectorCategory` | ESM execution must import or bridge before evaluation |
-| `js/shared-calc.js` | 600 | `PORTFOLIO_COST_MODEL` | ESM execution must import or bridge before evaluation |
-| `js/shared-calc.js` | 656 | `PORTFOLIO_COST_MODEL` | ESM execution must import or bridge before evaluation |
+| `js/shared-calc.js` | 702 | `PORTFOLIO_COST_MODEL` | ESM execution must import or bridge before evaluation |
+| `js/shared-calc.js` | 758 | `PORTFOLIO_COST_MODEL` | ESM execution must import or bridge before evaluation |
 
 ## 6. Dynamic window bridge
 
