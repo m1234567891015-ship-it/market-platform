@@ -13,6 +13,8 @@ def build_unavailable_ai_analysis(target: str, message: str) -> dict[str, Any]:
         available_evidence=0,
         evidence_total=3,
         decision_context={"provider_status": "failed", "confidence_method": "NOT_CALIBRATED"},
+        execution_direction="UNAVAILABLE",
+        execution_direction_reason="INSUFFICIENT_DECISION_DATA",
     )
     return {
         "target": target,

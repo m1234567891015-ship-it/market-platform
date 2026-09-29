@@ -13,6 +13,8 @@ DECISION_MODEL_VERSION = "rules-based-derivatives-v1"
 DECISION_STRATEGY_VERSION = "derivatives-decision-v1"
 MODEL_CONFIDENCE_STATUS_UNAVAILABLE = "UNAVAILABLE"
 MIN_EVIDENCE_SCORE_FOR_DIRECTIONAL_SUGGESTION = 50
+EXECUTION_DIRECTION_VALUES = {"LONG", "SHORT", "NO_POSITION", "UNAVAILABLE"}
+EXECUTION_DIRECTION_CONTRACT_VERSION = "P1D_DIRECTION_V1"
 
 
 def clamp(value: float, low: float = 0, high: float = 100) -> float:
@@ -175,8 +177,23 @@ def build_decision_contract(
     available_evidence: int,
     evidence_total: int,
     decision_context: dict[str, Any] | None = None,
+    execution_direction: str = "UNAVAILABLE",
+    execution_direction_reason: str = "ANALYSIS_ONLY",
 ) -> dict[str, Any]:
     quality = build_decision_quality(available_evidence, evidence_total, decision_context)
+    normalized_direction = str(execution_direction or "UNAVAILABLE").strip().upper()
+    if normalized_direction not in EXECUTION_DIRECTION_VALUES:
+        normalized_direction = "UNAVAILABLE"
+        execution_direction_reason = "INVALID_EXECUTION_DIRECTION"
+    direction_status = "UNAVAILABLE" if normalized_direction == "UNAVAILABLE" else "AVAILABLE"
+    direction_reason = str(execution_direction_reason or "ANALYSIS_ONLY").strip().upper()
+    provenance_output = {
+        **decision_output,
+        "executionDirection": normalized_direction,
+        "executionDirectionStatus": direction_status,
+        "executionDirectionReason": direction_reason,
+        "executionDirectionContractVersion": EXECUTION_DIRECTION_CONTRACT_VERSION,
+    }
     return {
         **quality,
         # Snake_case aliases mirror the provenance contract while camelCase fields
@@ -188,7 +205,11 @@ def build_decision_contract(
         "model_confidence": None,
         "calibrationStatus": CALIBRATION_STATUS_UNAVAILABLE,
         "probabilityLabelAllowed": False,
-        **build_decision_provenance(symbol, input_snapshot, decision_output, decision_context),
+        "executionDirection": normalized_direction,
+        "executionDirectionStatus": direction_status,
+        "executionDirectionReason": direction_reason,
+        "executionDirectionContractVersion": EXECUTION_DIRECTION_CONTRACT_VERSION,
+        **build_decision_provenance(symbol, input_snapshot, provenance_output, decision_context),
     }
 
 
@@ -241,6 +262,8 @@ def enrich_option_ai_decision(
         available_evidence=evidence,
         evidence_total=5,
         decision_context=decision_context,
+        execution_direction="UNAVAILABLE",
+        execution_direction_reason="NO_EXECUTABLE_POSITION_CONTRACT",
     )
     cross_validation = [
         {
@@ -340,6 +363,10 @@ def enrich_futures_ai_decision(
         available_evidence=evidence,
         evidence_total=4,
         decision_context=context,
+        execution_direction="UNAVAILABLE",
+        execution_direction_reason=(
+            "INSUFFICIENT_DECISION_DATA" if pct is None or item.get("error") else "ANALYSIS_ONLY"
+        ),
     )
     cross_validation = [
         {"name": "Price Change", "status": "available" if pct is not None else "missing", "signal": item.get("pct") or "--"},
