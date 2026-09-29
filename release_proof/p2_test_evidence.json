@@ -137,21 +137,17 @@
   ],
   "schema": "p2-test-evidence-v1",
   "source_identity": {
-    "committed_source_sha": "9860708cf9fef6bd36293ab66526e4d9336a41ea",
+    "committed_source_sha": "8d47a8f13366bba749d33ca0551475aa7a90dac8",
     "generation_context": {
       "platform": "Windows-10-10.0.19045-SP0",
-      "status_entries": [
-        "D release_proof/p2_release_manifest.json"
-      ],
-      "worktree_dirty": true,
-      "worktree_state_sha256": "abf005f66442d808e3b4fadb137214890144e5c88d5b7a8c667876be369028b2"
+      "status_entries": [],
+      "worktree_dirty": false,
+      "worktree_state_sha256": "5dad4241b60cf2e57ddfacf5dae93a78741f6a354edf2e639797ff3e97bf858d"
     },
-    "git_head_sha": "9860708cf9fef6bd36293ab66526e4d9336a41ea",
+    "git_head_sha": "8d47a8f13366bba749d33ca0551475aa7a90dac8",
     "platform": "Windows-10-10.0.19045-SP0",
-    "status_entries": [
-      "D release_proof/p2_release_manifest.json"
-    ],
-    "worktree_dirty": true,
-    "worktree_state_sha256": "abf005f66442d808e3b4fadb137214890144e5c88d5b7a8c667876be369028b2"
+    "status_entries": [],
+    "worktree_dirty": false,
+    "worktree_state_sha256": "5dad4241b60cf2e57ddfacf5dae93a78741f6a354edf2e639797ff3e97bf858d"
   }
 }

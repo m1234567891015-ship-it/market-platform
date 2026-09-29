@@ -34,14 +34,14 @@
       "sha256": "421b0f8ef54e19f868a36c1cc35b392707c7d5da1fb7e98fb2037b76c38f0015"
     },
     {
-      "bytes": 461601,
+      "bytes": 461606,
       "path": "docs/TD02-01_dependency_matrix_2026-08-31.json",
-      "sha256": "f2396a9f11f33e900fd8aba10b191e61371a705d8915791154bc992707328be8"
+      "sha256": "7ea2eecda6e8496247127827e1f267e6612d5be504a7eaea038ba676ef726407"
     },
     {
       "bytes": 27143,
       "path": "docs/TD02-01_dependency_matrix_2026-08-31.md",
-      "sha256": "5ea477750a876b3566ef06e6e597b1db718a5519262b3d86290c41fe7a85d057"
+      "sha256": "a3c797f425b40f78c9e96af5ba8b39c21794848e523bfa6f7181c75bffbd87a5"
     },
     {
       "bytes": 13066,
@@ -64,13 +64,13 @@
       "sha256": "f1f420364ca46ee8e5cc095dcc9e71bbf6a403cf775df1d68a1f0385a250013b"
     },
     {
-      "bytes": 4797,
+      "bytes": 4687,
       "path": "release_proof/p2_test_evidence.json",
-      "sha256": "930b4348835dc422e37957cad846ecdf66d50a28b6f585b25be9f0722ae01539"
+      "sha256": "db883c007807378e59ce6ba9870f6d9d075180c2fbcbfb509b544c8e56a3c9aa"
     }
   ],
   "evidence_binding": "release_proof/p2_test_evidence.json",
-  "generated_at_utc": "2026-09-28T03:48:50.447030+00:00",
+  "generated_at_utc": "2026-09-29T00:51:32.584456+00:00",
   "required_source_files": [
     {
       "bytes": 39027,
@@ -110,7 +110,7 @@
     {
       "bytes": 8622,
       "path": "routes_system.py",
-      "sha256": "e90483eb621d1d2b8386a58f0f46f19e1068a10a911f5206789f6c08808fec0a"
+      "sha256": "4b5db575dc381a374135edbf03dda4bfe93e146e10c306f041dab1f6eeca976c"
     },
     {
       "bytes": 17121,
@@ -138,9 +138,9 @@
       "sha256": "83d359bd4c0241bfa91ad70a84cbe4eb6b68d47f71c5cf01d3c84524aab2ce3c"
     },
     {
-      "bytes": 208149,
+      "bytes": 211712,
       "path": "js/shared-calc.js",
-      "sha256": "72e41beffaa078c503e9313959c7a81d95c494e0ea3df98cc24929de8eff78fd"
+      "sha256": "d5daa9eae9f7a1db7126ba578ecc1cc098b6a985b31c92f44efb486896b33e75"
     },
     {
       "bytes": 21151,
@@ -148,9 +148,9 @@
       "sha256": "036fe103c65c4e1e9db309a6edeee153c0abb0aeb71da4472696d787400e4bf4"
     },
     {
-      "bytes": 72237,
+      "bytes": 72714,
       "path": "js/render-shared.js",
-      "sha256": "2d39d93294d17cdc6aa6eb95bf234c73e755d36ea278df10e34cac567a15f67d"
+      "sha256": "e3696ca7d8810bbd82e68a66b0fe9ebf24dd5afd7c5b96f8650f1dd0b6ae3e33"
     },
     {
       "bytes": 414577,
@@ -168,9 +168,9 @@
       "sha256": "b59849d362a738b569adea211934efeaf0cffbce8a02c0ece3ed92852a9fe727"
     },
     {
-      "bytes": 216788,
+      "bytes": 217270,
       "path": "js/page-tw.js",
-      "sha256": "6c0a37f4b932d2af6304521d154d5beec6880c8814b825a153a2909671a32a79"
+      "sha256": "4dce762622a81d3563aad93db9eff1eeabf304663772f61357d81dffe2c3e88f"
     },
     {
       "bytes": 160312,
@@ -213,14 +213,14 @@
       "sha256": "b5e5eb53f070cc3915f8901902c4fc0b9f3a04c62ae1731172caa0bcae0e5abf"
     },
     {
-      "bytes": 31823,
+      "bytes": 33537,
       "path": "regression/p2_release_provenance.py",
-      "sha256": "f6e56e4d6532256a7666e789148e07d4bd637dd21d5d8b1c8be36c8088623057"
+      "sha256": "4768480aaf7d11afafb7967be37d003033f6105e7fb5128267fe1a65eb440f78"
     },
     {
-      "bytes": 18375,
+      "bytes": 24238,
       "path": "regression/test_p2_release_provenance.py",
-      "sha256": "38700d201a789f1f62563cbac9ea21c6a6da72c098577dd2ca891b5dec0bad8c"
+      "sha256": "2ecc69211d203c9035ef1c5a940f0e1cf8d65861e389d0fd04a79199cd8abe3d"
     },
     {
       "bytes": 3873,
@@ -251,21 +251,17 @@
   },
   "schema": "p2-release-provenance-v1",
   "source_identity": {
-    "committed_source_sha": "9860708cf9fef6bd36293ab66526e4d9336a41ea",
+    "committed_source_sha": "8d47a8f13366bba749d33ca0551475aa7a90dac8",
     "generation_context": {
       "platform": "Windows-10-10.0.19045-SP0",
-      "status_entries": [
-        "D release_proof/p2_release_manifest.json"
-      ],
-      "worktree_dirty": true,
-      "worktree_state_sha256": "abf005f66442d808e3b4fadb137214890144e5c88d5b7a8c667876be369028b2"
+      "status_entries": [],
+      "worktree_dirty": false,
+      "worktree_state_sha256": "5dad4241b60cf2e57ddfacf5dae93a78741f6a354edf2e639797ff3e97bf858d"
     },
-    "git_head_sha": "9860708cf9fef6bd36293ab66526e4d9336a41ea",
+    "git_head_sha": "8d47a8f13366bba749d33ca0551475aa7a90dac8",
     "platform": "Windows-10-10.0.19045-SP0",
-    "status_entries": [
-      "D release_proof/p2_release_manifest.json"
-    ],
-    "worktree_dirty": true,
-    "worktree_state_sha256": "abf005f66442d808e3b4fadb137214890144e5c88d5b7a8c667876be369028b2"
+    "status_entries": [],
+    "worktree_dirty": false,
+    "worktree_state_sha256": "5dad4241b60cf2e57ddfacf5dae93a78741f6a354edf2e639797ff3e97bf858d"
   }
 }
