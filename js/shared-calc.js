@@ -46,6 +46,55 @@ function calculatePortfolioCorrelation(left, right) {
   const denominator = Math.sqrt(denomA * denomB);
   return denominator ? numerator / denominator : null;
 }
+buildBacktestLearningModel.buildSynchronizedPortfolioReturnSample = function buildSynchronizedPortfolioReturnSample(positions, totalValue, lookback = Infinity) {
+  const active = (Array.isArray(positions) ? positions : []).filter((position) => Number(position?.shares) > 0);
+  if (!active.length || !(Number.isFinite(totalValue) && totalValue > 0)) {
+    return { supported: false, reason: "insufficient_history", sampleCount: 0, dates: [], constituents: [] };
+  }
+  const constituents = [];
+  for (const position of active) {
+    const marketValue = Number(position.marketValue);
+    const weight = marketValue / totalValue;
+    const rows = position.detail?.historyDays;
+    if (!(Number.isFinite(weight) && weight >= 0) || !Array.isArray(rows) || rows.length < 2) {
+      return { supported: false, reason: "insufficient_history", sampleCount: 0, dates: [], constituents: [] };
+    }
+    const prices = [];
+    const seenDates = new Set();
+    for (const row of rows) {
+      const date = String(row?.date || row?.label || "");
+      const rawClose = row?.close;
+      const close = rawClose === null || rawClose === undefined || String(rawClose).trim() === ""
+        ? NaN
+        : Number(String(rawClose).replace(/,/g, ""));
+      const parsedDate = new Date(`${date}T00:00:00.000Z`);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(parsedDate.getTime())
+        || parsedDate.toISOString().slice(0, 10) !== date || !(Number.isFinite(close) && close > 0)
+        || seenDates.has(date)) {
+        return { supported: false, reason: "invalid_history", sampleCount: 0, dates: [], constituents: [] };
+      }
+      seenDates.add(date);
+      prices.push({ date, close });
+    }
+    prices.sort((left, right) => left.date.localeCompare(right.date));
+    const window = Number.isFinite(lookback) ? prices.slice(-lookback) : prices;
+    const returnsByDate = new Map();
+    for (let index = 1; index < window.length; index += 1) {
+      const previous = window[index - 1];
+      const current = window[index];
+      returnsByDate.set(current.date, (current.close - previous.close) / previous.close);
+    }
+    constituents.push({ weight, returnsByDate });
+  }
+  const dates = [...constituents[0].returnsByDate.keys()]
+    .filter((date) => constituents.every((item) => item.returnsByDate.has(date)))
+    .sort((left, right) => left.localeCompare(right));
+  const returns = constituents.map((item) => dates.map((date) => item.returnsByDate.get(date)));
+  if (returns.some((series) => series.some((value) => !Number.isFinite(value)))) {
+    return { supported: false, reason: "invalid_history", sampleCount: dates.length, dates: [], constituents: [] };
+  }
+  return { supported: true, reason: null, sampleCount: dates.length, dates, constituents, returns };
+};
 buildBacktestLearningModel.calculateHistoricalPortfolioVar = function calculateHistoricalPortfolioVar(positions, totalValue) {
   // 60 synchronized daily returns leave at least three empirical observations in the 5% tail.
   const minimumSampleCount = 60;
@@ -66,38 +115,9 @@ buildBacktestLearningModel.calculateHistoricalPortfolioVar = function calculateH
   });
   const active = (Array.isArray(positions) ? positions : []).filter((position) => Number(position?.shares) > 0);
   if (!active.length || !(Number.isFinite(totalValue) && totalValue > 0)) return unavailable();
-  const weightedSeries = [];
-  for (const position of active) {
-    const marketValue = Number(position.marketValue);
-    const weight = marketValue / totalValue;
-    const rows = position.detail?.historyDays;
-    if (!(Number.isFinite(weight) && weight >= 0) || !Array.isArray(rows) || rows.length < 2) return unavailable();
-    const prices = [];
-    const dates = new Set();
-    for (const row of rows) {
-      const date = String(row?.date || row?.label || "");
-      const rawClose = row?.close;
-      const close = rawClose === null || rawClose === undefined || String(rawClose).trim() === ""
-        ? NaN
-        : Number(String(rawClose).replace(/,/g, ""));
-      const parsedDate = new Date(`${date}T00:00:00.000Z`);
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== date || !(Number.isFinite(close) && close > 0) || dates.has(date)) return unavailable();
-      dates.add(date);
-      prices.push({ date, close });
-    }
-    prices.sort((a, b) => a.date.localeCompare(b.date));
-    const returnsByDate = new Map();
-    for (let index = 1; index < prices.length; index += 1) {
-      const previous = prices[index - 1];
-      const current = prices[index];
-      returnsByDate.set(current.date, (current.close - previous.close) / previous.close);
-    }
-    weightedSeries.push({ weight, returnsByDate });
-  }
-  const synchronizedDates = [...weightedSeries[0].returnsByDate.keys()]
-    .filter((date) => weightedSeries.every((series) => series.returnsByDate.has(date)))
-    .sort((a, b) => a.localeCompare(b));
-  const portfolioReturns = synchronizedDates.map((date) => weightedSeries.reduce(
+  const sample = buildBacktestLearningModel.buildSynchronizedPortfolioReturnSample(active, totalValue);
+  if (!sample.supported) return unavailable();
+  const portfolioReturns = sample.dates.map((date) => sample.constituents.reduce(
     (sum, series) => sum + series.weight * series.returnsByDate.get(date), 0,
   ));
   if (portfolioReturns.length < minimumSampleCount) return unavailable(portfolioReturns.length);
@@ -131,6 +151,81 @@ function calculatePeriodReturn(history, days) {
   if (!(start > 0) || !(end > 0)) return null;
   return ((end - start) / start) * 100;
 }
+buildBacktestLearningModel.calculatePortfolioEulerRisk = function calculatePortfolioEulerRisk(positions, totalValue, minimumSampleCount = 60, returnSample = null) {
+  const unavailable = (reason, sampleCount = 0) => ({
+    supported: false,
+    status: "unavailable",
+    reason,
+    sampleCount,
+    minimumSampleCount,
+    covarianceConvention: "sample_covariance",
+    portfolioVariance: null,
+    dailyVolatility: null,
+    marginalRisk: [],
+    componentRisk: [],
+    contributionPct: [],
+  });
+  const sample = returnSample || buildBacktestLearningModel.buildSynchronizedPortfolioReturnSample(positions, totalValue, 90);
+  if (!sample.supported) return unavailable(sample.reason, sample.sampleCount);
+  if (sample.sampleCount < minimumSampleCount) return unavailable("insufficient_history", sample.sampleCount);
+  const count = sample.constituents.length;
+  const observations = sample.sampleCount;
+  const means = sample.returns.map((series) => series.reduce((sum, value) => sum + value, 0) / observations);
+  const covariance = Array.from({ length: count }, () => Array(count).fill(0));
+  for (let row = 0; row < count; row += 1) {
+    for (let column = row; column < count; column += 1) {
+      let sum = 0;
+      for (let index = 0; index < observations; index += 1) {
+        sum += (sample.returns[row][index] - means[row]) * (sample.returns[column][index] - means[column]);
+      }
+      const value = sum / (observations - 1);
+      if (!Number.isFinite(value)) return unavailable("invalid_covariance", observations);
+      covariance[row][column] = value;
+      covariance[column][row] = value;
+    }
+  }
+  const weights = sample.constituents.map((item) => item.weight);
+  const sigmaW = covariance.map((row) => row.reduce((sum, value, column) => sum + value * weights[column], 0));
+  const varianceTerms = weights.map((weight, row) => weight * sigmaW[row]);
+  const variance = varianceTerms.reduce((sum, value) => sum + value, 0);
+  const varianceScale = varianceTerms.reduce((sum, value) => sum + Math.abs(value), 0);
+  const tolerance = 1e-12 * Math.max(varianceScale, Number.MIN_VALUE);
+  if (!Number.isFinite(variance) || variance < -tolerance) return unavailable("invalid_variance", observations);
+  const safeVariance = variance <= tolerance ? 0 : variance;
+  if (safeVariance === 0) return unavailable("zero_volatility", observations);
+  const dailyVolatility = Math.sqrt(safeVariance);
+  const marginalRisk = sigmaW.map((value) => value / dailyVolatility);
+  const componentRisk = weights.map((weight, index) => weight * marginalRisk[index]);
+  const componentTotal = componentRisk.reduce((sum, value) => sum + value, 0);
+  const reconciliationTolerance = 1e-10 * Math.max(dailyVolatility, Number.MIN_VALUE);
+  if (marginalRisk.some((value) => !Number.isFinite(value))
+    || componentRisk.some((value) => !Number.isFinite(value))
+    || !Number.isFinite(componentTotal)
+    || Math.abs(componentTotal - dailyVolatility) > reconciliationTolerance) {
+    return unavailable("reconciliation_failure", observations);
+  }
+  const contributionPct = componentRisk.map((value) => value / componentTotal);
+  const pctTotal = contributionPct.reduce((sum, value) => sum + value, 0);
+  if (contributionPct.some((value) => !Number.isFinite(value)) || Math.abs(pctTotal - 1) > 1e-10) {
+    return unavailable("reconciliation_failure", observations);
+  }
+  return {
+    supported: true,
+    status: "supported",
+    reason: null,
+    sampleCount: observations,
+    minimumSampleCount,
+    covarianceConvention: "sample_covariance",
+    portfolioVariance: safeVariance,
+    dailyVolatility,
+    marginalRisk,
+    componentRisk,
+    contributionPct,
+    dates: sample.dates,
+    returns: sample.returns,
+    covariance,
+  };
+};
 function buildPortfolioTheoryAssessment(active, totals) {
   if (!active.length || !(totals.totalValue > 0)) {
     return {
@@ -150,9 +245,11 @@ function buildPortfolioTheoryAssessment(active, totals) {
     };
   }
 
-  const items = active.map((position) => {
+  const returnSample = buildBacktestLearningModel.buildSynchronizedPortfolioReturnSample(active, totals.totalValue, 90);
+  const eulerRisk = buildBacktestLearningModel.calculatePortfolioEulerRisk(active, totals.totalValue, 60, returnSample);
+  const items = active.map((position, index) => {
     const history = normalizePortfolioHistory(position.detail);
-    const returns = calculatePortfolioReturns(history, 90);
+    const returns = returnSample.supported ? returnSample.returns[index] : [];
     const dailyVolatility = calculatePortfolioStdDev(returns);
     const annualVolatility = dailyVolatility * Math.sqrt(252) * 100;
     const return20 = calculatePeriodReturn(history, 20);
@@ -171,51 +268,49 @@ function buildPortfolioTheoryAssessment(active, totals) {
   });
 
   const expectedReturn60 = items.reduce((sum, item) => sum + item.weight * (Number.isFinite(item.return60) ? item.return60 : Number.isFinite(item.return20) ? item.return20 : 0), 0);
-  let covarianceSum = 0;
   let correlationSum = 0;
   let correlationCount = 0;
   for (let i = 0; i < items.length; i += 1) {
     for (let j = 0; j < items.length; j += 1) {
       const corr = i === j ? 1 : calculatePortfolioCorrelation(items[i].returns, items[j].returns);
-      const safeCorr = Number.isFinite(corr) ? corr : 0.35;
-      covarianceSum += items[i].weight * items[j].weight * items[i].dailyVolatility * items[j].dailyVolatility * safeCorr;
       if (j > i && Number.isFinite(corr)) {
         correlationSum += corr;
         correlationCount += 1;
       }
     }
   }
-  const portfolioVolatility = Math.sqrt(Math.max(covarianceSum, 0)) * Math.sqrt(252) * 100;
+  const portfolioVolatility = eulerRisk.supported ? eulerRisk.dailyVolatility * Math.sqrt(252) * 100 : null;
   const weightedVolatility = items.reduce((sum, item) => sum + item.weight * item.annualVolatility, 0);
   const diversificationRatio = portfolioVolatility > 0 ? weightedVolatility / portfolioVolatility : null;
   const averageCorrelation = correlationCount ? correlationSum / correlationCount : null;
   const hhi = items.reduce((sum, item) => sum + item.weight ** 2, 0);
   const effectivePositions = hhi ? 1 / hhi : 0;
   const efficiencyScore = portfolioVolatility > 0 ? expectedReturn60 / portfolioVolatility : null;
-  const riskBase = items.reduce((sum, item) => sum + item.weight * item.dailyVolatility, 0);
-  const riskContributors = items.map((item) => ({
+  const riskContributors = eulerRisk.supported ? items.map((item, index) => ({
     code: item.stock.code,
     name: item.stock.name,
-    contribution: riskBase ? (item.weight * item.dailyVolatility / riskBase) * 100 : item.weight * 100,
-  })).sort((a, b) => b.contribution - a.contribution);
+    contribution: eulerRisk.contributionPct[index] * 100,
+    componentRisk: eulerRisk.componentRisk[index],
+    marginalRisk: eulerRisk.marginalRisk[index],
+  })).sort((a, b) => b.contribution - a.contribution) : [];
   const topRiskContributor = riskContributors[0] || null;
 
-  const tone = portfolioVolatility >= 45 || effectivePositions < 2 || (averageCorrelation ?? 0) >= 0.75
+  const tone = (Number.isFinite(portfolioVolatility) && portfolioVolatility >= 45) || effectivePositions < 2 || (averageCorrelation ?? 0) >= 0.75
     ? "negative"
-    : portfolioVolatility >= 28 || effectivePositions < 3 || (averageCorrelation ?? 0) >= 0.55
+    : (Number.isFinite(portfolioVolatility) && portfolioVolatility >= 28) || effectivePositions < 3 || (averageCorrelation ?? 0) >= 0.55
       ? "neutral"
       : "positive";
   const label = tone === "positive" ? "組合理論結構健康" : tone === "negative" ? "組合理論風險偏高" : "組合理論需再平衡";
   const details = [
-    `均值-變異：60 日權重動能 ${expectedReturn60 >= 0 ? "+" : ""}${expectedReturn60.toFixed(2)}%，年化波動估計 ${portfolioVolatility.toFixed(2)}%。`,
+    `均值-變異：60 日權重動能 ${expectedReturn60 >= 0 ? "+" : ""}${expectedReturn60.toFixed(2)}%，年化波動估計 ${Number.isFinite(portfolioVolatility) ? `${portfolioVolatility.toFixed(2)}%` : "資料不足"}。`,
     `分散化：有效持股數 ${effectivePositions.toFixed(1)} 檔，分散化比率 ${Number.isFinite(diversificationRatio) ? diversificationRatio.toFixed(2) : "--"}。`,
     `相關性：平均相關係數 ${Number.isFinite(averageCorrelation) ? averageCorrelation.toFixed(2) : "資料不足"}，用於辨識同漲同跌風險。`,
-    topRiskContributor ? `風險貢獻：${topRiskContributor.code} ${topRiskContributor.name} 約占 ${topRiskContributor.contribution.toFixed(1)}%。` : "風險貢獻資料不足。",
+    topRiskContributor ? `風險貢獻：${topRiskContributor.code} ${topRiskContributor.name} 約占 ${topRiskContributor.contribution.toFixed(1)}%。` : `風險貢獻資料不足（同步樣本 ${eulerRisk.sampleCount}/${eulerRisk.minimumSampleCount} 日；${eulerRisk.reason}）。`,
   ];
   const actions = [];
   if (effectivePositions < 2) actions.push("有效持股數偏低，組合接近單押，建議加入低相關標的或降低單一部位。");
   if ((averageCorrelation ?? 0) >= 0.65) actions.push("持股相關性偏高，分散看似增加但實際風險可能仍集中。");
-  if (portfolioVolatility >= 35) actions.push("組合波動偏高，應降低高波動持股權重或提高現金/ETF 比例。");
+  if (Number.isFinite(portfolioVolatility) && portfolioVolatility >= 35) actions.push("組合波動偏高，應降低高波動持股權重或提高現金/ETF 比例。");
   if (topRiskContributor?.contribution >= 45) actions.push(`最大風險貢獻集中在 ${topRiskContributor.code}，再平衡時優先檢查該部位。`);
   if (Number.isFinite(efficiencyScore) && efficiencyScore < 0) actions.push("風險效率為負，代表近期承擔波動未換得正向動能，宜保守。");
   if (!actions.length) actions.push("權重、相關性與波動暫未出現重大失衡，可依停損停利紀律持續監控。");
@@ -233,6 +328,13 @@ function buildPortfolioTheoryAssessment(active, totals) {
       effectivePositions,
       efficiencyScore,
       topRiskContributor,
+      riskContributors,
+      riskContributionStatus: {
+        supported: eulerRisk.supported,
+        reason: eulerRisk.reason,
+        sampleCount: eulerRisk.sampleCount,
+        minimumSampleCount: eulerRisk.minimumSampleCount,
+      },
     },
   };
 }

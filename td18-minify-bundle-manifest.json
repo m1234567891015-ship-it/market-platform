@@ -23,15 +23,15 @@
       "name": "common-runtime",
       "output": "common-runtime.min.js",
       "sourceMap": "common-runtime.min.js.map",
-      "bytes": 320512,
-      "sha256": "6598b6e83aa84e76a195cbd791e2477afc9ae81fce5bc4c3dc3c206b304a8d5c",
-      "sourceMapBytes": 841456,
-      "sourceMapSha256": "edaaa3220cc504498e183eea0a00f963f5299f227fd37ed9ca8e0ae42128f805",
+      "bytes": 323691,
+      "sha256": "e4588eb2a329794f45944c21e1f969e372cc29df632517106232edb809cdde9b",
+      "sourceMapBytes": 851334,
+      "sourceMapSha256": "b3bd3b0bc579fd888a502121b76ac87d64e53fd863086c6a8fcfb278e619033d",
       "inputs": [
         {
           "path": "pwa.js",
           "bytes": 3846,
-          "sha256": "cb55c5e6b7a0b8b14abaccef724dc74984cd641d132fdf05054e0d325bc42b02"
+          "sha256": "d23f20a3d68eb22241127d1582d8e0544f892b8319e29f54c915cf7704d5756f"
         },
         {
           "path": "js/state.js",
@@ -50,8 +50,8 @@
         },
         {
           "path": "js/shared-calc.js",
-          "bytes": 211712,
-          "sha256": "d5daa9eae9f7a1db7126ba578ecc1cc098b6a985b31c92f44efb486896b33e75"
+          "bytes": 217375,
+          "sha256": "06f75fa398d3e9131c6ccba147cee865903a6f9773eff7dc1c47c8263e2476ba"
         },
         {
           "path": "js/render-shared.js",
@@ -144,7 +144,7 @@
     }
   ],
   "rollout": {
-    "version": "td18-minify-62ce16e931200311",
+    "version": "td18-minify-c72668a951af06cf",
     "htmlPages": 21,
     "scriptOrder": [
       "common-runtime.min.js",
