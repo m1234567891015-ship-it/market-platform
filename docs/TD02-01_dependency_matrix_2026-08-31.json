@@ -1098,7 +1098,7 @@
       ],
       "reason": "cross-route window payload handoff; replace with an explicit store/import before removing the bridge",
       "write_lines": [
-        1287,
+        1288,
         3862
       ]
     }
@@ -1141,16 +1141,16 @@
       "js/legacy-unclassified.js": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "js/main.js": "e523382d1440d13fa98e0ac95451a0ae3c51e05cda11acbfb065c1241ef1818f",
       "js/page-global-market-assethub.js": "ea171286f17635284ac0b5974a45a9691653e3d77afa498d82954253ded1f352",
-      "js/page-global-market-futures.js": "b59849d362a738b569adea211934efeaf0cffbce8a02c0ece3ed92852a9fe727",
+      "js/page-global-market-futures.js": "c818b104476da29717ea9eb5e697711eb5e7db414bf6b25ec2c8f3766be92df0",
       "js/page-global-market-options.js": "132859f137025dda7138c07eed34bc8ad4cb7510a0099c3a77ef8090b35da593",
       "js/page-home.js": "8781d1e483a1f798b1140583ac5a06c036e8a2d36ea9058ca70c04fe64ffcc36",
-      "js/page-tw.js": "4dce762622a81d3563aad93db9eff1eeabf304663772f61357d81dffe2c3e88f",
-      "js/page-us.js": "1f1ede2345dfb86707b6a523cbf7a9a2b6674e0b5f4b6122d723896de5317dd5",
-      "js/render-shared.js": "e3696ca7d8810bbd82e68a66b0fe9ebf24dd5afd7c5b96f8650f1dd0b6ae3e33",
-      "js/shared-calc.js": "06f75fa398d3e9131c6ccba147cee865903a6f9773eff7dc1c47c8263e2476ba",
+      "js/page-tw.js": "eba0d02faae9f5eeac0877c4ed3760cd4668b50bb09a56971a5f3bfaca2966c0",
+      "js/page-us.js": "4253683004152070399c20886db3ee5030ba5a453fd6d369261ba5bbfe96190a",
+      "js/render-shared.js": "3ba53b68a0774655edc477a37bafa3a9739ca073d9b68d513b582be615400257",
+      "js/shared-calc.js": "99e532c992d47bab678b4159c89bae4f7e27cc3a15e6fa323ca08726c814294b",
       "js/state.js": "036fe103c65c4e1e9db309a6edeee153c0abb0aeb71da4472696d787400e4bf4",
       "js/stock-detail.js": "ed199c94348c778c29f5ad9bbe8af4441073ff5777b75e8c09fab69d1fbad43a",
-      "pwa.js": "39e3feb372560898d33d01fbfa0fdf6f561071adee46922160fab844ec2d9507"
+      "pwa.js": "fec3b2a39434d444eaaecca222b8105d6c2d6873ba23b309f699679dca21cca2"
     },
     "status_addon_order": [
       "pwa.js",
@@ -5691,13 +5691,13 @@
       "source": "js/shared-calc.js",
       "top_level_immediate_references": [
         {
-          "line": 702,
+          "line": 706,
           "symbols": [
             "PORTFOLIO_COST_MODEL"
           ]
         },
         {
-          "line": 758,
+          "line": 762,
           "symbols": [
             "PORTFOLIO_COST_MODEL"
           ]
@@ -11134,7 +11134,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 2321,
+      "line": 2322,
       "source": "js/page-us.js",
       "symbol": "bindUsDetailChartControls"
     },
@@ -11142,7 +11142,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 1338,
+      "line": 1339,
       "source": "js/page-us.js",
       "symbol": "bindUsNyseDirectoryControls"
     },
@@ -11158,7 +11158,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 2709,
+      "line": 2710,
       "source": "js/page-us.js",
       "symbol": "buildUsWatchlistAiAnalysis"
     },
@@ -11198,7 +11198,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 930,
+      "line": 931,
       "source": "js/page-us.js",
       "symbol": "getUsEtfComparisonItems"
     },
@@ -11206,7 +11206,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 398,
+      "line": 400,
       "source": "js/page-us.js",
       "symbol": "getUsEtfDetailPositionInsight"
     },
@@ -11214,7 +11214,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 450,
+      "line": 452,
       "source": "js/page-us.js",
       "symbol": "getUsEtfDetailRiskInsight"
     },
@@ -11238,7 +11238,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 868,
+      "line": 869,
       "source": "js/page-us.js",
       "symbol": "getUsEtfDirectoryItems"
     },
@@ -11270,7 +11270,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 865,
+      "line": 866,
       "source": "js/page-us.js",
       "symbol": "getUsEtfMarketItems"
     },
@@ -11278,7 +11278,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 1221,
+      "line": 1222,
       "source": "js/page-us.js",
       "symbol": "getUsEtfPopularRiskText"
     },
@@ -11286,7 +11286,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 1203,
+      "line": 1204,
       "source": "js/page-us.js",
       "symbol": "getUsEtfPopularThemeNote"
     },
@@ -11302,7 +11302,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 914,
+      "line": 915,
       "source": "js/page-us.js",
       "symbol": "getUsEtfRankedItems"
     },
@@ -11310,7 +11310,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 871,
+      "line": 872,
       "source": "js/page-us.js",
       "symbol": "getUsEtfReturnStats"
     },
@@ -11328,7 +11328,7 @@
         "js/main.js"
       ],
       "kind": "function",
-      "line": 1310,
+      "line": 1311,
       "source": "js/page-us.js",
       "symbol": "initUsEtfPage"
     },
@@ -11338,7 +11338,7 @@
         "js/main.js"
       ],
       "kind": "function",
-      "line": 2664,
+      "line": 2665,
       "source": "js/page-us.js",
       "symbol": "initUsStockSearchPage"
     },
@@ -11346,7 +11346,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 2887,
+      "line": 2888,
       "source": "js/page-us.js",
       "symbol": "initUsVolumeMomentumCursor"
     },
@@ -11356,7 +11356,7 @@
         "js/main.js"
       ],
       "kind": "function",
-      "line": 2876,
+      "line": 2877,
       "source": "js/page-us.js",
       "symbol": "initUsWatchlistPage"
     },
@@ -11364,7 +11364,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 1421,
+      "line": 1422,
       "source": "js/page-us.js",
       "symbol": "isUsStockInWatchlist"
     },
@@ -11372,7 +11372,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 686,
+      "line": 687,
       "source": "js/page-us.js",
       "symbol": "loadUsEtfDetail"
     },
@@ -11380,7 +11380,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 818,
+      "line": 819,
       "source": "js/page-us.js",
       "symbol": "loadUsNyseDirectory"
     },
@@ -11388,7 +11388,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 862,
+      "line": 863,
       "source": "js/page-us.js",
       "symbol": "loadUsNyseListedEtfs"
     },
@@ -11396,7 +11396,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 2604,
+      "line": 2605,
       "source": "js/page-us.js",
       "symbol": "loadUsStockSymbol"
     },
@@ -11404,7 +11404,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 2825,
+      "line": 2826,
       "source": "js/page-us.js",
       "symbol": "loadUsWatchlistAiAnalyses"
     },
@@ -11420,7 +11420,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 1443,
+      "line": 1444,
       "source": "js/page-us.js",
       "symbol": "renderUsDetailAnalysisCards"
     },
@@ -11428,7 +11428,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 1942,
+      "line": 1943,
       "source": "js/page-us.js",
       "symbol": "renderUsDetailNewsCard"
     },
@@ -11436,7 +11436,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 1091,
+      "line": 1092,
       "source": "js/page-us.js",
       "symbol": "renderUsEtfAiAllocation"
     },
@@ -11460,7 +11460,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 1231,
+      "line": 1232,
       "source": "js/page-us.js",
       "symbol": "renderUsEtfComparison"
     },
@@ -11468,7 +11468,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 483,
+      "line": 485,
       "source": "js/page-us.js",
       "symbol": "renderUsEtfComponentsCard"
     },
@@ -11476,7 +11476,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 564,
+      "line": 566,
       "source": "js/page-us.js",
       "symbol": "renderUsEtfDetail"
     },
@@ -11492,7 +11492,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 514,
+      "line": 516,
       "source": "js/page-us.js",
       "symbol": "renderUsEtfIncomeCard"
     },
@@ -11500,7 +11500,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 968,
+      "line": 969,
       "source": "js/page-us.js",
       "symbol": "renderUsEtfOverview"
     },
@@ -11508,7 +11508,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 1284,
+      "line": 1285,
       "source": "js/page-us.js",
       "symbol": "renderUsEtfPage"
     },
@@ -11516,7 +11516,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 958,
+      "line": 959,
       "source": "js/page-us.js",
       "symbol": "renderUsEtfPageHero"
     },
@@ -11524,7 +11524,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 937,
+      "line": 938,
       "source": "js/page-us.js",
       "symbol": "renderUsEtfRankRows"
     },
@@ -11532,7 +11532,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 1182,
+      "line": 1183,
       "source": "js/page-us.js",
       "symbol": "renderUsEtfRanking"
     },
@@ -11548,7 +11548,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 470,
+      "line": 472,
       "source": "js/page-us.js",
       "symbol": "renderUsEtfSourceStep"
     },
@@ -11556,7 +11556,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 2436,
+      "line": 2437,
       "source": "js/page-us.js",
       "symbol": "renderUsMarketDetailTo"
     },
@@ -11572,7 +11572,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 737,
+      "line": 738,
       "source": "js/page-us.js",
       "symbol": "renderUsNyseDirectoryTable"
     },
@@ -11588,7 +11588,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 815,
+      "line": 816,
       "source": "js/page-us.js",
       "symbol": "renderUsNyseListedEtfsTable"
     },
@@ -11604,7 +11604,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 812,
+      "line": 813,
       "source": "js/page-us.js",
       "symbol": "renderUsNyseListedStocksTable"
     },
@@ -11612,7 +11612,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 2568,
+      "line": 2569,
       "source": "js/page-us.js",
       "symbol": "renderUsStockSearchDetail"
     },
@@ -11620,7 +11620,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 2571,
+      "line": 2572,
       "source": "js/page-us.js",
       "symbol": "renderUsStockSearchResults"
     },
@@ -11628,7 +11628,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 2152,
+      "line": 2153,
       "source": "js/page-us.js",
       "symbol": "renderUsTechnicalTheorySection"
     },
@@ -11636,7 +11636,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 1978,
+      "line": 1979,
       "source": "js/page-us.js",
       "symbol": "renderUsValuationCompanyCard"
     },
@@ -11644,7 +11644,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 2629,
+      "line": 2630,
       "source": "js/page-us.js",
       "symbol": "runUsStockSearch"
     },
@@ -11652,7 +11652,7 @@
       "candidate_module": "route/page-us",
       "consumers": [],
       "kind": "function",
-      "line": 1425,
+      "line": 1426,
       "source": "js/page-us.js",
       "symbol": "toggleUsDetailWatchlist"
     },
@@ -12132,7 +12132,7 @@
         "js/stock-detail.js"
       ],
       "kind": "function",
-      "line": 2864,
+      "line": 2868,
       "source": "js/shared-calc.js",
       "symbol": "analyzeTechnicalTheories"
     },
@@ -12143,7 +12143,7 @@
         "js/page-global-market-futures.js"
       ],
       "kind": "function",
-      "line": 3757,
+      "line": 3761,
       "source": "js/shared-calc.js",
       "symbol": "averageFuturesValues"
     },
@@ -12154,7 +12154,7 @@
         "js/render-shared.js"
       ],
       "kind": "function",
-      "line": 1701,
+      "line": 1705,
       "source": "js/shared-calc.js",
       "symbol": "buildBacktestLearningModel"
     },
@@ -12162,7 +12162,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 1441,
+      "line": 1445,
       "source": "js/shared-calc.js",
       "symbol": "buildBacktestModelRebuildResult"
     },
@@ -12170,7 +12170,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 1358,
+      "line": 1362,
       "source": "js/shared-calc.js",
       "symbol": "buildBacktestModelValidation"
     },
@@ -12178,7 +12178,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 1503,
+      "line": 1507,
       "source": "js/shared-calc.js",
       "symbol": "buildBacktestTrendForecast"
     },
@@ -12186,7 +12186,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 2650,
+      "line": 2654,
       "source": "js/shared-calc.js",
       "symbol": "buildChipIndicator"
     },
@@ -12194,7 +12194,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 2424,
+      "line": 2428,
       "source": "js/shared-calc.js",
       "symbol": "buildFuturesBacktestFramework"
     },
@@ -12202,7 +12202,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 432,
+      "line": 436,
       "source": "js/shared-calc.js",
       "symbol": "buildFuturesBreadthProxyIndicators"
     },
@@ -12213,7 +12213,7 @@
         "js/page-global-market-futures.js"
       ],
       "kind": "function",
-      "line": 3967,
+      "line": 3971,
       "source": "js/shared-calc.js",
       "symbol": "buildFuturesTechnicalSnapshot"
     },
@@ -12223,7 +12223,7 @@
         "js/render-shared.js"
       ],
       "kind": "function",
-      "line": 3711,
+      "line": 3715,
       "source": "js/shared-calc.js",
       "symbol": "buildGlobalMarketDetail"
     },
@@ -12231,7 +12231,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 2117,
+      "line": 2121,
       "source": "js/shared-calc.js",
       "symbol": "buildInstitutionalBacktestFramework"
     },
@@ -12244,7 +12244,7 @@
         "js/stock-detail.js"
       ],
       "kind": "function",
-      "line": 400,
+      "line": 404,
       "source": "js/shared-calc.js",
       "symbol": "buildMarketBreadthIndicators"
     },
@@ -12252,7 +12252,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 2683,
+      "line": 2687,
       "source": "js/shared-calc.js",
       "symbol": "buildMovingAverageIndicator"
     },
@@ -12273,7 +12273,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 4287,
+      "line": 4291,
       "source": "js/shared-calc.js",
       "symbol": "calculateAtr"
     },
@@ -12281,7 +12281,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 614,
+      "line": 618,
       "source": "js/shared-calc.js",
       "symbol": "calculateBacktestAtrPct"
     },
@@ -12289,7 +12289,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 680,
+      "line": 684,
       "source": "js/shared-calc.js",
       "symbol": "calculateBacktestAverageReturn"
     },
@@ -12297,7 +12297,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 1118,
+      "line": 1122,
       "source": "js/shared-calc.js",
       "symbol": "calculateBacktestProfitFactor"
     },
@@ -12305,7 +12305,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 676,
+      "line": 680,
       "source": "js/shared-calc.js",
       "symbol": "calculateBacktestWinRate"
     },
@@ -12315,7 +12315,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 4220,
+      "line": 4224,
       "source": "js/shared-calc.js",
       "symbol": "calculateBias"
     },
@@ -12325,7 +12325,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 2520,
+      "line": 2524,
       "source": "js/shared-calc.js",
       "symbol": "calculateBollingerBands"
     },
@@ -12335,7 +12335,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 4301,
+      "line": 4305,
       "source": "js/shared-calc.js",
       "symbol": "calculateCci"
     },
@@ -12345,7 +12345,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 4227,
+      "line": 4231,
       "source": "js/shared-calc.js",
       "symbol": "calculateDmi"
     },
@@ -12355,7 +12355,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 2538,
+      "line": 2542,
       "source": "js/shared-calc.js",
       "symbol": "calculateFibonacciRetracement"
     },
@@ -12363,7 +12363,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 3881,
+      "line": 3885,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesAtr"
     },
@@ -12371,7 +12371,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 3890,
+      "line": 3894,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesCci"
     },
@@ -12379,7 +12379,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 3908,
+      "line": 3912,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesDmiAdx"
     },
@@ -12387,7 +12387,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 3768,
+      "line": 3772,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesEmaSeries"
     },
@@ -12395,7 +12395,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 3865,
+      "line": 3869,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesKd"
     },
@@ -12403,7 +12403,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 3800,
+      "line": 3804,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesKdSeries"
     },
@@ -12411,7 +12411,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 3836,
+      "line": 3840,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesMfi"
     },
@@ -12419,7 +12419,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 3827,
+      "line": 3831,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesObvSeries"
     },
@@ -12427,7 +12427,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 3936,
+      "line": 3940,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesParabolicSar"
     },
@@ -12435,7 +12435,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 3785,
+      "line": 3789,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesRollingAverageSeries"
     },
@@ -12443,7 +12443,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 3850,
+      "line": 3854,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesRollingIndicatorSeries"
     },
@@ -12451,7 +12451,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 3853,
+      "line": 3857,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesRsi"
     },
@@ -12459,7 +12459,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 3793,
+      "line": 3797,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesRsiSeries"
     },
@@ -12467,7 +12467,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 3819,
+      "line": 3823,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesVwapSeries"
     },
@@ -12475,7 +12475,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 3900,
+      "line": 3904,
       "source": "js/shared-calc.js",
       "symbol": "calculateFuturesWilliamsR"
     },
@@ -12485,7 +12485,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 4381,
+      "line": 4385,
       "source": "js/shared-calc.js",
       "symbol": "calculateIchimoku"
     },
@@ -12495,7 +12495,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 4175,
+      "line": 4179,
       "source": "js/shared-calc.js",
       "symbol": "calculateKd"
     },
@@ -12505,7 +12505,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 4188,
+      "line": 4192,
       "source": "js/shared-calc.js",
       "symbol": "calculateMacd"
     },
@@ -12513,7 +12513,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 632,
+      "line": 636,
       "source": "js/shared-calc.js",
       "symbol": "calculateMaxDrawdownPct"
     },
@@ -12521,7 +12521,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 1125,
+      "line": 1129,
       "source": "js/shared-calc.js",
       "symbol": "calculateMaxLosingStreak"
     },
@@ -12531,7 +12531,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 4321,
+      "line": 4325,
       "source": "js/shared-calc.js",
       "symbol": "calculateMfi"
     },
@@ -12541,7 +12541,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 4342,
+      "line": 4346,
       "source": "js/shared-calc.js",
       "symbol": "calculateMomentum"
     },
@@ -12551,7 +12551,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 4277,
+      "line": 4281,
       "source": "js/shared-calc.js",
       "symbol": "calculateObv"
     },
@@ -12561,7 +12561,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 4347,
+      "line": 4351,
       "source": "js/shared-calc.js",
       "symbol": "calculateParabolicSarSeries"
     },
@@ -12601,7 +12601,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 532,
+      "line": 536,
       "source": "js/shared-calc.js",
       "symbol": "calculatePsy"
     },
@@ -12611,7 +12611,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 4202,
+      "line": 4206,
       "source": "js/shared-calc.js",
       "symbol": "calculateRsi"
     },
@@ -12619,7 +12619,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 673,
+      "line": 677,
       "source": "js/shared-calc.js",
       "symbol": "calculateSharpeLikeScore"
     },
@@ -12629,7 +12629,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 2598,
+      "line": 2602,
       "source": "js/shared-calc.js",
       "symbol": "calculateSmartMoneyConcepts"
     },
@@ -12639,7 +12639,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 2560,
+      "line": 2564,
       "source": "js/shared-calc.js",
       "symbol": "calculateSupportResistance"
     },
@@ -12649,7 +12649,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 4312,
+      "line": 4316,
       "source": "js/shared-calc.js",
       "symbol": "calculateWilliamsR"
     },
@@ -12657,7 +12657,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 541,
+      "line": 545,
       "source": "js/shared-calc.js",
       "symbol": "classifyVolumePriceNinePatterns"
     },
@@ -12665,7 +12665,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 4161,
+      "line": 4165,
       "source": "js/shared-calc.js",
       "symbol": "exponentialMovingAverage"
     },
@@ -12676,7 +12676,7 @@
         "js/render-shared.js"
       ],
       "kind": "function",
-      "line": 341,
+      "line": 345,
       "source": "js/shared-calc.js",
       "symbol": "getSimulationSignal"
     },
@@ -12684,7 +12684,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 4135,
+      "line": 4139,
       "source": "js/shared-calc.js",
       "symbol": "isValidTechnicalOhlc"
     },
@@ -12692,7 +12692,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 3761,
+      "line": 3765,
       "source": "js/shared-calc.js",
       "symbol": "lastFiniteFuturesValue"
     },
@@ -12703,7 +12703,7 @@
         "js/page-tw.js"
       ],
       "kind": "function",
-      "line": 3704,
+      "line": 3708,
       "source": "js/shared-calc.js",
       "symbol": "movingAverage"
     },
@@ -12713,7 +12713,7 @@
         "js/charts.js"
       ],
       "kind": "function",
-      "line": 4140,
+      "line": 4144,
       "source": "js/shared-calc.js",
       "symbol": "normalizeHistory"
     },
@@ -12731,7 +12731,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 4102,
+      "line": 4106,
       "source": "js/shared-calc.js",
       "symbol": "parseRocDate"
     },
@@ -12739,7 +12739,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 1139,
+      "line": 1143,
       "source": "js/shared-calc.js",
       "symbol": "summarizeBacktestSegment"
     },
@@ -12747,7 +12747,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 389,
+      "line": 393,
       "source": "js/shared-calc.js",
       "symbol": "technicalPivots"
     },
@@ -12755,7 +12755,7 @@
       "candidate_module": "runtime/shared-calc",
       "consumers": [],
       "kind": "function",
-      "line": 375,
+      "line": 379,
       "source": "js/shared-calc.js",
       "symbol": "technicalSlope"
     },
@@ -12765,7 +12765,7 @@
         "js/page-global-market-futures.js"
       ],
       "kind": "function",
-      "line": 366,
+      "line": 370,
       "source": "js/shared-calc.js",
       "symbol": "technicalSma"
     },
@@ -14511,13 +14511,13 @@
       "candidate_module": "runtime/shared-calc",
       "references": [
         {
-          "line": 702,
+          "line": 706,
           "symbols": [
             "PORTFOLIO_COST_MODEL"
           ]
         },
         {
-          "line": 758,
+          "line": 762,
           "symbols": [
             "PORTFOLIO_COST_MODEL"
           ]

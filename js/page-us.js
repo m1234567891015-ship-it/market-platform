@@ -352,7 +352,9 @@ function getUsEtfDetailSignals(item = {}, stats = {}, dailyPct = null, volume = 
   const returnPct = Number.isFinite(stats.returnPct) ? stats.returnPct : null;
   const volatility = Number.isFinite(stats.volatility) ? stats.volatility : null;
   const drawdown = Number.isFinite(stats.maxDrawdown) ? stats.maxDrawdown : null;
-  const sharpe = Number.isFinite(stats.sharpe) ? stats.sharpe : null;
+  const annualizedReturnVolatilityRatio = Number.isFinite(stats.annualizedReturnVolatilityRatio)
+    ? stats.annualizedReturnVolatilityRatio
+    : null;
   const volumeValue = parseMarketNumber(volume);
   const dailyTone = getUsEtfDetailTone(dailyPct);
   const trendTone = getUsEtfDetailTone(returnPct);
@@ -391,7 +393,7 @@ function getUsEtfDetailSignals(item = {}, stats = {}, dailyPct = null, volume = 
     returnPct,
     volatility,
     drawdown,
-    sharpe,
+    annualizedReturnVolatilityRatio,
     volumeValue,
   };
 }
@@ -426,7 +428,7 @@ function getUsEtfDetailPositionInsight(item = {}, categoryLabel = "ETF", signals
     },
     factor: {
       lead: `${symbol} 屬於風格因子配置，用來觀察成長、價值、品質或低波動風格輪動。`,
-      points: ["適合搭配大盤 ETF，看目前市場是追逐 beta 還是偏好特定因子。", `目前趨勢為「${trend}」，若 Sharpe 改善，代表風險調整後動能較有支撐。`],
+      points: ["適合搭配大盤 ETF，看目前市場是追逐 beta 還是偏好特定因子。", `目前趨勢為「${trend}」，可搭配未扣除無風險利率的年化報酬／波動比觀察近期表現。`],
     },
     commodity: {
       lead: `${symbol} 偏商品或避險題材，常受美元、利率、通膨與供需事件影響。`,
@@ -599,7 +601,6 @@ function renderUsEtfDetail(detail, fallbackItem = {}) {
   const categoryInsight = getUsEtfPopularThemeNote({ ...directoryItem, ...quoteItem }, stats);
   const riskInsight = getUsEtfPopularRiskText({ ...directoryItem, ...quoteItem }, stats);
   const drawdownText = Number.isFinite(signals.drawdown) ? formatSignedPercentValue(signals.drawdown) : "--";
-  const sharpeText = Number.isFinite(signals.sharpe) ? signals.sharpe.toFixed(2) : "--";
   const volatilityText = Number.isFinite(signals.volatility) ? `${signals.volatility.toFixed(2)}%` : "--";
   const returnText = formatSignedPercentValue(signals.returnPct);
   const dailyText = Number.isFinite(dailyPct) ? formatSignedPercentValue(dailyPct) : pct;
@@ -670,7 +671,7 @@ function renderUsEtfDetail(detail, fallbackItem = {}) {
             ${renderUsEtfSourceStep("1 官方清單", directoryItem.symbol ? "已匹配" : "待匹配", directorySourceText, `確認 ${symbol || "ETF"} 是否為美股 ETF、交易所與上市名稱。`, directoryItem.symbol ? "up" : "flat")}
             ${renderUsEtfSourceStep("2 Yahoo 行情", hasQuote ? "已同步" : "待同步", quoteSourceText, hasQuote ? "提供收盤、漲跌、成交量與近期價格序列。" : "行情缺值時保留官方清單，不使用假價格。", hasQuote ? "up" : "down")}
             ${renderUsEtfSourceStep("3 成分 / 收益", holdings.length || annualDividend ? "已同步" : "待同步", "Yahoo quote summary / Top Holdings", "提供 ETF 持股、年化股息、股息率、AUM 與費用率；缺漏時保留資料待補。", holdings.length || annualDividend ? "up" : "flat")}
-            ${renderUsEtfSourceStep("4 風險指標", Number.isFinite(signals.volatility) ? "已計算" : "待計算", `波動 ${volatilityText} / 回撤 ${drawdownText}`, "由 Yahoo 價格序列推估區間績效、波動、回撤與 Sharpe。", Number.isFinite(signals.volatility) ? "up" : "flat")}
+            ${renderUsEtfSourceStep("4 風險指標", Number.isFinite(signals.volatility) ? "已計算" : "待計算", `波動 ${volatilityText} / 回撤 ${drawdownText}`, "由 Yahoo 價格序列計算區間績效、年化波動、回撤與年化報酬／波動比（未扣除無風險利率）。", Number.isFinite(signals.volatility) ? "up" : "flat")}
           </div>
           <div class="company-news-sources">
             <a href="${safeUrl(buildYahooFinanceUrl(symbol))}" target="_blank" rel="noopener noreferrer">Yahoo Finance</a>
@@ -874,7 +875,7 @@ function getUsEtfReturnStats(item = {}) {
     return {
       returnPct: parseMarketNumber(item.periodReturn),
       volatility: null,
-      sharpe: null,
+      annualizedReturnVolatilityRatio: null,
       maxDrawdown: null,
       latestClose: parseMarketNumber(item.close),
     };
@@ -906,7 +907,7 @@ function getUsEtfReturnStats(item = {}) {
   return {
     returnPct: first ? ((last - first) / first) * 100 : null,
     volatility: Number.isFinite(dailyStd) ? dailyStd * Math.sqrt(252) * 100 : null,
-    sharpe: Number.isFinite(average) && dailyStd ? (average / dailyStd) * Math.sqrt(252) : null,
+    annualizedReturnVolatilityRatio: Number.isFinite(average) && dailyStd ? (average / dailyStd) * Math.sqrt(252) : null,
     maxDrawdown,
     latestClose: last,
   };
@@ -1106,12 +1107,12 @@ function renderUsEtfAiAllocation(payload = {}) {
   const scoreGrowth = (entry) => (
     (Number.isFinite(entry.stats.returnPct) ? entry.stats.returnPct * 0.55 : 0)
     + (Number.isFinite(entry.dailyPct) ? entry.dailyPct * 2 : 0)
-    + (Number.isFinite(entry.stats.sharpe) ? entry.stats.sharpe * 8 : 0)
+    + (Number.isFinite(entry.stats.annualizedReturnVolatilityRatio) ? entry.stats.annualizedReturnVolatilityRatio * 8 : 0)
     - (Number.isFinite(entry.stats.volatility) ? entry.stats.volatility * 0.08 : 0)
     + (Number.isFinite(entry.volume) ? Math.log10(Math.max(entry.volume, 1)) * 0.25 : 0)
   );
   const scoreDefensive = (entry) => (
-    (Number.isFinite(entry.stats.sharpe) ? entry.stats.sharpe * 9 : 0)
+    (Number.isFinite(entry.stats.annualizedReturnVolatilityRatio) ? entry.stats.annualizedReturnVolatilityRatio * 9 : 0)
     + (Number.isFinite(entry.stats.returnPct) ? entry.stats.returnPct * 0.35 : 0)
     + (Number.isFinite(entry.dailyPct) ? entry.dailyPct * 1.2 : 0)
     - (Number.isFinite(entry.stats.volatility) ? entry.stats.volatility * 0.12 : 0)
@@ -1148,7 +1149,7 @@ function renderUsEtfAiAllocation(payload = {}) {
       ? `行情廣度 ${breadthPct ?? "--"}%，平均漲跌 ${formatSignedPercentValue(averageDaily)}，風險資產動能不足；核心配置以大盤 ETF 分批觀察，避免追逐單日急漲題材。`
       : `行情廣度 ${breadthPct ?? "--"}%，市場尚未形成明確方向；核心配置可維持分散，等待績效排行與成交量排行同步轉強。`;
   const defensiveBody = defensiveMode
-    ? `防禦組合以 ${defensiveLeader?.item.symbol || "債券 / 股息 ETF"} 為優先觀察，重點看 Sharpe、最大回撤與利率敏感度，降低組合波動。`
+    ? `防禦組合以 ${defensiveLeader?.item.symbol || "債券 / 股息 ETF"} 為優先觀察，重點看年化報酬／波動比（未扣除無風險利率）、最大回撤與利率敏感度，降低組合波動。`
     : `防禦 ETF 目前作為組合穩定器，若廣度降到 45% 以下或平均漲跌轉負，應提高債券與股息型 ETF 權重觀察。`;
   const highRiskBody = `高風險籃以 ${highRiskLeader?.item.symbol || "槓桿 / 商品 / 加密 ETF"} 波動最需要控管；年化波動 ${formatSignedPercentValue(highRiskLeader?.stats.volatility, 1).replace("+", "")}、最大回撤 ${formatSignedPercentValue(highRiskLeader?.stats.maxDrawdown)}，適合戰術部位而非長期配置假設。`;
   const metricBadges = [

@@ -2801,7 +2801,7 @@ function buildPortfolioFactorAssessment(positions, totals) {
     : 0;
   const historicalVar = buildBacktestLearningModel.calculateHistoricalPortfolioVar(active, totals.totalValue);
   const var95 = historicalVar.supported ? historicalVar.varAmount : null;
-  const sharpeLike = avgMove ? netReturn / avgMove : null;
+  const returnToAverageMoveRatio = avgMove ? netReturn / avgMove : null;
   const vixValue = parseAnalysisNumber(data?.marketVolatility?.value);
   const vixRisk = vixValue !== null && vixValue >= 20;
   const positiveAi = analyzed.filter((item) => item.tone === "positive").length;
@@ -2827,7 +2827,7 @@ function buildPortfolioFactorAssessment(positions, totals) {
       actions: ["建立部位前先設定單筆停損與停利條件，並預先規劃單一權重上限。"],
       theoryDetails: portfolioTheory.details,
       theoryActions: portfolioTheory.actions,
-      metrics: { maxWeight, stopRiskRatio, var95, historicalVar, sharpeLike, avgMove, ...portfolioTheory.metrics },
+      metrics: { maxWeight, stopRiskRatio, var95, historicalVar, returnToAverageMoveRatio, avgMove, ...portfolioTheory.metrics },
       assetMix: assetCounts,
       source: PORTFOLIO_FACTOR_SOURCE,
     };
@@ -2849,7 +2849,7 @@ function buildPortfolioFactorAssessment(positions, totals) {
   if (backtestItems.length) {
     factors.push(`回溯測試：通過校準 ${backtestHealthy} 檔、觀察/調參 ${backtestWatch} 檔、需重建 ${backtestRebuild} 檔，組合權重校準合計 ${backtestAdjustmentSum > 0 ? "+" : ""}${backtestAdjustmentSum}。`);
   }
-  if (Number.isFinite(sharpeLike)) factors.push(`類 Sharpe 風險效率 ${sharpeLike.toFixed(2)}，用於比較損益是否足以補償波動。`);
+  if (Number.isFinite(returnToAverageMoveRatio)) factors.push(`報酬／平均日變動比 ${returnToAverageMoveRatio.toFixed(2)}（持有期間淨報酬 ÷ 當前平均絕對單日漲跌）。`);
   if (vixValue !== null) factors.push(`VIX ${vixValue.toFixed(2)}，${vixRisk ? "總體風險偏高，應降低槓桿與集中度" : "總體波動尚在可控區間"}。`);
 
   if (maxWeight > 50) actions.push("單一商品超過 50%，建議分散或設定更嚴格停損。");
@@ -2886,7 +2886,7 @@ function buildPortfolioFactorAssessment(positions, totals) {
     actions,
     theoryDetails: portfolioTheory.details,
     theoryActions: portfolioTheory.actions,
-    metrics: { maxWeight, stopRiskRatio, var95, historicalVar, sharpeLike, avgMove, averageAiScore, backtestHealthy, backtestWatch, backtestRebuild, ...portfolioTheory.metrics },
+    metrics: { maxWeight, stopRiskRatio, var95, historicalVar, returnToAverageMoveRatio, avgMove, averageAiScore, backtestHealthy, backtestWatch, backtestRebuild, ...portfolioTheory.metrics },
     assetMix: assetCounts,
     source: PORTFOLIO_FACTOR_SOURCE,
   };

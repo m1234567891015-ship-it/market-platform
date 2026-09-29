@@ -23,15 +23,15 @@
       "name": "common-runtime",
       "output": "common-runtime.min.js",
       "sourceMap": "common-runtime.min.js.map",
-      "bytes": 323691,
-      "sha256": "e4588eb2a329794f45944c21e1f969e372cc29df632517106232edb809cdde9b",
-      "sourceMapBytes": 851334,
-      "sourceMapSha256": "b3bd3b0bc579fd888a502121b76ac87d64e53fd863086c6a8fcfb278e619033d",
+      "bytes": 323864,
+      "sha256": "f54b8be48b79e81282aa22e1e4a6cb6574d572dd56eb9b9ba0c824217bd8677a",
+      "sourceMapBytes": 851907,
+      "sourceMapSha256": "5b088877b14623db63581d5533094befc933784eba09d40d71ecfd9ba313c2f0",
       "inputs": [
         {
           "path": "pwa.js",
           "bytes": 3846,
-          "sha256": "d23f20a3d68eb22241127d1582d8e0544f892b8319e29f54c915cf7704d5756f"
+          "sha256": "4bc1668d658158f0a628dfd0f2b75624fedc43e499d03b37e619203348a5960d"
         },
         {
           "path": "js/state.js",
@@ -50,13 +50,13 @@
         },
         {
           "path": "js/shared-calc.js",
-          "bytes": 217375,
-          "sha256": "06f75fa398d3e9131c6ccba147cee865903a6f9773eff7dc1c47c8263e2476ba"
+          "bytes": 217772,
+          "sha256": "99e532c992d47bab678b4159c89bae4f7e27cc3a15e6fa323ca08726c814294b"
         },
         {
           "path": "js/render-shared.js",
-          "bytes": 72714,
-          "sha256": "e3696ca7d8810bbd82e68a66b0fe9ebf24dd5afd7c5b96f8650f1dd0b6ae3e33"
+          "bytes": 72798,
+          "sha256": "3ba53b68a0774655edc477a37bafa3a9739ca073d9b68d513b582be615400257"
         },
         {
           "path": "js/charts.js",
@@ -74,10 +74,10 @@
       "name": "route-bundle",
       "output": "route-bundle.min.js",
       "sourceMap": "route-bundle.min.js.map",
-      "bytes": 939564,
-      "sha256": "449a0b54480f44488690ee1cfcf819084ddf7baab551160c84639cc392936a8b",
-      "sourceMapBytes": 2024915,
-      "sourceMapSha256": "db204f1da3718730e75260e9a472f5492297ce073c59406cc132edec6200f0e3",
+      "bytes": 939928,
+      "sha256": "a84957ea72625bab9e99e75120bf7a58a6f8b7c0096dc0b4d8fc05de23dc0c99",
+      "sourceMapBytes": 2025323,
+      "sourceMapSha256": "714bae0fd824e02b7e01b6e7f42e1bce19069415fc7a8855abc9c168ae7efd58",
       "inputs": [
         {
           "path": "js/page-home.js",
@@ -86,13 +86,13 @@
         },
         {
           "path": "js/page-us.js",
-          "bytes": 160312,
-          "sha256": "1f1ede2345dfb86707b6a523cbf7a9a2b6674e0b5f4b6122d723896de5317dd5"
+          "bytes": 160600,
+          "sha256": "4253683004152070399c20886db3ee5030ba5a453fd6d369261ba5bbfe96190a"
         },
         {
           "path": "js/page-global-market-futures.js",
-          "bytes": 232424,
-          "sha256": "b59849d362a738b569adea211934efeaf0cffbce8a02c0ece3ed92852a9fe727"
+          "bytes": 232445,
+          "sha256": "c818b104476da29717ea9eb5e697711eb5e7db414bf6b25ec2c8f3766be92df0"
         },
         {
           "path": "js/page-global-market-options.js",
@@ -106,8 +106,8 @@
         },
         {
           "path": "js/page-tw.js",
-          "bytes": 217270,
-          "sha256": "4dce762622a81d3563aad93db9eff1eeabf304663772f61357d81dffe2c3e88f"
+          "bytes": 217360,
+          "sha256": "eba0d02faae9f5eeac0877c4ed3760cd4668b50bb09a56971a5f3bfaca2966c0"
         },
         {
           "path": "js/legacy-unclassified.js",
@@ -144,7 +144,7 @@
     }
   ],
   "rollout": {
-    "version": "td18-minify-c72668a951af06cf",
+    "version": "td18-minify-5764425d78eba14b",
     "htmlPages": 21,
     "scriptOrder": [
       "common-runtime.min.js",

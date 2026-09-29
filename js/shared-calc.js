@@ -234,6 +234,8 @@ function buildPortfolioTheoryAssessment(active, totals) {
       details: ["尚未建立持股權重，暫無法計算均值-變異、相關性與風險貢獻。"],
       actions: ["先輸入股數與進場價，再檢查單一權重、相關性與組合波動。"],
       metrics: {
+        historicalReturnSignal: null,
+        // Deprecated compatibility alias. This value is historical, never a forecast.
         expectedReturn60: null,
         portfolioVolatility: null,
         averageCorrelation: null,
@@ -267,7 +269,7 @@ function buildPortfolioTheoryAssessment(active, totals) {
     };
   });
 
-  const expectedReturn60 = items.reduce((sum, item) => sum + item.weight * (Number.isFinite(item.return60) ? item.return60 : Number.isFinite(item.return20) ? item.return20 : 0), 0);
+  const historicalReturnSignal = items.reduce((sum, item) => sum + item.weight * (Number.isFinite(item.return60) ? item.return60 : Number.isFinite(item.return20) ? item.return20 : 0), 0);
   let correlationSum = 0;
   let correlationCount = 0;
   for (let i = 0; i < items.length; i += 1) {
@@ -285,7 +287,7 @@ function buildPortfolioTheoryAssessment(active, totals) {
   const averageCorrelation = correlationCount ? correlationSum / correlationCount : null;
   const hhi = items.reduce((sum, item) => sum + item.weight ** 2, 0);
   const effectivePositions = hhi ? 1 / hhi : 0;
-  const efficiencyScore = portfolioVolatility > 0 ? expectedReturn60 / portfolioVolatility : null;
+  const efficiencyScore = portfolioVolatility > 0 ? historicalReturnSignal / portfolioVolatility : null;
   const riskContributors = eulerRisk.supported ? items.map((item, index) => ({
     code: item.stock.code,
     name: item.stock.name,
@@ -302,7 +304,7 @@ function buildPortfolioTheoryAssessment(active, totals) {
       : "positive";
   const label = tone === "positive" ? "組合理論結構健康" : tone === "negative" ? "組合理論風險偏高" : "組合理論需再平衡";
   const details = [
-    `均值-變異：60 日權重動能 ${expectedReturn60 >= 0 ? "+" : ""}${expectedReturn60.toFixed(2)}%，年化波動估計 ${Number.isFinite(portfolioVolatility) ? `${portfolioVolatility.toFixed(2)}%` : "資料不足"}。`,
+    `歷史報酬動能 ${historicalReturnSignal >= 0 ? "+" : ""}${historicalReturnSignal.toFixed(2)}%（持倉優先 60 日、缺值回退 20 日；短歷史使用可得區間、無資料計 0），年化波動估計 ${Number.isFinite(portfolioVolatility) ? `${portfolioVolatility.toFixed(2)}%` : "資料不足"}。`,
     `分散化：有效持股數 ${effectivePositions.toFixed(1)} 檔，分散化比率 ${Number.isFinite(diversificationRatio) ? diversificationRatio.toFixed(2) : "--"}。`,
     `相關性：平均相關係數 ${Number.isFinite(averageCorrelation) ? averageCorrelation.toFixed(2) : "資料不足"}，用於辨識同漲同跌風險。`,
     topRiskContributor ? `風險貢獻：${topRiskContributor.code} ${topRiskContributor.name} 約占 ${topRiskContributor.contribution.toFixed(1)}%。` : `風險貢獻資料不足（同步樣本 ${eulerRisk.sampleCount}/${eulerRisk.minimumSampleCount} 日；${eulerRisk.reason}）。`,
@@ -321,7 +323,9 @@ function buildPortfolioTheoryAssessment(active, totals) {
     details,
     actions,
     metrics: {
-      expectedReturn60,
+      historicalReturnSignal,
+      // Deprecated compatibility alias. Keep the same historical value; new logic must use historicalReturnSignal.
+      expectedReturn60: historicalReturnSignal,
       portfolioVolatility,
       averageCorrelation,
       diversificationRatio,

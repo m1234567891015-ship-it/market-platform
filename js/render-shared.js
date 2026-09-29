@@ -936,7 +936,7 @@ function buildUsPortfolioFactorAssessment(positions, totals) {
   const avgMove = pctMoves.length ? pctMoves.reduce((sum, value) => sum + value, 0) / pctMoves.length : 0;
   const historicalVar = buildBacktestLearningModel.calculateHistoricalPortfolioVar(active, totals.totalValue);
   const var95 = historicalVar.supported ? historicalVar.varAmount : null;
-  const sharpeLike = avgMove ? netReturn / avgMove : null;
+  const returnToAverageMoveRatio = avgMove ? netReturn / avgMove : null;
   const positiveAi = analyzed.filter((item) => item.tone === "positive").length;
   const negativeAi = analyzed.filter((item) => item.tone === "negative").length;
   const neutralAi = Math.max(analyzed.length - positiveAi - negativeAi, 0);
@@ -954,7 +954,7 @@ function buildUsPortfolioFactorAssessment(positions, totals) {
       actions: ["建立部位前先設定單筆停損與停利條件，並規劃單一標的權重上限。"],
       theoryDetails: portfolioTheory.details,
       theoryActions: portfolioTheory.actions,
-      metrics: { maxWeight, stopRiskRatio, var95, historicalVar, sharpeLike, avgMove, ...portfolioTheory.metrics },
+      metrics: { maxWeight, stopRiskRatio, var95, historicalVar, returnToAverageMoveRatio, avgMove, ...portfolioTheory.metrics },
       source: PORTFOLIO_FACTOR_SOURCE,
     };
   }
@@ -974,7 +974,7 @@ function buildUsPortfolioFactorAssessment(positions, totals) {
   } else {
     factors.push("AI 技術覆蓋：完整美股資料尚未載入，暫以損益、權重、成本與歷史波動先行評估。");
   }
-  if (Number.isFinite(sharpeLike)) factors.push(`類 Sharpe 風險效率 ${sharpeLike.toFixed(2)}，用於比較近期損益是否足以補償波動。`);
+  if (Number.isFinite(returnToAverageMoveRatio)) factors.push(`報酬／平均日變動比 ${returnToAverageMoveRatio.toFixed(2)}（持有期間淨報酬 ÷ 當前平均絕對單日漲跌）。`);
 
   const actions = [];
   if (maxWeight > 50) actions.push("單一商品超過 50%，組合接近單押，建議分散或設定更嚴格停損。");
@@ -1003,7 +1003,7 @@ function buildUsPortfolioFactorAssessment(positions, totals) {
     actions,
     theoryDetails: portfolioTheory.details,
     theoryActions: portfolioTheory.actions,
-    metrics: { maxWeight, stopRiskRatio, var95, historicalVar, sharpeLike, avgMove, averageAiScore, ...portfolioTheory.metrics },
+    metrics: { maxWeight, stopRiskRatio, var95, historicalVar, returnToAverageMoveRatio, avgMove, averageAiScore, ...portfolioTheory.metrics },
     source: PORTFOLIO_FACTOR_SOURCE,
   };
 }
