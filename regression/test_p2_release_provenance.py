@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import json
+import io
 import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stderr
 from unittest.mock import patch
 from pathlib import Path
 
@@ -22,9 +24,57 @@ validate_committed_source_identity = provenance.validate_committed_source_identi
 
 
 ROOT = Path(__file__).resolve().parent.parent
+CURRENT_SOURCE_SHA = provenance.git_output("rev-parse", "--verify", "HEAD")
+OLD_ANCESTOR_SHA = "9860708cf9fef6bd36293ab66526e4d9336a41ea"
 
 
 class P2ReleaseProvenanceTests(unittest.TestCase):
+    def _historical_manifest_fixture(self):
+        temporary_directory = tempfile.TemporaryDirectory(prefix="p2-historical-manifest-")
+        manifest_path = Path(temporary_directory.name) / "manifest.json"
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "source_identity": {
+                        "committed_source_sha": OLD_ANCESTOR_SHA,
+                        "git_head_sha": OLD_ANCESTOR_SHA,
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        return temporary_directory, manifest_path
+
+    def _identity_with_git_status(
+        self,
+        *,
+        status_stdout: str = "",
+        status_stderr: str = "",
+        diff_stdout: str = "",
+        diff_stderr: str = "",
+        status_returncode: int = 0,
+        diff_returncode: int = 0,
+    ) -> tuple[dict[str, object], str]:
+        def fake_run(command, **kwargs):
+            del kwargs
+            git_args = tuple(command[1:])
+            if git_args == ("rev-parse", "--verify", "HEAD"):
+                return subprocess.CompletedProcess(command, 0, CURRENT_SOURCE_SHA, "")
+            if git_args == ("status", "--porcelain=v1", "--untracked-files=all"):
+                return subprocess.CompletedProcess(command, status_returncode, status_stdout, status_stderr)
+            if git_args == ("diff", "--no-ext-diff", "--binary"):
+                return subprocess.CompletedProcess(command, diff_returncode, diff_stdout, diff_stderr)
+            self.fail(f"unexpected Git invocation: {git_args}")
+
+        diagnostics = io.StringIO()
+        with (
+            patch.object(provenance.subprocess, "run", side_effect=fake_run),
+            patch.object(provenance, "bound_source_from_existing_manifest", return_value=CURRENT_SOURCE_SHA),
+            redirect_stderr(diagnostics),
+        ):
+            identity = provenance.source_identity()
+        return identity, diagnostics.getvalue()
+
     def _validate_temporary_binding(self, manifest: dict, evidence: dict) -> list[str]:
         with tempfile.TemporaryDirectory(prefix="p2-provenance-test-") as directory:
             root = Path(directory)
@@ -266,6 +316,76 @@ class P2ReleaseProvenanceTests(unittest.TestCase):
         if identity["worktree_dirty"]:
             self.assertTrue(identity["status_entries"])
             self.assertTrue(identity["worktree_state_sha256"])
+
+    def test_explicit_source_sha_overrides_old_ancestor(self) -> None:
+        temporary_directory, manifest_path = self._historical_manifest_fixture()
+        with temporary_directory, patch.object(provenance, "MANIFEST_PATH", manifest_path):
+            self.assertEqual(
+                provenance.bound_source_from_existing_manifest(CURRENT_SOURCE_SHA),
+                OLD_ANCESTOR_SHA,
+            )
+            with redirect_stderr(io.StringIO()):
+                identity = provenance.source_identity(CURRENT_SOURCE_SHA)
+        self.assertEqual(identity["committed_source_sha"], CURRENT_SOURCE_SHA)
+        self.assertEqual(identity["git_head_sha"], CURRENT_SOURCE_SHA)
+        self.assertNotEqual(identity["committed_source_sha"], OLD_ANCESTOR_SHA)
+
+    def test_explicit_source_sha_rejects_malformed_missing_and_non_head_values(self) -> None:
+        with self.assertRaisesRegex(ValueError, "40-character"):
+            provenance.source_identity("not-a-sha")
+        with self.assertRaisesRegex(ValueError, "does not resolve"):
+            provenance.source_identity("f" * 40)
+        with self.assertRaisesRegex(ValueError, "must equal the current HEAD"):
+            provenance.source_identity(OLD_ANCESTOR_SHA)
+
+    def test_default_source_identity_preserves_existing_ancestor_binding(self) -> None:
+        temporary_directory, manifest_path = self._historical_manifest_fixture()
+        with temporary_directory, patch.object(provenance, "MANIFEST_PATH", manifest_path):
+            with redirect_stderr(io.StringIO()):
+                identity = provenance.source_identity()
+        self.assertEqual(identity["committed_source_sha"], OLD_ANCESTOR_SHA)
+        self.assertEqual(identity["git_head_sha"], OLD_ANCESTOR_SHA)
+
+    def test_warning_only_git_status_is_clean_and_warning_is_reported(self) -> None:
+        warning = "warning: global excludes unavailable\n"
+        identity, diagnostics = self._identity_with_git_status(
+            status_stderr=warning,
+            diff_stderr=warning,
+        )
+        self.assertFalse(identity["worktree_dirty"])
+        self.assertEqual(identity["status_entries"], [])
+        self.assertIn(warning, diagnostics)
+
+    def test_real_porcelain_status_remains_dirty(self) -> None:
+        identity, _ = self._identity_with_git_status(
+            status_stdout=" M app.py\n",
+            status_stderr="warning: global excludes unavailable\n",
+            diff_stdout="diff --git a/app.py b/app.py\n",
+        )
+        self.assertTrue(identity["worktree_dirty"])
+        self.assertEqual(identity["status_entries"], [" M app.py"])
+
+    def test_git_status_failure_fails_closed(self) -> None:
+        command = ("git", "status", "--porcelain=v1", "--untracked-files=all")
+        failed = subprocess.CompletedProcess(command, 128, "", "fatal: repository unavailable\n")
+        with (
+            patch.object(provenance.subprocess, "run", return_value=failed),
+            redirect_stderr(io.StringIO()),
+            self.assertRaises(subprocess.CalledProcessError),
+        ):
+            provenance.git_status()
+
+    def test_git_status_warning_does_not_change_worktree_digest(self) -> None:
+        command = ("git", "diff", "--no-ext-diff", "--binary")
+        digests = []
+        for stderr in ("", "warning: global excludes unavailable\n"):
+            completed = subprocess.CompletedProcess(command, 0, "diff --git a/app.py b/app.py\n", stderr)
+            with (
+                patch.object(provenance.subprocess, "run", return_value=completed),
+                redirect_stderr(io.StringIO()),
+            ):
+                digests.append(provenance.worktree_digest([" M app.py"]))
+        self.assertEqual(digests[0], digests[1])
 
     def test_generation_context_is_informational_for_clean_ci(self) -> None:
         identity = {

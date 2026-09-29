@@ -69,12 +69,12 @@ IMMUTABLE_ROOT_FILES = {
     "market-pulse-esm.min.js.map",
 }
 IMMUTABLE_ASSET_VERSIONS = {
-    "common-runtime.min.js": "td18-minify-5da203183f90e574",
-    "common-runtime.min.js.map": "td18-minify-5da203183f90e574",
-    "route-bundle.min.js": "td18-minify-5da203183f90e574",
-    "route-bundle.min.js.map": "td18-minify-5da203183f90e574",
-    "derivatives-status-addon.min.js": "td18-minify-5da203183f90e574",
-    "derivatives-status-addon.min.js.map": "td18-minify-5da203183f90e574",
+    "common-runtime.min.js": "td18-minify-62ce16e931200311",
+    "common-runtime.min.js.map": "td18-minify-62ce16e931200311",
+    "route-bundle.min.js": "td18-minify-62ce16e931200311",
+    "route-bundle.min.js.map": "td18-minify-62ce16e931200311",
+    "derivatives-status-addon.min.js": "td18-minify-62ce16e931200311",
+    "derivatives-status-addon.min.js.map": "td18-minify-62ce16e931200311",
 }
 try:
     _esm_manifest = json.loads((BASE_DIR / "docs" / "TD02_FULL_ESM_build_manifest_2026-09-01.json").read_text(encoding="utf-8"))

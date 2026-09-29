@@ -77,6 +77,28 @@ def run(*args: str) -> str:
     ).strip()
 
 
+def git_output(*args: str) -> str:
+    command = ("git", *args)
+    result = subprocess.run(
+        command,
+        cwd=ROOT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        capture_output=True,
+    )
+    if result.stderr:
+        sys.stderr.write(result.stderr)
+    if result.returncode != 0:
+        raise subprocess.CalledProcessError(
+            result.returncode,
+            command,
+            output=result.stdout,
+            stderr=result.stderr,
+        )
+    return result.stdout.rstrip("\r\n")
+
+
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -86,13 +108,13 @@ def sha256(path: Path) -> str:
 
 
 def git_status() -> list[str]:
-    output = run("git", "status", "--porcelain=v1", "--untracked-files=all")
+    output = git_output("status", "--porcelain=v1", "--untracked-files=all")
     lines = output.splitlines() if output else []
     return [line for line in lines if line[3:].replace("\\", "/") not in PROVENANCE_OUTPUTS]
 
 
 def worktree_digest(status: list[str]) -> str:
-    diff = run("git", "diff", "--no-ext-diff", "--binary")
+    diff = git_output("diff", "--no-ext-diff", "--binary")
     payload = ("\n".join(status) + "\n---DIFF---\n" + diff).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
 
@@ -134,6 +156,20 @@ def bound_source_from_existing_manifest(current_head: str) -> str:
         except (OSError, ValueError, TypeError):
             pass
     return current_head
+
+
+def validate_requested_source_sha(source_sha: str, current_head: str) -> str:
+    if not HEX_SHA.fullmatch(source_sha):
+        raise ValueError("--source-sha must be a full 40-character lowercase Git SHA")
+    try:
+        resolved = git_output("rev-parse", "--verify", f"{source_sha}^{{commit}}")
+    except subprocess.CalledProcessError as exc:
+        raise ValueError("--source-sha does not resolve to an existing Git commit") from exc
+    if resolved != source_sha:
+        raise ValueError("--source-sha does not identify the requested commit")
+    if source_sha != current_head:
+        raise ValueError("--source-sha must equal the current HEAD")
+    return source_sha
 
 
 def source_scope_drift(bound_source: str, current_head: str) -> list[str]:
@@ -537,10 +573,14 @@ class EvidenceExecutionFailure(RuntimeError):
     pass
 
 
-def source_identity() -> dict[str, object]:
-    head = run("git", "rev-parse", "--verify", "HEAD")
+def source_identity(source_sha: str | None = None) -> dict[str, object]:
+    head = git_output("rev-parse", "--verify", "HEAD")
+    bound_source = (
+        validate_requested_source_sha(source_sha, head)
+        if source_sha is not None
+        else bound_source_from_existing_manifest(head)
+    )
     status = git_status()
-    bound_source = bound_source_from_existing_manifest(head)
     generation_context = {
         "worktree_dirty": bool(status),
         "worktree_state_sha256": worktree_digest(status),
@@ -584,9 +624,9 @@ def build_manifest(identity: dict[str, object], records: list[dict[str, object]]
     }
 
 
-def write_manifest() -> None:
+def write_manifest(source_sha: str | None = None) -> None:
     PROOF_DIR.mkdir(exist_ok=True)
-    identity = source_identity()
+    identity = source_identity(source_sha)
     records = evidence_records(identity)
     failures = [record for record in records if record["result"] != "PASS"]
     if failures:
@@ -612,7 +652,7 @@ def validate() -> list[str]:
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     evidence = json.loads(EVIDENCE_PATH.read_text(encoding="utf-8"))
     identity = manifest.get("source_identity", {})
-    current_head = run("git", "rev-parse", "--verify", "HEAD")
+    current_head = git_output("rev-parse", "--verify", "HEAD")
     current_status = git_status()
     errors.extend(validate_committed_source_identity(
         identity,
@@ -645,11 +685,17 @@ def validate() -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--write", action="store_true")
+    parser.add_argument(
+        "--source-sha",
+        help="bind proof generation to this full commit SHA; must equal current HEAD",
+    )
     args = parser.parse_args()
+    if args.source_sha is not None and not args.write:
+        parser.error("--source-sha requires --write")
     if args.write:
         try:
-            write_manifest()
-        except EvidenceExecutionFailure as exc:
+            write_manifest(args.source_sha)
+        except (EvidenceExecutionFailure, ValueError, subprocess.CalledProcessError) as exc:
             print(f"[FAIL] {exc}")
             print("P2_PROVENANCE_FAIL")
             return 1

@@ -2799,7 +2799,8 @@ function buildPortfolioFactorAssessment(positions, totals) {
   const avgMove = pctMoves.length
     ? pctMoves.reduce((sum, value) => sum + value, 0) / pctMoves.length
     : 0;
-  const var95 = totals.totalValue * (avgMove / 100) * 1.65;
+  const historicalVar = buildBacktestLearningModel.calculateHistoricalPortfolioVar(active, totals.totalValue);
+  const var95 = historicalVar.supported ? historicalVar.varAmount : null;
   const sharpeLike = avgMove ? netReturn / avgMove : null;
   const vixValue = parseAnalysisNumber(data?.marketVolatility?.value);
   const vixRisk = vixValue !== null && vixValue >= 20;
@@ -2826,7 +2827,7 @@ function buildPortfolioFactorAssessment(positions, totals) {
       actions: ["建立部位前先設定單筆停損與停利條件，並預先規劃單一權重上限。"],
       theoryDetails: portfolioTheory.details,
       theoryActions: portfolioTheory.actions,
-      metrics: { maxWeight, stopRiskRatio, var95, sharpeLike, avgMove, ...portfolioTheory.metrics },
+      metrics: { maxWeight, stopRiskRatio, var95, historicalVar, sharpeLike, avgMove, ...portfolioTheory.metrics },
       assetMix: assetCounts,
       source: PORTFOLIO_FACTOR_SOURCE,
     };
@@ -2835,7 +2836,9 @@ function buildPortfolioFactorAssessment(positions, totals) {
   factors.push(`資產配置：${Object.entries(assetCounts).map(([key, count]) => `${key} ${count} 檔`).join("、") || "未分類"}`);
   factors.push(`交易成本已估入手續費、證交稅與滑價，淨損益 ${formatSimulationMoney(totals.netPnl)}。`);
   factors.push(`單一商品最高權重 ${maxWeight.toFixed(1)}%，組合停損風險約 ${stopRiskRatio.toFixed(1)}%。`);
-  factors.push(`以目前自選股日波動估算 95% 單日 VaR 約 ${Math.round(var95).toLocaleString("zh-TW")} 元。`);
+  factors.push(historicalVar.supported
+    ? `歷史模擬 95% 單日 VaR 約 ${Math.round(historicalVar.varAmount).toLocaleString("zh-TW")} 元（${(historicalVar.varPct * 100).toFixed(2)}%）；樣本 ${historicalVar.sampleCount} 日。`
+    : `歷史模擬 95% 單日 VaR 資料不足（同步樣本 ${historicalVar.sampleCount}/${historicalVar.minimumSampleCount} 日）。`);
   factors.push(`資產投資組合理論：${portfolioTheory.label}，已納入均值-變異、相關性、分散化比率與風險貢獻。`);
   if (analyzed.length) {
     factors.push(`AI 技術覆蓋：已納入 ${analyzed.length}/${active.length} 檔個股的型態理論、價量指標、市場廣度、心理線、籌碼與回溯校準。`);
@@ -2883,7 +2886,7 @@ function buildPortfolioFactorAssessment(positions, totals) {
     actions,
     theoryDetails: portfolioTheory.details,
     theoryActions: portfolioTheory.actions,
-    metrics: { maxWeight, stopRiskRatio, var95, sharpeLike, avgMove, averageAiScore, backtestHealthy, backtestWatch, backtestRebuild, ...portfolioTheory.metrics },
+    metrics: { maxWeight, stopRiskRatio, var95, historicalVar, sharpeLike, avgMove, averageAiScore, backtestHealthy, backtestWatch, backtestRebuild, ...portfolioTheory.metrics },
     assetMix: assetCounts,
     source: PORTFOLIO_FACTOR_SOURCE,
   };
@@ -2964,7 +2967,7 @@ function renderPortfolioSimulator(items = getWatchlist()) {
     <div><span>組合報酬率</span><strong class="${totalReturn > 0 ? "up" : totalReturn < 0 ? "down" : "flat"}">${totalReturn >= 0 ? "+" : ""}${totalReturn.toFixed(2)}%</strong></div>
     <div><span>淨報酬率</span><strong class="${netReturn > 0 ? "up" : netReturn < 0 ? "down" : "flat"}">${netReturn >= 0 ? "+" : ""}${netReturn.toFixed(2)}%</strong></div>
     <div><span>停損風險金額</span><strong>${Math.round(totalRisk).toLocaleString("zh-TW")} 元</strong></div>
-    <div><span>95% VaR 估計</span><strong>${Math.round(portfolioAssessment.metrics.var95 || 0).toLocaleString("zh-TW")} 元</strong></div>
+    <div><span>歷史 95% VaR</span><strong>${Number.isFinite(portfolioAssessment.metrics.var95) ? `${Math.round(portfolioAssessment.metrics.var95).toLocaleString("zh-TW")} 元` : "資料不足"}</strong></div>
     <div><span>單一最高權重</span><strong>${(portfolioAssessment.metrics.maxWeight || 0).toFixed(1)}%</strong></div>
     <div><span>組合年化波動</span><strong>${Number.isFinite(portfolioAssessment.metrics.portfolioVolatility) ? `${portfolioAssessment.metrics.portfolioVolatility.toFixed(1)}%` : "--"}</strong></div>
     <div><span>有效持股數</span><strong>${Number.isFinite(portfolioAssessment.metrics.effectivePositions) ? `${portfolioAssessment.metrics.effectivePositions.toFixed(1)} 檔` : "--"}</strong></div>
