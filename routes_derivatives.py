@@ -455,19 +455,41 @@ def api_derivatives_ai_analysis():
         if target in TAIWAN_OPTION_PRODUCTS:
             data = fetch_txo_option_chain(expiry=str(request.args.get("expiry") or "").strip() or None, source=source, underlying=target)
             if data.get("error"):
-                analysis = build_derivatives_unavailable_ai_analysis(target, str(data.get("error")))
+                message = str(data.get("error"))
+                analysis = build_derivatives_unavailable_ai_analysis(target, message)
+                app.get_derivatives_store().record_ai_report(
+                    target, analysis, datetime.now(app.TZ).isoformat(),
+                    input_snapshot={"target": target, "message": message},
+                )
                 return jsonify(app.api_success_payload(analysis))
             analysis = data.get("analysis") or {}
+            input_snapshot = {
+                "summary": data.get("summary") or {},
+                "chain": data.get("chain") or [],
+                "spot": (data.get("spot") or {}).get("value"),
+            }
+            reference_price = (data.get("spot") or {}).get("value")
         else:
             spec = find_derivative_spec("futures", target)
             if not spec:
                 return jsonify(app.api_error_payload("INVALID_SYMBOL", "商品代碼不存在")), 404
             item = build_global_market_item(spec)
             if item.get("error"):
-                analysis = build_derivatives_unavailable_ai_analysis(target, str(item.get("error")))
+                message = str(item.get("error"))
+                analysis = build_derivatives_unavailable_ai_analysis(target, message)
+                app.get_derivatives_store().record_ai_report(
+                    target, analysis, datetime.now(app.TZ).isoformat(),
+                    input_snapshot={"target": target, "message": message},
+                )
                 return jsonify(app.api_success_payload(analysis))
             analysis = build_futures_ai_analysis(item)
-        app.get_derivatives_store().record_ai_report(target, analysis, datetime.now(app.TZ).isoformat())
+            candles = build_derivative_candles(item, "day")
+            input_snapshot = {"item": item, "candles": candles}
+            reference_price = item.get("close")
+        app.get_derivatives_store().record_ai_report(
+            target, analysis, datetime.now(app.TZ).isoformat(),
+            input_snapshot=input_snapshot, reference_price=reference_price,
+        )
         return jsonify(app.api_success_payload(analysis))
     except Exception as exc:  # noqa: BLE001
         return app.api_exception_response("DATA_SOURCE_ERROR", app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc, 502)

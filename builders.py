@@ -6620,7 +6620,17 @@ def build_global_market_payload(
             option_chain = payload.get("taiwanOptionChain") or {}
             app.get_derivatives_store().record_option_chain(option_chain, str(payload.get("updatedAt") or ""))
             if option_chain.get("analysis"):
-                app.get_derivatives_store().record_ai_report(str(option_chain.get("underlying") or option_underlying), option_chain["analysis"], str(payload.get("updatedAt") or ""))
+                app.get_derivatives_store().record_ai_report(
+                    str(option_chain.get("underlying") or option_underlying),
+                    option_chain["analysis"],
+                    str(payload.get("updatedAt") or ""),
+                    input_snapshot={
+                        "summary": option_chain.get("summary") or {},
+                        "chain": option_chain.get("chain") or [],
+                        "spot": (option_chain.get("spot") or {}).get("value"),
+                    },
+                    reference_price=(option_chain.get("spot") or {}).get("value"),
+                )
     except Exception as exc:  # noqa: BLE001
         app.LOGGER.exception("Failed to persist derivatives payload", exc_info=exc)
     return payload
