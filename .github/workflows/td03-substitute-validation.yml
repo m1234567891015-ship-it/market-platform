@@ -34,7 +34,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install regression dependencies
-        run: python -m pip install -r regression/requirements-regression.txt
+        run: python -m pip install -r requirements.txt -r regression/requirements-regression.txt
 
       - name: Run Redis staging contract canary
         env:

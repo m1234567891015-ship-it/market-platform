@@ -28,7 +28,10 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24.18.0"
+
+      - name: Install Node dependencies
+        run: npm ci
 
       - name: Install Python dependencies
         run: python -m pip install -r requirements.txt -r regression/requirements-regression.txt
@@ -49,6 +52,9 @@ jobs:
         run: |
           python -m unittest test_derivatives_platform.py regression.test_data_source_contracts regression.test_q5_decision_quality
           node regression/test_q5_quant_math.js
+
+      - name: Verify deterministic Terser build
+        run: python regression/td18_minify_verify.py
 
       - name: Run security guardrails
         run: python security_guardrail_check.py
