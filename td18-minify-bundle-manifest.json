@@ -23,20 +23,20 @@
       "name": "common-runtime",
       "output": "common-runtime.min.js",
       "sourceMap": "common-runtime.min.js.map",
-      "bytes": 323864,
-      "sha256": "f54b8be48b79e81282aa22e1e4a6cb6574d572dd56eb9b9ba0c824217bd8677a",
-      "sourceMapBytes": 851907,
-      "sourceMapSha256": "5b088877b14623db63581d5533094befc933784eba09d40d71ecfd9ba313c2f0",
+      "bytes": 324895,
+      "sha256": "a1fc3b6a2985323a6a9ac3e9b6e4bafc4732dcda29da44d959ac07a73cacde68",
+      "sourceMapBytes": 853719,
+      "sourceMapSha256": "11f3d0f7fd86e625ae4278052c999263aa8fa8c2d1d4f00d59eff0420bcc23c6",
       "inputs": [
         {
           "path": "pwa.js",
           "bytes": 3846,
-          "sha256": "4bc1668d658158f0a628dfd0f2b75624fedc43e499d03b37e619203348a5960d"
+          "sha256": "f6e5e4d9cbfefb6a76ed7015f2b4346f5001f463f65fe8fca0b08dacadca680e"
         },
         {
           "path": "js/state.js",
-          "bytes": 21151,
-          "sha256": "036fe103c65c4e1e9db309a6edeee153c0abb0aeb71da4472696d787400e4bf4"
+          "bytes": 21391,
+          "sha256": "72db1096ad1945d945b8781bcbeb0df096cb98746f66a3f09b31c7b8ca772404"
         },
         {
           "path": "js/core.js",
@@ -50,13 +50,13 @@
         },
         {
           "path": "js/shared-calc.js",
-          "bytes": 217772,
-          "sha256": "99e532c992d47bab678b4159c89bae4f7e27cc3a15e6fa323ca08726c814294b"
+          "bytes": 218138,
+          "sha256": "c6f23583d6a492e1fa5cecb1189387490c4d2790c1d0cd65633f0a583c07651e"
         },
         {
           "path": "js/render-shared.js",
-          "bytes": 72798,
-          "sha256": "3ba53b68a0774655edc477a37bafa3a9739ca073d9b68d513b582be615400257"
+          "bytes": 73315,
+          "sha256": "421f9c1b8dcb8dbeec65316f45a6f3bba6fa0ceeb816b8748460db088060915f"
         },
         {
           "path": "js/charts.js",
@@ -65,8 +65,8 @@
         },
         {
           "path": "js/stock-detail.js",
-          "bytes": 160506,
-          "sha256": "ed199c94348c778c29f5ad9bbe8af4441073ff5777b75e8c09fab69d1fbad43a"
+          "bytes": 160664,
+          "sha256": "479d5daced584004d8bc42003a4a8e18d8367dd7cae81953d891640f2ba2c5ff"
         }
       ]
     },
@@ -74,40 +74,55 @@
       "name": "route-bundle",
       "output": "route-bundle.min.js",
       "sourceMap": "route-bundle.min.js.map",
-      "bytes": 939928,
-      "sha256": "a84957ea72625bab9e99e75120bf7a58a6f8b7c0096dc0b4d8fc05de23dc0c99",
-      "sourceMapBytes": 2025323,
-      "sourceMapSha256": "714bae0fd824e02b7e01b6e7f42e1bce19069415fc7a8855abc9c168ae7efd58",
+      "bytes": 949423,
+      "sha256": "2cdcfebd8c68fdc491204ec08f47cc28ddbd020630e34405b9df6cae8afda4bf",
+      "sourceMapBytes": 2044735,
+      "sourceMapSha256": "3337fca534b342f334533268b42a2a8f68ce2c288b83b5258818a3a7f9f5d2b1",
       "inputs": [
         {
           "path": "js/page-home.js",
-          "bytes": 63268,
-          "sha256": "8781d1e483a1f798b1140583ac5a06c036e8a2d36ea9058ca70c04fe64ffcc36"
+          "bytes": 63422,
+          "sha256": "434b2c54d0d2b361495bb8d91e6036fa91dafc7cdc492d460489c0c7775ed2b0"
         },
         {
           "path": "js/page-us.js",
-          "bytes": 160600,
-          "sha256": "4253683004152070399c20886db3ee5030ba5a453fd6d369261ba5bbfe96190a"
+          "bytes": 160840,
+          "sha256": "2d819306c6a6cc79550feb23aa3ff3dcf3fdf2b311410b0ed5e55acf15c51c65"
+        },
+        {
+          "path": "js/page-global-market-shared.js",
+          "bytes": 34690,
+          "sha256": "4c5b7dbce124b7af32e7a30b131edbaeb00e6a023fe8bf08cb8811be0972e105"
         },
         {
           "path": "js/page-global-market-futures.js",
-          "bytes": 232445,
-          "sha256": "c818b104476da29717ea9eb5e697711eb5e7db414bf6b25ec2c8f3766be92df0"
+          "bytes": 233196,
+          "sha256": "fd6717a5f76102081d93dda83ed4de3898a1f7db61778ef13e7d0767f0be7264"
         },
         {
           "path": "js/page-global-market-options.js",
-          "bytes": 211706,
-          "sha256": "132859f137025dda7138c07eed34bc8ad4cb7510a0099c3a77ef8090b35da593"
+          "bytes": 213835,
+          "sha256": "c5a77d8b74b3716d43a48eb970acf7f5a894386e85178fab51dc091ff274eecb"
+        },
+        {
+          "path": "js/page-global-market-asset-finance.js",
+          "bytes": 222891,
+          "sha256": "d0b77a20ae96a1061c083f5b810d7af5b741bde41f25eff3d15c157a2dfacc27"
+        },
+        {
+          "path": "js/page-global-market-derivatives.js",
+          "bytes": 141038,
+          "sha256": "e47f5f99d2b6135b09358624e9b345c7f1e3548be45eb0412ca9a45c5eeaa6fe"
         },
         {
           "path": "js/page-global-market-assethub.js",
-          "bytes": 414577,
-          "sha256": "ea171286f17635284ac0b5974a45a9691653e3d77afa498d82954253ded1f352"
+          "bytes": 24880,
+          "sha256": "35e4ebafdc6c7dc0b0e874198360ee8ac5989c5d519250e9c0d18166d2d151c2"
         },
         {
           "path": "js/page-tw.js",
-          "bytes": 217360,
-          "sha256": "eba0d02faae9f5eeac0877c4ed3760cd4668b50bb09a56971a5f3bfaca2966c0"
+          "bytes": 217798,
+          "sha256": "92c6a48bd305e925e2ded3aaeaf685720f0ec42625a9b374ef67b03af478610e"
         },
         {
           "path": "js/legacy-unclassified.js",
@@ -144,7 +159,7 @@
     }
   ],
   "rollout": {
-    "version": "td18-minify-5764425d78eba14b",
+    "version": "td18-minify-75a73bfba6836641",
     "htmlPages": 21,
     "scriptOrder": [
       "common-runtime.min.js",

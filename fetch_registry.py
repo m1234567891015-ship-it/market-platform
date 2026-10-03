@@ -130,7 +130,7 @@ def fetch_from_registry(
                 encoding = "utf-8"
             payload = raw.decode(encoding, errors=spec.decode_errors)
         else:
-            payload = json.loads(raw.decode("utf-8"))
+            payload = json.loads(raw.decode("utf-8-sig"))
 
     result = spec.parser(payload) if spec.parser else payload
     if spec.cache_bucket and cache_key is not None:

@@ -428,37 +428,27 @@ class DerivativesPlatformApiTests(unittest.TestCase):
 
     @patch.object(builders, "write_memory_cache")
     @patch.object(builders, "read_memory_cache", return_value=None)
-    @patch.object(builders, "fetch_json")
-    def test_bybit_option_chain_uses_real_call_put_tickers(self, fetch_json_mock, _read_cache, _write_cache):
-        fetch_json_mock.return_value = {
-            "retCode": 0,
-            "retMsg": "OK",
-            "result": {
-                "list": [
-                    {
-                        "symbol": "SOL-31JUL26-100-C-USDT",
-                        "lastPrice": "2.5",
-                        "bid1Price": "2.4",
-                        "ask1Price": "2.6",
-                        "markPrice": "2.5",
-                        "markIv": "0.65",
-                        "volume24h": "12",
-                        "openInterest": "30",
-                        "underlyingPrice": "101.25",
-                    },
-                    {
-                        "symbol": "SOL-31JUL26-100-P-USDT",
-                        "lastPrice": "1.8",
-                        "bid1Price": "1.7",
-                        "ask1Price": "1.9",
-                        "markPrice": "1.8",
-                        "markIv": "0.70",
-                        "volume24h": "9",
-                        "openInterest": "22",
-                        "underlyingPrice": "101.25",
-                    },
-                ],
-            },
+    @patch.object(builders, "fetch_bybit_options_chain_data")
+    def test_bybit_option_chain_uses_real_call_put_tickers(self, fetch_bybit_mock, _read_cache, _write_cache):
+        expiration = 1785456000
+        fetch_bybit_mock.return_value = {
+            "contracts": [
+                {
+                    "contractSymbol": "SOL-31JUL26-100-C-USDT", "strike": 100.0,
+                    "lastPrice": 2.5, "bid": 2.4, "ask": 2.6, "impliedVolatility": 0.65,
+                    "volume": 12.0, "openInterest": 30.0, "expiration": expiration,
+                    "expirationDate": "2026-07-31", "type": "call",
+                },
+                {
+                    "contractSymbol": "SOL-31JUL26-100-P-USDT", "strike": 100.0,
+                    "lastPrice": 1.8, "bid": 1.7, "ask": 1.9, "impliedVolatility": 0.70,
+                    "volume": 9.0, "openInterest": 22.0, "expiration": expiration,
+                    "expirationDate": "2026-07-31", "type": "put",
+                },
+            ],
+            "underlyingPricesByExpiration": {expiration: [101.25, 101.25]},
+            "errorMessage": "OK",
+            "sourceUrl": "https://api.bybit.com/v5/market/tickers?category=option&baseCoin=SOL",
         }
         chain = app.build_public_options_chain("BYBIT_SOL")
         self.assertEqual(chain["symbol"], "BYBIT_SOL")
@@ -647,8 +637,11 @@ class DerivativesPlatformApiTests(unittest.TestCase):
     @patch.object(builders, "fetch_market_macro_factors", return_value={})
     @patch.object(builders, "fetch_international_market_indexes", return_value=[])
     @patch.object(builders, "fetch_market_volatility_indicator", return_value=None)
-    @patch.object(builders, "fetch_json", return_value={"stat": "OK", "data": []})
-    @patch.object(builders, "find_latest_dataset", return_value=({"stat": "OK", "data": []}, "20260718"))
+    @patch.object(builders, "fetch_twse_index_intraday_payload", return_value={"stat": "OK", "data": []})
+    @patch.object(builders, "fetch_twse_index_activity_payload", return_value={"stat": "OK", "data": []})
+    @patch.object(builders, "fetch_tpex_openapi_payload", return_value={"stat": "OK", "data": []})
+    @patch.object(builders, "fetch_latest_twse_institutions_payload", return_value=({"stat": "OK", "data": []}, "20260718"))
+    @patch.object(builders, "fetch_latest_twse_market_payload", return_value=({"stat": "OK", "data": []}, "20260718"))
     @patch.object(builders, "weighted_index_history_has_volume", return_value=True)
     @patch.object(builders, "upsert_latest_weighted_index_point", side_effect=lambda series, *a, **kw: series)
     @patch.object(builders, "parse_tpex_quotes", return_value=[])
@@ -680,13 +673,9 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         institution_payload = {"stat": "OK", "data": []}
         stock = TD10_LARGE_FUNCTION_FIXTURE["stock"]
 
-        def fake_latest_dataset(fetcher, *_args, **_kwargs):
-            if fetcher is builders.build_institutions_url:
-                return institution_payload, "20260718"
-            return market_payload, "20260718"
-
         with patch.object(app, "DeadlineThreadPoolExecutor", builders.ThreadPoolExecutor), \
-                patch.object(builders, "find_latest_dataset", side_effect=fake_latest_dataset), \
+                patch.object(builders, "fetch_latest_twse_market_payload", return_value=(market_payload, "20260718")), \
+                patch.object(builders, "fetch_latest_twse_institutions_payload", return_value=(institution_payload, "20260718")), \
                 patch.object(builders, "build_yahoo_sector_groups", return_value=({"otc": [{"name": "櫃買", "pct": "+1.00%"}]}, {"otc": "2026-07-18"})), \
                 patch.object(builders, "fetch_yahoo_sector_catalog", return_value={}), \
                 patch.object(builders, "fetch_market_volatility_indicator", return_value=None), \
@@ -731,14 +720,10 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         institution_payload = {"stat": "OK", "data": []}
         stock = TD10_LARGE_FUNCTION_FIXTURE["stock"]
 
-        def fake_latest_dataset(fetcher, *_args, **_kwargs):
-            if fetcher is builders.build_institutions_url:
-                return institution_payload, "20260718"
-            return market_payload, "20260718"
-
         with self.assertLogs("market_pulse", level="DEBUG") as logs, ExitStack() as stack:
             stack.enter_context(patch.object(app, "DeadlineThreadPoolExecutor", builders.ThreadPoolExecutor))
-            stack.enter_context(patch.object(builders, "find_latest_dataset", side_effect=fake_latest_dataset))
+            stack.enter_context(patch.object(builders, "fetch_latest_twse_market_payload", return_value=(market_payload, "20260718")))
+            stack.enter_context(patch.object(builders, "fetch_latest_twse_institutions_payload", return_value=(institution_payload, "20260718")))
             stack.enter_context(patch.object(builders, "build_yahoo_sector_groups", return_value=({"otc": [{"name": "櫃買", "pct": "+1.00%"}]}, {"otc": "2026-07-18"})))
             stack.enter_context(patch.object(builders, "fetch_yahoo_sector_catalog", return_value={}))
             stack.enter_context(patch.object(builders, "fetch_market_volatility_indicator", return_value=None))
@@ -765,12 +750,15 @@ class DerivativesPlatformApiTests(unittest.TestCase):
     def test_build_site_data_logs_bootstrap_source_fallbacks(self):
         market_payload = {"stat": "OK", "data": []}
         with self.assertLogs("market_pulse", level="DEBUG") as logs, ExitStack() as stack:
-            stack.enter_context(patch.object(builders, "find_latest_dataset", side_effect=[(market_payload, "20260718"), (market_payload, "20260718")]))
+            stack.enter_context(patch.object(builders, "fetch_latest_twse_market_payload", return_value=(market_payload, "20260718")))
+            stack.enter_context(patch.object(builders, "fetch_latest_twse_institutions_payload", return_value=(market_payload, "20260718")))
             stack.enter_context(patch.object(builders, "fetch_tpex_mainboard_quotes", side_effect=RuntimeError("fixture TPEx quote failure")))
             stack.enter_context(patch.object(builders, "fetch_yahoo_tpex_etfs", side_effect=RuntimeError("fixture ETF mapping failure")))
             stack.enter_context(patch.object(builders, "fetch_yahoo_sector_catalog", side_effect=RuntimeError("fixture sector catalog failure")))
             stack.enter_context(patch.object(builders, "build_yahoo_sector_groups", return_value=({}, {})))
-            stack.enter_context(patch.object(builders, "fetch_json", return_value={"stat": "OK", "data": []}))
+            stack.enter_context(patch.object(builders, "fetch_tpex_openapi_payload", return_value={"stat": "OK", "data": []}))
+            stack.enter_context(patch.object(builders, "fetch_twse_index_activity_payload", return_value={"stat": "OK", "data": []}))
+            stack.enter_context(patch.object(builders, "fetch_twse_index_intraday_payload", return_value={"stat": "OK", "data": []}))
             stack.enter_context(patch.object(builders, "build_sector_history_series", return_value={"發行量加權股價指數": []}))
             stack.enter_context(patch.object(builders, "weighted_index_history_has_volume", return_value=True))
             stack.enter_context(patch.object(builders, "upsert_latest_weighted_index_point", side_effect=lambda series, *_args, **_kwargs: series))
@@ -799,12 +787,15 @@ class DerivativesPlatformApiTests(unittest.TestCase):
     def test_build_site_data_logs_highlight_fallback_context(self):
         market_payload = {"stat": "OK", "data": []}
         with self.assertLogs("market_pulse", level="DEBUG") as logs, ExitStack() as stack:
-            stack.enter_context(patch.object(builders, "find_latest_dataset", side_effect=[(market_payload, "20260718"), (market_payload, "20260718")]))
+            stack.enter_context(patch.object(builders, "fetch_latest_twse_market_payload", return_value=(market_payload, "20260718")))
+            stack.enter_context(patch.object(builders, "fetch_latest_twse_institutions_payload", return_value=(market_payload, "20260718")))
             stack.enter_context(patch.object(builders, "fetch_tpex_mainboard_quotes", return_value=([], None)))
             stack.enter_context(patch.object(builders, "fetch_yahoo_tpex_etfs", return_value={}))
             stack.enter_context(patch.object(builders, "fetch_yahoo_sector_catalog", return_value={}))
             stack.enter_context(patch.object(builders, "build_yahoo_sector_groups", return_value=({}, {})))
-            stack.enter_context(patch.object(builders, "fetch_json", return_value={"stat": "OK", "data": []}))
+            stack.enter_context(patch.object(builders, "fetch_tpex_openapi_payload", return_value={"stat": "OK", "data": []}))
+            stack.enter_context(patch.object(builders, "fetch_twse_index_activity_payload", return_value={"stat": "OK", "data": []}))
+            stack.enter_context(patch.object(builders, "fetch_twse_index_intraday_payload", return_value={"stat": "OK", "data": []}))
             stack.enter_context(patch.object(builders, "build_summary_cards_from_payload", side_effect=RuntimeError("fixture highlight failure")))
             stack.enter_context(patch.object(builders, "build_sector_history_series", return_value={"發行量加權股價指數": []}))
             stack.enter_context(patch.object(builders, "weighted_index_history_has_volume", return_value=True))
@@ -834,21 +825,17 @@ class DerivativesPlatformApiTests(unittest.TestCase):
 
     def test_build_site_data_logs_activity_and_intraday_fallback_context(self):
         market_payload = {"stat": "OK", "data": []}
-        fetch_count = {"value": 0}
-
-        def fake_fetch_json(*_args, **_kwargs):
-            fetch_count["value"] += 1
-            if fetch_count["value"] in {4, 5}:
-                raise RuntimeError("fixture same-day data failure")
-            return market_payload
 
         with self.assertLogs("market_pulse", level="DEBUG") as logs, ExitStack() as stack:
-            stack.enter_context(patch.object(builders, "find_latest_dataset", side_effect=[(market_payload, "20260718"), (market_payload, "20260718")]))
+            stack.enter_context(patch.object(builders, "fetch_latest_twse_market_payload", return_value=(market_payload, "20260718")))
+            stack.enter_context(patch.object(builders, "fetch_latest_twse_institutions_payload", return_value=(market_payload, "20260718")))
             stack.enter_context(patch.object(builders, "fetch_tpex_mainboard_quotes", return_value=([], None)))
             stack.enter_context(patch.object(builders, "fetch_yahoo_tpex_etfs", return_value={}))
             stack.enter_context(patch.object(builders, "fetch_yahoo_sector_catalog", return_value={}))
             stack.enter_context(patch.object(builders, "build_yahoo_sector_groups", return_value=({}, {})))
-            stack.enter_context(patch.object(builders, "fetch_json", side_effect=fake_fetch_json))
+            stack.enter_context(patch.object(builders, "fetch_tpex_openapi_payload", return_value={"stat": "OK", "data": []}))
+            stack.enter_context(patch.object(builders, "fetch_twse_index_activity_payload", side_effect=RuntimeError("fixture same-day activity failure")))
+            stack.enter_context(patch.object(builders, "fetch_twse_index_intraday_payload", side_effect=RuntimeError("fixture same-day intraday failure")))
             stack.enter_context(patch.object(builders, "build_summary_cards_from_payload", return_value=[]))
             stack.enter_context(patch.object(builders, "build_sector_history_series", return_value={"發行量加權股價指數": []}))
             stack.enter_context(patch.object(builders, "weighted_index_history_has_volume", return_value=True))
@@ -878,12 +865,15 @@ class DerivativesPlatformApiTests(unittest.TestCase):
     def test_build_site_data_logs_market_supplement_fallback_context(self):
         market_payload = {"stat": "OK", "data": []}
         with self.assertLogs("market_pulse", level="DEBUG") as logs, ExitStack() as stack:
-            stack.enter_context(patch.object(builders, "find_latest_dataset", side_effect=[(market_payload, "20260718"), (market_payload, "20260718")]))
+            stack.enter_context(patch.object(builders, "fetch_latest_twse_market_payload", return_value=(market_payload, "20260718")))
+            stack.enter_context(patch.object(builders, "fetch_latest_twse_institutions_payload", return_value=(market_payload, "20260718")))
             stack.enter_context(patch.object(builders, "fetch_tpex_mainboard_quotes", return_value=([], None)))
             stack.enter_context(patch.object(builders, "fetch_yahoo_tpex_etfs", return_value={}))
             stack.enter_context(patch.object(builders, "fetch_yahoo_sector_catalog", return_value={}))
             stack.enter_context(patch.object(builders, "build_yahoo_sector_groups", return_value=({}, {})))
-            stack.enter_context(patch.object(builders, "fetch_json", return_value={"stat": "OK", "data": []}))
+            stack.enter_context(patch.object(builders, "fetch_tpex_openapi_payload", return_value={"stat": "OK", "data": []}))
+            stack.enter_context(patch.object(builders, "fetch_twse_index_activity_payload", return_value={"stat": "OK", "data": []}))
+            stack.enter_context(patch.object(builders, "fetch_twse_index_intraday_payload", return_value={"stat": "OK", "data": []}))
             stack.enter_context(patch.object(builders, "build_summary_cards_from_payload", return_value=[]))
             stack.enter_context(patch.object(builders, "build_sector_history_series", return_value={"發行量加權股價指數": []}))
             stack.enter_context(patch.object(builders, "weighted_index_history_has_volume", return_value=True))
@@ -1022,7 +1012,7 @@ class DerivativesPlatformApiTests(unittest.TestCase):
     def test_build_institution_trend_logs_failed_date_context(self):
         with self.assertLogs("market_pulse", level="DEBUG") as logs, patch.object(
             builders,
-            "fetch_json",
+            "fetch_twse_institutions_daily_payload",
             side_effect=RuntimeError("fixture institution trend failure"),
         ):
             result = builders.build_institution_trend(
@@ -1124,7 +1114,7 @@ class DerivativesPlatformApiTests(unittest.TestCase):
     def test_sector_history_fallbacks_log_date_context(self):
         with self.assertLogs("market_pulse", level="DEBUG") as logs, patch.object(
             builders,
-            "fetch_json",
+            "fetch_twse_market_payload",
             side_effect=RuntimeError("fixture sector history failure"),
         ):
             result = builders.build_sector_history_snapshot("20260719", ["發行量加權股價指數"])
@@ -1134,8 +1124,12 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         market_payload = {"stat": "OK", "data": [["發行量加權股價指數", "100"]]}
         with self.assertLogs("market_pulse", level="DEBUG") as logs, patch.object(
             builders,
-            "fetch_json",
-            side_effect=[market_payload, RuntimeError("fixture activity failure")],
+            "fetch_twse_market_payload",
+            return_value=market_payload,
+        ), patch.object(
+            builders,
+            "fetch_twse_index_activity_payload",
+            side_effect=RuntimeError("fixture activity failure"),
         ), patch.object(builders, "parse_index_close_values", return_value={"發行量加權股價指數": 100.0}), patch.object(
             builders,
             "parse_market_statistics",
@@ -1161,14 +1155,14 @@ class DerivativesPlatformApiTests(unittest.TestCase):
     def test_weighted_index_history_fallbacks_log_context(self):
         with self.assertLogs("market_pulse", level="DEBUG") as logs, \
                 patch.object(builders, "build_yahoo_chart_series", side_effect=RuntimeError("fixture Yahoo failure")), \
-                patch.object(builders, "fetch_json", return_value={"stat": "OK", "data": []}):
+                patch.object(builders, "fetch_twse_weighted_index_history_payload", return_value={"stat": "OK", "data": []}):
             result = builders.build_weighted_index_history_series("20260719", trading_days=1)
         self.assertEqual(result, [])
         self.assertTrue(any("Yahoo history fetch failed" in message and "20260719" in message for message in logs.output))
 
         with self.assertLogs("market_pulse", level="DEBUG") as logs, \
                 patch.object(builders, "build_yahoo_chart_series", return_value=[]), \
-                patch.object(builders, "fetch_json", side_effect=RuntimeError("fixture TWSE history failure")):
+                patch.object(builders, "fetch_twse_weighted_index_history_payload", side_effect=RuntimeError("fixture TWSE history failure")):
             result = builders.build_weighted_index_history_series("20260719", trading_days=1)
         self.assertEqual(result, [])
         self.assertTrue(any("history fetch failed" in message and "month=" in message for message in logs.output))
@@ -1176,7 +1170,7 @@ class DerivativesPlatformApiTests(unittest.TestCase):
     def test_yahoo_class_quote_fallbacks_log_context(self):
         with self.assertLogs("market_pulse", level="DEBUG") as logs, patch.object(
             builders,
-            "fetch_text",
+            "fetch_yahoo_class_quote_page",
             side_effect=RuntimeError("fixture class page failure"),
         ):
             result = builders.build_yahoo_class_quote_cards("https://example.test/class", "測試")
@@ -1184,7 +1178,7 @@ class DerivativesPlatformApiTests(unittest.TestCase):
         self.assertTrue(any("prefix=測試" in message and "empty cards" in message for message in logs.output))
 
         with self.assertLogs("market_pulse", level="DEBUG") as logs, \
-                patch.object(builders, "fetch_text", return_value="<html></html>"), \
+                patch.object(builders, "fetch_yahoo_class_quote_page", return_value="<html></html>"), \
                 patch.object(builders, "parse_yahoo_class_quote_rows", return_value=([], None, None)), \
                 patch.object(builders, "fetch_yahoo_class_quote_pages", side_effect=RuntimeError("fixture pagination failure")):
             result = builders.build_yahoo_class_quote_cards("https://example.test/class", "測試")

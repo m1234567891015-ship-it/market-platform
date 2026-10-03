@@ -17,6 +17,9 @@ const source = Object.fromEntries([
   "js/page-us.js",
   "js/page-global-market-futures.js",
   "js/page-global-market-options.js",
+  "js/page-global-market-shared.js",
+  "js/page-global-market-asset-finance.js",
+  "js/page-global-market-derivatives.js",
   "js/page-global-market-assethub.js",
   "js/page-tw.js",
   "js/stock-detail.js",
@@ -29,7 +32,7 @@ assert.doesNotMatch(sharedCalc, /\b(fetchWithTimeout|XMLHttpRequest)\b/, "shared
 assert.doesNotMatch(sharedCalc, /\b(localStorage|sessionStorage)\b/, "shared-calc must not own browser storage");
 assert.doesNotMatch(sharedCalc, /\b(document\.(querySelector|querySelectorAll|getElementById|createElement)|addEventListener)\b/, "shared-calc must not own DOM/UI wiring");
 assert.match(sharedCalc, /function buildMarketBreadthIndicators\(detail, allStocks = \[\], history = \[\]\)/);
-assert.match(sharedCalc, /function analyzeTechnicalTheories\(detail, \{ marketBreadth = null \} = \{\}\)/);
+assert.match(sharedCalc, /function analyzeTechnicalTheories\(detail, \{ marketBreadth = null, marketContext = null \} = \{\}\)/);
 assert.match(source["js/state.js"], /twEtfState\.getMarketBreadthContext = \(detail\) =>/);
 assert.match(source["js/state.js"], /twEtfState\.saveMarketBreadthHistory = \(history\) =>/);
 assert.doesNotMatch(source["js/state.js"], /buildMarketBreadthIndicators/);
@@ -138,10 +141,10 @@ htmlContracts.forEach(([file, pageContract, selectorContract]) => {
 const allPageSource = Object.values(source).join("\n");
 assert.match(allPageSource, /fallback/i, "fallback rendering contract must remain represented");
 assert.match(allPageSource, /catch \(error\)/, "API error rendering contract must remain represented");
-assert.match(source["js/page-global-market-assethub.js"], /EXECUTION_STATUS/);
-assert.match(source["js/page-global-market-assethub.js"], /liquidityEligibility/);
-assert.match(source["js/page-global-market-assethub.js"], /pointInTimeStatus/);
-assert.match(source["js/page-global-market-assethub.js"], /P\/L Trust/);
+assert.match(source["js/page-global-market-derivatives.js"], /EXECUTION_STATUS/);
+assert.match(source["js/page-global-market-derivatives.js"], /liquidityEligibility/);
+assert.match(source["js/page-global-market-derivatives.js"], /pointInTimeStatus/);
+assert.match(source["js/page-global-market-derivatives.js"], /P\/L Trust/);
 assert.match(source["js/page-global-market-futures.js"], /addEventListener/);
 assert.match(source["js/page-global-market-options.js"], /addEventListener/);
 assert.match(source["js/page-global-market-assethub.js"], /addEventListener/);
@@ -156,6 +159,13 @@ const breadthConsumers = [
 ].reduce((count, file) => count + (source[file].match(/twEtfState\.getMarketBreadthContext\(detail\)/g) || []).length, 0);
 assert.equal(breadthConsumers, 6, "all existing technical-theory consumers must pass explicit breadth context");
 assert.doesNotMatch(allPageSource, /analyzeTechnicalTheories\(detail\);/);
+const explicitMarketContextConsumers = [
+  "js/stock-detail.js",
+  "js/page-global-market-futures.js",
+  "js/page-us.js",
+  "js/page-tw.js",
+].reduce((count, file) => count + (source[file].match(/marketContext:\s*marketBreadthContext\.marketContext/g) || []).length, 0);
+assert.equal(explicitMarketContextConsumers, 6, "all sanctioned callers must pass the state adapter's explicit market context");
 assert.equal((allPageSource.match(/twEtfState\.saveMarketBreadthHistory\(marketBreadth\?\.nextHistory\)/g) || []).length, 6);
 
 console.log("P2_FRONTEND_CONTRACT_OK: shared responsibility, page audit targets, selected extraction, and frontend contract matrix");

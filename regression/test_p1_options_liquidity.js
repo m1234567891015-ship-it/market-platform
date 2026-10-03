@@ -5,7 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
 
-const sourcePath = path.join(__dirname, "..", "js", "page-global-market-assethub.js");
+const sourcePath = path.join(__dirname, "..", "js", "page-global-market-derivatives.js");
 const source = fs.readFileSync(sourcePath, "utf8");
 const start = source.indexOf("initDerivativesAnalyticsPage.strategyEngine = (() => {");
 const endMarker = "\n})();";

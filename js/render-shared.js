@@ -276,7 +276,7 @@ function buildTechnicalTrendSummary(detail, technicalTheory) {
     ? forecastScenarios.find((item) => Number(item.days) === Number(primaryTarget.days))
     : forecastScenarios.find((item) => Number(item.days) === 20) || forecastScenarios[0] || null;
   const forecastBiasText = primaryScenario
-    ? `多方 ${Number.isFinite(primaryScenario.bullish) ? primaryScenario.bullish : "--"}%、震盪 ${Number.isFinite(primaryScenario.neutral) ? primaryScenario.neutral : "--"}%、空方 ${Number.isFinite(primaryScenario.bearish) ? primaryScenario.bearish : "--"}%`
+    ? `多方權重 ${Number.isFinite(primaryScenario.bullish) ? primaryScenario.bullish : "--"}%、震盪權重 ${Number.isFinite(primaryScenario.neutral) ? primaryScenario.neutral : "--"}%、空方權重 ${Number.isFinite(primaryScenario.bearish) ? primaryScenario.bearish : "--"}%`
     : "情境比例不足";
   const priceForecastText = primaryTarget
     ? `${primaryTarget.label || `${primaryTarget.days} 日`}預估中位 ${primaryTarget.median.toFixed(2)}，區間 ${primaryTarget.lower.toFixed(2)} ~ ${primaryTarget.upper.toFixed(2)}，預估報酬 ${primaryTarget.expectedReturnPct >= 0 ? "+" : ""}${primaryTarget.expectedReturnPct.toFixed(2)}%。`
@@ -363,9 +363,9 @@ function renderTechnicalTrendForecastSummary(technicalTrendSummary, options = {}
           ${scenarios.map((item) => `
             <div class="backtest-forecast-item">
               <strong>${escapeHtml(item.label || `${item.days || "--"} 日`)}</strong>
-              <span class="is-bullish">偏多 ${Number.isFinite(item.bullish) ? item.bullish : "--"}%</span>
-              <span>震盪 ${Number.isFinite(item.neutral) ? item.neutral : "--"}%</span>
-              <span class="is-bearish">偏空 ${Number.isFinite(item.bearish) ? item.bearish : "--"}%</span>
+              <span class="is-bullish">偏多權重 ${Number.isFinite(item.bullish) ? item.bullish : "--"}%</span>
+              <span>震盪權重 ${Number.isFinite(item.neutral) ? item.neutral : "--"}%</span>
+              <span class="is-bearish">偏空權重 ${Number.isFinite(item.bearish) ? item.bearish : "--"}%</span>
             </div>
           `).join("")}
         </div>
@@ -388,7 +388,7 @@ function renderTechnicalTrendForecastSummary(technicalTrendSummary, options = {}
           </div>
         </div>
       ` : ""}
-      <p class="technical-summary-caveat">${escapeHtml(forecast.caveat || `預測${assetLabel}為區間模型估算，不是保證價格或投資建議。`)}</p>
+      <p class="technical-summary-caveat">${escapeHtml(forecast.caveat || `情境百分比是規則式權重，不代表統計漲跌機率、勝率或信心機率；預測${assetLabel}為區間模型估算，不是保證價格或投資建議。`)}</p>
     </div>
   `;
 }
@@ -666,9 +666,9 @@ function renderUsBacktestLearningCard(technicalTheory, options = {}) {
           ${scenarios.map((item) => `
             <div class="backtest-forecast-item">
               <strong>${escapeHtml(item.label || `${item.days || "--"} 日`)}</strong>
-              <span class="is-bullish">偏多 ${Number.isFinite(item.bullish) ? item.bullish : "--"}%</span>
-              <span>震盪 ${Number.isFinite(item.neutral) ? item.neutral : "--"}%</span>
-              <span class="is-bearish">偏空 ${Number.isFinite(item.bearish) ? item.bearish : "--"}%</span>
+              <span class="is-bullish">偏多權重 ${Number.isFinite(item.bullish) ? item.bullish : "--"}%</span>
+              <span>震盪權重 ${Number.isFinite(item.neutral) ? item.neutral : "--"}%</span>
+              <span class="is-bearish">偏空權重 ${Number.isFinite(item.bearish) ? item.bearish : "--"}%</span>
             </div>
           `).join("") || '<p class="stock-detail-empty">樣本不足，暫不輸出情境比例。</p>'}
         </div>
@@ -692,7 +692,7 @@ function renderUsBacktestLearningCard(technicalTheory, options = {}) {
             </div>
           </div>
         ` : ""}
-        <p class="backtest-forecast-caveat">${escapeHtml(forecast.caveat || "情境推估只作風險管理參考，不保證未來價格。")}</p>
+        <p class="backtest-forecast-caveat">${escapeHtml(forecast.caveat || "情境百分比是規則式權重，不代表統計漲跌機率、勝率或信心機率；只作風險管理參考，不保證未來價格。")}</p>
       </div>
       <div class="backtest-validation-card is-${validationTone}">
         <div class="backtest-validation-head">
@@ -954,6 +954,8 @@ function buildUsPortfolioFactorAssessment(positions, totals) {
       actions: ["建立部位前先設定單筆停損與停利條件，並規劃單一標的權重上限。"],
       theoryDetails: portfolioTheory.details,
       theoryActions: portfolioTheory.actions,
+      riskType: "PORTFOLIO_RISK",
+      riskClassification: { type: "PORTFOLIO_RISK", score: null, comparability: "WITHIN_RISK_TYPE_ONLY" },
       metrics: { maxWeight, stopRiskRatio, var95, historicalVar, returnToAverageMoveRatio, avgMove, ...portfolioTheory.metrics },
       source: PORTFOLIO_FACTOR_SOURCE,
     };
@@ -1003,6 +1005,8 @@ function buildUsPortfolioFactorAssessment(positions, totals) {
     actions,
     theoryDetails: portfolioTheory.details,
     theoryActions: portfolioTheory.actions,
+    riskType: "PORTFOLIO_RISK",
+    riskClassification: { type: "PORTFOLIO_RISK", score: riskScore, comparability: "WITHIN_RISK_TYPE_ONLY" },
     metrics: { maxWeight, stopRiskRatio, var95, historicalVar, returnToAverageMoveRatio, avgMove, averageAiScore, ...portfolioTheory.metrics },
     source: PORTFOLIO_FACTOR_SOURCE,
   };
@@ -1081,7 +1085,7 @@ function renderUsPortfolioSimulator(items = getUsWatchlist()) {
     <div><span>分散化比率</span><strong>${Number.isFinite(portfolioAssessment.metrics.diversificationRatio) ? portfolioAssessment.metrics.diversificationRatio.toFixed(2) : "--"}</strong></div>
     <div><span>效率分數</span><strong class="${portfolioAssessment.metrics.efficiencyScore > 0 ? "up" : portfolioAssessment.metrics.efficiencyScore < 0 ? "down" : "flat"}">${Number.isFinite(portfolioAssessment.metrics.efficiencyScore) ? portfolioAssessment.metrics.efficiencyScore.toFixed(2) : "--"}</strong></div>
     <div><span>AI 平均分數</span><strong class="${portfolioAssessment.metrics.averageAiScore > 0 ? "up" : portfolioAssessment.metrics.averageAiScore < 0 ? "down" : "flat"}">${portfolioAssessment.metrics.averageAiScore > 0 ? "+" : ""}${(portfolioAssessment.metrics.averageAiScore || 0).toFixed(1)}</strong></div>
-    <div><span>風險摘要</span><strong>${riskLabel}</strong></div>
+    <div><span>投資組合風險摘要</span><strong>${riskLabel}</strong></div>
   `;
   table.innerHTML = `
     <article class="portfolio-factor-card is-${portfolioAssessment.tone}">

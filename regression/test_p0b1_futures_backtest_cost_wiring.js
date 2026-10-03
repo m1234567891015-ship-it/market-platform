@@ -52,7 +52,7 @@ for (const [symbol, spec] of Object.entries(products)) {
     symbol,
     futuresNativeInterval: "day",
     historyDays: history,
-  });
+  }, { marketContext: {} });
   const learning = result.backtestLearning;
   assert(learning, `${symbol}: formal caller must return a backtest model`);
   assert.strictEqual(learning.costModel.supported, true, `${symbol}: authorized BASE config should resolve`);

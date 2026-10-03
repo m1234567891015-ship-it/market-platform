@@ -41,12 +41,20 @@ class DecisionOutcomeLedgerTests(unittest.TestCase):
                 "bias": "short-term bullish",
                 "marketScore": 90,
                 "riskScore": 10,
+                "riskType": "MARKET_RISK",
+                "riskClassification": {
+                    "type": "MARKET_RISK",
+                    "score": 10,
+                    "comparability": "WITHIN_RISK_TYPE_ONLY",
+                },
             },
             "executionDirection": "LONG",
             "executionDirectionReason": "EXPLICIT_LONG_DECISION",
             "executionDirectionContractVersion": "P1D_DIRECTION_V1",
             "evidence_score": 75,
             "data_quality_score": 88,
+            "quality_coverage": 80,
+            "data_quality_dimension_status": {"freshness": "KNOWN", "providerHealth": "UNKNOWN"},
             "reference_price": 100,
             "execution_cost_assumptions": {"status": "UNAVAILABLE", "reason": "NO_DECISION_TIME_COST_CONTRACT"},
             "source_updated_at": "2026-09-01",
@@ -77,12 +85,20 @@ class DecisionOutcomeLedgerTests(unittest.TestCase):
         self.assertEqual(saved["strategy_version"], "derivatives-decision-v1")
         self.assertEqual(saved["evidence_score"], 75)
         self.assertEqual(saved["data_quality_score"], 88)
+        self.assertEqual(saved["source_metadata"]["quality_coverage"], 80)
+        self.assertEqual(
+            saved["source_metadata"]["data_quality_dimension_status"],
+            {"freshness": "KNOWN", "providerHealth": "UNKNOWN"},
+        )
         self.assertEqual(saved["decision_time"], self.decision["decision_time"])
         self.assertEqual(saved["executionDirection"], "LONG")
         self.assertEqual(saved["executionDirectionStatus"], "AVAILABLE")
         self.assertEqual(saved["executionDirectionContractVersion"], "P1D_DIRECTION_V1")
         self.assertEqual(saved["execution_cost_assumptions"]["contractVersion"], "P0B_FUTURES_COST_V1")
         self.assertEqual(saved["decision_output"]["executionQuantity"], None)
+        self.assertEqual(saved["decision_output"]["riskType"], "MARKET_RISK")
+        self.assertEqual(saved["decision_output"]["riskClassification"]["type"], "MARKET_RISK")
+        self.assertEqual(saved["decision_output"]["riskClassification"]["score"], 10)
         self.assertNotIn("predictive_confidence", saved)
 
     def test_ai_report_path_persists_decision_snapshot(self) -> None:
@@ -101,6 +117,8 @@ class DecisionOutcomeLedgerTests(unittest.TestCase):
             "evidenceScore": 75,
             "dataQualityScore": 88,
             "dataQualityStatus": "PARTIAL",
+            "qualityCoverage": 60,
+            "dataQualityDimensionStatus": {"freshness": "UNKNOWN", "providerHealth": "KNOWN"},
             "reasons": [],
         }
         self.store.record_ai_report(
@@ -109,6 +127,11 @@ class DecisionOutcomeLedgerTests(unittest.TestCase):
         saved = self.store.get_decision("decision-ai-path")
         self.assertEqual(saved["input_snapshot"], self.snapshot)
         self.assertEqual(saved["reference_price"], 100)
+        self.assertEqual(saved["source_metadata"]["quality_coverage"], 60)
+        self.assertEqual(
+            saved["source_metadata"]["data_quality_dimension_status"],
+            {"freshness": "UNKNOWN", "providerHealth": "KNOWN"},
+        )
         self.assertEqual(saved["execution_cost_assumptions"]["contractVersion"], "P0B_FUTURES_COST_V1")
         self.assertEqual(saved["executionDirection"], "UNAVAILABLE")
 

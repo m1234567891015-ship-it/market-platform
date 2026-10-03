@@ -6,7 +6,9 @@ import json
 from math import isfinite
 from typing import Any
 
-from .calibration import CALIBRATION_STATUS_UNAVAILABLE
+from .calibration import CALIBRATION_STATUS_UNAVAILABLE, probability_label_allowed
+from .decision_state import resolve_decision_state
+from risk_taxonomy import risk_metadata
 
 
 DECISION_MODEL_VERSION = "rules-based-derivatives-v1"
@@ -15,6 +17,7 @@ MODEL_CONFIDENCE_STATUS_UNAVAILABLE = "UNAVAILABLE"
 MIN_EVIDENCE_SCORE_FOR_DIRECTIONAL_SUGGESTION = 50
 EXECUTION_DIRECTION_VALUES = {"LONG", "SHORT", "NO_POSITION", "UNAVAILABLE"}
 EXECUTION_DIRECTION_CONTRACT_VERSION = "P1D_DIRECTION_V1"
+DECISION_STATE_CONTRACT_VERSION = "P1_04_NO_TRADE_V1"
 
 
 def clamp(value: float, low: float = 0, high: float = 100) -> float:
@@ -76,18 +79,20 @@ def build_decision_quality(
     evidence_total: int,
     quality_context: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Return explainable data coverage and quality scores.
+    """Return separate evidence coverage, measured quality, and quality coverage.
 
-    This is deliberately a data-quality heuristic, not a predictive-confidence
-    estimate. Unknown quality dimensions are omitted instead of being treated as
-    healthy. ``quality_context`` may provide explicit 0-100 scores for freshness,
-    provider health, consistency, or fallback-source use.
+    ``dataQualityDimensions`` remains a compatibility map of known numeric scores.
+    ``dataQualityDimensionStatus`` explicitly reports which of the five required
+    dimensions are known, so an omitted score cannot be mistaken for a healthy one.
     """
     context = quality_context or {}
     total = max(int(evidence_total or 0), 0)
     available = max(min(int(available_evidence or 0), total), 0) if total else 0
     evidence_score = round((available / total) * 100) if total else 0
-    dimensions: dict[str, float] = {"completeness": float(evidence_score)}
+    required_dimensions = ("completeness", "freshness", "providerHealth", "consistency", "fallbackSource")
+    dimensions: dict[str, float] = {}
+    if total > 0:
+        dimensions["completeness"] = float(evidence_score)
 
     explicit_dimensions = {
         "freshness": context.get("freshness_score"),
@@ -103,25 +108,34 @@ def build_decision_quality(
     provider_status = str(context.get("provider_status") or "").strip().lower()
     if provider_status in {"failed", "error", "unavailable"}:
         dimensions["providerHealth"] = 0.0
+    elif provider_status in {"healthy", "ok", "available"}:
+        dimensions.setdefault("providerHealth", 100.0)
     if context.get("stale") is True:
         dimensions["freshness"] = 0.0
-    if "fallback_used" in context and "fallbackSource" not in dimensions:
+    if isinstance(context.get("fallback_used"), bool) and "fallbackSource" not in dimensions:
         dimensions["fallbackSource"] = 50.0 if context["fallback_used"] else 100.0
 
     data_quality_score = round(sum(dimensions.values()) / len(dimensions)) if dimensions else None
+    dimension_status = {
+        name: "KNOWN" if name in dimensions else "UNKNOWN"
+        for name in required_dimensions
+    }
+    quality_coverage = round((len(dimensions) / len(required_dimensions)) * 100)
     if provider_status in {"failed", "error", "unavailable"}:
         status = "FAILED"
     elif data_quality_score is None or not dimensions:
         status = "UNAVAILABLE"
-    elif evidence_score == 100 and data_quality_score >= 80:
+    elif quality_coverage == 100 and evidence_score == 100 and data_quality_score >= 80:
         status = "AVAILABLE"
     else:
         status = "PARTIAL"
     return {
         "evidenceScore": evidence_score,
         "dataQualityScore": data_quality_score,
+        "qualityCoverage": quality_coverage,
         "dataQualityStatus": status,
         "dataQualityDimensions": dimensions,
+        "dataQualityDimensionStatus": dimension_status,
     }
 
 
@@ -187,12 +201,21 @@ def build_decision_contract(
         execution_direction_reason = "INVALID_EXECUTION_DIRECTION"
     direction_status = "UNAVAILABLE" if normalized_direction == "UNAVAILABLE" else "AVAILABLE"
     direction_reason = str(execution_direction_reason or "ANALYSIS_ONLY").strip().upper()
+    decision = resolve_decision_state(
+        execution_direction=normalized_direction,
+        execution_direction_reason=direction_reason,
+        data_quality_status=quality["dataQualityStatus"],
+        explicit_state=(decision_context or {}).get("canonical_decision_state"),
+        explicit_reason_codes=(decision_context or {}).get("canonical_reason_codes"),
+    )
     provenance_output = {
         **decision_output,
         "executionDirection": normalized_direction,
         "executionDirectionStatus": direction_status,
         "executionDirectionReason": direction_reason,
         "executionDirectionContractVersion": EXECUTION_DIRECTION_CONTRACT_VERSION,
+        "decisionStateContractVersion": DECISION_STATE_CONTRACT_VERSION,
+        **decision,
     }
     return {
         **quality,
@@ -204,13 +227,29 @@ def build_decision_contract(
         "modelConfidenceStatus": MODEL_CONFIDENCE_STATUS_UNAVAILABLE,
         "model_confidence": None,
         "calibrationStatus": CALIBRATION_STATUS_UNAVAILABLE,
-        "probabilityLabelAllowed": False,
+        "probabilityLabelAllowed": probability_label_allowed(CALIBRATION_STATUS_UNAVAILABLE),
         "executionDirection": normalized_direction,
         "executionDirectionStatus": direction_status,
         "executionDirectionReason": direction_reason,
         "executionDirectionContractVersion": EXECUTION_DIRECTION_CONTRACT_VERSION,
+        "decisionStateContractVersion": DECISION_STATE_CONTRACT_VERSION,
+        **decision,
         **build_decision_provenance(symbol, input_snapshot, provenance_output, decision_context),
     }
+
+
+def apply_decision_gate_to_strategy_suggestion(decision_contract: dict[str, Any], suggestion: str) -> tuple[str, str | None]:
+    """Keep the descriptive strategy bias while preventing it from overriding abstention."""
+    state = str(decision_contract.get("decisionState") or "UNKNOWN").upper()
+    if state == "NO_TRADE":
+        codes = decision_contract.get("reasonCodes") or ["UNKNOWN"]
+        return (
+            f"暫不交易（{', '.join(str(code) for code in codes)}）；原策略傾向僅作研究描述，不具新倉執行資格。",
+            suggestion,
+        )
+    if state == "HOLD_EXISTING":
+        return ("維持現有部位；策略傾向不代表可建立新部位。", suggestion)
+    return suggestion, None
 
 
 def enrich_option_ai_decision(
@@ -258,7 +297,7 @@ def enrich_option_ai_decision(
     decision_contract = build_decision_contract(
         symbol=str((decision_context or {}).get("symbol") or analysis.get("target") or "unknown"),
         input_snapshot={"summary": summary, "chain": chain, "spot": spot},
-        decision_output={"bias": analysis.get("bias"), "marketScore": market_score, "riskScore": risk_score},
+        decision_output={"bias": analysis.get("bias"), "marketScore": market_score, "riskScore": risk_score, **risk_metadata("MARKET_RISK", risk_score)},
         available_evidence=evidence,
         evidence_total=5,
         decision_context=decision_context,
@@ -288,17 +327,19 @@ def enrich_option_ai_decision(
         },
     ]
     if risk_score >= 70:
-        suggestion = "風險分數偏高，優先降低槓桿、縮小裸賣方部位，等待 PCR 與最大痛點重新收斂。"
+        suggestion = "選擇權市場風險偏高，優先降低槓桿、縮小裸賣方部位，等待 PCR 與最大痛點重新收斂。"
     elif market_score >= 62 and passes_evidence_gate(decision_contract["evidenceScore"]):
         suggestion = "多方條件較佳，可用價差或小部位順勢觀察，停損放在主要 Put OI 支撐下方。"
     elif market_score <= 38 and passes_evidence_gate(decision_contract["evidenceScore"]):
         suggestion = "空方壓力較高，可偏向避險或減碼，避免在主要 Put OI 跌破後追高風險。"
     else:
         suggestion = "市場分數居中，先以區間策略、觀察最大痛點與 OI 牆變化為主。"
+    suggestion, strategy_bias = apply_decision_gate_to_strategy_suggestion(decision_contract, suggestion)
     return {
         **analysis,
         "marketScore": market_score,
         "riskScore": risk_score,
+        **risk_metadata("MARKET_RISK", risk_score),
         **decision_contract,
         # Compatibility field. It is the pre-Q1 evidence proxy, not predictive confidence.
         "confidenceScore": confidence_score,
@@ -306,7 +347,8 @@ def enrich_option_ai_decision(
             "marketScore": "50 + PCR directional pressure + Volume PCR pressure + Max Pain gap direction + OI wall position, clamped 0-100.",
             "riskScore": "48 + PCR risk pressure + Volume PCR imbalance + abs(Max Pain gap) + out-of-range OI wall penalty, clamped 0-100.",
             "evidenceScore": "Available required evidence layers / 5 * 100; coverage only, not predictive confidence.",
-            "dataQualityScore": "Mean of known completeness, freshness, provider-health, consistency, and fallback-source dimensions; unknown dimensions are omitted.",
+            "dataQualityScore": "Mean quality score of dimensions with valid evidence; interpret with qualityCoverage and dataQualityStatus.",
+            "qualityCoverage": "Known required data-quality dimensions divided by five required dimensions, expressed 0-100.",
             "modelConfidence": "Unavailable until historical out-of-sample calibration exists; returned as null.",
             "confidenceScore": "DEPRECATED compatibility field: legacy evidence proxy, not calibrated model confidence.",
             "evidenceLayers": ["PCR", "Volume PCR", "Max Pain Gap", "OI Wall", "Total OI"],
@@ -326,6 +368,7 @@ def enrich_option_ai_decision(
         },
         "crossValidation": cross_validation,
         "strategySuggestion": suggestion,
+        **({"strategyBias": strategy_bias} if strategy_bias is not None else {}),
     }
 
 
@@ -354,12 +397,17 @@ def enrich_futures_ai_decision(
         "market_as_of": item.get("date"),
         "source_updated_at": item.get("date"),
         "provider_status": "failed" if item.get("error") else "healthy",
-        "fallback_used": str(item.get("sourceStatus") or "").lower() in {"fallback", "snapshot"},
     }
+    if decision_context is None:
+        source_status = str(item.get("sourceStatus") or "").strip().lower()
+        if source_status in {"fallback", "snapshot"}:
+            context["fallback_used"] = True
+        elif source_status in {"live", "primary", "healthy", "cached", "cache"}:
+            context["fallback_used"] = False
     decision_contract = build_decision_contract(
         symbol=str(context.get("symbol") or analysis.get("target") or item.get("symbol") or "unknown"),
         input_snapshot={"item": item, "candles": candles},
-        decision_output={"bias": analysis.get("bias"), "marketScore": round(clamp(market_score)), "riskScore": round(clamp(risk_score))},
+        decision_output={"bias": analysis.get("bias"), "marketScore": round(clamp(market_score)), "riskScore": round(clamp(risk_score)), **risk_metadata("MARKET_RISK", round(clamp(risk_score)))},
         available_evidence=evidence,
         evidence_total=4,
         decision_context=context,
@@ -375,17 +423,19 @@ def enrich_futures_ai_decision(
         {"name": "Candles", "status": "available" if candles else "missing", "signal": f"{len(candles)} bars"},
     ]
     if risk_score >= 65:
-        suggestion = "期貨風險偏高，先控槓桿與保證金，等待價格與未平倉方向一致。"
+        suggestion = "期貨市場風險偏高，先控槓桿與保證金，等待價格與未平倉方向一致。"
     elif market_score >= 60 and passes_evidence_gate(decision_contract["evidenceScore"]):
         suggestion = "短線偏多，可用小部位順勢並以近 20 日支撐作風控。"
     elif market_score <= 40 and passes_evidence_gate(decision_contract["evidenceScore"]):
         suggestion = "短線偏空，優先防守與避險，反彈未站回壓力前不追多。"
     else:
         suggestion = "訊號未形成一致方向，以區間與風險控管為主。"
+    suggestion, strategy_bias = apply_decision_gate_to_strategy_suggestion(decision_contract, suggestion)
     return {
         **analysis,
         "marketScore": round(clamp(market_score)),
         "riskScore": round(clamp(risk_score)),
+        **risk_metadata("MARKET_RISK", round(clamp(risk_score))),
         **decision_contract,
         # Compatibility field. It is the pre-Q1 evidence proxy, not predictive confidence.
         "confidenceScore": round(clamp(confidence_score)),
@@ -393,7 +443,8 @@ def enrich_futures_ai_decision(
             "marketScore": "50 + futures percent-change directional score, clamped 0-100.",
             "riskScore": "45 + downside momentum penalty + open-interest availability risk premium, clamped 0-100.",
             "evidenceScore": "Available required evidence layers / 4 * 100; coverage only, not predictive confidence.",
-            "dataQualityScore": "Mean of known completeness, freshness, provider-health, consistency, and fallback-source dimensions; unknown dimensions are omitted.",
+            "dataQualityScore": "Mean quality score of dimensions with valid evidence; interpret with qualityCoverage and dataQualityStatus.",
+            "qualityCoverage": "Known required data-quality dimensions divided by five required dimensions, expressed 0-100.",
             "modelConfidence": "Unavailable until historical out-of-sample calibration exists; returned as null.",
             "confidenceScore": "DEPRECATED compatibility field: legacy evidence proxy, not calibrated model confidence.",
             "evidenceLayers": ["Price Change", "Open Interest", "Volume", "Candles"],
@@ -407,6 +458,7 @@ def enrich_futures_ai_decision(
         },
         "crossValidation": cross_validation,
         "strategySuggestion": suggestion,
+        **({"strategyBias": strategy_bias} if strategy_bias is not None else {}),
     }
 
 

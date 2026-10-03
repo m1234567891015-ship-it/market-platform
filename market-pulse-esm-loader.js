@@ -1,6 +1,6 @@
 /* TD-02 full-site ESM loader with an explicit classic rollback path. */
 (function () {
-  const CURRENT_BUILD_VERSION = "td02-full-esm-0d97040352ad7558";
+  const CURRENT_BUILD_VERSION = "td02-full-esm-7c8021c06d4cbbaf";
   const loaderUrl = document.currentScript?.src
     ? new URL(document.currentScript.src, document.baseURI)
     : null;
@@ -10,9 +10,9 @@
   const APP_SCOPE_PATH = "/";
   const APP_SERVICE_WORKER_PATH = "/service-worker.js";
   const APP_CACHE_PREFIX = "market-pulse-swr-";
-  const commonFallback = "common-runtime.min.js?v=td18-minify-5764425d78eba14b";
-  const routeFallback = "route-bundle.min.js?v=td18-minify-5764425d78eba14b";
-  const statusFallback = "derivatives-status-addon.min.js?v=td18-minify-5764425d78eba14b";
+  const commonFallback = "common-runtime.min.js?v=td18-minify-75a73bfba6836641";
+  const routeFallback = "route-bundle.min.js?v=td18-minify-75a73bfba6836641";
+  const statusFallback = "derivatives-status-addon.min.js?v=td18-minify-75a73bfba6836641";
   const ROLLBACK_STORAGE_KEY = "market-pulse-td02-esm-rollback";
   let fallbackStarted = false;
 

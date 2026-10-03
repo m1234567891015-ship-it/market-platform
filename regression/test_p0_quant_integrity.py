@@ -20,7 +20,7 @@ from derivatives.calibration import (
 
 ROOT = Path(__file__).resolve().parents[1]
 OPTIONS_SOURCE = (ROOT / "js" / "page-global-market-options.js").read_text(encoding="utf-8")
-ASSET_HUB_SOURCE = (ROOT / "js" / "page-global-market-assethub.js").read_text(encoding="utf-8")
+DERIVATIVES_SOURCE = (ROOT / "js" / "page-global-market-derivatives.js").read_text(encoding="utf-8")
 
 
 class QuantIntegritySemanticTests(unittest.TestCase):
@@ -59,7 +59,7 @@ class QuantIntegritySemanticTests(unittest.TestCase):
     def test_t5_ui_uses_non_probability_scenario_wording(self):
         self.assertIn("\u60c5\u5883\u6b0a\u91cd", OPTIONS_SOURCE)
         self.assertIn("\u8b49\u64da\u5f37\u5ea6", OPTIONS_SOURCE)
-        self.assertIn("\u591a\u65b9\u6b0a\u91cd", ASSET_HUB_SOURCE)
+        self.assertIn("\u591a\u65b9\u6b0a\u91cd", DERIVATIVES_SOURCE)
         self.assertNotIn("\u60c5\u5883\u727d\u5f15\u8207\u5340\u9593\u9707\u76ea\u6a5f\u7387", OPTIONS_SOURCE)
 
     def test_t6_model_confidence_unavailable_ui_contract(self):
