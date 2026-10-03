@@ -26,7 +26,11 @@ const history = Array.from({ length: 720 }, (_, index) => {
   };
 });
 
-const model = sandbox.__q2.buildBacktestLearningModel(history, 20);
+const model = sandbox.__q2.buildBacktestLearningModel(history, 20, {
+  assetClass: "TW_EQUITY",
+  securityType: "EQUITY",
+  instrumentSymbol: "TEST",
+});
 assert.strictEqual(sandbox.__q2.calculateBacktestProfitFactor([1, 2, 3]), null);
 assert.strictEqual(model.signalTiming, "T close");
 assert.strictEqual(model.executionTiming, "T+1 open");

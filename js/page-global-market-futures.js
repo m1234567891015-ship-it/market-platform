@@ -487,7 +487,11 @@ function buildUsIndexVixAiAnalysis({ selectedIndexes = [], selected, vix, chartS
     headline: chartState.comparison ? `${selectedIndexes.length} 指數比對 · ${forecastLabel}` : `${selectedName} · ${forecastLabel}`,
     confidence: `${confidence}/5`,
     scenarioWeights,
+    riskType: "MARKET_RISK",
+    riskClassification: { type: "MARKET_RISK", score: riskScore, comparability: "WITHIN_RISK_TYPE_ONLY" },
     scenarioSemanticStatus: "HEURISTIC_SCENARIO_WEIGHT",
+    calibrationStatus: "UNAVAILABLE",
+    probabilityLabelAllowed: false,
     probabilitiesDeprecated: true,
     modules: [
       {
@@ -502,6 +506,8 @@ function buildUsIndexVixAiAnalysis({ selectedIndexes = [], selected, vix, chartS
         label: `${riskLabel} · ${divergenceLabel}`,
         tone: riskTone,
         score: `${riskScore}/100`,
+        riskType: "MARKET_RISK",
+        riskClassification: { type: "MARKET_RISK", score: riskScore, comparability: "WITHIN_RISK_TYPE_ONLY" },
         body: `${vixBand.label}，${divergenceText} ${vixBand.text}`,
       },
       {
@@ -509,7 +515,7 @@ function buildUsIndexVixAiAnalysis({ selectedIndexes = [], selected, vix, chartS
         label: forecastLabel,
         tone: forecastTone,
         score: `${bullish}/${neutral}/${bearish}`,
-        body: `未來 3-5 個交易日情境推估：多方 ${bullish}%、震盪 ${neutral}%、空方 ${bearish}%。此為內建規則模型，用於比對風險，不保證價格。`,
+        body: `未來 3-5 個交易日情境權重：多方 ${bullish}%、震盪 ${neutral}%、空方 ${bearish}%。此為內建規則模型，不代表統計漲跌機率或勝率；不保證價格。`,
       },
     ],
   };
@@ -1475,6 +1481,8 @@ function buildUsMarketPulseAnalysis({ majorItems, usablePulseItems, vix, avgPct,
     neutral: scenarioWeights.neutral,
     bearish: scenarioWeights.bearish,
     scenarioSemanticStatus: "HEURISTIC_SCENARIO_WEIGHT",
+    calibrationStatus: "UNAVAILABLE",
+    probabilityLabelAllowed: false,
     probabilitiesDeprecated: true,
   };
   forecast.label = forecast.scenarioWeights.bullish >= forecast.scenarioWeights.bearish + 12
@@ -1482,7 +1490,7 @@ function buildUsMarketPulseAnalysis({ majorItems, usablePulseItems, vix, avgPct,
     : forecast.scenarioWeights.bearish >= forecast.scenarioWeights.bullish + 12
       ? "修正風險升高"
       : "區間震盪權重高";
-  forecast.summary = `${forecast.horizon} 情境推估：多方 ${forecast.scenarioWeights.bullish}%、震盪 ${forecast.scenarioWeights.neutral}%、空方 ${forecast.scenarioWeights.bearish}%。此為內建規則模型，不是價格保證。`;
+  forecast.summary = `${forecast.horizon} 情境權重：多方 ${forecast.scenarioWeights.bullish}%、震盪 ${forecast.scenarioWeights.neutral}%、空方 ${forecast.scenarioWeights.bearish}%。此為內建規則模型，不代表統計漲跌機率或勝率；不是價格保證。`;
   const aiModules = [
     {
       title: "趨勢評估",
@@ -1524,6 +1532,8 @@ function buildUsMarketPulseAnalysis({ majorItems, usablePulseItems, vix, avgPct,
     scenarioWeights: forecast.scenarioWeights,
     riskLevel,
     riskScore,
+    riskType: "MARKET_RISK",
+    riskClassification: { type: "MARKET_RISK", score: riskScore, comparability: "WITHIN_RISK_TYPE_ONLY" },
     forecast,
     aiModules,
     leader,
@@ -1621,7 +1631,7 @@ function renderGlobalSummaryCard(payload) {
         <span><b>${advancers} / ${decliners}</b><small>上漲 / 下跌</small></span>
         <span><b>${analysis.averageText}</b><small>樣本平均漲跌</small></span>
         <span><b>${escapeHtml(analysis.trendLabel)}</b><small>趨勢分數 ${analysis.trendPower}/100</small></span>
-        <span><b>${escapeHtml(analysis.riskLevel)}</b><small>風險分數 ${analysis.riskScore}/100</small></span>
+        <span><b>${escapeHtml(analysis.riskLevel)}</b><small>市場風險分數 ${analysis.riskScore}/100</small></span>
         <span><b>${escapeHtml(analysis.forecast.label)}</b><small>${escapeHtml(analysis.forecast.horizon)}</small></span>
         <span><b>${escapeHtml(strongest?.symbol || "--")}</b><small>最強 ${escapeHtml(strongest?.pct || "--")}</small></span>
         <span><b>${escapeHtml(weakest?.symbol || "--")}</b><small>最弱 ${escapeHtml(weakest?.pct || "--")}</small></span>
@@ -3683,7 +3693,10 @@ function renderFuturesTechnicalSummaryCard(item, rows = []) {
   const marketBreadthContext = twEtfState.getMarketBreadthContext(detail);
   const marketBreadth = buildMarketBreadthIndicators(marketBreadthContext.detail, marketBreadthContext.stocks, marketBreadthContext.history);
   twEtfState.saveMarketBreadthHistory(marketBreadth?.nextHistory);
-  const technicalTheory = analyzeTechnicalTheories(detail, { marketBreadth });
+  const technicalTheory = analyzeTechnicalTheories(detail, {
+    marketBreadth,
+    marketContext: marketBreadthContext.marketContext,
+  });
   const trendSummary = buildTechnicalTrendSummary(detail, technicalTheory);
   return `
     <article class="stock-market-context technical-trend-summary is-${escapeHtml(trendSummary.tone || "neutral")} futures-technical-summary-card">
@@ -3840,7 +3853,10 @@ function renderFuturesTechnicalTheorySection(item, rows = []) {
   const marketBreadthContext = twEtfState.getMarketBreadthContext(detail);
   const marketBreadth = buildMarketBreadthIndicators(marketBreadthContext.detail, marketBreadthContext.stocks, marketBreadthContext.history);
   twEtfState.saveMarketBreadthHistory(marketBreadth?.nextHistory);
-  const technicalTheory = analyzeTechnicalTheories(detail, { marketBreadth });
+  const technicalTheory = analyzeTechnicalTheories(detail, {
+    marketBreadth,
+    marketContext: marketBreadthContext.marketContext,
+  });
   const snapshot = buildFuturesTechnicalSnapshot(analysisRows);
   const theoryTone = technicalTheory.score >= 3 ? "positive" : technicalTheory.score <= -3 ? "negative" : "neutral";
   const theoryLabel = theoryTone === "positive" ? "偏多結構" : theoryTone === "negative" ? "偏空結構" : "中性整理";

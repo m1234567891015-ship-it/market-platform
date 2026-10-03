@@ -89,6 +89,12 @@ twEtfState.getMarketBreadthContext = (detail) => {
     },
     stocks: localAllStocks,
     history,
+    marketContext: {
+      marketInternationalIndexes: data?.marketInternationalIndexes,
+      marketMacroFactors: data?.marketMacroFactors,
+      marketVolatility: data?.marketVolatility,
+      marketOverview: data?.marketOverview,
+    },
   };
 };
 twEtfState.saveMarketBreadthHistory = (history) => {

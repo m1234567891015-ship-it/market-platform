@@ -2,8 +2,9 @@
   "data": {
     "aiScoreFormula": {
       "confidenceScore": "DEPRECATED compatibility field: legacy evidence proxy, not calibrated model confidence.",
-      "dataQualityScore": "Mean of known completeness, freshness, provider-health, consistency, and fallback-source dimensions; unknown dimensions are omitted.",
+      "dataQualityScore": "Mean quality score of dimensions with valid evidence; interpret with qualityCoverage and dataQualityStatus.",
       "evidenceScore": "Available required evidence layers divided by required layers, expressed 0-100; coverage only.",
+      "qualityCoverage": "Known required data-quality dimensions divided by five required dimensions, expressed 0-100.",
       "marketScore": "Options: PCR, Volume PCR, Max Pain gap, OI wall; Futures: price change. All scores clamped 0-100.",
       "modelConfidence": "Unavailable until historical out-of-sample calibration exists; decision objects return null with status UNAVAILABLE.",
       "riskScore": "Options: PCR imbalance, Volume PCR imbalance, Max Pain gap and OI wall break; Futures: downside momentum and OI availability.",

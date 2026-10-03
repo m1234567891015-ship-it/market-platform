@@ -2827,6 +2827,8 @@ function buildPortfolioFactorAssessment(positions, totals) {
       actions: ["建立部位前先設定單筆停損與停利條件，並預先規劃單一權重上限。"],
       theoryDetails: portfolioTheory.details,
       theoryActions: portfolioTheory.actions,
+      riskType: "PORTFOLIO_RISK",
+      riskClassification: { type: "PORTFOLIO_RISK", score: null, comparability: "WITHIN_RISK_TYPE_ONLY" },
       metrics: { maxWeight, stopRiskRatio, var95, historicalVar, returnToAverageMoveRatio, avgMove, ...portfolioTheory.metrics },
       assetMix: assetCounts,
       source: PORTFOLIO_FACTOR_SOURCE,
@@ -2886,6 +2888,8 @@ function buildPortfolioFactorAssessment(positions, totals) {
     actions,
     theoryDetails: portfolioTheory.details,
     theoryActions: portfolioTheory.actions,
+    riskType: "PORTFOLIO_RISK",
+    riskClassification: { type: "PORTFOLIO_RISK", score: riskScore, comparability: "WITHIN_RISK_TYPE_ONLY" },
     metrics: { maxWeight, stopRiskRatio, var95, historicalVar, returnToAverageMoveRatio, avgMove, averageAiScore, backtestHealthy, backtestWatch, backtestRebuild, ...portfolioTheory.metrics },
     assetMix: assetCounts,
     source: PORTFOLIO_FACTOR_SOURCE,
@@ -2976,7 +2980,7 @@ function renderPortfolioSimulator(items = getWatchlist()) {
     <div><span>效率分數</span><strong class="${portfolioAssessment.metrics.efficiencyScore > 0 ? "up" : portfolioAssessment.metrics.efficiencyScore < 0 ? "down" : "flat"}">${Number.isFinite(portfolioAssessment.metrics.efficiencyScore) ? portfolioAssessment.metrics.efficiencyScore.toFixed(2) : "--"}</strong></div>
     <div><span>AI 平均分數</span><strong class="${portfolioAssessment.metrics.averageAiScore > 0 ? "up" : portfolioAssessment.metrics.averageAiScore < 0 ? "down" : "flat"}">${portfolioAssessment.metrics.averageAiScore > 0 ? "+" : ""}${(portfolioAssessment.metrics.averageAiScore || 0).toFixed(1)}</strong></div>
     <div><span>回測警示檔數</span><strong class="${portfolioAssessment.metrics.backtestRebuild ? "down" : portfolioAssessment.metrics.backtestWatch ? "flat" : "up"}">${portfolioAssessment.metrics.backtestWatch || 0} 觀察 / ${portfolioAssessment.metrics.backtestRebuild || 0} 重建</strong></div>
-    <div><span>風險摘要</span><strong>${riskLabel}</strong></div>
+    <div><span>投資組合風險摘要</span><strong>${riskLabel}</strong></div>
   `;
 
   table.innerHTML = `
@@ -3060,7 +3064,10 @@ function buildWatchlistAiAnalysis(stock, detail) {
   const marketBreadthContext = twEtfState.getMarketBreadthContext(detail);
   const marketBreadth = buildMarketBreadthIndicators(marketBreadthContext.detail, marketBreadthContext.stocks, marketBreadthContext.history);
   twEtfState.saveMarketBreadthHistory(marketBreadth?.nextHistory);
-  const technicalTheory = analyzeTechnicalTheories(detail, { marketBreadth });
+  const technicalTheory = analyzeTechnicalTheories(detail, {
+    marketBreadth,
+    marketContext: marketBreadthContext.marketContext,
+  });
   score += technicalTheory.score;
   evidenceCount += technicalTheory.evidenceCount;
 
@@ -3795,7 +3802,7 @@ function renderTwEtfFilterForm(payload, categories = []) {
           ["volume_desc", "成交量高到低"],
           ["turnover_desc", "成交值高到低"],
           ["volatility_desc", "波動高到低"],
-          ["risk_desc", "風險高到低"],
+          ["risk_desc", "風險分數（類別未確認）高到低"],
           ["code", "代號排序"],
         ].map(([value, label]) => `<option value="${value}"${value === payload?.sort ? " selected" : ""}>${label}</option>`).join("")}
       </select>
@@ -3919,7 +3926,7 @@ function renderTwEtfAnalysisBullets(detail, fallbackItem, components, dividend) 
   } else {
     bullets.push("配息觀察：尚未取得可用配息紀錄，收益型 ETF 需再搭配除息日與填息天數檢查。");
   }
-  bullets.push(`交易風險：成交量 ${twEtfCompactNumber(fallbackItem.volumeValue)}，波動 ${twEtfHasValue(volatility) ? `${volatility}%` : "--"}，目前風險分級為 ${fallbackItem.riskLevel || "--"}。`);
+  bullets.push(`交易風險：成交量 ${twEtfCompactNumber(fallbackItem.volumeValue)}，波動 ${twEtfHasValue(volatility) ? `${volatility}%` : "--"}，類別未確認的風險分級為 ${fallbackItem.riskLevel || "--"}。`);
   return bullets;
 }
 function renderTwEtfComponentsCard(components = {}) {
@@ -4017,7 +4024,7 @@ function renderTwEtfDetail(detail, fallbackItem = {}) {
         </div>
         <div class="headline-metrics tw-etf-detail-metrics">
           <div><span>收盤</span><strong>${escapeHtml(detail.close || fallbackItem.close || "--")}</strong><small class="${toneClass(detail.tone || fallbackItem.tone)}">${escapeHtml(detail.pct || fallbackItem.pct || "--")}</small></div>
-          <div><span>風險分級</span><strong>${escapeHtml(fallbackItem.riskLevel || "--")}</strong><small>分數 ${escapeHtml(fallbackItem.riskScore ?? "--")}</small></div>
+          <div><span>風險分級（類別未確認）</span><strong>${escapeHtml(fallbackItem.riskLevel || "--")}</strong><small>分數 ${escapeHtml(fallbackItem.riskScore ?? "--")}</small></div>
           <div><span>成交量</span><strong>${twEtfCompactNumber(fallbackItem.volumeValue)}</strong><small>流動性觀察</small></div>
           <div><span>近次配息</span><strong>${escapeHtml(latest.cashDividend || "--")} 元</strong><small>除息 ${escapeHtml(latest.exDate || "--")}</small></div>
         </div>
@@ -4105,7 +4112,7 @@ function renderTwEtfPage(payload) {
               ["volume_desc", "成交量"],
               ["turnover_desc", "成交值"],
               ["volatility_desc", "波動度"],
-              ["risk_desc", "風險分數"],
+              ["risk_desc", "風險分數（類別未確認）"],
               ["code", "代號"],
             ].map(([value, label]) => `<option value="${value}"${value === payload?.sort ? " selected" : ""}>${label}</option>`).join("")}
           </select>

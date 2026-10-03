@@ -79,6 +79,11 @@ from derivatives.institution import (
     parse_institution_csv,
 )
 from derivatives.options import build_unavailable_option_chain as build_derivatives_unavailable_option_chain
+from derivatives.probability_forecast import (
+    CALIBRATION_STATUS_INSUFFICIENT,
+    TARGET_HORIZON,
+    fit_probability_forecast,
+)
 from fetchers import (
     TAIFEX_INSTITUTION_FUTURES_DETAIL_OPENAPI_URL,
     TAIFEX_INSTITUTION_OPTIONS_DETAIL_OPENAPI_URL,
@@ -152,10 +157,17 @@ def api_derivatives_v1_status():
             "currentProductRows": institutional_count,
         },
         "aiScoreFormula": {
+            "decisionState": "Canonical action eligibility: LONG, SHORT, HOLD_EXISTING, NO_TRADE, or UNKNOWN. Missing/analysis-only action context remains UNKNOWN.",
+            "decisionEligible": "true only for explicit LONG/SHORT, false for HOLD_EXISTING/NO_TRADE, null when action eligibility is UNKNOWN.",
+            "reasonCodes": "Machine-readable abstention reasons; UNKNOWN is retained when the reason is not established. Existing gates only; no new score threshold is implied.",
+            "noTradeReasonCodes": ["INSUFFICIENT_EVIDENCE", "DATA_QUALITY_INSUFFICIENT", "SIGNAL_CONFLICT", "RISK_TOO_HIGH", "EDGE_INSUFFICIENT", "COST_TOO_HIGH", "LIQUIDITY_INSUFFICIENT", "CALIBRATION_INSUFFICIENT", "UNSUPPORTED_CONTEXT", "UNKNOWN"],
+            "decisionStateContractVersion": "P1_04_NO_TRADE_V1",
             "marketScore": "Options: PCR, Volume PCR, Max Pain gap, OI wall; Futures: price change. All scores clamped 0-100.",
-            "riskScore": "Options: PCR imbalance, Volume PCR imbalance, Max Pain gap and OI wall break; Futures: downside momentum and OI availability.",
+            "riskScore": "MARKET_RISK for the current options/futures market assessment; riskClassification comparability is limited to the same risk type.",
+            "riskClassification": "Each riskScore carries riskType plus a riskClassification object. The value UNKNOWN is used when the source meaning is mixed or unverified.",
             "evidenceScore": "Available required evidence layers divided by required layers, expressed 0-100; coverage only.",
-            "dataQualityScore": "Mean of known completeness, freshness, provider-health, consistency, and fallback-source dimensions; unknown dimensions are omitted.",
+            "dataQualityScore": "Mean quality score of dimensions with valid evidence; interpret with qualityCoverage and dataQualityStatus.",
+            "qualityCoverage": "Known required data-quality dimensions divided by five required dimensions, expressed 0-100.",
             "modelConfidence": "Unavailable until historical out-of-sample calibration exists; decision objects return null with status UNAVAILABLE.",
             "confidenceScore": "DEPRECATED compatibility field: legacy evidence proxy, not calibrated model confidence.",
             "calibrationStatus": "UNAVAILABLE until out-of-sample prediction/outcome calibration evidence meets the project contract.",
@@ -486,13 +498,148 @@ def api_derivatives_ai_analysis():
             candles = build_derivative_candles(item, "day")
             input_snapshot = {"item": item, "candles": candles}
             reference_price = item.get("close")
-        app.get_derivatives_store().record_ai_report(
+        store = app.get_derivatives_store()
+        existing = store.get_decision(str(analysis.get("decision_id") or "")) if analysis.get("decision_id") else None
+        existing_output = existing.get("decision_output") if isinstance(existing, dict) else {}
+        legacy_snapshot = bool(existing) and "probabilityForecast" not in existing_output
+        if isinstance(existing_output, dict) and "probabilityForecast" in existing_output:
+            forecast = existing_output.get("probabilityForecast")
+            forecast_status = existing_output.get("probabilityForecastStatus", "RECORDED_DECISION_SNAPSHOT")
+            calibration_status = existing_output.get("calibrationStatus", CALIBRATION_STATUS_INSUFFICIENT)
+        elif legacy_snapshot:
+            # A pre-foundation decision is immutable; do not retrofit a forecast.
+            forecast = None
+            forecast_status = "HISTORICAL_FORECAST_NOT_AVAILABLE"
+            calibration_status = CALIBRATION_STATUS_INSUFFICIENT
+        else:
+            decision_time = str(analysis.get("decision_time") or "").strip()
+            if decision_time:
+                training_rows = store.list_probability_training_rows(TARGET_HORIZON, decision_time)
+                forecast_decision = {**analysis, "instrument": target}
+                fit_result = fit_probability_forecast(forecast_decision, training_rows, horizon=TARGET_HORIZON)
+            else:
+                fit_result = {
+                    "probabilityForecast": None,
+                    "status": "UNAVAILABLE_DECISION_TIME",
+                }
+            forecast = fit_result.get("probabilityForecast")
+            forecast_status = fit_result.get("status", "UNAVAILABLE")
+            calibration_status = CALIBRATION_STATUS_INSUFFICIENT
+
+        analysis["probabilityForecast"] = forecast
+        analysis["probabilityForecastStatus"] = forecast_status
+        analysis["calibrationStatus"] = calibration_status
+        analysis["probabilityLabelAllowed"] = False
+        decision_output = analysis.get("decision_output")
+        decision_output = dict(decision_output) if isinstance(decision_output, dict) else {}
+        decision_output.update({
+            "probabilityForecast": forecast,
+            "probabilityForecastStatus": forecast_status,
+            "calibrationStatus": calibration_status,
+            "probabilityLabelAllowed": False,
+        })
+        analysis["decision_output"] = decision_output
+        store.record_ai_report(
             target, analysis, datetime.now(app.TZ).isoformat(),
-            input_snapshot=input_snapshot, reference_price=reference_price,
+            input_snapshot=None if legacy_snapshot else input_snapshot,
+            reference_price=reference_price,
         )
         return jsonify(app.api_success_payload(analysis))
     except Exception as exc:  # noqa: BLE001
         return app.api_exception_response("DATA_SOURCE_ERROR", app.PUBLIC_DATA_SOURCE_ERROR_MESSAGE, exc, 502)
+
+
+@bp.route("/api/decision-ledger/<decision_id>", methods=["GET"])
+def api_decision_ledger_record(decision_id: str):
+    """Return only the immutable record captured at decision time."""
+    import app
+
+    try:
+        record = app.get_derivatives_store().get_decision(decision_id)
+    except Exception as exc:  # noqa: BLE001
+        return app.api_exception_response("LEDGER_READ_ERROR", "決策紀錄暫時無法讀取", exc, 500)
+    if record is None:
+        return jsonify(app.api_error_payload("DECISION_NOT_FOUND", "找不到指定的決策紀錄")), 404
+
+    output = record.get("decision_output") if isinstance(record.get("decision_output"), dict) else {}
+    metadata = record.get("source_metadata") if isinstance(record.get("source_metadata"), dict) else {}
+    scenario_keys = (
+        "scenarioWeights", "scenarioSemanticStatus", "calibrationStatus",
+        "probabilityLabelAllowed", "probabilities", "probabilitiesDeprecated",
+    )
+    scenario_snapshot = {key: output[key] for key in scenario_keys if key in output}
+    data_quality = {
+        "status": metadata.get("data_quality_status"),
+        "coverage": metadata.get("quality_coverage"),
+        "dimensions": metadata.get("data_quality_dimensions"),
+        "dimensionStatus": metadata.get("data_quality_dimension_status"),
+        "confidenceMethod": metadata.get("confidence_method"),
+    }
+    data_quality = {key: value for key, value in data_quality.items() if value is not None}
+    provenance = {
+        key: metadata[key]
+        for key in ("source_updated_at", "source_provenance")
+        if key in metadata
+    }
+    decision = {
+        "snapshotType": "RECORDED_DECISION_SNAPSHOT",
+        "decisionId": record["decision_id"],
+        "decisionSchemaVersion": record["decision_schema_version"],
+        "instrumentIdentity": {
+            "symbol": record["target_symbol"],
+            "instrument": record["instrument"],
+        },
+        "strategyId": record["strategy_id"],
+        "modelVersion": record["model_version"],
+        "strategyVersion": record["strategy_version"],
+        "timestamps": {
+            "decisionCreatedAt": record["decision_created_at"],
+            "marketAsOf": record["market_as_of"],
+            "dataAsOf": record["data_as_of"],
+            "ledgerRecordedAt": record["created_at"],
+        },
+        "decisionState": record["decisionState"],
+        "decisionEligible": record["decisionEligible"],
+        "reasonCodes": record["reasonCodes"],
+        "reasonDetails": record["reasonDetails"],
+        "scenarioSnapshot": scenario_snapshot,
+        "probabilityForecast": output.get("probabilityForecast"),
+        "riskClassification": output.get("riskClassification"),
+        "riskClassifications": output.get("riskClassifications"),
+        "dataQuality": data_quality,
+        "sourceProvenance": provenance.get("source_provenance"),
+        "sourceMetadata": provenance,
+        "contractVersions": record["contract_versions"],
+        "inputSnapshotHash": record["input_snapshot_hash"],
+        "inputSnapshot": record["input_snapshot"],
+        "decisionOutput": output,
+        "outcomes": [
+            {
+                "decisionId": item["decision_id"],
+                "outcomeStatus": item.get("outcome_status", "UNAVAILABLE"),
+                "legacyStatus": item.get("legacy_status", item["status"]),
+                "horizon": item["evaluation_horizon"],
+                "evaluationBasis": item.get("evaluation_basis", "UNKNOWN"),
+                "strategyEvaluationBasis": item.get("outcome_metadata", {}).get("strategyEvaluationBasis"),
+                "entryReference": item.get("outcome_metadata", {}).get("entryReference"),
+                "evaluationReference": item.get("outcome_metadata", {}).get("evaluationReference"),
+                "underlyingReturn": item.get("outcome_metadata", {}).get("underlyingReturn"),
+                "decisionAlignedReturn": item.get("outcome_metadata", {}).get("decisionAlignedReturn"),
+                "rawReturn": item.get("gross_return"),
+                "evaluationAsOf": item.get("outcome_metadata", {}).get("timestamps", {}).get("evaluationAsOf"),
+                "evaluatedAt": item["evaluation_time"],
+                "provenance": item.get("outcome_metadata", {}).get("provenance"),
+                "contractVersions": {
+                    "outcomeSchema": item.get("outcome_metadata", {}).get("outcomeSchemaVersion"),
+                    "evaluationContract": item.get("outcome_metadata", {}).get("evaluationContractVersion"),
+                },
+                "reason": item.get("unavailable_reason"),
+                "strategyReturn": item.get("outcome_metadata", {}).get("strategyReturn"),
+            }
+            for item in app.get_derivatives_store().list_decision_outcomes(decision_id)
+        ],
+    }
+    return jsonify(app.api_success_payload({"decision": decision}))
 
 
 @bp.route("/api/futures/<symbol>/technical-candles")

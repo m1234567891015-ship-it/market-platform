@@ -486,8 +486,7 @@ def parse_yahoo_txo_option_page(html: str, underlying: str | None = "TXO", expir
             "error": "Yahoo 選擇權頁暫時未回傳可解析內容",
             "source": {"primary": "Yahoo 股市台灣選擇權報價", "primaryUrl": yahoo_url},
         }
-    trade_date = next((parse_yahoo_tw_future_date(line) for line in lines if "資料時間" in line), "")
-    trade_date = trade_date or datetime.now(TZ).strftime("%Y-%m-%d")
+    trade_date = next((parse_yahoo_tw_future_date(line) for line in lines if "資料時間" in line), "") or None
     expiry_code = normalize_yahoo_txo_expiry_code(parse_yahoo_txo_option_contract_label(lines, product["symbol"]))
     if expiry and not re.fullmatch(r"\d{6}(?:W\d)?", str(expiry_code or "")):
         expiry_code = expiry
@@ -508,6 +507,120 @@ def parse_yahoo_txo_option_page(html: str, underlying: str | None = "TXO", expir
             "source": {"primary": "Yahoo 股市台灣選擇權報價", "primaryUrl": yahoo_url},
         }
     return build_yahoo_txo_option_payload(rows, trade_date, expiry_code, spot_snapshot, product["symbol"])
+
+
+def apply_taiwan_option_source_quality(
+    payload: dict[str, Any],
+    source_role: str,
+    *,
+    provider_status: str | None = None,
+    stale: bool | None = None,
+    selection_mode: str | None = None,
+) -> dict[str, Any]:
+    """Attach source provenance and rebuild only the decision-quality context."""
+    clean_role = str(source_role or "").strip().upper()
+    if clean_role not in {"PRIMARY", "EXPLICIT", "FALLBACK", "CACHE"}:
+        clean_role = "UNKNOWN"
+    result = dict(payload)
+    current_analysis = result.get("analysis") or {}
+    current_dimensions = current_analysis.get("dataQualityDimensions") or {}
+    source = result.get("source") or {}
+    supplements = []
+    for marker_key, kind in (("spotSupplement", "spot"), ("oiSupplement", "openInterest")):
+        marker = result.get(marker_key)
+        if isinstance(marker, dict):
+            supplements.append({
+                "provider": marker.get("provider") or "Yahoo",
+                "kind": kind,
+                "fields": list(marker.get("fields") or []),
+                "sourceUrl": marker.get("sourceUrl"),
+                "tradeDate": marker.get("tradeDate"),
+                "matchedExpiry": marker.get("matchedExpiry"),
+            })
+
+    roles: list[str] = []
+    if clean_role == "PRIMARY":
+        roles.append("TAIFEX_PRIMARY")
+    elif clean_role == "EXPLICIT":
+        roles.append("YAHOO_EXPLICIT")
+    elif clean_role == "FALLBACK":
+        roles.append("YAHOO_AUTO_FALLBACK")
+    elif clean_role == "CACHE":
+        roles.append("CACHE")
+        if result.get("fallbackFrom"):
+            roles.append("YAHOO_AUTO_FALLBACK")
+        elif str(source.get("mode") or "").startswith("taifex") or source.get("primaryUrl") == TAIFEX_OPTIONS_DAILY_URL:
+            roles.append("TAIFEX_PRIMARY")
+        elif str(source.get("mode") or "").startswith("yahoo"):
+            roles.append("YAHOO_EXPLICIT")
+    else:
+        roles.append("UNKNOWN")
+    if supplements:
+        roles.append("YAHOO_SUPPLEMENT")
+    source_provenance = {
+        "sourceRole": roles[0] if len(roles) == 1 else clean_role,
+        "sourceRoles": list(dict.fromkeys(roles)),
+        "selectionMode": str(selection_mode or "").strip().lower() or None,
+        "primarySource": source.get("primary"),
+        "selectedSourceMode": source.get("mode"),
+        "fallbackFrom": result.get("fallbackFrom"),
+        "fallbackReason": result.get("fallbackReason"),
+        "supplements": supplements,
+        "cache": {
+            "used": clean_role == "CACHE" or result.get("cached") is True,
+            "stale": result.get("stale") is True if stale is None else bool(stale),
+            "staleAt": result.get("staleAt"),
+        },
+    }
+    result["sourceProvenance"] = source_provenance
+
+    if not result.get("chain"):
+        if current_analysis:
+            result["analysis"] = {**current_analysis, "sourceProvenance": source_provenance}
+        return result
+
+    context: dict[str, Any] = {
+        "symbol": result.get("underlying") or "TXO",
+        "market_as_of": result.get("tradeDate") or None,
+        "source_updated_at": result.get("sourceUpdatedAt") or result.get("tradeDate") or None,
+        "provider_status": str(provider_status or "").strip().lower() or None,
+        "stale": result.get("stale") is True if stale is None else bool(stale),
+    }
+    if clean_role in {"PRIMARY", "EXPLICIT"} and supplements:
+        # Keep the established supplement-to-fallback score while exposing its role separately.
+        prior_fallback_score = current_dimensions.get("fallbackSource")
+        if prior_fallback_score is not None:
+            context["fallback_source_score"] = prior_fallback_score
+        else:
+            context["fallback_used"] = False
+    elif clean_role in {"PRIMARY", "EXPLICIT"}:
+        context["fallback_used"] = False
+    elif clean_role == "FALLBACK":
+        context["fallback_used"] = True
+    elif clean_role == "CACHE":
+        # Preserve existing known scores for cached data; explicit stale/failure evidence below wins.
+        for dimension, key in (
+            ("freshness", "freshness"),
+            ("providerHealth", "provider_health_score"),
+            ("consistency", "consistency_score"),
+            ("fallbackSource", "fallback_source_score"),
+        ):
+            if dimension in current_dimensions:
+                context[key] = current_dimensions[dimension]
+
+    summary = result.get("summary") or {}
+    chain = result.get("chain") or []
+    max_pain = calculate_taifex_max_pain(chain)
+    analysis = build_taifex_option_ai_analysis(
+        summary,
+        chain,
+        max_pain,
+        (result.get("spot") or {}).get("value"),
+        decision_context=context,
+    )
+    analysis["sourceProvenance"] = source_provenance
+    result["analysis"] = analysis
+    return result
 
 
 def flatten_taifex_option_chain(chain: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -582,8 +695,9 @@ def supplement_taifex_option_payload_with_yahoo_oi(payload: dict[str, Any]) -> d
                     "symbol": payload.get("underlying") or "TXO",
                     "market_as_of": payload.get("tradeDate"),
                     "source_updated_at": yahoo_spot.get("date") or payload.get("tradeDate"),
-                    "provider_status": "healthy",
+                    "provider_status": "failed" if payload.get("stale") is True else "healthy",
                     "fallback_used": True,
+                    "stale": payload.get("stale") is True,
                 },
             ) if chain else payload.get("analysis"),
             "spotSupplement": {
@@ -648,13 +762,15 @@ def supplement_taifex_option_payload_with_yahoo_oi(payload: dict[str, Any]) -> d
                 "symbol": next_payload.get("underlying") or "TXO",
                 "market_as_of": next_payload.get("tradeDate"),
                 "source_updated_at": next_payload.get("tradeDate"),
-                "provider_status": "healthy",
+                "provider_status": "failed" if next_payload.get("stale") is True else "healthy",
                 "fallback_used": True,
+                "stale": next_payload.get("stale") is True,
             },
         ),
         "oiSupplement": {
             "provider": "Yahoo 股市台灣選擇權",
             "sourceUrl": yahoo_url,
+            "fields": ["call.openInterest", "put.openInterest"],
             "matchedExpiry": yahoo_expiry,
             "tradeDate": yahoo_payload.get("tradeDate"),
         },

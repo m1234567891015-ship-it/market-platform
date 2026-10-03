@@ -74,14 +74,14 @@ assert.strictEqual(insufficient.signals.length, 0);
 assert.strictEqual(insufficient.performance, null);
 assert(insufficient.qualityChecks.length > 0);
 
-const strategySource = fs.readFileSync(path.join(__dirname, "..", "js", "page-global-market-assethub.js"), "utf8");
+const strategySource = fs.readFileSync(path.join(__dirname, "..", "js", "page-global-market-derivatives.js"), "utf8");
 const strategyStart = strategySource.indexOf("initDerivativesAnalyticsPage.strategyEngine = (() => {");
 const strategyEndMarker = "\n})();";
 const strategyEnd = strategySource.indexOf(strategyEndMarker, strategyStart);
 assert(strategyStart >= 0 && strategyEnd > strategyStart, "strategy engine assignment must be present");
 const strategySandbox = { initDerivativesAnalyticsPage: {}, Date, Math, Number, Array, Object, JSON };
 vm.runInNewContext(strategySource.slice(strategyStart, strategyEnd + strategyEndMarker.length), strategySandbox, {
-  filename: path.join(__dirname, "..", "js", "page-global-market-assethub.js"),
+  filename: path.join(__dirname, "..", "js", "page-global-market-derivatives.js"),
 });
 const engine = strategySandbox.initDerivativesAnalyticsPage.strategyEngine;
 
