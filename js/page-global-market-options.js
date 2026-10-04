@@ -359,8 +359,12 @@ function buildOptionsAiFunctionalModel(payload = {}) {
     gold,
     oil,
     riskScore,
+    riskType: "MARKET_RISK",
+    riskClassification: { type: "MARKET_RISK", score: riskScore, comparability: "WITHIN_RISK_TYPE_ONLY" },
     evidenceScore,
-    dataQualityScore: Number.isFinite(Number(payload.dataQualityScore)) ? Number(payload.dataQualityScore) : null,
+    dataQualityScore: payload.dataQualityScore != null && Number.isFinite(Number(payload.dataQualityScore)) ? Number(payload.dataQualityScore) : null,
+    qualityCoverage: payload.qualityCoverage != null && Number.isFinite(Number(payload.qualityCoverage)) ? Number(payload.qualityCoverage) : null,
+    dataQualityStatus: typeof payload.dataQualityStatus === "string" ? payload.dataQualityStatus : "UNAVAILABLE",
     modelConfidence: null,
     modelConfidenceStatus: "UNAVAILABLE",
     calibrationStatus: "UNAVAILABLE",
@@ -483,6 +487,8 @@ function buildOptionsFocusAnalysis(model) {
       direction: model.direction,
       primaryRisk: `${model.primaryRisk}；${factorSummary}`,
       riskScore: model.riskScore,
+      riskType: "STRATEGY_RISK",
+      riskClassification: { type: "STRATEGY_RISK", score: model.riskScore, comparability: "WITHIN_RISK_TYPE_ONLY" },
       evidenceScore: model.evidenceScore,
       scenarioWeights: model.scenarioWeights,
       riskLight: model.riskLight,
@@ -585,14 +591,18 @@ function buildOptionsFocusAnalysis(model) {
     direction,
     primaryRisk,
     riskScore,
+    riskType: "STRATEGY_RISK",
+    riskClassification: { type: "STRATEGY_RISK", score: riskScore, comparability: "WITHIN_RISK_TYPE_ONLY" },
     evidenceScore,
     scenarioWeights,
     probabilities: { ...scenarioWeights },
     probabilitiesDeprecated: true,
     scenarioSemanticStatus: "HEURISTIC_SCENARIO_WEIGHT",
+    calibrationStatus: "UNAVAILABLE",
+    probabilityLabelAllowed: false,
     riskLight,
     evidenceText: `目前焦點：${focus.name} ${focus.value} / ${focus.pct}；同步比對 ${optionLabel} PCR ${optionsDecimal(model.pcr)}、OI 牆、最大痛點與隱性決策因子。${factorCoverageText}`,
-    decisionText: `${focus.name} 被選為主控因子；AI 會把該標的變動映射到 ${optionLabel} 的方向、波動率與避險需求，並由隱性決策因子校正風險分數。${factorSummary}`,
+    decisionText: `${focus.name} 被選為主控因子；AI 會把該標的變動映射到 ${optionLabel} 的方向、波動率與避險需求，並由隱性決策因子校正策略風險分數。${factorSummary}`,
     coneBias,
   };
 }
@@ -652,8 +662,8 @@ function buildOptionsInvestorPlaybook(model, analysis = buildOptionsFocusAnalysi
       : `向上突破 ${optionsWhole(callWall)} 或向下跌破 ${optionsWhole(putWall)} 前，方向訊號都只視為區間內波動。`;
   const premiumText = `${premiumState}：平均 IV ${optionsPct(model.avgIv)}、Skew ${optionsPct(skew)}、Volume PCR ${optionsDecimal(model.volumePcr)}；IV 快速擴張時避免用裸賣承擔隔夜風險。`;
   const riskText = analysis.riskScore >= 66
-    ? `風險分數 ${analysis.riskScore}/100 偏高，部位應先小、停損先定，避免在到期前用高槓桿押單邊。`
-    : `風險分數 ${analysis.riskScore}/100 尚可，但仍需用 ${optionsWhole(putWall)} 與 ${optionsWhole(callWall)} 管理失效點。`;
+    ? `策略風險分數 ${analysis.riskScore}/100 偏高，部位應先小、停損先定，避免在到期前用高槓桿押單邊。`
+    : `策略風險分數 ${analysis.riskScore}/100 尚可，但仍需用 ${optionsWhole(putWall)} 與 ${optionsWhole(callWall)} 管理失效點。`;
   const locationText = [
     `現貨/平值 ${optionsWhole(spot)}`,
     formatOptionsDistanceText(spot, putWall, "支撐"),
@@ -1305,6 +1315,9 @@ function renderOptionsHeroMergedIntelligence(model) {
   const expiryText = model.expiryDays === null ? "待同步" : `${model.expiryDays} 天`;
   const decisionRangeText = `${optionsWhole(putWall)} - ${optionsWhole(callWall)}`;
   const decisionScenarioWeightText = `\u591a ${analysis.scenarioWeights.bullish}% / \u9707 ${analysis.scenarioWeights.range}% / \u7a7a ${analysis.scenarioWeights.bearish}%`;
+  const decisionStateNotice = model.dataQualityStatus === "FAILED"
+    ? '<div class="stock-theory-note decision-state-notice is-no-trade" role="status"><b>暫不交易</b><span>必要資料品質檢查失敗，不具新倉執行資格</span><small>原因代碼：DATA_QUALITY_INSUFFICIENT</small></div>'
+    : '<div class="stock-theory-note decision-state-notice is-unknown" role="status"><b>交易決策未確認</b><span>是否可建立新部位尚未確認</span><small>原因代碼：UNKNOWN · 此市場分析未包含明確的持倉狀態或進場指令。</small></div>';
   const actionRows = [
     ["交易節奏", playbook.priority],
     ["突破 / 失守", playbook.triggerText],
@@ -1321,7 +1334,7 @@ function renderOptionsHeroMergedIntelligence(model) {
       <section class="options-hero-module is-decision" id="options-decision-brief">
         <div class="asset-hub-group-heading">
           <div><p class="panel-kicker">AI Decision Brief</p><h4>AI 決策摘要</h4></div>
-          <span>${escapeHtml(analysis.riskLight.label)} · ${analysis.riskScore}/100</span>
+          <span>${escapeHtml(analysis.riskLight.label)} · ${({ MARKET_RISK: "市場風險", SIGNAL_RISK: "訊號風險", STRATEGY_RISK: "策略風險", PORTFOLIO_RISK: "投資組合風險", UNKNOWN: "風險（類別未確認）" })[analysis.riskType] || "風險（類別未確認）"} ${analysis.riskScore}/100</span>
         </div>
         <div class="options-decision-summary-strip">
           <span><small>\u5e02\u5834\u72c0\u614b</small><b>${escapeHtml(playbook.stance)}</b></span>
@@ -1329,6 +1342,8 @@ function renderOptionsHeroMergedIntelligence(model) {
           <span><small>\u53ef\u4ea4\u6613\u5340\u9593</small><b>${escapeHtml(decisionRangeText)}</b></span>
            <span><small>\u60c5\u5883\u6b0a\u91cd</small><b>${escapeHtml(decisionScenarioWeightText)}</b></span>
         </div>
+        <p class="options-brief-caveat">以上情境權重不代表統計漲跌機率、勝率或信心機率；三項加總為 100 也不代表機率校準。</p>
+         ${decisionStateNotice}
         <div class="options-brief-grid is-compact">
           <section><small>目前位置</small><b>${optionsWhole(getOptionsUnderlyingPrice(model) ?? model.atmStrike)}</b><p>${escapeHtml(playbook.locationText)}</p></section>
           <section><small>價位邊界</small><b>${optionsWhole(putWall)} / ${optionsWhole(callWall)}</b><p>最大痛點 ${optionsWhole(model.maxPain)}，到期 ${escapeHtml(expiryText)}；靠近邊界時先看確認訊號。</p></section>
@@ -1411,12 +1426,13 @@ function renderOptionsHeroDashboard(model) {
           <section class="options-ai-direction is-${analysis.riskLight.tone}">
             <small>AI \u4eca\u65e5\u5e02\u5834\u5206\u6790 \u00b7 ${escapeHtml(analysisScopeLabel)} \u00b7 ${escapeHtml(analysis.focus.name)}</small>
             <strong>${escapeHtml(playbook.headline)}</strong>
-            <p>${escapeHtml(playbook.setupText)}；證據強度 ${analysis.evidenceScore}/100，風險分數 ${analysis.riskScore}/100。</p>
+            <p>${escapeHtml(playbook.setupText)}；證據強度 ${analysis.evidenceScore}/100，策略風險分數 ${analysis.riskScore}/100。</p>
             <div class="options-probability-bars">
               ${[["多方權重", analysis.scenarioWeights.bullish, "up"], ["空方權重", analysis.scenarioWeights.bearish, "down"], ["震盪權重", analysis.scenarioWeights.range, "flat"]].map(([label, value, tone]) => `
                 <span class="is-${tone}"><b>${escapeHtml(label)}</b><i style="--bar:${Number(value) || 0}%"></i><em>${Number(value) || 0}%</em></span>
               `).join("")}
             </div>
+            <small>以上為規則式情境權重，不代表統計漲跌機率；尚無通過校準閘門的機率標籤。</small>
           </section>
           <section class="options-risk-explain">
             <small>AI 風險燈號</small>
@@ -2082,7 +2098,7 @@ function buildOptionsStrategyRows(model) {
       name: "買權價差",
       role: "偏多突破",
       score: score(34 + (isBullish ? 24 : 0) + (model.riskScore < 66 ? 12 : model.riskScore < 78 ? 4 : -8) + (vixValue !== null && vixValue <= 22 ? 8 : 0) + (model.pcr !== null && model.pcr < 1 ? 6 : 0) + (model.macroItems.length ? 4 : 0)),
-      evidence: `方向 ${model.direction}，PCR ${pcrText}，VIX ${vixText}，風險分數 ${model.riskScore}/100`,
+      evidence: `方向 ${model.direction}，PCR ${pcrText}，VIX ${vixText}，市場風險分數 ${model.riskScore}/100`,
       control: "只在支撐未跌破、買權 OI 壓力可控時評估；紅燈或跳空風險升高時降級。",
     },
     {
@@ -2114,7 +2130,7 @@ function buildOptionsStrategyRows(model) {
       name: "跨式 / 勒式",
       role: "事件波動",
       score: score(26 + (model.riskScore >= 75 ? 18 : 0) + (shortExpiry ? 8 : 0) + (vixHigh ? 8 : 0) + (hasVol ? 6 : 0) - (model.avgIv !== null && model.avgIv > 0.32 ? 8 : 0)),
-      evidence: `風險分數 ${model.riskScore}/100，到期 ${expiryText}，平均 IV ${ivText}，VIX ${vixText}`,
+      evidence: `市場風險分數 ${model.riskScore}/100，到期 ${expiryText}，平均 IV ${ivText}，VIX ${vixText}`,
       control: "只代表波動條件可追蹤；若 IV 已明顯昂貴，需要確認事件後波動仍可能擴張。",
     },
     {
@@ -2203,7 +2219,7 @@ function renderOptionsStrategyCenter(model, options = {}) {
 }
 function renderOptionsRiskDashboard(model, options = {}) {
   const rows = [
-    ["Risk Score", `${model.riskScore}/100`, model.riskLight.label],
+    ["Market Risk", `${model.riskScore}/100`, model.riskLight.label],
     ["部位風險", "待輸入", "需投組部位"],
     ["Gamma Risk", model.expiryDays !== null && model.expiryDays <= 7 ? "高敏感" : "一般", "到期日"],
     ["Vega Risk", model.avgIv !== null && model.avgIv > 0.25 ? "偏高" : "觀察", "IV"],
@@ -3271,7 +3287,7 @@ function renderUsMarketInsightPanel(model) {
         <article>
           <span>風險等級</span>
           <strong>${escapeHtml(analysis.riskLevel)}</strong>
-          <small>風險分數 ${analysis.riskScore}/100 · VIX ${formatGlobalValue(model.vix?.close)} · ${escapeHtml(model.vixBand.label)}</small>
+          <small>市場風險分數 ${analysis.riskScore}/100 · VIX ${formatGlobalValue(model.vix?.close)} · ${escapeHtml(model.vixBand.label)}</small>
         </article>
         <article>
           <span>市場廣度</span>
@@ -3413,7 +3429,7 @@ function renderUsMarketRiskAdviceCard(model) {
       </p>
       <div class="market-risk-dashboard">
         <div class="market-risk-meter">
-          <span>風險分數</span>
+          <span>市場風險分數</span>
           <strong>${Math.round(riskScore)}<small>/100</small></strong>
           <div class="market-risk-meter-bar" style="--risk-score: ${Math.max(0, Math.min(100, riskScore))}%"><i></i></div>
           <p>${escapeHtml(analysis.riskLevel || riskLabel)} · ${escapeHtml(exposure.label)} ${escapeHtml(exposure.range)}</p>
@@ -3523,7 +3539,7 @@ function renderUsMarketDecisionInsights(model, upSectors = [], downSectors = [],
       label: "VIX 風險",
       tone: vixTone,
       value: `${formatGlobalValue(model.vix?.close)} / ${model.vix?.pct || "--"}`,
-      body: `${analysis.vixBand?.label || model.vixBand?.label || "VIX 待確認"}，風險分數 ${analysis.riskScore ?? "--"}/100。`,
+      body: `${analysis.vixBand?.label || model.vixBand?.label || "VIX 待確認"}，市場風險分數 ${analysis.riskScore ?? "--"}/100。`,
       action: vixTone === "negative"
         ? "VIX 升溫時，強勢股也要用較小部位與明確停損。"
         : vixTone === "positive"
@@ -3581,9 +3597,10 @@ function renderUsMarketDecisionInsights(model, upSectors = [], downSectors = [],
       `).join("")}
     </div>
     <div class="market-decision-scenario">
-      <span>多方 ${analysis.forecast?.scenarioWeights?.bullish ?? "--"}%</span>
-      <span>震盪 ${analysis.forecast?.scenarioWeights?.neutral ?? "--"}%</span>
-      <span>空方 ${analysis.forecast?.scenarioWeights?.bearish ?? "--"}%</span>
+      <span>多方權重 ${analysis.forecast?.scenarioWeights?.bullish ?? "--"}%</span>
+      <span>震盪權重 ${analysis.forecast?.scenarioWeights?.neutral ?? "--"}%</span>
+      <span>空方權重 ${analysis.forecast?.scenarioWeights?.bearish ?? "--"}%</span>
+      <small>以上為規則式情境權重，不代表統計漲跌機率；總和為 100 不代表機率校準。</small>
     </div>
   `;
 }

@@ -52,6 +52,7 @@ from typing import Any
 from urllib.parse import quote
 
 from flask import Blueprint, Response, jsonify, request
+from risk_taxonomy import risk_metadata
 
 from builders import (
     STOCK_HISTORY_MAX_MONTHS,
@@ -604,6 +605,7 @@ def normalize_tw_etf_item(stock: dict[str, Any]) -> dict[str, Any]:
         "volatilityPct": volatility_value,
         "riskScore": round(risk_score, 2),
         "riskLevel": risk_level,
+        **risk_metadata("UNKNOWN", round(risk_score, 2)),
         "dividendProfile": dividend_profile,
         "detailUrl": f"tw-stock-search.html?q={quote(code)}&market={quote(str(stock.get('market') or ''))}",
     }

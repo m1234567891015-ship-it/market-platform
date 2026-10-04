@@ -559,7 +559,7 @@ function buildMarketThemeNewsCards() {
     {
       tag: "指數",
       title: `${strongest?.name || "強勢族群"} 領先，${weakest?.name || "弱勢族群"} 落後，強弱差 ${spreadText}`,
-      body: `領漲端為 ${topText}，落後端為 ${weakText}。權值科技同步觀察 ${techContext}，若科技權值偏弱但傳產或防禦族群走強，代表資金正在輪動而非全面追價。操作上可優先比對領先族群的成交金額與個股擴散度；若強弱差收斂，則表示輪動降溫，追高勝率會下降。`,
+      body: `領漲端為 ${topText}，落後端為 ${weakText}。權值科技同步觀察 ${techContext}，若科技權值偏弱但傳產或防禦族群走強，代表資金正在輪動而非全面追價。操作上可優先比對領先族群的成交金額與個股擴散度；若強弱差收斂，則表示輪動降溫，追高風險會升高。`,
       link: marketLink,
     },
     {
@@ -908,8 +908,8 @@ function buildMarketAiInsightModel() {
   const hedgeFlowSupported = hedge.filter((item) => (parseMarketNumber(item.fundFlow?.netAmountValue) || 0) >= 0).length;
   const aiAdvice = [
     riskScore >= 60
-      ? `風險分數 ${riskScore}/100，先降低追價與槓桿；推薦 TOP10 需同時確認資金流入與成交量延續，避險 TOP10 提高權重。`
-      : `風險分數 ${riskScore}/100，若推薦 TOP10 續強且資金淨流入，可採強勢族群優先、弱勢族群迴避。`,
+      ? `市場風險分數 ${riskScore}/100，先降低追價與槓桿；推薦 TOP10 需同時確認資金流入與成交量延續，避險 TOP10 提高權重。`
+      : `市場風險分數 ${riskScore}/100，若推薦 TOP10 續強且資金淨流入，可採強勢族群優先、弱勢族群迴避。`,
     Number.isFinite(institutionNet)
       ? `法人合計${institutionNet >= 0 ? "買超" : "賣超"} ${formatInstitutionAmount(Math.abs(institutionNet))}；${foreignContinuity.advice}`
       : "法人合計資料不足，暫以類股強弱與 VIX 風險溫度判斷。",
@@ -927,6 +927,8 @@ function buildMarketAiInsightModel() {
     riskLabel,
     riskTone,
     riskScore,
+    riskType: "MARKET_RISK",
+    riskClassification: { type: "MARKET_RISK", score: riskScore, comparability: "WITHIN_RISK_TYPE_ONLY" },
     breadthText: `${advancing} 漲 / ${declining} 跌 / ${unchanged} 平`,
     institutionText: Number.isFinite(institutionNet) ? `${institutionNet >= 0 ? "買超" : "賣超"} ${formatInstitutionAmount(Math.abs(institutionNet))}` : "--",
     fundFlowText,
@@ -970,7 +972,7 @@ function renderMarketInsightPanel() {
         <article>
           <span>風險等級</span>
           <strong>${escapeHtml(model.riskLabel)}</strong>
-          <small>風險分數 ${model.riskScore}/100 · VIX ${escapeHtml(model.vixText)} · ${escapeHtml(model.fundFlowRiskText)}</small>
+          <small>市場風險分數 ${model.riskScore}/100 · VIX ${escapeHtml(model.vixText)} · ${escapeHtml(model.fundFlowRiskText)}</small>
         </article>
         <article>
           <span>市場廣度</span>

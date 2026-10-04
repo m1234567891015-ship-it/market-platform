@@ -1,0 +1,42 @@
+{
+  "contractId": "P2_03_HISTORICAL_RESEARCH_FEATURES_V1",
+  "modelId": "P2_03_HISTORICAL_RESEARCH_LOGISTIC_V1",
+  "classification": ["RESEARCH_ONLY", "NOT_PRODUCTION", "NOT_PROSPECTIVE"],
+  "evidenceClass": "HISTORICAL_RESEARCH_AS_OF_OOS",
+  "input": {
+    "path": ".tmp/p203-historical-asof-replay/taifex_tx_daily_normalized.json",
+    "sha256": "90b5f772a19e230d2212f66a1c522be0e95801f03fd8079d33235a16d3106930",
+    "instrument": "TX",
+    "source": "TAIFEX official daily historical export"
+  },
+  "features": [
+    {"name": "momentum_5", "formula": "close[D] / close[D-5] - 1", "lookbackSessions": 5},
+    {"name": "range_pct_1", "formula": "(high[D] - low[D]) / close[D]", "lookbackSessions": 0},
+    {"name": "open_interest_change_1", "formula": "openInterest[D] / openInterest[D-1] - 1", "lookbackSessions": 1}
+  ],
+  "normalization": "Per-forecast z-score using only matured prior training rows; population standard deviation; zero std maps to zero.",
+  "decisionCutoff": "CONCEPTUAL_END_OF_SESSION_D",
+  "direction": "RESEARCH_LONG if momentum_5 > 0; RESEARCH_SHORT if momentum_5 < 0; zero excluded.",
+  "target": {
+    "contract": "P2_03_HISTORICAL_RESEARCH_DIRECTIONAL_SUCCESS_V1",
+    "horizon": "T+1 observed market session",
+    "formula": "sign(momentum_5[D]) * (close[D+1] / close[D] - 1)",
+    "positive": 1,
+    "negative": 0,
+    "flat": "EXCLUDED_FLAT"
+  },
+  "model": {
+    "id": "P2_03_HISTORICAL_RESEARCH_LOGISTIC_V1",
+    "type": "standard-library logistic regression",
+    "minPriorMaturedSamples": 30,
+    "bothClassesRequired": true,
+    "learningRate": 0.1,
+    "l2Penalty": 0.01,
+    "iterations": 2500
+  },
+  "warmupSessions": 5,
+  "missingData": "Exclude; no imputation.",
+  "provenance": "HISTORICAL_RESEARCH_AS_OF_OOS",
+  "pitLimitations": ["No archived per-date publication timestamps or data vintages; source-vintage availability is unverified."],
+  "productionContractChanged": false
+}

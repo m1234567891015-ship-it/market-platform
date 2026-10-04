@@ -1,0 +1,19 @@
+{
+  "identityVersion": "P2-03-EFFECTIVE-PROTOCOL-IDENTITY-1",
+  "status": "FORMALLY_APPROVED_FROZEN",
+  "effectiveVersion": "P2-03-RESEARCH-V2-PRE-REGISTRATION-1.0+AMENDMENT-001",
+  "effectiveProtocol": "ORIGINAL_PROTOCOL_PLUS_AMENDMENT_001",
+  "originalProtocolPath": "docs/P2_03_RESEARCH_V2_PRE_REGISTRATION.md",
+  "originalProtocolSha256": "0ab04d326962a48439f0a762f5967d0268d8137fae6e26e07db5c7ca39c55290",
+  "originalFrozenManifestPath": ".tmp/p203-v2-protocol/protocol_manifest.json",
+  "originalFrozenManifestSha256": "9fbfd8cfe02bd47ace7893161bb6a5c1b6e9cba8639c6063c174cd91ef018ffb",
+  "amendmentId": "P2_03_RESEARCH_V2_PROTOCOL_AMENDMENT_001",
+  "amendmentPath": "docs/P2_03_RESEARCH_V2_PROTOCOL_AMENDMENT_001.md",
+  "amendmentSha256": "80ae6beafeeebc68776249625162d6a18736cd1c91981708b71c9dbda852ae0a",
+  "approvalProvenance": {
+    "authority": "PROJECT_OWNER",
+    "decision": "FORMALLY_APPROVED_FROZEN",
+    "authorization": "P2-03 RESEARCH V2 PROTOCOL AMENDMENT 001 FORMAL OWNER ADJUDICATION / FREEZE",
+    "date": "2026-10-02"
+  }
+}

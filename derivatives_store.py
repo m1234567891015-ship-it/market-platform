@@ -23,6 +23,13 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from derivatives.execution_costs import CONTRACT_VERSION as P0B_COST_VERSION, calculate_futures_cost, resolve_cost_snapshot
+from derivatives.decision_state import DECISION_STATES, resolve_decision_state
+
+
+DECISION_LEDGER_SCHEMA_VERSION = "P2_01_DECISION_LEDGER_V1"
+OUTCOME_SCHEMA_VERSION = "P2_02_OUTCOME_V1"
+OUTCOME_EVALUATION_CONTRACT_VERSION = "P2_02_DIRECTIONAL_OUTCOME_V1"
+OUTCOME_STATUSES = frozenset({"EVALUATED", "PENDING", "NOT_APPLICABLE", "UNAVAILABLE", "INVALID"})
 
 
 SCHEMA_SQL = """
@@ -532,18 +539,41 @@ class DerivativesStore:
         reference_price: Any = None,
     ) -> None:
         if input_snapshot is not None and analysis.get("decision_id"):
+            if "dataAsOf" in analysis:
+                data_as_of = analysis.get("dataAsOf")
+            elif "data_as_of" in analysis:
+                data_as_of = analysis.get("data_as_of")
+            else:
+                data_as_of = analysis.get("source_updated_at")
+            decision_output = analysis.get("decision_output")
+            decision_output = dict(decision_output) if isinstance(decision_output, dict) else decision_output
+            if isinstance(decision_output, dict):
+                # Enrichment attaches the final, already-gated strategy text
+                # after building the core decision contract. Freeze that exact
+                # output alongside the contract rather than losing it.
+                for field in (
+                    "strategySuggestion", "strategyBias", "entry", "stop", "target",
+                    "positionSizing", "scenarioWeights", "scenarioSemanticStatus",
+                    "calibrationStatus", "probabilityLabelAllowed", "probabilities",
+                    "probabilitiesDeprecated", "riskClassification", "riskClassifications",
+                    "probabilityForecast", "probabilityForecastStatus",
+                ):
+                    if field in analysis:
+                        decision_output[field] = analysis[field]
             self.record_decision({
                 "decision_id": analysis.get("decision_id"),
                 "symbol": analysis.get("symbol") or target,
                 "instrument": target,
                 "decision_time": analysis.get("decision_time") or created_at,
                 "market_as_of": analysis.get("market_as_of"),
+                "data_as_of": data_as_of,
                 "strategy_id": analysis.get("strategy_version"),
                 "strategy_version": analysis.get("strategy_version"),
                 "model_version": analysis.get("model_version"),
+                "decision_schema_version": analysis.get("decisionSchemaVersion"),
                 "input_snapshot_hash": analysis.get("input_snapshot_hash"),
                 "input_snapshot": input_snapshot,
-                "decision_output": analysis.get("decision_output"),
+                "decision_output": decision_output,
                 "executionDirection": analysis.get("executionDirection"),
                 "executionDirectionStatus": analysis.get("executionDirectionStatus"),
                 "executionDirectionReason": analysis.get("executionDirectionReason"),
@@ -555,6 +585,10 @@ class DerivativesStore:
                 "source_updated_at": analysis.get("source_updated_at"),
                 "confidence_method": analysis.get("confidence_method"),
                 "data_quality_status": analysis.get("dataQualityStatus"),
+                "data_quality_dimensions": analysis.get("dataQualityDimensions"),
+                "quality_coverage": analysis.get("qualityCoverage"),
+                "data_quality_dimension_status": analysis.get("dataQualityDimensionStatus"),
+                "source_provenance": analysis.get("sourceProvenance"),
                 "created_at": created_at,
             })
         summary = "；".join(str(item) for item in (analysis.get("reasons") or [])[:5])
@@ -657,6 +691,19 @@ class DerivativesStore:
             "executionDirectionReason": direction_reason,
             "executionDirectionContractVersion": direction_contract_version,
         })
+        canonical_decision = resolve_decision_state(
+            execution_direction=execution_direction,
+            execution_direction_reason=direction_reason,
+            data_quality_status=str(decision.get("data_quality_status") or ""),
+            explicit_state=output.get("decisionState"),
+            explicit_reason_codes=output.get("reasonCodes"),
+        )
+        if output.get("decisionState") not in {None, canonical_decision["decisionState"]}:
+            raise ValueError("decision_output decisionState conflicts with its explicit gate evidence")
+        supplied_reason_details = output.get("reasonDetails")
+        output.update(canonical_decision)
+        if isinstance(supplied_reason_details, list):
+            output["reasonDetails"] = supplied_reason_details
         quantity_value = decision.get("executionQuantity", output.get("executionQuantity"))
         quantity = _number(quantity_value)
         if quantity_value is not None and (quantity is None or not math.isfinite(quantity) or quantity <= 0):
@@ -677,8 +724,34 @@ class DerivativesStore:
         # deliberately excluded because this strategy is not calibrated.
         source_metadata = {
             key: decision.get(key)
-            for key in ("source_updated_at", "confidence_method", "data_quality_status")
+            for key in (
+                "source_updated_at",
+                "confidence_method",
+                "data_quality_status",
+                "data_quality_dimensions",
+                "quality_coverage",
+                "data_quality_dimension_status",
+                "source_provenance",
+            )
             if decision.get(key) is not None
+        }
+        contract_versions = {
+            key: output.get(source_key)
+            for key, source_key in (
+                ("decisionState", "decisionStateContractVersion"),
+                ("executionDirection", "executionDirectionContractVersion"),
+                ("scenarioWeight", "scenarioWeightContractVersion"),
+                ("riskClassification", "riskClassificationContractVersion"),
+            )
+            if output.get(source_key) is not None
+        }
+        source_metadata["ledger_metadata"] = {
+            "decisionSchemaVersion": str(
+                decision.get("decision_schema_version") or DECISION_LEDGER_SCHEMA_VERSION
+            ),
+            "dataAsOf": decision.get("data_as_of") if "data_as_of" in decision else decision.get("source_updated_at"),
+            "snapshotType": "RECORDED_DECISION_SNAPSHOT",
+            "contractVersions": contract_versions,
         }
         supplied_cost = decision.get("execution_cost_assumptions")
         cost_assumptions = resolve_cost_snapshot(
@@ -702,7 +775,7 @@ class DerivativesStore:
             _number(decision.get("reference_price")),
             self._ledger_json(cost_assumptions),
             self._ledger_json(source_metadata),
-            str(decision.get("created_at") or decision_time),
+            str(decision.get("created_at") or datetime.now().astimezone().isoformat()),
         )
         with self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -714,7 +787,19 @@ class DerivativesStore:
                 # decision_id is intentionally stable across replay timestamps;
                 # preserve the first accepted timestamp when the logical
                 # decision payload is otherwise identical.
-                if existing_record[:2] + existing_record[3:16] != record[:2] + record[3:16]:
+                same_legacy_payload = False
+                try:
+                    existing_metadata = json.loads(existing_record[15])
+                except (TypeError, ValueError):
+                    existing_metadata = None
+                desired_metadata = json.loads(record[15])
+                if isinstance(existing_metadata, dict) and "ledger_metadata" not in existing_metadata:
+                    desired_legacy_metadata = {
+                        key: value for key, value in desired_metadata.items() if key != "ledger_metadata"
+                    }
+                    same_legacy_payload = existing_metadata == desired_legacy_metadata
+                metadata_matches = existing_record[15] == record[15] or same_legacy_payload
+                if existing_record[:2] + existing_record[3:15] != record[:2] + record[3:15] or not metadata_matches:
                     raise ValueError("conflicting payload for existing decision_id")
                 return False
             connection.execute(
@@ -740,6 +825,33 @@ class DerivativesStore:
         for field in ("input_snapshot_json", "decision_output_json", "execution_cost_assumptions_json", "source_metadata_json"):
             result[field.removesuffix("_json")] = json.loads(result.pop(field))
         output = result["decision_output"]
+        source_metadata = result["source_metadata"] if isinstance(result["source_metadata"], dict) else {}
+        ledger_metadata = source_metadata.get("ledger_metadata")
+        if not isinstance(ledger_metadata, dict):
+            ledger_metadata = {}
+        result["ledger_metadata"] = ledger_metadata
+        result["decision_schema_version"] = str(
+            ledger_metadata.get("decisionSchemaVersion") or "LEGACY_UNVERSIONED"
+        )
+        result["decision_created_at"] = result.get("decision_time")
+        result["data_as_of"] = (
+            ledger_metadata.get("dataAsOf")
+            if "dataAsOf" in ledger_metadata
+            else source_metadata.get("source_updated_at")
+        )
+        result["snapshot_type"] = str(
+            ledger_metadata.get("snapshotType") or "RECORDED_DECISION_SNAPSHOT"
+        )
+        result["contract_versions"] = ledger_metadata.get("contractVersions", {})
+        decision_state = str(output.get("decisionState") or "UNKNOWN").strip().upper()
+        if decision_state not in DECISION_STATES:
+            decision_state = "UNKNOWN"
+        result["decisionState"] = decision_state
+        result["decisionEligible"] = output.get("decisionEligible") if isinstance(output.get("decisionEligible"), bool) else None
+        raw_reason_codes = output.get("reasonCodes")
+        result["reasonCodes"] = raw_reason_codes if isinstance(raw_reason_codes, list) else ["UNKNOWN"]
+        raw_reason_details = output.get("reasonDetails")
+        result["reasonDetails"] = raw_reason_details if isinstance(raw_reason_details, list) else []
         direction = str(output.get("executionDirection") or "UNAVAILABLE").upper()
         if direction not in {"LONG", "SHORT", "NO_POSITION", "UNAVAILABLE"}:
             direction = "UNAVAILABLE"
@@ -770,13 +882,89 @@ class DerivativesStore:
             identifiers = connection.execute(query, params).fetchall()
         return [item for (decision_id,) in identifiers if (item := self.get_decision(decision_id)) is not None]
 
+    def list_probability_training_rows(
+        self, evaluation_horizon: str, before_decision_time: str
+    ) -> list[dict[str, Any]]:
+        """Return persisted decision/outcome pairs strictly before an inference time.
+
+        This reads only the normal Decision Ledger through its configured store;
+        it does not create or migrate tables. P2-03 applies the stricter target,
+        contract-version, and timestamp eligibility checks after retrieval.
+        """
+        horizon = str(evaluation_horizon or "").strip().upper()
+        cutoff = str(before_decision_time or "").strip()
+        if not re.fullmatch(r"T\+[1-9][0-9]*", horizon) or not cutoff:
+            raise ValueError("a canonical evaluation horizon and decision-time cutoff are required")
+        query = """
+            SELECT d.decision_id, d.decision_time, d.market_as_of, d.instrument,
+                   d.decision_output_json, d.evidence_score, d.data_quality_score,
+                   d.source_metadata_json, o.evaluation_horizon, o.evaluation_time,
+                   o.status, o.market_observations_json
+            FROM decision_ledger AS d
+            JOIN decision_outcome AS o ON o.decision_id = d.decision_id
+            WHERE o.evaluation_horizon = ?
+              AND d.decision_time < ?
+              AND o.evaluation_time < ?
+            ORDER BY d.decision_time, o.evaluation_time, d.decision_id
+        """
+        with self._connection() as connection:
+            rows = connection.execute(query, (horizon, cutoff, cutoff)).fetchall()
+        result: list[dict[str, Any]] = []
+        for row in rows:
+            (
+                decision_id, decision_time, market_as_of, instrument,
+                decision_output_json, evidence_score, data_quality_score,
+                source_metadata_json, outcome_horizon, evaluation_time,
+                outcome_legacy_status, outcome_json,
+            ) = row
+            try:
+                decision_output = json.loads(decision_output_json)
+                source_metadata = json.loads(source_metadata_json)
+                stored_outcome = json.loads(outcome_json)
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(decision_output, dict) or not isinstance(source_metadata, dict):
+                continue
+            outcome_metadata = (
+                stored_outcome.get("metadata")
+                if isinstance(stored_outcome, dict) and isinstance(stored_outcome.get("metadata"), dict)
+                else {}
+            )
+            ledger_metadata = source_metadata.get("ledger_metadata")
+            if not isinstance(ledger_metadata, dict):
+                ledger_metadata = {}
+            result.append({
+                "decision": {
+                    "decision_id": decision_id,
+                    "decision_time": decision_time,
+                    "market_as_of": market_as_of,
+                    "data_as_of": ledger_metadata.get("dataAsOf", source_metadata.get("source_updated_at")),
+                    "instrument": instrument,
+                    "decision_output": decision_output,
+                    "decisionState": decision_output.get("decisionState", "UNKNOWN"),
+                    "decisionEligible": decision_output.get("decisionEligible"),
+                    "executionDirection": decision_output.get("executionDirection", "UNAVAILABLE"),
+                    "evidence_score": evidence_score,
+                    "data_quality_score": data_quality_score,
+                    "source_metadata": source_metadata,
+                },
+                "outcome": {
+                    "evaluation_horizon": outcome_horizon,
+                    "evaluation_time": evaluation_time,
+                    "status": outcome_legacy_status,
+                    "outcome_status": outcome_metadata.get("outcomeStatus", "UNAVAILABLE"),
+                    "outcome_metadata": outcome_metadata,
+                },
+            })
+        return result
+
     def record_decision_outcome(self, decision_id: str, evaluation_horizon: str, result: dict[str, Any]) -> None:
         horizon = str(evaluation_horizon or "").strip().upper()
         if not re.fullmatch(r"T\+[1-9][0-9]*", horizon):
             raise ValueError("evaluation_horizon must use the canonical T+N form")
         evaluation_time = str(result.get("evaluation_time") or "").strip()
         status = str(result.get("status") or "").strip().upper()
-        if not evaluation_time or status not in {"AVAILABLE", "PARTIAL", "UNAVAILABLE", "NOT_APPLICABLE"}:
+        if not evaluation_time or status not in {"AVAILABLE", "PARTIAL", "UNAVAILABLE", "NOT_APPLICABLE", "PENDING", "INVALID", "EVALUATED"}:
             raise ValueError("evaluation_time and a valid outcome status are required")
         target_hit = str(result.get("target_hit") or "NOT_APPLICABLE").upper()
         stop_hit = str(result.get("stop_hit") or "NOT_APPLICABLE").upper()
@@ -786,34 +974,74 @@ class DerivativesStore:
         observations = result.get("market_observations") or []
         if not isinstance(observations, list):
             raise ValueError("market_observations must be a list")
+        outcome_metadata = result.get("outcome_metadata")
+        if not isinstance(outcome_metadata, dict):
+            legacy_status = {
+                "AVAILABLE": "UNAVAILABLE", "PARTIAL": "UNAVAILABLE",
+                "EVALUATED": "EVALUATED", "PENDING": "PENDING",
+                "NOT_APPLICABLE": "NOT_APPLICABLE", "UNAVAILABLE": "UNAVAILABLE",
+                "INVALID": "INVALID",
+            }[status]
+            outcome_metadata = {
+                "outcomeSchemaVersion": "LEGACY_UNVERSIONED",
+                "evaluationContractVersion": "LEGACY_UNVERSIONED",
+                "outcomeStatus": legacy_status,
+                "evaluationBasis": "UNKNOWN",
+            }
+        metadata_status = str(outcome_metadata.get("outcomeStatus") or "").upper()
+        if metadata_status not in OUTCOME_STATUSES:
+            raise ValueError("outcome_metadata.outcomeStatus must use the canonical P2-02 status")
+        persisted_status = status
+        current_contract = (
+            str(outcome_metadata.get("outcomeSchemaVersion") or "") == OUTCOME_SCHEMA_VERSION
+            and str(outcome_metadata.get("evaluationContractVersion") or "") == OUTCOME_EVALUATION_CONTRACT_VERSION
+        )
+        if current_contract:
+            status_is_legacy_quality = (
+                (status in {"AVAILABLE", "PARTIAL"} and metadata_status == "EVALUATED")
+                or (status == "UNAVAILABLE" and metadata_status == "INVALID")
+            )
+            if status != metadata_status and not status_is_legacy_quality:
+                raise ValueError("versioned outcome status must agree with outcome_metadata.outcomeStatus")
+            persisted_status = metadata_status
+            outcome_metadata = {**outcome_metadata, "legacyStatus": status}
+        stored_observations = {
+            "schemaVersion": str(outcome_metadata.get("outcomeSchemaVersion") or OUTCOME_SCHEMA_VERSION),
+            "observations": observations,
+            "metadata": outcome_metadata,
+        }
+        payload = (
+            evaluation_time, persisted_status, _number(result.get("gross_return")),
+            _number(result.get("execution_cost")), _number(result.get("net_return")),
+            _number(result.get("mfe")), _number(result.get("mae")), target_hit, stop_hit,
+            result.get("unavailable_reason"),
+            str(result.get("data_quality_status") or status),
+            self._ledger_json(stored_observations),
+            self._ledger_json(result.get("costAdjustedResult") or {}),
+        )
         with self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
             if connection.execute("SELECT 1 FROM decision_ledger WHERE decision_id = ?", (decision_id,)).fetchone() is None:
                 raise ValueError("outcome decision_id does not exist")
+            existing = connection.execute(
+                """SELECT evaluation_time, status, gross_return, execution_cost, net_return,
+                          mfe, mae, target_hit, stop_hit, unavailable_reason,
+                          data_quality_status, market_observations_json, cost_adjusted_result_json
+                   FROM decision_outcome WHERE decision_id = ? AND evaluation_horizon = ?""",
+                (decision_id, horizon),
+            ).fetchone()
+            if existing is not None:
+                if tuple(existing) != payload:
+                    raise ValueError("conflicting payload for existing decision outcome")
+                return
             connection.execute(
                 """INSERT INTO decision_outcome(
                     decision_id, evaluation_horizon, evaluation_time, status, gross_return,
                     execution_cost, net_return, mfe, mae, target_hit, stop_hit,
-                    unavailable_reason, data_quality_status, market_observations_json
-                    , cost_adjusted_result_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(decision_id, evaluation_horizon) DO UPDATE SET
-                    evaluation_time=excluded.evaluation_time, status=excluded.status,
-                    gross_return=excluded.gross_return, execution_cost=excluded.execution_cost,
-                    net_return=excluded.net_return, mfe=excluded.mfe, mae=excluded.mae,
-                    target_hit=excluded.target_hit, stop_hit=excluded.stop_hit,
-                    unavailable_reason=excluded.unavailable_reason,
-                    data_quality_status=excluded.data_quality_status,
-                    market_observations_json=excluded.market_observations_json,
-                    cost_adjusted_result_json=excluded.cost_adjusted_result_json""",
-                (
-                    decision_id, horizon, evaluation_time, status,
-                    _number(result.get("gross_return")), _number(result.get("execution_cost")),
-                    _number(result.get("net_return")), _number(result.get("mfe")), _number(result.get("mae")),
-                    target_hit, stop_hit, result.get("unavailable_reason"),
-                    str(result.get("data_quality_status") or status), self._ledger_json(observations),
-                    self._ledger_json(result.get("costAdjustedResult") or {}),
-                ),
+                    unavailable_reason, data_quality_status, market_observations_json,
+                    cost_adjusted_result_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (decision_id, horizon, *payload),
             )
 
     def evaluate_decision_outcome(
@@ -822,11 +1050,15 @@ class DerivativesStore:
         evaluation_horizon: str,
         evaluation_time: str,
         market_observations: list[dict[str, Any]],
+        *,
+        horizon_matured: bool | None = None,
     ) -> dict[str, Any]:
-        """Evaluate an explicit T+N market-session window without look-ahead.
+        """Evaluate an explicit observed-session window without look-ahead.
 
-        Gross return, directional excursions, and cost-adjusted returns use
-        only the immutable direction, quantity, and cost snapshot.
+        T+N counts observed market sessions after the decision market date. If
+        the caller can establish that the horizon is not mature, it must pass
+        ``horizon_matured=False``; this method does not invent an exchange
+        calendar or infer maturity from wall-clock days.
         """
         horizon = str(evaluation_horizon or "").strip().upper()
         match = re.fullmatch(r"T\+([1-9][0-9]*)", horizon)
@@ -835,12 +1067,109 @@ class DerivativesStore:
         decision = self.get_decision(decision_id)
         if decision is None:
             raise ValueError("decision_id does not exist")
+
+        output = decision.get("decision_output") if isinstance(decision.get("decision_output"), dict) else {}
+        source_metadata = decision.get("source_metadata") if isinstance(decision.get("source_metadata"), dict) else {}
+        required_bars = int(match.group(1))
+
+        def source_evidence(row: dict[str, Any] | None) -> dict[str, Any] | None:
+            if not isinstance(row, dict):
+                return None
+            keys = (
+                "provider", "providerName", "source", "sourceRole", "source_role",
+                "fallback", "fallbackFrom", "fallbackState", "cacheState", "staleCache",
+            )
+            evidence = {key: row[key] for key in keys if key in row}
+            for key in ("sourceProvenance", "source_provenance", "provenance"):
+                if isinstance(row.get(key), dict):
+                    evidence[key] = row[key]
+            return evidence or {"status": "UNKNOWN"}
+
+        entry_price = _number(decision.get("reference_price"))
+        entry_reference = {
+            "price": entry_price,
+            "priceType": "DECISION_REFERENCE",
+            "marketAsOf": decision.get("market_as_of"),
+            "dataAsOf": decision.get("data_as_of"),
+        }
+
+        def finish(
+            result: dict[str, Any],
+            outcome_status: str,
+            *,
+            basis: str = "DIRECTIONAL_RETURN",
+            selected_row: dict[str, Any] | None = None,
+            entry: dict[str, Any] | None = None,
+            evaluation_as_of: str | None = None,
+        ) -> dict[str, Any]:
+            selected_row = selected_row if isinstance(selected_row, dict) else None
+            evaluation_reference = None
+            if selected_row is not None:
+                evaluation_reference = {
+                    "price": _number(selected_row.get("close")),
+                    "priceType": "CLOSE",
+                    "marketAsOf": selected_row.get("market_as_of") or selected_row.get("date"),
+                    "observedAt": selected_row.get("observed_at"),
+                }
+            result["outcome_status"] = outcome_status
+            strategy_result = result.get("costAdjustedResult")
+            has_strategy_result = (
+                isinstance(strategy_result, dict)
+                and strategy_result.get("status") == "AVAILABLE"
+                and strategy_result.get("contractVersion") == P0B_COST_VERSION
+            )
+            result["outcome_metadata"] = {
+                "outcomeSchemaVersion": OUTCOME_SCHEMA_VERSION,
+                "evaluationContractVersion": OUTCOME_EVALUATION_CONTRACT_VERSION,
+                "outcomeStatus": outcome_status,
+                "decisionId": decision_id,
+                "horizon": horizon,
+                "horizonSemantics": "T+N_OBSERVED_MARKET_SESSIONS",
+                "horizonMaturity": (
+                    "IMMATURE" if horizon_matured is False else
+                    "MATURE" if horizon_matured is True or outcome_status == "EVALUATED" else "UNKNOWN"
+                ),
+                "evaluationBasis": basis,
+                "strategyEvaluationBasis": "STRATEGY_RETURN" if has_strategy_result else None,
+                "entryReference": entry if entry is not None else entry_reference,
+                "evaluationReference": evaluation_reference,
+                "underlyingReturn": result.get("underlying_return"),
+                "decisionAlignedReturn": result.get("decision_aligned_return"),
+                "timestamps": {
+                    "decisionCreatedAt": decision.get("decision_time"),
+                    "marketAsOf": decision.get("market_as_of"),
+                    "evaluationAsOf": evaluation_as_of,
+                    "evaluatedAt": evaluation_time,
+                },
+                "provenance": {
+                    "decision": source_metadata.get("source_provenance") or {"status": "UNKNOWN"},
+                    "outcome": source_evidence(selected_row),
+                },
+                "strategyReturn": strategy_result if has_strategy_result else None,
+            }
+            self.record_decision_outcome(decision_id, horizon, result)
+            return result
+
         try:
             as_of = datetime.strptime(str(decision.get("market_as_of") or ""), "%Y-%m-%d").date()
             evaluation_at = datetime.fromisoformat(str(evaluation_time))
             decision_at = datetime.fromisoformat(str(decision["decision_time"]))
-            if evaluation_at.tzinfo is None or decision_at.tzinfo is None or evaluation_at < decision_at:
+            if (
+                evaluation_at.tzinfo is None or decision_at.tzinfo is None
+                or evaluation_at <= decision_at or evaluation_at.date() < as_of
+                or as_of > decision_at.date()
+            ):
                 raise ValueError("timestamps must be timezone-aware and evaluation must follow decision")
+            data_as_of = str(decision.get("data_as_of") or "").strip()
+            if data_as_of:
+                if re.fullmatch(r"\d{4}-\d{2}-\d{2}", data_as_of):
+                    data_date = datetime.strptime(data_as_of, "%Y-%m-%d").date()
+                    if data_date > decision_at.date():
+                        raise ValueError("decision data timestamp is after the decision")
+                else:
+                    data_at = datetime.fromisoformat(data_as_of)
+                    if data_at.tzinfo is None or data_at > decision_at:
+                        raise ValueError("decision data timestamp is invalid or after the decision")
             evaluation_date = evaluation_at.date()
         except ValueError:
             result = {
@@ -850,11 +1179,11 @@ class DerivativesStore:
                 "data_quality_status": "UNAVAILABLE",
                 "market_observations": [],
             }
-            self.record_decision_outcome(decision_id, horizon, result)
-            return result
+            return finish(result, "INVALID", basis="UNAVAILABLE")
 
         execution_direction = decision["executionDirection"]
-        if execution_direction == "NO_POSITION":
+        decision_state = str(decision.get("decisionState") or "UNKNOWN").upper()
+        if decision_state == "NO_TRADE" or execution_direction == "NO_POSITION":
             result = {
                 "evaluation_time": evaluation_time,
                 "status": "NOT_APPLICABLE",
@@ -868,25 +1197,51 @@ class DerivativesStore:
                 "unavailable_reason": None,
                 "data_quality_status": "AVAILABLE",
                 "market_observations": [],
-                "costAdjustedResult": {"status": "NOT_APPLICABLE", "reason": "NO_POSITION"},
+                "costAdjustedResult": {"status": "NOT_APPLICABLE", "reason": "NO_TRADE_DECISION"},
             }
-            self.record_decision_outcome(decision_id, horizon, result)
-            return result
-        if execution_direction == "UNAVAILABLE":
+            result["unavailable_reason"] = "NO_TRADE_DECISION"
+            return finish(result, "NOT_APPLICABLE", basis="NOT_APPLICABLE")
+        if decision_state == "HOLD_EXISTING":
+            result = {
+                "evaluation_time": evaluation_time,
+                "status": "NOT_APPLICABLE",
+                "gross_return": None,
+                "execution_cost": None,
+                "net_return": None,
+                "mfe": None,
+                "mae": None,
+                "target_hit": "NOT_APPLICABLE",
+                "stop_hit": "NOT_APPLICABLE",
+                "unavailable_reason": "HOLD_EXISTING_POSITION_CONTEXT_UNAVAILABLE",
+                "data_quality_status": "AVAILABLE",
+                "market_observations": [],
+                "costAdjustedResult": {"status": "NOT_APPLICABLE", "reason": "HOLD_EXISTING_POSITION_CONTEXT_UNAVAILABLE"},
+            }
+            return finish(result, "NOT_APPLICABLE", basis="NOT_APPLICABLE")
+        if decision_state == "UNKNOWN" or execution_direction == "UNAVAILABLE" or decision.get("decisionEligible") is not True:
+            reason = decision["executionDirectionReason"]
             result = {
                 "evaluation_time": evaluation_time,
                 "status": "UNAVAILABLE",
-                "unavailable_reason": decision["executionDirectionReason"],
+                "unavailable_reason": reason,
                 "data_quality_status": "UNAVAILABLE",
                 "market_observations": [],
-                "costAdjustedResult": {"status": "UNAVAILABLE", "reason": decision["executionDirectionReason"]},
+                "costAdjustedResult": {"status": "UNAVAILABLE", "reason": reason},
             }
-            self.record_decision_outcome(decision_id, horizon, result)
-            return result
+            return finish(result, "UNAVAILABLE", basis="UNAVAILABLE")
+        if decision_state != execution_direction or execution_direction not in {"LONG", "SHORT"}:
+            result = {
+                "evaluation_time": evaluation_time, "status": "UNAVAILABLE",
+                "unavailable_reason": "DECISION_STATE_DIRECTION_CONFLICT",
+                "data_quality_status": "UNAVAILABLE", "market_observations": [],
+            }
+            return finish(result, "INVALID", basis="UNAVAILABLE")
 
         normalized: list[tuple[Any, dict[str, Any]]] = []
         seen_dates: set[Any] = set()
         for row in market_observations or []:
+            if not isinstance(row, dict):
+                continue
             try:
                 market_date = datetime.strptime(str(row.get("market_as_of") or row.get("date") or ""), "%Y-%m-%d").date()
             except (TypeError, ValueError):
@@ -895,10 +1250,20 @@ class DerivativesStore:
                 continue
             try:
                 observed_at = datetime.fromisoformat(str(row.get("observed_at") or ""))
-                if observed_at.tzinfo is None or observed_at > evaluation_at:
-                    continue
+                if observed_at.tzinfo is None or observed_at <= decision_at or observed_at > evaluation_at:
+                    result = {
+                        "evaluation_time": evaluation_time, "status": "UNAVAILABLE",
+                        "unavailable_reason": "INVALID_FUTURE_MARKET_CHRONOLOGY",
+                        "data_quality_status": "UNAVAILABLE", "market_observations": [],
+                    }
+                    return finish(result, "INVALID", basis="UNAVAILABLE")
             except ValueError:
-                continue
+                result = {
+                    "evaluation_time": evaluation_time, "status": "UNAVAILABLE",
+                    "unavailable_reason": "FUTURE_MARKET_TIMESTAMP_UNAVAILABLE",
+                    "data_quality_status": "UNAVAILABLE", "market_observations": [],
+                }
+                return finish(result, "INVALID", basis="UNAVAILABLE")
             if market_date in seen_dates:
                 result = {
                     "evaluation_time": evaluation_time,
@@ -907,14 +1272,24 @@ class DerivativesStore:
                     "data_quality_status": "UNAVAILABLE",
                     "market_observations": [],
                 }
-                self.record_decision_outcome(decision_id, horizon, result)
-                return result
+                return finish(result, "INVALID", basis="UNAVAILABLE")
             seen_dates.add(market_date)
             normalized.append((market_date, row))
         normalized.sort(key=lambda pair: pair[0])
-        required_bars = int(match.group(1))
         window = normalized[:required_bars]
         if len(window) < required_bars:
+            if horizon_matured is False:
+                result = {
+                    "evaluation_time": evaluation_time,
+                    "status": "PENDING",
+                    "unavailable_reason": "HORIZON_NOT_MATURE",
+                    "data_quality_status": "PENDING",
+                    "market_observations": [row for _, row in window],
+                }
+                return finish(
+                    result, "PENDING", basis="DIRECTIONAL_RETURN",
+                    evaluation_as_of=str(window[-1][0]) if window else None,
+                )
             result = {
                 "evaluation_time": evaluation_time,
                 "status": "UNAVAILABLE",
@@ -922,22 +1297,24 @@ class DerivativesStore:
                 "data_quality_status": "UNAVAILABLE",
                 "market_observations": [row for _, row in window],
             }
-            self.record_decision_outcome(decision_id, horizon, result)
-            return result
+            if horizon_matured is None:
+                result["unavailable_reason"] = "MISSING_FUTURE_MARKET_PRICE"
+            return finish(
+                result, "UNAVAILABLE", basis="DIRECTIONAL_RETURN",
+                evaluation_as_of=str(window[-1][0]) if window else None,
+            )
 
-        output = decision["decision_output"]
         direction = execution_direction
-        reference_price = _number(decision.get("reference_price"))
+        reference_price = entry_price
         if direction not in {"LONG", "SHORT"} or reference_price is None or reference_price <= 0:
             result = {
                 "evaluation_time": evaluation_time,
                 "status": "UNAVAILABLE",
-                "unavailable_reason": "REFERENCE_PRICE_UNAVAILABLE",
+                "unavailable_reason": "ENTRY_REFERENCE_UNAVAILABLE",
                 "data_quality_status": "UNAVAILABLE",
                 "market_observations": [row for _, row in window],
             }
-            self.record_decision_outcome(decision_id, horizon, result)
-            return result
+            return finish(result, "UNAVAILABLE", basis="UNAVAILABLE", evaluation_as_of=str(window[-1][0]))
 
         bars: list[dict[str, float]] = []
         for _, row in window:
@@ -950,8 +1327,8 @@ class DerivativesStore:
                     "data_quality_status": "UNAVAILABLE",
                     "market_observations": [item for _, item in window],
                 }
-                self.record_decision_outcome(decision_id, horizon, result)
-                return result
+                result["unavailable_reason"] = "INVALID_FUTURE_OHLC"
+                return finish(result, "INVALID", basis="UNAVAILABLE", evaluation_as_of=str(window[-1][0]))
             bars.append({key: float(value) for key, value in values.items() if value is not None})
 
         if direction == "LONG":
@@ -970,6 +1347,8 @@ class DerivativesStore:
             stop_price = _number(output.get("stop_price", output.get("stopPrice")))
             target_hit = "NOT_APPLICABLE" if target_price is None else "HIT" if any(bar["low"] <= target_price for bar in bars) else "NOT_HIT"
             stop_hit = "NOT_APPLICABLE" if stop_price is None else "HIT" if any(bar["high"] >= stop_price for bar in bars) else "NOT_HIT"
+        underlying_return = bars[-1]["close"] / reference_price - 1
+        decision_aligned_return = underlying_return if direction == "LONG" else -underlying_return
         cost_snapshot = decision.get("execution_cost_assumptions")
         quantity = decision.get("decision_output", {}).get("executionQuantity")
         cost_result = calculate_futures_cost(cost_snapshot, direction, reference_price, bars[-1]["close"], quantity)
@@ -1000,6 +1379,8 @@ class DerivativesStore:
             "evaluation_time": evaluation_time,
             "status": status,
             "gross_return": gross_return,
+            "underlying_return": underlying_return,
+            "decision_aligned_return": decision_aligned_return,
             "execution_cost": execution_cost,
             "net_return": net_return,
             "mfe": max(favorable),
@@ -1011,8 +1392,9 @@ class DerivativesStore:
             "market_observations": [row for _, row in window],
             "costAdjustedResult": adjusted,
         }
-        self.record_decision_outcome(decision_id, horizon, result)
-        return result
+        return finish(
+            result, "EVALUATED", selected_row=window[-1][1], evaluation_as_of=str(window[-1][0])
+        )
 
     def get_decision_outcome(self, decision_id: str, evaluation_horizon: str) -> dict[str, Any] | None:
         with self._connection() as connection:
@@ -1032,7 +1414,25 @@ class DerivativesStore:
             "unavailable_reason", "data_quality_status", "market_observations", "cost_adjusted_result",
         )
         result = dict(zip(fields, row))
-        result["market_observations"] = json.loads(result["market_observations"])
+        stored_observations = json.loads(result["market_observations"])
+        if isinstance(stored_observations, dict) and isinstance(stored_observations.get("observations"), list):
+            result["market_observations"] = stored_observations["observations"]
+            result["outcome_metadata"] = stored_observations.get("metadata", {})
+        else:
+            result["market_observations"] = stored_observations
+            result["outcome_metadata"] = {
+                "outcomeSchemaVersion": "LEGACY_UNVERSIONED",
+                "evaluationContractVersion": "LEGACY_UNVERSIONED",
+                "outcomeStatus": {
+                    "AVAILABLE": "UNAVAILABLE", "PARTIAL": "UNAVAILABLE",
+                    "NOT_APPLICABLE": "NOT_APPLICABLE", "UNAVAILABLE": "UNAVAILABLE",
+                }.get(result["status"], "UNAVAILABLE"),
+                "evaluationBasis": "UNKNOWN",
+            }
+        legacy_status = result["outcome_metadata"].get("legacyStatus")
+        result["legacy_status"] = str(legacy_status).strip().upper() if isinstance(legacy_status, str) else result["status"]
+        result["outcome_status"] = result["outcome_metadata"].get("outcomeStatus", "UNAVAILABLE")
+        result["evaluation_basis"] = result["outcome_metadata"].get("evaluationBasis", "UNKNOWN")
         result["cost_adjusted_result"] = json.loads(result["cost_adjusted_result"])
         return result
 

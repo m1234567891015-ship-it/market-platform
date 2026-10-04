@@ -1511,10 +1511,12 @@ function buildBacktestTrendForecast(history, signals = [], validation = null) {
       confidence: "低",
       summary: "歷史價格資料不足，暫不產生未來走勢情境推估。",
       scenarios: [],
+      scenarioSemanticStatus: "HEURISTIC_SCENARIO_WEIGHT",
+      probabilityLabelAllowed: false,
       support: null,
       resistance: null,
       priceTargets: [],
-      caveat: "回溯測試只能估計歷史訊號後的情境權重傾向，不保證未來價格。",
+      caveat: "以下為規則式情境權重，不代表統計漲跌機率、勝率或信心機率；回溯測試不保證未來價格。",
     };
   }
 
@@ -1626,13 +1628,15 @@ function buildBacktestTrendForecast(history, signals = [], validation = null) {
     confidence,
     summary,
     scenarios,
+    scenarioSemanticStatus: "HEURISTIC_SCENARIO_WEIGHT",
+    probabilityLabelAllowed: false,
     support,
     resistance,
     atrPct,
     trendScore,
     priceTargets,
     trendLabel: trendScore > 8 ? "偏多延續" : trendScore < -8 ? "偏空修正" : "區間震盪",
-    caveat: "這是基於歷史訊號與目前價量結構的情境權重與價格區間推估，不是保證價格或投資建議。",
+    caveat: "以下為規則式情境權重，不代表統計漲跌機率、勝率或信心機率；價格區間不保證未來價格，也不是投資建議。",
   };
 }
 buildBacktestLearningModel.simulateBacktestTrade = function simulateBacktestTrade(history, signalIndex, direction, horizon, riskModel = {}) {
@@ -2118,7 +2122,7 @@ function buildBacktestLearningModel(history, horizon = 240, options = {}) {
     forecast: buildBacktestTrendForecast(history, activeRanked, activeValidation),
   };
 }
-function buildInstitutionalBacktestFramework(detail, history, backtestLearning) {
+function buildInstitutionalBacktestFramework(detail, history, backtestLearning, marketContext = null) {
   const clampScore = (value) => Math.max(0, Math.min(100, value));
   const scoreFromPct = (value, sensitivity = 7) => (
     Number.isFinite(value) ? clampScore(50 + (value * sensitivity)) : null
@@ -2133,10 +2137,10 @@ function buildInstitutionalBacktestFramework(detail, history, backtestLearning) 
       available,
     };
   };
-  const international = Array.isArray(data?.marketInternationalIndexes)
-    ? data.marketInternationalIndexes
+  const international = Array.isArray(marketContext?.marketInternationalIndexes)
+    ? marketContext.marketInternationalIndexes
     : [];
-  const macroFactors = data?.marketMacroFactors || {};
+  const macroFactors = marketContext?.marketMacroFactors || {};
   const findIndex = (...needles) => international.find((item) => {
     const haystack = `${item.key || ""} ${item.symbol || ""} ${item.name || ""}`.toLowerCase();
     return needles.some((needle) => haystack.includes(needle));
@@ -2149,8 +2153,8 @@ function buildInstitutionalBacktestFramework(detail, history, backtestLearning) 
   const sp500Pct = readPct(findIndex("sp500", "s&p 500", "gspc"));
   const russellPct = readPct(findIndex("russell", "rut"));
   const vixItem = findIndex("vix", "volatility");
-  const vixPct = readPct(vixItem) ?? parseAnalysisNumber(data?.marketVolatility?.pct);
-  const vixValue = parseAnalysisNumber(vixItem?.value ?? vixItem?.close ?? data?.marketVolatility?.value);
+  const vixPct = readPct(vixItem) ?? parseAnalysisNumber(marketContext?.marketVolatility?.pct);
+  const vixValue = parseAnalysisNumber(vixItem?.value ?? vixItem?.close ?? marketContext?.marketVolatility?.value);
   const dxyPct = parseAnalysisNumber(macroFactors.dxy?.pct);
   const us10yPct = parseAnalysisNumber(macroFactors.us10y?.pct);
   const usdTwdPct = parseAnalysisNumber(macroFactors.usdTwd?.pct);
@@ -2193,7 +2197,7 @@ function buildInstitutionalBacktestFramework(detail, history, backtestLearning) 
     : null;
   const futuresOiChangePct = parseAnalysisNumber(macroFactors.txOpenInterest?.changePct);
   const weightedPct = parseAnalysisNumber(
-    (data?.marketOverview || []).find((item) => /加權|TAIEX/i.test(item?.name || ""))?.pct,
+    (marketContext?.marketOverview || []).find((item) => /加權|TAIEX/i.test(item?.name || ""))?.pct,
   );
   const futuresOiScore = Number.isFinite(futuresOiChangePct)
     ? futuresOiChangePct > 0
@@ -2865,7 +2869,7 @@ function buildMovingAverageIndicator(history, { isEtf = false, isFutures = false
         : "個股建議以 5 日線＋20 日線＋60 日線，搭配 MACD、RSI、成交量及籌碼面交叉確認。",
   };
 }
-function analyzeTechnicalTheories(detail, { marketBreadth = null } = {}) {
+function analyzeTechnicalTheories(detail, { marketBreadth = null, marketContext = null } = {}) {
   const history = (detail.historyDays || [])
     .map((item) => ({
       ...item,
@@ -3623,7 +3627,7 @@ function analyzeTechnicalTheories(detail, { marketBreadth = null } = {}) {
   });
   backtestLearning.institutionalFramework = isFuturesDetail
     ? buildFuturesBacktestFramework(detail, history, backtestLearning)
-    : buildInstitutionalBacktestFramework(detail, history, backtestLearning);
+    : buildInstitutionalBacktestFramework(detail, history, backtestLearning, marketContext);
   if (backtestLearning.evidenceCount) {
     score += backtestLearning.scoreAdjustment;
     evidenceCount += 1;

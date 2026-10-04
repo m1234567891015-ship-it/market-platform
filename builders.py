@@ -224,8 +224,7 @@ from datetime import datetime, timedelta, timezone
 from html import unescape
 from typing import Any
 from urllib.error import HTTPError
-from urllib.parse import quote, unquote, urlencode
-from urllib.request import Request
+from urllib.parse import quote, urlencode
 
 from cache import (
     CACHE_FLIGHT_WAIT_SECONDS,
@@ -244,26 +243,33 @@ from derivatives.analytics import enrich_futures_ai_decision, enrich_option_ai_d
 from derivatives.catalog import TAIWAN_FUTURES_V1, TAIWAN_OPTIONS_V1, apply_taifex_defaults, v1_product_status
 from derivatives.futures import build_source_pending_market_item, is_source_pending_product
 from fetchers import (
+    BARCHART_CORE_QUOTES_URL,
+    BYBIT_OPTIONS_TICKERS_URL,
+    DERIBIT_OPTIONS_SUMMARY_URL,
     TAIFEX_FUTURES_DAILY_OPENAPI_URL,
-    barchart_options_headers,
     build_index_activity_url,
     build_index_intraday_url,
+    build_institutions_url,
     build_market_url,
     build_stock_institutions_url,
     build_stock_news_fallback,
     build_tpex_openapi_url,
+    build_weighted_index_history_url,
     build_yahoo_chart_series,
     collect_futures_until_deadline,
     dataset_has_rows,
     detect_tone,
     extract_balanced_segment,
     extract_visible_text_lines,
-    fetch_barchart_options_context,
+    fetch_barchart_futures_options_payload,
     fetch_cboe_options_payload,
+    fetch_bybit_options_chain_data,
+    fetch_deribit_options_chain_data,
     fetch_etf_dividend_info,
     fetch_fred_observation_rows,
     fetch_international_market_indexes,
-    fetch_json,
+    fetch_latest_twse_institutions_payload,
+    fetch_latest_twse_market_payload,
     fetch_live_index_activity,
     fetch_live_index_intraday,
     fetch_market_macro_factors,
@@ -282,17 +288,23 @@ from fetchers import (
     fetch_taifex_latest_futures_market_snapshot,
     fetch_taifex_openapi_list,
     fetch_taiwan_option_spot_snapshot,
-    fetch_text,
+    fetch_tpex_openapi_payload,
     fetch_tpex_mainboard_quotes,
     fetch_trading_economics_taiwan_10y,
     fetch_txo_option_chain,
     fetch_twse_listed_industry_map,
+    fetch_twse_index_activity_payload,
+    fetch_twse_index_intraday_payload,
+    fetch_twse_institutions_daily_payload,
+    fetch_twse_market_payload,
+    fetch_twse_weighted_index_history_payload,
     fetch_us_etf_directory_items,
     fetch_us_market_overview_news,
     fetch_us_treasury_yield_curve,
     fetch_us_treasury_yield_curve_rows,
     fetch_yahoo_broker_trading,
     fetch_yahoo_class_quote_pages,
+    fetch_yahoo_class_quote_page,
     fetch_yahoo_history_rows,
     fetch_yahoo_institutional_trading,
     fetch_yahoo_major_holders,
@@ -305,7 +317,6 @@ from fetchers import (
     fetch_yahoo_tpex_etfs,
     fetch_yahoo_us_symbol_news,
     filter_us_etf_items,
-    find_latest_dataset,
     format_percent,
     format_roc_date,
     format_signed,
@@ -313,11 +324,16 @@ from fetchers import (
     is_etf_stock,
     is_valid_ohlc_values,
     normalize_taifex_date_text,
+    normalize_barchart_option_contract,
+    normalize_bybit_option_contract,
+    normalize_deribit_option_contract,
     normalize_us_market_search_item,
     normalize_us_symbol_for_yahoo,
     parse_float,
     parse_fred_date,
     parse_public_options_number,
+    parse_bybit_option_symbol,
+    parse_deribit_instrument_name,
     parse_roc_date,
     parse_taifex_market_number,
     shift_month,
@@ -471,16 +487,6 @@ def build_yahoo_taiwan_option_url(underlying: str | None = None, expiry: str | N
     if expiry_text:
         params["opym"] = expiry_text
     return f"{YAHOO_TW_OPTION_URL}?{urlencode(params)}"
-
-
-def build_institutions_url(date_str: str) -> str:
-    params = {"response": "json", "dayDate": date_str, "type": "day"}
-    return f"{TWSE_BASE}/fund/BFI82U?{urlencode(params)}"
-
-
-def build_weighted_index_history_url(date_str: str) -> str:
-    params = {"response": "json", "date": date_str}
-    return f"{TWSE_BASE}/indicesReport/MI_5MINS_HIST?{urlencode(params)}"
 
 
 TAIFEX_FUTURE_MONTH_CODE_TO_MONTH = {
@@ -705,7 +711,7 @@ def build_taifex_option_ai_analysis(
             {
                 "name": "偏多",
                 "condition": "指數站上 Call OI 壓力區並伴隨 Put OI 下移。",
-                "view": "短線上攻機率提高，但需留意 IV 回落造成權利金收縮。",
+                "view": "短線上攻情境權重提高，但需留意 IV 回落造成權利金收縮；此為規則式情境判斷，不代表統計漲跌機率。",
             },
             {
                 "name": "震盪",
@@ -824,7 +830,7 @@ def build_taifex_txo_option_payload(
 
 def build_yahoo_txo_option_payload(
     rows: list[dict[str, Any]],
-    trade_date: str,
+    trade_date: str | None,
     expiry_code: str,
     spot_snapshot: dict[str, Any],
     underlying: str | None = "TXO",
@@ -863,10 +869,9 @@ def build_yahoo_txo_option_payload(
             spot,
             decision_context={
                 "symbol": product["symbol"],
-                "market_as_of": trade_date,
-                "source_updated_at": trade_date,
+                "market_as_of": trade_date or None,
+                "source_updated_at": trade_date or None,
                 "provider_status": "healthy",
-                "fallback_used": True,
             },
         ),
         "schema": {
@@ -898,6 +903,109 @@ def parse_market_iso_date(value: Any) -> datetime | None:
         except ValueError:
             continue
     return None
+
+
+_STANDARD_SOURCE_ROLES = {
+    "TAIFEX_PRIMARY", "YAHOO_SUPPLEMENT", "YAHOO_EXPLICIT",
+    "YAHOO_AUTO_FALLBACK", "CACHE", "UNKNOWN",
+}
+
+
+def normalize_futures_source_provenance(item: dict[str, Any]) -> dict[str, Any]:
+    """Return only P1-01 source roles already evidenced by the analysis item.
+
+    This deliberately does not infer a provider from the instrument symbol.
+    Legacy or incomplete items fail closed as UNKNOWN.
+    """
+    supplied = item.get("sourceProvenance")
+    if isinstance(supplied, dict):
+        roles = supplied.get("sourceRoles")
+        if isinstance(roles, list) and roles and all(str(role) in _STANDARD_SOURCE_ROLES for role in roles):
+            return dict(supplied)
+    return {
+        "sourceRole": "UNKNOWN",
+        "sourceRoles": ["UNKNOWN"],
+        "selectionMode": None,
+        "primarySource": None,
+        "selectedSourceMode": None,
+        "fallbackFrom": None,
+        "fallbackReason": None,
+        "supplements": [],
+        "cache": {"used": None, "stale": None, "staleAt": None},
+        "status": "UNKNOWN",
+        "reason": "NORMALIZED_PROVIDER_SOURCE_METADATA_UNAVAILABLE",
+    }
+
+
+def _build_taifex_futures_source_provenance(
+    snapshot: dict[str, Any] | None,
+    yahoo_quote: dict[str, Any] | None,
+    *,
+    use_yahoo_quote: bool,
+    open_interest_source: str | None,
+) -> dict[str, Any]:
+    """Normalize the sources actually selected while building the futures item."""
+    roles: list[str] = []
+    fields: dict[str, str] = {}
+    if snapshot:
+        roles.append("TAIFEX_PRIMARY")
+        for field in ("series", "settlement"):
+            fields[field] = "TAIFEX_PRIMARY"
+        if open_interest_source == "TAIFEX":
+            fields["openInterest"] = "TAIFEX_PRIMARY"
+
+    yahoo_fields: list[str] = []
+    if yahoo_quote:
+        if use_yahoo_quote:
+            for field in ("open", "high", "low", "close", "volume", "change", "changePct"):
+                if yahoo_quote.get(field) not in (None, "", "--"):
+                    yahoo_fields.append(field)
+        for field in ("bid", "ask", "basis", "referencePrice", "quoteTime", "date"):
+            if yahoo_quote.get(field) not in (None, "", "--"):
+                yahoo_fields.append("quoteDate" if field == "date" else field)
+        if open_interest_source == "Yahoo":
+            yahoo_fields.append("openInterest")
+        yahoo_fields = list(dict.fromkeys(yahoo_fields))
+
+    fallback_from = None
+    fallback_reason = None
+    supplements: list[dict[str, Any]] = []
+    if not snapshot and yahoo_quote:
+        roles.append("YAHOO_AUTO_FALLBACK")
+        fallback_from = "TAIFEX"
+        fallback_reason = "TAIFEX_PRIMARY_UNAVAILABLE"
+        fields.update({field: "YAHOO_AUTO_FALLBACK" for field in yahoo_fields})
+    elif snapshot and yahoo_fields:
+        roles.append("YAHOO_SUPPLEMENT")
+        fields.update({field: "YAHOO_SUPPLEMENT" for field in yahoo_fields})
+        supplements.append({
+            "provider": "Yahoo",
+            "kind": "futuresQuote",
+            "fields": yahoo_fields,
+            "sourceUrl": YAHOO_TW_FUTURE_UNCOVERED_URL,
+            "tradeDate": yahoo_quote.get("date"),
+        })
+
+    if not roles:
+        roles = ["UNKNOWN"]
+    source_role = roles[0] if len(roles) == 1 else "PRIMARY"
+    return {
+        "sourceRole": source_role,
+        "sourceRoles": roles,
+        "selectionMode": "auto",
+        "primarySource": "TAIFEX" if snapshot else None,
+        "primarySourceUrl": (snapshot or {}).get("sourceLink") if snapshot else None,
+        "selectedSourceMode": "taifex" if snapshot else ("yahoo" if yahoo_quote else None),
+        "fallbackFrom": fallback_from,
+        "fallbackReason": fallback_reason,
+        "supplements": supplements,
+        "fields": fields,
+        "cache": {
+            "used": bool((snapshot or {}).get("cached") or (yahoo_quote or {}).get("cached")),
+            "stale": bool((snapshot or {}).get("stale") or (yahoo_quote or {}).get("stale")),
+            "staleAt": (snapshot or {}).get("staleAt") or (yahoo_quote or {}).get("staleAt"),
+        },
+    }
 
 
 def yahoo_future_quote_can_override_taifex(yahoo_quote: dict[str, Any] | None, snapshot: dict[str, Any] | None) -> bool:
@@ -969,6 +1077,16 @@ def build_taifex_open_interest_item(spec: dict[str, Any]) -> dict[str, Any]:
         or parse_float(str((snapshot or {}).get("openInterest") or ""))
         or parse_float(str((yahoo_quote or {}).get("openInterest") or ""))
     )
+    snapshot_open_interest = parse_float(str((snapshot or {}).get("openInterest") or ""))
+    yahoo_open_interest = parse_float(str((yahoo_quote or {}).get("openInterest") or ""))
+    if use_yahoo_quote and yahoo_open_interest is not None:
+        open_interest_source = "Yahoo"
+    elif snapshot_open_interest is not None:
+        open_interest_source = "TAIFEX"
+    elif yahoo_open_interest is not None:
+        open_interest_source = "Yahoo"
+    else:
+        open_interest_source = None
     settlement = parse_float(str((snapshot or {}).get("settlement") or ""))
     change = parse_float(str(quote_data.get("change") or ""))
     pct = parse_float(str(quote_data.get("changePct") or ""))
@@ -1015,6 +1133,10 @@ def build_taifex_open_interest_item(spec: dict[str, Any]) -> dict[str, Any]:
         source_note_parts.append(
             f"Yahoo 股市即時期指報價 {yahoo_quote.get('date') or '--'} {yahoo_quote.get('quoteTime') or '--'}：{yahoo_status_text}。"
         )
+    source_provenance = _build_taifex_futures_source_provenance(
+        snapshot, yahoo_quote, use_yahoo_quote=use_yahoo_quote,
+        open_interest_source=open_interest_source,
+    )
     return {
         **base_item,
         "dataSymbol": commodity,
@@ -1047,6 +1169,7 @@ def build_taifex_open_interest_item(spec: dict[str, Any]) -> dict[str, Any]:
         "source": "Yahoo 股市即時期指報價 / TAIFEX 官方期貨日報" if use_yahoo_quote else "TAIFEX 官方期貨日報",
         "dataSource": "Yahoo 股市即時期指報價 / TAIFEX 官方期貨日報" if use_yahoo_quote else "TAIFEX 官方期貨日報",
         "sourceNote": " ".join(source_note_parts),
+        "sourceProvenance": source_provenance,
         "sourceLink": YAHOO_TW_FUTURE_UNCOVERED_URL if use_yahoo_quote else (snapshot or {}).get("sourceLink") or base_item["sourceUrl"],
         "taifexSourceLink": (snapshot or {}).get("sourceLink") or TAIFEX_FUTURES_DAILY_OPENAPI_URL,
         "series": series,
@@ -1462,7 +1585,11 @@ def build_futures_ai_analysis(item: dict[str, Any]) -> dict[str, Any]:
         ],
         "disclaimer": "AI 分析以公開行情與系統規則計算，僅供研究參考，不保證獲利。",
     }
-    return enrich_futures_ai_decision(analysis, item, candles)
+    enriched = enrich_futures_ai_decision(analysis, item, candles)
+    # One canonical decision-time provenance object is shared by the API
+    # analysis response, decision output and Ledger source metadata.
+    enriched["sourceProvenance"] = normalize_futures_source_provenance(item)
+    return enriched
 
 
 TAIFEX_INSTITUTION_ITEM_LABEL_MAP = {"自營商": "自營商", "投信": "投信", "外資及陸資": "外資"}
@@ -1523,7 +1650,6 @@ def build_institution_payload_live(product: str, source_url: str) -> dict[str, A
     }
 
 
-BARCHART_CORE_QUOTES_URL = "https://www.barchart.com/proxies/core-api/v1/quotes/get"
 BARCHART_FUTURES_OPTIONS_ROOTS = {
     "GC=F": "GC",
     "SI=F": "SI",
@@ -1554,7 +1680,6 @@ BARCHART_FUTURES_OPTIONS_ROOTS = {
     "A6=F": "A6",
     "D6=F": "D6",
 }
-DERIBIT_OPTIONS_SUMMARY_URL = "https://www.deribit.com/api/v2/public/get_book_summary_by_currency"
 DERIBIT_OPTIONS_CHAIN_CACHE_SECONDS = CACHE_TTL_SECONDS["deribit_options_chain"]
 DERIBIT_OPTIONS_CURRENCY_BY_SYMBOL = {
     "DERIBIT_BTC": "BTC",
@@ -1562,7 +1687,6 @@ DERIBIT_OPTIONS_CURRENCY_BY_SYMBOL = {
     "BTC-USD": "BTC",
     "ETH-USD": "ETH",
 }
-BYBIT_OPTIONS_TICKERS_URL = "https://api.bybit.com/v5/market/tickers"
 BYBIT_OPTIONS_CHAIN_CACHE_SECONDS = CACHE_TTL_SECONDS["bybit_options_chain"]
 BYBIT_OPTIONS_BASE_COIN_BY_SYMBOL = {
     "BYBIT_SOL": "SOL",
@@ -1683,29 +1807,6 @@ def normalize_yahoo_option_contract(contract: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def normalize_barchart_option_contract(contract: dict[str, Any], option_type: str, expiration: int | None, expiration_date: str | None) -> dict[str, Any] | None:
-    strike = parse_public_options_number(contract.get("strike"))
-    if strike is None:
-        return None
-    option_type_clean = "put" if str(option_type or contract.get("optionType") or "").lower().startswith("p") else "call"
-    return {
-        "contractSymbol": contract.get("longSymbol") or contract.get("symbol") or "",
-        "strike": strike,
-        "lastPrice": parse_public_options_number(contract.get("lastPrice")),
-        "bid": parse_public_options_number(contract.get("bidPrice")),
-        "ask": parse_public_options_number(contract.get("askPrice")),
-        "change": parse_public_options_number(contract.get("priceChange")),
-        "percentChange": None,
-        "volume": parse_public_options_number(contract.get("volume")),
-        "openInterest": parse_public_options_number(contract.get("openInterest")),
-        "impliedVolatility": parse_public_options_number(contract.get("impliedVolatility")),
-        "expiration": expiration,
-        "expirationDate": expiration_date,
-        "inTheMoney": None,
-        "type": option_type_clean,
-    }
-
-
 def build_barchart_futures_options_chain(symbol: str, expiration: str | None = None) -> dict[str, Any]:
     import app
 
@@ -1720,53 +1821,25 @@ def build_barchart_futures_options_chain(symbol: str, expiration: str | None = N
         if cached_chain is not None:
             return copy.deepcopy(cached_chain)
 
-    context = fetch_barchart_options_context(root)
-    contract_symbol = re.sub(r"[^A-Za-z0-9]", "", str(expiration or context["contract"]).upper()) or context["contract"]
-    params = {
-        "symbol": contract_symbol,
-        "list": "futures.options",
-        "fields": "strike,lastPrice,priceChange,bidPrice,askPrice,volume,openInterest,impliedVolatility,tradeTime,longSymbol,optionType,symbol",
-        "groupBy": "optionType",
-        "orderBy": "strike",
-        "orderDir": "asc",
-        "meta": "field.shortName,field.description,field.type",
-    }
-    api_url = f"{BARCHART_CORE_QUOTES_URL}?{urlencode(params)}"
-    headers = barchart_options_headers("application/json, text/plain, */*", context["pageUrl"])
-    if context.get("xsrf"):
-        headers["X-XSRF-TOKEN"] = unquote(str(context["xsrf"]))
-    api_req = Request(api_url, headers=headers)
-    with context["opener"].open(api_req, timeout=30) as response:
-        payload = json.loads(response.read().decode("utf-8"))
-
-    data = payload.get("data") if isinstance(payload, dict) else {}
-    raw_calls = data.get("Call") or data.get("call") or []
-    raw_puts = data.get("Put") or data.get("put") or []
-    expiration_ts = context.get("expiration")
-    expiration_date = context.get("expirationDate")
-    calls = [
-        item
-        for item in (normalize_barchart_option_contract(contract, "call", expiration_ts, expiration_date) for contract in raw_calls)
-        if item is not None
-    ]
-    puts = [
-        item
-        for item in (normalize_barchart_option_contract(contract, "put", expiration_ts, expiration_date) for contract in raw_puts)
-        if item is not None
-    ]
+    provider = fetch_barchart_futures_options_payload(root, expiration)
+    contract_symbol = provider["contractSymbol"]
+    calls = provider["calls"]
+    puts = provider["puts"]
+    expiration_ts = provider["expirationTimestamp"]
+    expiration_date = provider["expirationDate"]
     if not calls and not puts:
-        return {"symbol": clean_symbol, "error": "Barchart futures options source returned no contracts.", "source": "Barchart Futures Options", "sourceUrl": context["pageUrl"]}
+        return {"symbol": clean_symbol, "error": "Barchart futures options source returned no contracts.", "source": "Barchart Futures Options", "sourceUrl": provider["sourceUrl"]}
 
     selected_expiration = f"{contract_symbol} {expiration_date}".strip() if expiration_date else contract_symbol
     result_payload = {
         "symbol": clean_symbol,
         "name": f"{root} Futures Options",
-        "price": context.get("price"),
+        "price": provider.get("price"),
         "change": None,
         "pct": None,
         "currency": "USD",
         "source": "Barchart Futures Options",
-        "sourceUrl": context["pageUrl"],
+        "sourceUrl": provider["sourceUrl"],
         "timestamp": datetime.now(app.TZ).isoformat(),
         "expirationDates": [],
         "selectedExpiration": selected_expiration,
@@ -1778,53 +1851,14 @@ def build_barchart_futures_options_chain(symbol: str, expiration: str | None = N
             "totalContracts": len(calls) + len(puts),
             "callOpenInterest": sum_contract_metric(calls, "openInterest"),
             "putOpenInterest": sum_contract_metric(puts, "openInterest"),
-            "weightedImpliedVolatility": context.get("weightedImpliedVolatility"),
-            "optionPointValue": context.get("optionPointValue"),
+            "weightedImpliedVolatility": provider.get("weightedImpliedVolatility"),
+            "optionPointValue": provider.get("optionPointValue"),
         },
         "calls": sorted(calls, key=lambda item: item["strike"]),
         "puts": sorted(puts, key=lambda item: item["strike"]),
     }
     write_memory_cache("us_options_chains", cache_key, copy.deepcopy(result_payload), OPTIONS_CHAIN_CACHE_SECONDS)
     return result_payload
-
-
-def parse_deribit_instrument_name(name: str) -> dict[str, Any] | None:
-    match = re.match(r"^([A-Z]+)-(\d{1,2}[A-Z]{3}\d{2})-([0-9.]+)-([CP])$", str(name or "").upper())
-    if not match:
-        return None
-    try:
-        expiration_dt = datetime.strptime(match.group(2), "%d%b%y").replace(tzinfo=timezone.utc)
-    except ValueError:
-        return None
-    return {
-        "currency": match.group(1),
-        "expiration": int(expiration_dt.timestamp()),
-        "expirationDate": expiration_dt.strftime("%Y-%m-%d"),
-        "strike": float(match.group(3)),
-        "type": "call" if match.group(4) == "C" else "put",
-    }
-
-
-def normalize_deribit_option_contract(contract: dict[str, Any]) -> dict[str, Any] | None:
-    parsed = parse_deribit_instrument_name(str(contract.get("instrument_name") or ""))
-    if not parsed:
-        return None
-    return {
-        "contractSymbol": contract.get("instrument_name") or "",
-        "strike": parsed["strike"],
-        "lastPrice": parse_public_options_number(contract.get("mark_price")),
-        "bid": parse_public_options_number(contract.get("bid_price")),
-        "ask": parse_public_options_number(contract.get("ask_price")),
-        "change": None,
-        "percentChange": None,
-        "volume": parse_public_options_number(contract.get("volume")),
-        "openInterest": parse_public_options_number(contract.get("open_interest")),
-        "impliedVolatility": parse_public_options_number(contract.get("mark_iv")),
-        "expiration": parsed["expiration"],
-        "expirationDate": parsed["expirationDate"],
-        "inTheMoney": None,
-        "type": parsed["type"],
-    }
 
 
 def build_deribit_options_chain(symbol: str, expiration: str | None = None) -> dict[str, Any]:
@@ -1841,15 +1875,9 @@ def build_deribit_options_chain(symbol: str, expiration: str | None = None) -> d
         if cached_chain is not None:
             return copy.deepcopy(cached_chain)
 
-    params = {"currency": currency, "kind": "option"}
-    url = f"{DERIBIT_OPTIONS_SUMMARY_URL}?{urlencode(params)}"
-    payload = fetch_json(url, timeout=20)
-    raw_items = payload.get("result") if isinstance(payload, dict) else []
-    normalized = [
-        item
-        for item in (normalize_deribit_option_contract(contract) for contract in (raw_items or []))
-        if item is not None
-    ]
+    provider = fetch_deribit_options_chain_data(currency)
+    url = provider["sourceUrl"]
+    normalized = provider["contracts"]
     if not normalized:
         return {"symbol": clean_symbol, "error": "Deribit options source returned no contracts.", "source": "Deribit Options", "sourceUrl": url}
 
@@ -1858,16 +1886,7 @@ def build_deribit_options_chain(symbol: str, expiration: str | None = None) -> d
     selected_contracts = [item for item in normalized if item["expiration"] == selected_expiration]
     calls = sorted((item for item in selected_contracts if item["type"] == "call"), key=lambda item: item["strike"])
     puts = sorted((item for item in selected_contracts if item["type"] == "put"), key=lambda item: item["strike"])
-    selected_raw = [
-        contract
-        for contract in (raw_items or [])
-        if (parse_deribit_instrument_name(str(contract.get("instrument_name") or "")) or {}).get("expiration") == selected_expiration
-    ]
-    underlying_values = [
-        parse_public_options_number(contract.get("underlying_price"))
-        for contract in selected_raw
-        if parse_public_options_number(contract.get("underlying_price")) is not None
-    ]
+    underlying_values = provider["underlyingPricesByExpiration"].get(selected_expiration, [])
     price = underlying_values[0] if underlying_values else None
 
     result_payload = {
@@ -1896,55 +1915,6 @@ def build_deribit_options_chain(symbol: str, expiration: str | None = None) -> d
     return result_payload
 
 
-def parse_bybit_option_symbol(symbol: str) -> dict[str, Any] | None:
-    match = re.match(
-        r"^([A-Z0-9]+)-(\d{1,2}[A-Z]{3}\d{2})-([0-9.]+)-([CP])(?:-[A-Z0-9]+)?$",
-        str(symbol or "").strip().upper(),
-    )
-    if not match:
-        return None
-    try:
-        expiration_dt = datetime.strptime(match.group(2), "%d%b%y").replace(tzinfo=timezone.utc)
-        strike = float(match.group(3))
-    except ValueError:
-        return None
-    return {
-        "baseCoin": match.group(1),
-        "expiration": int(expiration_dt.timestamp()),
-        "expirationDate": expiration_dt.strftime("%Y-%m-%d"),
-        "strike": strike,
-        "type": "call" if match.group(4) == "C" else "put",
-    }
-
-
-def normalize_bybit_option_contract(contract: dict[str, Any], base_coin: str) -> dict[str, Any] | None:
-    parsed = parse_bybit_option_symbol(str(contract.get("symbol") or ""))
-    if not parsed or parsed["baseCoin"] != base_coin:
-        return None
-    last_price = parse_public_options_number(contract.get("lastPrice"))
-    mark_price = parse_public_options_number(contract.get("markPrice"))
-    return {
-        "contractSymbol": contract.get("symbol") or "",
-        "strike": parsed["strike"],
-        "lastPrice": last_price if last_price not in (None, 0) else mark_price,
-        "bid": parse_public_options_number(contract.get("bid1Price")),
-        "ask": parse_public_options_number(contract.get("ask1Price")),
-        "change": parse_public_options_number(contract.get("change24h")),
-        "percentChange": parse_public_options_number(contract.get("change24h")),
-        "volume": parse_public_options_number(contract.get("volume24h")),
-        "openInterest": parse_public_options_number(contract.get("openInterest")),
-        "impliedVolatility": parse_public_options_number(contract.get("markIv")),
-        "expiration": parsed["expiration"],
-        "expirationDate": parsed["expirationDate"],
-        "inTheMoney": None,
-        "delta": parse_public_options_number(contract.get("delta")),
-        "gamma": parse_public_options_number(contract.get("gamma")),
-        "theta": parse_public_options_number(contract.get("theta")),
-        "vega": parse_public_options_number(contract.get("vega")),
-        "type": parsed["type"],
-    }
-
-
 def build_bybit_options_chain(symbol: str, expiration: str | None = None) -> dict[str, Any]:
     import app
 
@@ -1959,38 +1929,19 @@ def build_bybit_options_chain(symbol: str, expiration: str | None = None) -> dic
         if cached_chain is not None:
             return copy.deepcopy(cached_chain)
 
-    url = f"{BYBIT_OPTIONS_TICKERS_URL}?{urlencode({'category': 'option', 'baseCoin': base_coin})}"
-    payload = fetch_json(url, timeout=30)
-    result = payload.get("result") if isinstance(payload, dict) else {}
-    raw_items = result.get("list") if isinstance(result, dict) else []
-    normalized = [
-        item
-        for item in (normalize_bybit_option_contract(contract, base_coin) for contract in (raw_items or []))
-        if item is not None
-    ]
+    provider = fetch_bybit_options_chain_data(base_coin)
+    url = provider["sourceUrl"]
+    normalized = provider["contracts"]
     if not normalized:
-        message = str(payload.get("retMsg") or "Bybit options source returned no contracts.") if isinstance(payload, dict) else "Bybit options source returned no contracts."
-        return {"symbol": clean_symbol, "error": message, "source": "Bybit Public Options API", "sourceUrl": url}
+        return {"symbol": clean_symbol, "error": provider["errorMessage"], "source": "Bybit Public Options API", "sourceUrl": url}
 
     expirations = sorted({int(item["expiration"]) for item in normalized})
     selected_expiration = pick_cboe_expiration(expirations, parse_cboe_expiration_request(expiration))
     selected_contracts = [item for item in normalized if item["expiration"] == selected_expiration]
     calls = sorted((item for item in selected_contracts if item["type"] == "call"), key=lambda item: item["strike"])
     puts = sorted((item for item in selected_contracts if item["type"] == "put"), key=lambda item: item["strike"])
-    selected_symbols = {item["contractSymbol"] for item in selected_contracts}
-    selected_raw = [item for item in (raw_items or []) if str(item.get("symbol") or "") in selected_symbols]
-    price = next(
-        (
-            value
-            for item in selected_raw
-            for value in (
-                parse_public_options_number(item.get("underlyingPrice")),
-                parse_public_options_number(item.get("indexPrice")),
-            )
-            if value is not None
-        ),
-        None,
-    )
+    underlying_values = provider["underlyingPricesByExpiration"].get(selected_expiration, [])
+    price = underlying_values[0] if underlying_values else None
 
     result_payload = {
         "symbol": clean_symbol,
@@ -2330,7 +2281,7 @@ def build_sector_history_snapshot(
     include_activity: bool = True,
 ) -> tuple[str, dict[str, float], dict[str, Any], dict[str, dict[str, Any]]] | None:
     try:
-        payload = fetch_json(build_market_url(date_str), STOCK_HISTORY_TIMEOUT_SECONDS)
+        payload = fetch_twse_market_payload(date_str, timeout=STOCK_HISTORY_TIMEOUT_SECONDS)
     except Exception as exc:  # noqa: BLE001
         LOGGER.debug(
             "Sector history market fetch failed for date=%s; skipping snapshot",
@@ -2344,7 +2295,7 @@ def build_sector_history_snapshot(
     activities = {}
     if include_activity:
         try:
-            activity_payload = fetch_json(build_index_activity_url(date_str), STOCK_HISTORY_TIMEOUT_SECONDS)
+            activity_payload = fetch_twse_index_activity_payload(date_str, timeout=STOCK_HISTORY_TIMEOUT_SECONDS)
             activities = parse_index_activities(activity_payload) if dataset_has_rows(activity_payload) else {}
         except Exception as exc:  # noqa: BLE001
             LOGGER.debug(
@@ -2482,7 +2433,7 @@ def build_weighted_index_history_series(latest_market_date: str, trading_days: i
     for offset in range(lookback_months):
         month_date = shift_month(latest_market_date, offset)
         try:
-            payload = fetch_json(build_weighted_index_history_url(month_date), timeout=STOCK_HISTORY_TIMEOUT_SECONDS)
+            payload = fetch_twse_weighted_index_history_payload(month_date, timeout=STOCK_HISTORY_TIMEOUT_SECONDS)
         except HTTPError as exc:
             if exc.code in {403, 429}:
                 twse_blocked = True
@@ -3095,7 +3046,7 @@ def build_yahoo_class_quote_cards(
     timeout: int = 8,
 ) -> tuple[list[dict[str, Any]], str | None]:
     try:
-        html = fetch_text(url, timeout=timeout)
+        html = fetch_yahoo_class_quote_page(url, timeout=timeout)
     except Exception as exc:  # noqa: BLE001
         LOGGER.debug(
             "Yahoo class quote page fetch failed for prefix=%s url=%s; using empty cards",
@@ -3731,7 +3682,7 @@ def build_institution_trend(
             break
         date_str = (base_date - timedelta(days=offset)).strftime("%Y%m%d")
         try:
-            payload = fetch_json(build_institutions_url(date_str), timeout=8)
+            payload = fetch_twse_institutions_daily_payload(date_str, timeout=8)
         except Exception as exc:  # noqa: BLE001
             LOGGER.debug(
                 "Institution trend fetch failed for date=%s; skipping date",
@@ -4831,7 +4782,7 @@ def build_news(site_data: dict[str, Any]) -> list[dict[str, Any]]:
             "body": (
                 f"領漲端為 {leader_names}，落後端為 {weak_names}。"
                 f"權值科技同步觀察 {tech_context}，若科技權值偏弱但傳產或防禦族群走強，代表資金正在輪動而非全面追價。"
-                "操作上可優先比對領先族群的成交金額與個股擴散度；若強弱差收斂，則表示輪動降溫，追高勝率會下降。"
+                "操作上可優先比對領先族群的成交金額與個股擴散度；若強弱差收斂，則表示輪動降溫，追高風險會升高。"
             ),
             "link": source_links.get("market"),
         },
@@ -6853,11 +6804,10 @@ def build_site_data(
 ) -> tuple[dict[str, Any], list[dict[str, Any]], str]:
     import app
 
-    market_payload, market_date = find_latest_dataset(
-        build_market_url,
+    market_payload, market_date = fetch_latest_twse_market_payload(
         validator=market_payload_has_complete_index_tables,
     )
-    institution_payload, institution_date = find_latest_dataset(build_institutions_url)
+    institution_payload, institution_date = fetch_latest_twse_institutions_payload()
     tpex_mainboard_quotes: list[dict[str, Any]] = []
     tpex_mainboard_quote_date: str | None = None
     yahoo_tpex_etfs: dict[str, str] = {}
@@ -6905,7 +6855,7 @@ def build_site_data(
     if not tpex_mainboard_highlight:
         try:
             tpex_mainboard_highlight = build_summary_cards_from_payload(
-                fetch_json(build_tpex_openapi_url("tpex_mainborad_highlight")),
+                fetch_tpex_openapi_payload("tpex_mainborad_highlight"),
                 "上櫃",
                 limit=6,
             )
@@ -6919,7 +6869,7 @@ def build_site_data(
     if not tpex_esb_highlight:
         try:
             tpex_esb_highlight = build_summary_cards_from_payload(
-                fetch_json(build_tpex_openapi_url("tpex_esb_highlight")),
+                fetch_tpex_openapi_payload("tpex_esb_highlight"),
                 "興櫃",
                 limit=6,
             )
@@ -6933,7 +6883,7 @@ def build_site_data(
     if not tpex_esb_latest_statistics:
         try:
             tpex_esb_latest_statistics = build_summary_cards_from_payload(
-                fetch_json(build_tpex_openapi_url("tpex_esb_latest_statistics")),
+                fetch_tpex_openapi_payload("tpex_esb_latest_statistics"),
                 "興櫃統計",
                 limit=6,
             )
@@ -6947,7 +6897,7 @@ def build_site_data(
     activity_payload = None
     activity_date = market_date
     try:
-        same_day_activity = fetch_json(build_index_activity_url(market_date))
+        same_day_activity = fetch_twse_index_activity_payload(market_date)
         if dataset_has_rows(same_day_activity):
             activity_payload = same_day_activity
         else:
@@ -6960,7 +6910,7 @@ def build_site_data(
         )
         activity_date = None
     try:
-        same_day_intraday = fetch_json(build_index_intraday_url(market_date))
+        same_day_intraday = fetch_twse_index_intraday_payload(market_date)
         if dataset_has_rows(same_day_intraday):
             intraday_payload, intraday_date = same_day_intraday, market_date
         else:
@@ -7117,12 +7067,11 @@ def build_live_sector_site_data() -> dict[str, Any]:
 
     with app.DeadlineThreadPoolExecutor(max_workers=7) as executor:
         market_future = executor.submit(
-            find_latest_dataset,
-            build_market_url,
-            7,
-            market_payload_has_complete_index_tables,
+            fetch_latest_twse_market_payload,
+            validator=market_payload_has_complete_index_tables,
+            lookback_days=7,
         )
-        institution_future = executor.submit(find_latest_dataset, build_institutions_url, 7)
+        institution_future = executor.submit(fetch_latest_twse_institutions_payload, lookback_days=7)
         yahoo_groups_future = executor.submit(build_yahoo_sector_groups, 12, 8)
         yahoo_catalog_future = executor.submit(fetch_yahoo_sector_catalog, 8)
         volatility_future = executor.submit(fetch_market_volatility_indicator, [])
@@ -7285,12 +7234,11 @@ def build_live_market_overview_data() -> dict[str, Any]:
 
     with ThreadPoolExecutor(max_workers=6) as executor:
         market_future = executor.submit(
-            find_latest_dataset,
-            build_market_url,
-            7,
-            market_payload_has_complete_index_tables,
+            fetch_latest_twse_market_payload,
+            validator=market_payload_has_complete_index_tables,
+            lookback_days=7,
         )
-        institution_future = executor.submit(find_latest_dataset, build_institutions_url, 7)
+        institution_future = executor.submit(fetch_latest_twse_institutions_payload, lookback_days=7)
         vix_future = executor.submit(fetch_market_volatility_indicator, [])
         tpex_future = executor.submit(fetch_tpex_mainboard_quotes)
         yahoo_groups_future = executor.submit(build_yahoo_sector_groups, 30, 8)

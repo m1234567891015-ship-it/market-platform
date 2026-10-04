@@ -1823,7 +1823,10 @@ function renderStockDetail(detail) {
   const marketBreadthContext = twEtfState.getMarketBreadthContext(detail);
   const marketBreadth = buildMarketBreadthIndicators(marketBreadthContext.detail, marketBreadthContext.stocks, marketBreadthContext.history);
   twEtfState.saveMarketBreadthHistory(marketBreadth?.nextHistory);
-  const technicalTheory = analyzeTechnicalTheories(detail, { marketBreadth });
+  const technicalTheory = analyzeTechnicalTheories(detail, {
+    marketBreadth,
+    marketContext: marketBreadthContext.marketContext,
+  });
   const technicalTrendSummary = buildTechnicalTrendSummary(detail, technicalTheory);
   technicalSummaryHtml = `
     <article class="stock-market-context technical-trend-summary is-${technicalTrendSummary.tone}">
@@ -2145,9 +2148,9 @@ function renderStockDetail(detail) {
             ${backtestForecastScenarios.map((item) => `
               <div class="backtest-forecast-item">
                 <strong>${escapeHtml(item.label || `${item.days || "--"} 日`)}</strong>
-                <span class="is-bullish">偏多 ${Number.isFinite(item.bullish) ? item.bullish : "--"}%</span>
-                <span>震盪 ${Number.isFinite(item.neutral) ? item.neutral : "--"}%</span>
-                <span class="is-bearish">偏空 ${Number.isFinite(item.bearish) ? item.bearish : "--"}%</span>
+                <span class="is-bullish">偏多權重 ${Number.isFinite(item.bullish) ? item.bullish : "--"}%</span>
+                <span>震盪權重 ${Number.isFinite(item.neutral) ? item.neutral : "--"}%</span>
+                <span class="is-bearish">偏空權重 ${Number.isFinite(item.bearish) ? item.bearish : "--"}%</span>
               </div>
             `).join("") || '<p class="stock-detail-empty">樣本不足，暫不輸出情境比例。</p>'}
           </div>
@@ -2174,7 +2177,7 @@ function renderStockDetail(detail) {
               </div>
             </div>
           ` : ""}
-          <p class="backtest-forecast-caveat">${escapeHtml(backtestForecast.caveat || "情境推估只作風險管理參考，不保證未來價格。")}</p>
+          <p class="backtest-forecast-caveat">${escapeHtml(backtestForecast.caveat || "情境百分比是規則式權重，不代表統計漲跌機率、勝率或信心機率；只作風險管理參考，不保證未來價格。")}</p>
         </div>
         <div class="backtest-validation-card is-${validationTone}">
           <div class="backtest-validation-head">

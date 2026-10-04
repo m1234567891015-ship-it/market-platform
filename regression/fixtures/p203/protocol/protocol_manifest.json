@@ -1,0 +1,140 @@
+{
+  "protocolVersion": "P2-03-RESEARCH-V2-PRE-REGISTRATION-1.0",
+  "createdAt": "2026-10-02T05:57:42Z",
+  "status": "FORMALLY_APPROVED_FROZEN_NOT_EXECUTED",
+  "protocolDocument": "docs/P2_03_RESEARCH_V2_PRE_REGISTRATION.md",
+  "protocolDocumentSha256": "0ab04d326962a48439f0a762f5967d0268d8137fae6e26e07db5c7ca39c55290",
+  "sourceV1": {
+    "featureContractJsonSha256": "79eef16aec59844574b2dbde321a57f0982c844d25b334267eb48808d923f63d"
+  },
+  "sourceV1R1Hashes": {
+    "calibration_report.json": "f9492fce9e854808061ac43e4a107e8f17bcc466086e19bfe1d5085720fb2017",
+    "determinism_report.json": "e51c0c9380f4e865ea1c9c44e801c17a50828d3d8979129a650417879882af2d",
+    "eligibility_funnel.json": "43b5cdc30deefb77316addbd387cde4b57c2f5e6fc50983b594a51818cc4f559",
+    "old_vs_rebuilt_comparison.csv": "50159f835b88f894cb798b68ffba89c86e42d07d6ecdc8fa467ac845589224da",
+    "oos_pairs.csv": "8c8d6290cb7d0543bca3a5a0b2e7e95cf80bac1b67b879399720f24d19df41d4",
+    "raw_data_inventory.json": "8a135b612a186d7839b137793ae2d4fd605dd5eccec2a92105e2899a953c9e3d",
+    "raw/tx_2024-12-06_2025-01-02.csv": "d9e8e91179e7ef1ecf9073f5b5cc8d5662d1eef71a99467c55c86d83f149bdd1",
+    "raw/tx_2025-01-03_2025-01-30.csv": "05e8a5ab3c1376a001fdfc12d65e35a367dc5ced2186fdce07096b95e9861f7e",
+    "raw/tx_2025-01-31_2025-02-27.csv": "7007410767d2e06d69a2c229db4d2b277d22b6792f491a1eed63eaeac5536943",
+    "raw/tx_2025-02-28_2025-03-27.csv": "54551593d485b4a5f925f0b47d4ef9cedb721e1578fdbc845250587cbea33151",
+    "raw/tx_2025-03-28_2025-04-24.csv": "8be73ed5c5f6a78551fc8afdd8c7a2407e482c235a4cb90705d59dea387fd9f1",
+    "raw/tx_2025-04-25_2025-05-22.csv": "1e4795cbf375624a032ff751da5bb3e3103fe3a24f45c4c48579ec18655356a9",
+    "raw/tx_2025-05-23_2025-06-19.csv": "ef31316a30c35938119220f558fbfd2485b577fce2d5ec33bdcbc62083c54b99",
+    "raw/tx_2025-06-20_2025-07-17.csv": "dd65c4474507590caaf1f86cf3a4bec1c04f0e15fb8500e520f71eba73151474",
+    "raw/tx_2025-07-18_2025-08-14.csv": "f23d154c3e282d9d2f88f19ffb5caa69d14507421359d8bd6cf0d7463d5d776a",
+    "raw/tx_2025-08-15_2025-09-11.csv": "8f758f7be54893b6fde19ea0f20b6b1d230a92246b0d71a9c41dbb67bcbaf312",
+    "raw/tx_2025-09-12_2025-10-09.csv": "eb46cedf1115f6eded760f56a0c54adf870f23f0dfcad299ed3d3fc361133eed",
+    "raw/tx_2025-10-10_2025-11-06.csv": "fcce18db6a72d18a473551bf6d2cd00eac704992d60de21cf5fbc03f5d1a5e8f",
+    "raw/tx_2025-11-07_2025-12-04.csv": "b2148d901ce2bd4b1daaa01d5621781cfdf90568e62ecbd59744557b415476a1",
+    "raw/tx_2025-12-05_2026-01-01.csv": "25ba396e8d3b9de2673cdf41ce14efc25415d77022c7c2d583652208672d1e8e",
+    "raw/tx_2026-01-02_2026-01-29.csv": "573e06c0ba294749ba7c5e7fab45b48aa2998944e88a840887b3ab973f6ff0db",
+    "raw/tx_2026-01-30_2026-02-26.csv": "ab70717e01514e9fac8dc7c1c48943eb54d743437cece0b20711cd9eff1bffa8",
+    "raw/tx_2026-02-27_2026-03-26.csv": "da1b307ba8e9b57fae793308decd8630c044ea08e128c284195b421e0e25f452",
+    "raw/tx_2026-03-27_2026-04-23.csv": "f022656ae649a1c9859a57b6ab255e123a8fa34ffd0410b4cd7f053accaf5900",
+    "raw/tx_2026-04-24_2026-05-21.csv": "d371fde26da0f4a67a5bed52bc5a265f626d39c5534aec7dd70e3e3cdc6ac5ef",
+    "raw/tx_2026-05-22_2026-06-18.csv": "84c5465e23f61851e1f7e3a718fc463f6afefa8c4473a7ba7f63b74f5b3ac4e2",
+    "raw/tx_2026-06-19_2026-07-16.csv": "cc015710e44dd28d38e534a69bbbe84be5a24c7f9722d62058f85541e5ec6bb8",
+    "raw/tx_2026-07-17_2026-08-13.csv": "1552c70c74a26de735b51cb678357ea83ef6d6964910f41d5edc4a80b9f4300b",
+    "raw/tx_2026-08-14_2026-09-10.csv": "52d57fffd5701f3e8dc02b785594d9d3e6357a534b5f0e7519bb31b74a167bd6",
+    "raw/tx_2026-09-11_2026-10-01.csv": "577752c8c54d93db687f72de8d49a6e21ea38f8c8814bc2a5ad8379533e6a2f6",
+    "rebuilt_daily_series.csv": "90ca05e0472b09ba3f67e641dae16f8ed9ad310fc87d056e7fd2c3e0baa1c48f",
+    "reconstructed_forecasts.csv": "47333eb391e0fd286b8eb8b4eed512d2be1c3c71a0d8f98ec9b97a97707d2442",
+    "replay_blocker.json": "db5f4674fe904e7cce021298d2d8b74efe536148ed9559508221bffe29af575e",
+    "research_summary.json": "48500c4426a1abd8015350ca2b43677e7666266a03cc61b2689b3b1c0cac85ec",
+    "roll_clean_feature_matrix.csv": "b3e46a0892dec7a57bfc6e32bb41ddd2b24794823e0de1c84a6d530f6414db71",
+    "selection_trace.csv": "a1f5bfd250f1cb94f09a7324f5314686fc29e298cde649a26dd4f817e11e251a",
+    "training_trace.jsonl": "23acb1cc521dd5150c74a588096b2a994355441dbb0af9ca177e08f92028a9c7",
+    "v1_vs_v1r1_comparison.json": "8473cfc886daec24779d7a732c1464aab3a7277545afe833025354e1a963c320"
+  },
+  "diagnosticHashes": {
+    "base_rate_drift.csv": "85a1638b6312a740421b2bae64193772f2d51bf49a1fa76b7734cac3ada2202b",
+    "coefficient_stability.json": "fd3b3414d9e451720d80ec9f9b53b773c18b2bdc23b7a828ac22028649d56e72",
+    "coefficient_trace.csv": "077016cd506075ed713b4284b15c6c1f9c70dd50f479eceb363cb0bf466ea0fe",
+    "cumulative_brier.csv": "953072826ac07b7db9ad2351e304cfd5af71a85b0cd16d61b457953018c7c0a6",
+    "determinism_report.json": "2bb1d6527fe9868df925e3274877c0f13c244367db967c3160c36f10a3173bf4",
+    "diagnostic_summary.json": "5388648cef264a3243b34c2476e83fa19a68af45c90c17d8bb488851ee1a6a19",
+    "extreme_forecasts.csv": "c4be46ef38e91168ab7e92d2aaed7ab71be1efcf5d9357b2be9e647b7a8bbcda",
+    "feature_outcome_quintiles.csv": "a0d3a80ee067c61ac11dbe6fcd48db9b9710af0455ef45e40364f7b535ee3b44",
+    "feature_stability.csv": "b869fa6b1b20bdb3d6615b92ec5bd98aab6f69074a6d7de38690ecd674ac41ff",
+    "forecast_distribution.json": "5c9c2f73acb01e5407164ccd8751c50ba93e5abc316474ebc75b37684a8e37e5",
+    "largest_errors.csv": "34ffeb1f315607846609203a239a5d2e62ee3e92ea59a2e7dd8b88cd3067ab8d",
+    "model_vs_naive.csv": "eedbce3a49b905344040bd4330cc9591ea3db3544f14c3378a08d461f4f6b755",
+    "reliability_bins.csv": "c3b5632cd5fcc1edbf663e1b79a36432b03a6cf0202cc6569668dd675843ebd4",
+    "rolling_metrics.csv": "261205dfd3a459e9d9349ac11c230a2f58d0290a62b66e25cb3f5aa641adceba",
+    "temporal_metrics.csv": "b214ce32e1a98f4489044441cd63fbd24e1e95f54b0945f84511befa69af1eb7"
+  },
+  "proposedIdentifiers": {
+    "contractId": "P2_03_HISTORICAL_RESEARCH_FEATURES_V2",
+    "modelId": "P2_03_HISTORICAL_RESEARCH_LOGISTIC_V2"
+  },
+  "proposedFeatures": [
+    "momentum_strength_5",
+    "range_pct_1",
+    "trend_alignment_20",
+    "volume_confirmation_5",
+    "directional_price_location_20",
+    "range_pct_5"
+  ],
+  "proposedWindows": {
+    "development": {
+      "start": "2024-12-06",
+      "end": "2026-10-01",
+      "selectedSessions": 441,
+      "existingCleanFeatureRows": 326,
+      "existingCleanMaturedLabels": 303,
+      "exactV2EligibleCount": "NOT CALCULATED"
+    },
+    "historicalFinal": {
+      "status": "NOT_PRISTINE / NOT_AVAILABLE",
+      "latestExistingSession": "2026-10-01",
+      "reason": "all existing history is already used/seen in V1/V1R1 research"
+    },
+    "prospectiveSeed": {
+      "status": "NOT_STARTED",
+      "required": "at least 30 matured eligible labels and both classes"
+    },
+    "prospectiveFinal": {
+      "status": "NOT_STARTED",
+      "validPairCount": 0,
+      "fixedEvaluationPairs": 272,
+      "estimatedSelectedSessions": 490,
+      "estimateBasis": "302 required matured seed+evaluation labels divided by historical V1R1 eligibility 272/441; rough analogue only"
+    }
+  },
+  "prospectiveDbSnapshot": {
+    "sha256": "73db5d58f9cc1b2f5723ddbb86678036a6e5c67d322cf492d3b2d0f4d2f23df4",
+    "decisionLedger": 1,
+    "decisionOutcome": 0,
+    "mode": "READ_ONLY"
+  },
+  "target": "DIRECTIONAL_SUCCESS / T+1 observed market session",
+  "modelFamily": "deterministic standard-library logistic; V1 settings frozen",
+  "evaluation": {
+    "primary": [
+      "Brier",
+      "Brier Skill Score vs past-only naive",
+      "ROC AUC"
+    ],
+    "secondary": [
+      "ECE: 10 equal-width bins",
+      "forecast distribution",
+      "coefficient stability",
+      "base-rate drift",
+      "top-10/top-20 loss share"
+    ],
+    "uncertainty": "OWNER APPROVED 20-observation circular moving-block bootstrap, 10000 replicates, fixed seed 2030301; protocol only, not executed"
+  },
+  "forbidden": [
+    "V2 implementation",
+    "V2 replay or metrics",
+    "V1/V1R1 modification",
+    "prospective DB writes",
+    "production changes",
+    "probabilityLabelAllowed=true",
+    "P2-03 closure",
+    "P2-04/P2-05/P3/P4",
+    "Git promotion",
+    "deployment"
+  ]
+}

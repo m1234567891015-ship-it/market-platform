@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "batch": "TD02-FULL-ESM-PHASE-3-4",
-  "version": "td02-full-esm-0d97040352ad7558",
+  "version": "td02-full-esm-7c8021c06d4cbbaf",
   "mode": "module-with-transitional-895-symbol-bridge",
   "sourceInputs": [
     "pwa.js",
@@ -14,8 +14,11 @@
     "js/stock-detail.js",
     "js/page-home.js",
     "js/page-us.js",
+    "js/page-global-market-shared.js",
     "js/page-global-market-futures.js",
     "js/page-global-market-options.js",
+    "js/page-global-market-asset-finance.js",
+    "js/page-global-market-derivatives.js",
     "js/page-global-market-assethub.js",
     "js/page-tw.js",
     "js/legacy-unclassified.js",
@@ -26,13 +29,13 @@
   "bridgeSymbols": 895,
   "output": {
     "file": "market-pulse-esm.min.js",
-    "bytes": 1618161,
-    "sha256": "da02498d04318848930c6d6c3de6bf414fe239088cdf68506a66792f31e88eee"
+    "bytes": 1630688,
+    "sha256": "bf14d37f757f2c54094fa6d6cd4f7e1488d12ce3b4e383c13888215c40482019"
   },
   "sourceMap": {
     "file": "market-pulse-esm.min.js.map",
-    "bytes": 2976326,
-    "sha256": "94932485c2ce809bedd25e8091b39fd337ebbd9d8f00c553f0bcefa24efdb041"
+    "bytes": 2997303,
+    "sha256": "1571a176e3fa88f388bd4e102db1703e73cd8d0fce0b4cb13c7105ee1e316f73"
   },
   "classicFallback": [
     "common-runtime.min.js",

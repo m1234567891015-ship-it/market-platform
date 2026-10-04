@@ -14,8 +14,16 @@
         "completeness": "float",
         "fallbackSource": "float"
       },
+      "dataQualityDimensionStatus": {
+        "completeness": "str",
+        "fallbackSource": "str",
+        "freshness": "str",
+        "providerHealth": "str",
+        "consistency": "str"
+      },
       "dataQualityScore": "int",
       "dataQualityStatus": "str",
+      "qualityCoverage": "int",
       "data_quality_score": "int",
       "decision_id": "str",
       "decision_output": {
@@ -51,6 +59,7 @@
       "scoreFormula": {
         "confidenceScore": "str",
         "dataQualityScore": "str",
+        "qualityCoverage": "str",
         "evidenceLayers": [
           "str"
         ],

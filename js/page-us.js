@@ -389,6 +389,8 @@ function getUsEtfDetailSignals(item = {}, stats = {}, dailyPct = null, volume = 
     trendTone,
     trendLabel,
     riskLabel,
+    riskType: "MARKET_RISK",
+    riskClassification: { type: "MARKET_RISK", score: null, comparability: "WITHIN_RISK_TYPE_ONLY" },
     liquidityLabel,
     returnPct,
     volatility,
@@ -465,7 +467,7 @@ function getUsEtfDetailRiskInsight(item = {}, signals = {}, metrics = {}) {
     points.push("若趨勢延續但波動升高，仍要用分批與停損管理追價風險。");
   }
   return {
-    lead: `${signals.riskLabel || "風險觀察"}：風險不是只看漲跌，還要同時看波動、回撤與流動性。`,
+    lead: `市場風險：${signals.riskLabel || "風險觀察"}，需同時看波動、回撤與流動性。`,
     points,
   };
 }
@@ -628,7 +630,7 @@ function renderUsEtfDetail(detail, fallbackItem = {}) {
     dividendYield && !["N/A", "NA", "--", "-"].includes(String(dividendYield).toUpperCase())
       ? `收益觀察：股息率 ${dividendYield}%${annualDividend ? `，年化股息 ${annualDividend} USD` : ""}，需搭配除息日與配息頻率核對。`
       : "收益觀察：尚未取得可用股息率或年化股息，收益型 ETF 需再查發行商配息頁。",
-    `交易風險：成交量 ${formatGlobalVolume(volume)}，波動 ${volatilityText}，最大回撤 ${drawdownText}，目前風險判定為 ${signals.riskLabel || "--"}。`,
+    `市場風險：成交量 ${formatGlobalVolume(volume)}，波動 ${volatilityText}，最大回撤 ${drawdownText}，目前判定為 ${signals.riskLabel || "--"}。`,
   ];
   root.innerHTML = `
     <div class="tw-etf-detail-layout us-etf-detail-layout">
@@ -643,7 +645,7 @@ function renderUsEtfDetail(detail, fallbackItem = {}) {
         </div>
         <div class="headline-metrics tw-etf-detail-metrics">
           <div><span>收盤</span><strong>${escapeHtml(formatGlobalValue(close))}</strong><small class="${toneClass(tone)}">${escapeHtml(pct)}</small></div>
-          <div><span>風險分級</span><strong>${escapeHtml(signals.riskLabel || "--")}</strong><small>波動 ${escapeHtml(volatilityText)}</small></div>
+          <div><span>市場風險分級</span><strong>${escapeHtml(signals.riskLabel || "--")}</strong><small>波動 ${escapeHtml(volatilityText)}</small></div>
           <div><span>成交量</span><strong>${escapeHtml(formatGlobalVolume(volume))}</strong><small>${escapeHtml(signals.liquidityLabel || "--")}</small></div>
           <div><span>股息率</span><strong>${escapeHtml(dividendYield || "--")}%</strong><small>年化 ${escapeHtml(annualDividend || "--")} USD</small></div>
         </div>
@@ -2450,7 +2452,10 @@ function renderUsMarketDetailTo(rootId, item) {
   const marketBreadthContext = twEtfState.getMarketBreadthContext(detail);
   const marketBreadth = buildMarketBreadthIndicators(marketBreadthContext.detail, marketBreadthContext.stocks, marketBreadthContext.history);
   twEtfState.saveMarketBreadthHistory(marketBreadth?.nextHistory);
-  const technicalTheory = analyzeTechnicalTheories(detail, { marketBreadth });
+  const technicalTheory = analyzeTechnicalTheories(detail, {
+    marketBreadth,
+    marketContext: marketBreadthContext.marketContext,
+  });
   const chartViewId = `${rootId}-technical-chart-view`;
   const statusId = rootId === "us-stock-detail" ? "us-stock-search-status" : "us-watchlist-status";
   const watchlistAdded = isUsStockInWatchlist({ symbol: detail.code });
@@ -2711,7 +2716,10 @@ function buildUsWatchlistAiAnalysis(stock, detail) {
   const marketBreadthContext = twEtfState.getMarketBreadthContext(detail);
   const marketBreadth = buildMarketBreadthIndicators(marketBreadthContext.detail, marketBreadthContext.stocks, marketBreadthContext.history);
   twEtfState.saveMarketBreadthHistory(marketBreadth?.nextHistory);
-  const technicalTheory = analyzeTechnicalTheories(detail, { marketBreadth });
+  const technicalTheory = analyzeTechnicalTheories(detail, {
+    marketBreadth,
+    marketContext: marketBreadthContext.marketContext,
+  });
   const valuation = detail.valuation || {};
   const margin = detail.marginTrading || {};
   const close = parseAnalysisNumber(detail.close ?? stock.close);

@@ -5,18 +5,28 @@ const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
 
-const sourcePath = path.join(__dirname, "..", "js", "page-global-market-assethub.js");
+const sourcePath = path.join(__dirname, "..", "js", "page-global-market-derivatives.js");
 const source = fs.readFileSync(sourcePath, "utf8");
 const start = source.indexOf("initDerivativesAnalyticsPage.strategyEngine = (() => {");
 const endMarker = "\n})();";
 const end = source.indexOf(endMarker, start);
 assert(start >= 0 && end > start, "strategy engine assignment must be present");
-const sandbox = { initDerivativesAnalyticsPage: {} };
+const TODAY = "2026-09-25";
+const AS_OF = "2026-09-25T10:00:00Z";
+const FIXED_NOW = Date.parse(`${TODAY}T12:00:00Z`);
+class FixedDate extends Date {
+  constructor(...args) {
+    super(...(args.length ? args : [FIXED_NOW]));
+  }
+
+  static now() {
+    return FIXED_NOW;
+  }
+}
+const sandbox = { initDerivativesAnalyticsPage: {}, Date: FixedDate };
 vm.runInNewContext(source.slice(start, end + endMarker.length), sandbox, { filename: sourcePath });
 const engine = sandbox.initDerivativesAnalyticsPage.strategyEngine;
 
-const TODAY = "2026-09-25";
-const AS_OF = "2026-09-25T10:00:00Z";
 const dateOffset = (days) => new Date(Date.parse(`${TODAY}T00:00:00Z`) + days * 86400000).toISOString().slice(0, 10);
 const quote = (overrides = {}) => ({
   last: 10,

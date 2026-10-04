@@ -6,7 +6,12 @@ const page = fs.readFileSync("derivatives-analytics.html", "utf8");
 const loader = fs.readFileSync("market-pulse-esm-loader.js", "utf8");
 const pwa = fs.readFileSync("pwa.js", "utf8");
 const serviceWorker = fs.readFileSync("service-worker.js", "utf8");
-const moduleSource = fs.readFileSync("js/page-global-market-assethub.js", "utf8");
+const moduleSource = [
+  "js/page-global-market-shared.js",
+  "js/page-global-market-asset-finance.js",
+  "js/page-global-market-derivatives.js",
+  "js/page-global-market-assethub.js",
+].map((file) => fs.readFileSync(file, "utf8")).join("\n");
 const main = fs.readFileSync("js/main.js", "utf8");
 const shared = fs.readFileSync("js/render-shared.js", "utf8");
 const api = fs.readFileSync("js/api.js", "utf8");

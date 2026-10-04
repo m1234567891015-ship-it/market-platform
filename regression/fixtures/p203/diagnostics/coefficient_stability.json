@@ -1,0 +1,298 @@
+{
+  "intercept": {
+    "count": 272,
+    "exactZeroCount": 0,
+    "first": -0.42659293803628096,
+    "last": 0.07575004321839554,
+    "max": 0.20344697970841324,
+    "mean": 0.024175187090138273,
+    "median": 0.06049624945379693,
+    "min": -0.4919502374630781,
+    "nearZeroThreshold": "NOT DEFINED; exact sign only",
+    "negativeCount": 66,
+    "positiveCount": 206,
+    "signFlipDates": [
+      {
+        "fromDate": "2025-05-13",
+        "fromSign": -1,
+        "toDate": "2025-05-14",
+        "toSign": 1
+      },
+      {
+        "fromDate": "2025-06-04",
+        "fromSign": 1,
+        "toDate": "2025-06-05",
+        "toSign": -1
+      },
+      {
+        "fromDate": "2025-06-05",
+        "fromSign": -1,
+        "toDate": "2025-06-06",
+        "toSign": 1
+      },
+      {
+        "fromDate": "2025-09-04",
+        "fromSign": 1,
+        "toDate": "2025-09-05",
+        "toSign": -1
+      },
+      {
+        "fromDate": "2025-09-09",
+        "fromSign": -1,
+        "toDate": "2025-09-10",
+        "toSign": 1
+      },
+      {
+        "fromDate": "2025-10-23",
+        "fromSign": 1,
+        "toDate": "2025-10-27",
+        "toSign": -1
+      },
+      {
+        "fromDate": "2025-12-08",
+        "fromSign": -1,
+        "toDate": "2025-12-09",
+        "toSign": 1
+      },
+      {
+        "fromDate": "2025-12-09",
+        "fromSign": 1,
+        "toDate": "2025-12-10",
+        "toSign": -1
+      },
+      {
+        "fromDate": "2025-12-10",
+        "fromSign": -1,
+        "toDate": "2025-12-11",
+        "toSign": 1
+      },
+      {
+        "fromDate": "2025-12-11",
+        "fromSign": 1,
+        "toDate": "2025-12-12",
+        "toSign": -1
+      },
+      {
+        "fromDate": "2025-12-12",
+        "fromSign": -1,
+        "toDate": "2025-12-15",
+        "toSign": 1
+      }
+    ],
+    "signTransitions": 11,
+    "stdPopulation": 0.11468153520332312
+  },
+  "momentum_5": {
+    "count": 272,
+    "exactZeroCount": 0,
+    "first": -0.25370477339394576,
+    "last": 0.07421987059036189,
+    "max": 0.1083478759325407,
+    "mean": -0.025226425379475725,
+    "median": 0.008209401820777264,
+    "min": -0.8799636032344584,
+    "nearZeroThreshold": "NOT DEFINED; exact sign only",
+    "negativeCount": 119,
+    "positiveCount": 153,
+    "signFlipDates": [
+      {
+        "fromDate": "2025-06-11",
+        "fromSign": -1,
+        "toDate": "2025-06-12",
+        "toSign": 1
+      },
+      {
+        "fromDate": "2025-08-14",
+        "fromSign": 1,
+        "toDate": "2025-08-15",
+        "toSign": -1
+      },
+      {
+        "fromDate": "2025-09-10",
+        "fromSign": -1,
+        "toDate": "2025-09-11",
+        "toSign": 1
+      },
+      {
+        "fromDate": "2025-10-13",
+        "fromSign": 1,
+        "toDate": "2025-10-22",
+        "toSign": -1
+      },
+      {
+        "fromDate": "2026-01-06",
+        "fromSign": -1,
+        "toDate": "2026-01-07",
+        "toSign": 1
+      },
+      {
+        "fromDate": "2026-01-08",
+        "fromSign": 1,
+        "toDate": "2026-01-09",
+        "toSign": -1
+      },
+      {
+        "fromDate": "2026-01-19",
+        "fromSign": -1,
+        "toDate": "2026-01-28",
+        "toSign": 1
+      },
+      {
+        "fromDate": "2026-01-30",
+        "fromSign": 1,
+        "toDate": "2026-02-02",
+        "toSign": -1
+      },
+      {
+        "fromDate": "2026-02-04",
+        "fromSign": -1,
+        "toDate": "2026-02-05",
+        "toSign": 1
+      },
+      {
+        "fromDate": "2026-02-05",
+        "fromSign": 1,
+        "toDate": "2026-02-06",
+        "toSign": -1
+      },
+      {
+        "fromDate": "2026-02-10",
+        "fromSign": -1,
+        "toDate": "2026-03-03",
+        "toSign": 1
+      },
+      {
+        "fromDate": "2026-03-04",
+        "fromSign": 1,
+        "toDate": "2026-03-05",
+        "toSign": -1
+      },
+      {
+        "fromDate": "2026-03-05",
+        "fromSign": -1,
+        "toDate": "2026-03-06",
+        "toSign": 1
+      },
+      {
+        "fromDate": "2026-03-09",
+        "fromSign": 1,
+        "toDate": "2026-03-10",
+        "toSign": -1
+      },
+      {
+        "fromDate": "2026-03-10",
+        "fromSign": -1,
+        "toDate": "2026-03-11",
+        "toSign": 1
+      },
+      {
+        "fromDate": "2026-04-09",
+        "fromSign": 1,
+        "toDate": "2026-04-10",
+        "toSign": -1
+      },
+      {
+        "fromDate": "2026-04-10",
+        "fromSign": -1,
+        "toDate": "2026-04-13",
+        "toSign": 1
+      },
+      {
+        "fromDate": "2026-04-23",
+        "fromSign": 1,
+        "toDate": "2026-04-24",
+        "toSign": -1
+      },
+      {
+        "fromDate": "2026-04-24",
+        "fromSign": -1,
+        "toDate": "2026-04-27",
+        "toSign": 1
+      }
+    ],
+    "signTransitions": 19,
+    "stdPopulation": 0.1464374797147645
+  },
+  "open_interest_change_1": {
+    "count": 272,
+    "exactZeroCount": 0,
+    "first": 0.24480147469857522,
+    "last": -0.20110951539233993,
+    "max": 0.43756296100582426,
+    "mean": -0.03332014789133536,
+    "median": -0.05915658023129687,
+    "min": -0.2215486797168171,
+    "nearZeroThreshold": "NOT DEFINED; exact sign only",
+    "negativeCount": 201,
+    "positiveCount": 71,
+    "signFlipDates": [
+      {
+        "fromDate": "2025-07-14",
+        "fromSign": 1,
+        "toDate": "2025-07-23",
+        "toSign": -1
+      },
+      {
+        "fromDate": "2025-09-12",
+        "fromSign": -1,
+        "toDate": "2025-09-15",
+        "toSign": 1
+      },
+      {
+        "fromDate": "2025-09-15",
+        "fromSign": 1,
+        "toDate": "2025-09-24",
+        "toSign": -1
+      },
+      {
+        "fromDate": "2025-10-13",
+        "fromSign": -1,
+        "toDate": "2025-10-22",
+        "toSign": 1
+      },
+      {
+        "fromDate": "2025-10-28",
+        "fromSign": 1,
+        "toDate": "2025-10-29",
+        "toSign": -1
+      }
+    ],
+    "signTransitions": 5,
+    "stdPopulation": 0.1570362048568853
+  },
+  "range_pct_1": {
+    "count": 272,
+    "exactZeroCount": 0,
+    "first": -0.30568802510935655,
+    "last": 0.022776627995163622,
+    "max": 0.02722362860645791,
+    "mean": -0.15787613899040373,
+    "median": -0.1410464838411242,
+    "min": -1.0032673553864024,
+    "nearZeroThreshold": "NOT DEFINED; exact sign only",
+    "negativeCount": 248,
+    "positiveCount": 24,
+    "signFlipDates": [
+      {
+        "fromDate": "2026-08-05",
+        "fromSign": -1,
+        "toDate": "2026-08-06",
+        "toSign": 1
+      },
+      {
+        "fromDate": "2026-08-06",
+        "fromSign": 1,
+        "toDate": "2026-08-07",
+        "toSign": -1
+      },
+      {
+        "fromDate": "2026-08-10",
+        "fromSign": -1,
+        "toDate": "2026-08-11",
+        "toSign": 1
+      }
+    ],
+    "signTransitions": 3,
+    "stdPopulation": 0.14454030024077136
+  }
+}

@@ -18,12 +18,14 @@ class DecisionQualityTests(unittest.TestCase):
             {
                 "freshness_score": 95,
                 "provider_health_score": 100,
+                "provider_status": "healthy",
                 "consistency_score": 90,
                 "fallback_used": False,
             },
         )
         self.assertEqual(result["evidenceScore"], 100)
         self.assertEqual(result["dataQualityScore"], 97)
+        self.assertEqual(result["qualityCoverage"], 100)
         self.assertEqual(result["dataQualityStatus"], "AVAILABLE")
         self.assertEqual(result["dataQualityDimensions"]["fallbackSource"], 100)
 
@@ -36,6 +38,63 @@ class DecisionQualityTests(unittest.TestCase):
         self.assertEqual(result["evidenceScore"], 40)
         self.assertEqual(result["dataQualityStatus"], "PARTIAL")
         self.assertEqual(result["dataQualityDimensions"]["fallbackSource"], 50)
+        self.assertEqual(result["qualityCoverage"], 60)
+
+    def test_completeness_only_is_not_full_data_quality(self):
+        result = build_decision_quality(5, 5)
+        self.assertEqual(result["evidenceScore"], 100)
+        self.assertEqual(result["dataQualityScore"], 100)
+        self.assertEqual(result["qualityCoverage"], 20)
+        self.assertEqual(result["dataQualityStatus"], "PARTIAL")
+        self.assertEqual(result["dataQualityDimensionStatus"]["completeness"], "KNOWN")
+        for name in ("freshness", "providerHealth", "consistency", "fallbackSource"):
+            self.assertEqual(result["dataQualityDimensionStatus"][name], "UNKNOWN")
+
+    def test_missing_freshness_prevents_full_quality_coverage(self):
+        result = build_decision_quality(
+            5,
+            5,
+            {
+                "provider_status": "healthy",
+                "provider_health_score": 100,
+                "consistency_score": 100,
+                "fallback_used": False,
+            },
+        )
+        self.assertEqual(result["qualityCoverage"], 80)
+        self.assertEqual(result["dataQualityDimensionStatus"]["freshness"], "UNKNOWN")
+        self.assertEqual(result["dataQualityStatus"], "PARTIAL")
+
+    def test_missing_provider_health_prevents_full_quality_coverage(self):
+        result = build_decision_quality(
+            5,
+            5,
+            {
+                "freshness_score": 100,
+                "consistency_score": 100,
+                "fallback_used": False,
+            },
+        )
+        self.assertEqual(result["qualityCoverage"], 80)
+        self.assertEqual(result["dataQualityDimensionStatus"]["providerHealth"], "UNKNOWN")
+        self.assertEqual(result["dataQualityStatus"], "PARTIAL")
+
+    def test_known_bad_dimension_lowers_score_and_stays_distinct_from_unknown(self):
+        bad = build_decision_quality(5, 5, {"freshness_score": 0})
+        unknown = build_decision_quality(5, 5)
+        self.assertLess(bad["dataQualityScore"], 100)
+        self.assertEqual(bad["qualityCoverage"], 40)
+        self.assertEqual(bad["dataQualityDimensionStatus"]["freshness"], "KNOWN")
+        self.assertEqual(bad["dataQualityDimensions"]["freshness"], 0)
+        self.assertEqual(unknown["dataQualityDimensionStatus"]["freshness"], "UNKNOWN")
+        self.assertNotIn("freshness", unknown["dataQualityDimensions"])
+
+    def test_zero_evidence_denominator_is_unknown_completeness(self):
+        result = build_decision_quality(0, 0)
+        self.assertEqual(result["evidenceScore"], 0)
+        self.assertEqual(result["qualityCoverage"], 0)
+        self.assertEqual(result["dataQualityDimensionStatus"]["completeness"], "UNKNOWN")
+        self.assertEqual(result["dataQualityStatus"], "UNAVAILABLE")
 
     def test_stale_and_failed_provider_are_explicit(self):
         result = build_decision_quality(
@@ -67,6 +126,8 @@ class DecisionQualityTests(unittest.TestCase):
         self.assertIsNone(contract["model_confidence"])
         self.assertEqual(contract["evidenceScore"], 50)
         self.assertEqual(contract["data_quality_score"], contract["dataQualityScore"])
+        self.assertEqual(contract["qualityCoverage"], 20)
+        self.assertEqual(contract["dataQualityStatus"], "PARTIAL")
         for key in (
             "decision_id",
             "symbol",

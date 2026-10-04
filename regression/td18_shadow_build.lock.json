@@ -31,8 +31,11 @@
       "inputs": [
         "js/page-home.js",
         "js/page-us.js",
+        "js/page-global-market-shared.js",
         "js/page-global-market-futures.js",
         "js/page-global-market-options.js",
+        "js/page-global-market-asset-finance.js",
+        "js/page-global-market-derivatives.js",
         "js/page-global-market-assethub.js",
         "js/page-tw.js",
         "js/legacy-unclassified.js",

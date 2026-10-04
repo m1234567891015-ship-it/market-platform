@@ -1,0 +1,209 @@
+{
+  "contractId": "P2_03_HISTORICAL_RESEARCH_FEATURES_V1",
+  "contractSha256": "79eef16aec59844574b2dbde321a57f0982c844d25b334267eb48808d923f63d",
+  "contractSha256Expected": "79eef16aec59844574b2dbde321a57f0982c844d25b334267eb48808d923f63d",
+  "diagnosticClassification": [
+    {
+      "category": "WEAK DISCRIMINATION SIGNAL",
+      "evidence": {
+        "auc": 0.48722548380082625
+      }
+    },
+    {
+      "category": "CALIBRATION BIAS",
+      "evidence": {
+        "aggregateForecastMinusObservedRate": -0.037757236641289826,
+        "modelEce": 0.05953472283565118,
+        "naiveEce": 0.030093599776000558
+      }
+    },
+    {
+      "category": "COEFFICIENT INSTABILITY",
+      "evidence": {
+        "intercept": {
+          "max": 0.20344697970841324,
+          "min": -0.4919502374630781,
+          "signTransitions": 11,
+          "stdPopulation": 0.11468153520332312
+        },
+        "momentum_5": {
+          "max": 0.1083478759325407,
+          "min": -0.8799636032344584,
+          "signTransitions": 19,
+          "stdPopulation": 0.1464374797147645
+        },
+        "open_interest_change_1": {
+          "max": 0.43756296100582426,
+          "min": -0.2215486797168171,
+          "signTransitions": 5,
+          "stdPopulation": 0.1570362048568853
+        },
+        "range_pct_1": {
+          "max": 0.02722362860645791,
+          "min": -1.0032673553864024,
+          "signTransitions": 3,
+          "stdPopulation": 0.14454030024077136
+        }
+      }
+    },
+    {
+      "category": "BASE-RATE DRIFT",
+      "evidence": {
+        "quarterRates": [
+          {
+            "positiveRate": 0.5384615384615384,
+            "quarter": "2025-Q1"
+          },
+          {
+            "positiveRate": 0.6511627906976745,
+            "quarter": "2025-Q2"
+          },
+          {
+            "positiveRate": 0.44680851063829785,
+            "quarter": "2025-Q3"
+          },
+          {
+            "positiveRate": 0.5227272727272727,
+            "quarter": "2025-Q4"
+          },
+          {
+            "positiveRate": 0.5675675675675675,
+            "quarter": "2026-Q1"
+          },
+          {
+            "positiveRate": 0.5116279069767442,
+            "quarter": "2026-Q2"
+          },
+          {
+            "positiveRate": 0.5333333333333333,
+            "quarter": "2026-Q3"
+          }
+        ],
+        "realizedRate": 0.5367647058823529,
+        "trainingBaseRateMax": 0.550561797752809,
+        "trainingBaseRateMin": 0.3870967741935484
+      }
+    },
+    {
+      "category": "NOT ESTABLISHED",
+      "evidence": {
+        "featureDistributionDrift": "Quarter-level descriptive variation is reported, but no prespecified drift threshold or inferential test was authorized."
+      }
+    },
+    {
+      "category": "NOT ESTABLISHED",
+      "evidence": {
+        "errorConcentration": {
+          "top10BrierLossShare": 0.08711160280598726,
+          "top20BrierLossShare": 0.13540693378545804
+        },
+        "interpretation": "Top 10/20 loss shares are quantified; no concentration threshold was prespecified."
+      }
+    },
+    {
+      "category": "SOURCE LIMITATION",
+      "evidence": {
+        "sourceVintageStatus": "NOT PROVEN"
+      }
+    }
+  ],
+  "errorConcentration": {
+    "top10BrierLossShare": 0.08711160280598726,
+    "top20BrierLossShare": 0.13540693378545804
+  },
+  "evidenceClass": "HISTORICAL_RESEARCH_AS_OF_OOS",
+  "firstForecastDate": "2025-03-05",
+  "inputFingerprints": {
+    "calibration_report.json": "f9492fce9e854808061ac43e4a107e8f17bcc466086e19bfe1d5085720fb2017",
+    "determinism_report.json": "e51c0c9380f4e865ea1c9c44e801c17a50828d3d8979129a650417879882af2d",
+    "eligibility_funnel.json": "43b5cdc30deefb77316addbd387cde4b57c2f5e6fc50983b594a51818cc4f559",
+    "old_vs_rebuilt_comparison.csv": "50159f835b88f894cb798b68ffba89c86e42d07d6ecdc8fa467ac845589224da",
+    "oos_pairs.csv": "8c8d6290cb7d0543bca3a5a0b2e7e95cf80bac1b67b879399720f24d19df41d4",
+    "raw/tx_2024-12-06_2025-01-02.csv": "d9e8e91179e7ef1ecf9073f5b5cc8d5662d1eef71a99467c55c86d83f149bdd1",
+    "raw/tx_2025-01-03_2025-01-30.csv": "05e8a5ab3c1376a001fdfc12d65e35a367dc5ced2186fdce07096b95e9861f7e",
+    "raw/tx_2025-01-31_2025-02-27.csv": "7007410767d2e06d69a2c229db4d2b277d22b6792f491a1eed63eaeac5536943",
+    "raw/tx_2025-02-28_2025-03-27.csv": "54551593d485b4a5f925f0b47d4ef9cedb721e1578fdbc845250587cbea33151",
+    "raw/tx_2025-03-28_2025-04-24.csv": "8be73ed5c5f6a78551fc8afdd8c7a2407e482c235a4cb90705d59dea387fd9f1",
+    "raw/tx_2025-04-25_2025-05-22.csv": "1e4795cbf375624a032ff751da5bb3e3103fe3a24f45c4c48579ec18655356a9",
+    "raw/tx_2025-05-23_2025-06-19.csv": "ef31316a30c35938119220f558fbfd2485b577fce2d5ec33bdcbc62083c54b99",
+    "raw/tx_2025-06-20_2025-07-17.csv": "dd65c4474507590caaf1f86cf3a4bec1c04f0e15fb8500e520f71eba73151474",
+    "raw/tx_2025-07-18_2025-08-14.csv": "f23d154c3e282d9d2f88f19ffb5caa69d14507421359d8bd6cf0d7463d5d776a",
+    "raw/tx_2025-08-15_2025-09-11.csv": "8f758f7be54893b6fde19ea0f20b6b1d230a92246b0d71a9c41dbb67bcbaf312",
+    "raw/tx_2025-09-12_2025-10-09.csv": "eb46cedf1115f6eded760f56a0c54adf870f23f0dfcad299ed3d3fc361133eed",
+    "raw/tx_2025-10-10_2025-11-06.csv": "fcce18db6a72d18a473551bf6d2cd00eac704992d60de21cf5fbc03f5d1a5e8f",
+    "raw/tx_2025-11-07_2025-12-04.csv": "b2148d901ce2bd4b1daaa01d5621781cfdf90568e62ecbd59744557b415476a1",
+    "raw/tx_2025-12-05_2026-01-01.csv": "25ba396e8d3b9de2673cdf41ce14efc25415d77022c7c2d583652208672d1e8e",
+    "raw/tx_2026-01-02_2026-01-29.csv": "573e06c0ba294749ba7c5e7fab45b48aa2998944e88a840887b3ab973f6ff0db",
+    "raw/tx_2026-01-30_2026-02-26.csv": "ab70717e01514e9fac8dc7c1c48943eb54d743437cece0b20711cd9eff1bffa8",
+    "raw/tx_2026-02-27_2026-03-26.csv": "da1b307ba8e9b57fae793308decd8630c044ea08e128c284195b421e0e25f452",
+    "raw/tx_2026-03-27_2026-04-23.csv": "f022656ae649a1c9859a57b6ab255e123a8fa34ffd0410b4cd7f053accaf5900",
+    "raw/tx_2026-04-24_2026-05-21.csv": "d371fde26da0f4a67a5bed52bc5a265f626d39c5534aec7dd70e3e3cdc6ac5ef",
+    "raw/tx_2026-05-22_2026-06-18.csv": "84c5465e23f61851e1f7e3a718fc463f6afefa8c4473a7ba7f63b74f5b3ac4e2",
+    "raw/tx_2026-06-19_2026-07-16.csv": "cc015710e44dd28d38e534a69bbbe84be5a24c7f9722d62058f85541e5ec6bb8",
+    "raw/tx_2026-07-17_2026-08-13.csv": "1552c70c74a26de735b51cb678357ea83ef6d6964910f41d5edc4a80b9f4300b",
+    "raw/tx_2026-08-14_2026-09-10.csv": "52d57fffd5701f3e8dc02b785594d9d3e6357a534b5f0e7519bb31b74a167bd6",
+    "raw/tx_2026-09-11_2026-10-01.csv": "577752c8c54d93db687f72de8d49a6e21ea38f8c8814bc2a5ad8379533e6a2f6",
+    "raw_data_inventory.json": "8a135b612a186d7839b137793ae2d4fd605dd5eccec2a92105e2899a953c9e3d",
+    "rebuilt_daily_series.csv": "90ca05e0472b09ba3f67e641dae16f8ed9ad310fc87d056e7fd2c3e0baa1c48f",
+    "reconstructed_forecasts.csv": "47333eb391e0fd286b8eb8b4eed512d2be1c3c71a0d8f98ec9b97a97707d2442",
+    "replay_blocker.json": "db5f4674fe904e7cce021298d2d8b74efe536148ed9559508221bffe29af575e",
+    "research_summary.json": "48500c4426a1abd8015350ca2b43677e7666266a03cc61b2689b3b1c0cac85ec",
+    "roll_clean_feature_matrix.csv": "b3e46a0892dec7a57bfc6e32bb41ddd2b24794823e0de1c84a6d530f6414db71",
+    "selection_trace.csv": "a1f5bfd250f1cb94f09a7324f5314686fc29e298cde649a26dd4f817e11e251a",
+    "training_trace.jsonl": "23acb1cc521dd5150c74a588096b2a994355441dbb0af9ca177e08f92028a9c7",
+    "v1_vs_v1r1_comparison.json": "8473cfc886daec24779d7a732c1464aab3a7277545afe833025354e1a963c320"
+  },
+  "interpretation": "EVIDENCE INCONCLUSIVE",
+  "lastForecastDate": "2026-09-30",
+  "metrics": {
+    "accuracyAt050": 0.5,
+    "aggregateDirection": "FORECAST BELOW REALIZED RATE",
+    "brierDecompositionCaveat": "Fixed 10-bin grouped decomposition; exact finite-sample identity can differ from ungrouped Brier.",
+    "brierSkillScore": -0.022103383235400287,
+    "brierSkillSign": "negative",
+    "calibrationDirection": "NOT ESTABLISHED",
+    "calibrationInterceptSlope": {
+      "reason": "singular calibration Hessian",
+      "status": "NOT CALCULATED"
+    },
+    "meanForecastMinusRealizedRate": -0.037757236641289826,
+    "modelAuc": 0.48722548380082625,
+    "modelBrier": 0.25884095240510735,
+    "modelBrierDecomposition": {
+      "decompositionBinCount": 10,
+      "reconstructedBrier": 0.2570586121416029,
+      "reliability": 0.013167994997309317,
+      "resolution": 0.004757739257090469,
+      "uncertainty": 0.24864835640138408
+    },
+    "modelEce": 0.05953472283565118,
+    "modelPositiveRate": 0.5367647058823529,
+    "naiveBrier": 0.25324341612661877,
+    "naiveBrierDecomposition": {
+      "decompositionBinCount": 10,
+      "reconstructedBrier": 0.25177963603248443,
+      "reliability": 0.0049247393763305735,
+      "resolution": 0.0017934597452302285,
+      "uncertainty": 0.24864835640138408
+    },
+    "naiveEce": 0.030093599776000558
+  },
+  "modelId": "P2_03_HISTORICAL_RESEARCH_LOGISTIC_V1",
+  "observationComparison": {
+    "meanLossDifference": 0.005597536278488543,
+    "medianLossDifference": -0.0018602450913572932,
+    "modelBetterCount": 144,
+    "modelWorseCount": 128,
+    "tieCount": 0
+  },
+  "oosPairCount": 272,
+  "probabilityLabelAllowed": false,
+  "productionP2_03": "BLOCKED — INSUFFICIENT PROSPECTIVE OOS CALIBRATION HISTORY",
+  "quartersModelHigherBrier": 4,
+  "quartersModelLowerBrier": 3,
+  "replayRevision": "V1R1",
+  "scope": "P2-03 historical research V1R1 only",
+  "sourceVintage": "NOT PROVEN",
+  "status": "ROOT CAUSE EVIDENCE AVAILABLE",
+  "temporalQuarterCount": 7
+}
