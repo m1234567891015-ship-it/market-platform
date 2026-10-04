@@ -287,3 +287,21 @@ AMBIGUOUS REMEDIATION FILES: 0
 | regression/fixtures/p203/protocol/effective_protocol_identity.json | New remediation path | Frozen P2-03 input artifact; verified against its authorized SHA-256 manifest. |
 | regression/fixtures/p203/protocol/protocol_amendment_001_manifest.json | New remediation path | Frozen P2-03 input artifact; verified against its authorized SHA-256 manifest. |
 | regression/fixtures/p203/protocol/protocol_manifest.json | New remediation path | Frozen P2-03 input artifact; verified against its authorized SHA-256 manifest. |
+
+## Selective visual baseline adjudication delta (2026-10-04)
+
+The Project Owner accepted exactly five screenshot outputs from the GitHub Actions `frontend-compare-report` artifact produced by run `37165875704` for head `3bf7ae114e13878f4f1f1fc22bef6df44c24a26b`. Their current baseline bytes are identical to the corresponding CI `current.png` files. These five paths are new relative to the 228-path PR candidate above; the resulting candidate inventory is 233 unique paths.
+
+Classification: `SELECTIVE_VISUAL_BASELINE_ADJUDICATION`
+
+Reason: Owner-accepted Phase 1–4 rendering output captured by required GitHub CI using the existing frozen HAR and deterministic CI font environment. The local pixel comparison is diagnostic only under the Owner's rendering-environment adjudication; the GitHub Actions required quality gate remains authoritative. No HAR, checker, threshold, or production UI changes are included.
+
+AMBIGUOUS SELECTIVE VISUAL FILES: 0
+
+| Path | Relationship to 228-path PR set | Classification | Purpose |
+|---|---|---|---|
+| regression/baseline/screenshots/derivatives-analytics.html.png | New selective visual path | SELECTIVE_VISUAL_BASELINE_ADJUDICATION | Accepted CI current.png for derivatives-analytics.html; SHA-256 verified byte-identical. |
+| regression/baseline/screenshots/derivatives-assets.html.png | New selective visual path | SELECTIVE_VISUAL_BASELINE_ADJUDICATION | Accepted CI current.png for derivatives-assets.html; SHA-256 verified byte-identical. |
+| regression/baseline/screenshots/futures.html.png | New selective visual path | SELECTIVE_VISUAL_BASELINE_ADJUDICATION | Accepted CI current.png for futures.html; SHA-256 verified byte-identical. |
+| regression/baseline/screenshots/options.html.png | New selective visual path | SELECTIVE_VISUAL_BASELINE_ADJUDICATION | Accepted CI current.png for options.html; SHA-256 verified byte-identical. |
+| regression/baseline/screenshots/us-market-overview.html.png | New selective visual path | SELECTIVE_VISUAL_BASELINE_ADJUDICATION | Accepted CI current.png for us-market-overview.html; SHA-256 verified byte-identical. |
