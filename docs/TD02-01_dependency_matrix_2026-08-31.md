@@ -6,8 +6,8 @@
 ## 1. 盤點結論
 
 - 21 頁目前 production script order 有 1 種：`market-pulse-esm-loader.js`。
-- classic fallback 輸入順序共 17 個檔案，global symbol owner 共 895 個，與 baseline SHA-256 `694e4c8d1c4244befbf37e59cb482575b101bdca1f047497e417cc6b612d519e` 對齊。
-- 目前偵測到 69 條跨 slice dependency edges、476 個跨 slice symbol references。
+- classic fallback 輸入順序共 20 個檔案，global symbol owner 共 895 個，與 baseline SHA-256 `694e4c8d1c4244befbf37e59cb482575b101bdca1f047497e417cc6b612d519e` 對齊。
+- 目前偵測到 87 條跨 slice dependency edges、541 個跨 slice symbol references。
 - 需要 TD02-02 處理的互相依賴元件：2 組；TD02-01 不接線、不定義正式 bridge API。
 
 ## 2. 現況載入與回退契約
@@ -15,7 +15,7 @@
 | 層 | 現況 | TD02-01 保留的契約 |
 |---|---|---|
 | Production | `common-runtime.js → route-bundle.js`；status 頁尾端再載入 addon | 不改 HTML 入口 |
-| Classic fallback | `pwa.js → js/state.js → js/core.js → js/api.js → js/shared-calc.js → js/render-shared.js → js/charts.js → js/stock-detail.js → js/page-home.js → js/page-us.js → js/page-global-market-futures.js → js/page-global-market-options.js → js/page-global-market-assethub.js → js/page-tw.js → js/legacy-unclassified.js → js/main.js → app.js` | 仍可立即恢復，順序不可重排 |
+| Classic fallback | `pwa.js → js/state.js → js/core.js → js/api.js → js/shared-calc.js → js/render-shared.js → js/charts.js → js/stock-detail.js → js/page-home.js → js/page-us.js → js/page-global-market-shared.js → js/page-global-market-futures.js → js/page-global-market-options.js → js/page-global-market-asset-finance.js → js/page-global-market-derivatives.js → js/page-global-market-assethub.js → js/page-tw.js → js/legacy-unclassified.js → js/main.js → app.js` | 仍可立即恢復，順序不可重排 |
 | Symbol scope | classic source slices 共享全域作用域 | 每個 symbol 一個 owner；bridge 移除前不得遺失 |
 | Safety | `escapeHtml`／innerHTML guard 位於 runtime/core | TD02-02 必須維持單一來源與執行時機 |
 
@@ -25,18 +25,21 @@
 
 | classic source | candidate module | bundle | fallback order | owned globals | route pages | immediate cross-slice refs | dependency targets |
 |---|---|---|---:|---:|---|---|---|
-| `app.js` | `compat/app-shell` | `route-bundle` | 17 | 0 | shared/all pages | — | — |
-| `derivatives-ui.js` | `route/derivatives-status-addon` | `derivatives-status-addon` | 18 | 0 | derivatives-status.html | — | js/core.js, js/state.js |
+| `app.js` | `compat/app-shell` | `route-bundle` | 20 | 0 | shared/all pages | — | — |
+| `derivatives-ui.js` | `route/derivatives-status-addon` | `derivatives-status-addon` | 21 | 0 | derivatives-status.html | — | js/core.js, js/state.js |
 | `js/api.js` | `runtime/api` | `common-runtime` | 4 | 1 | shared/all pages | — | — |
 | `js/charts.js` | `runtime/charts` | `common-runtime` | 7 | 9 | shared/all pages | — | js/core.js, js/render-shared.js, js/shared-calc.js, js/state.js |
 | `js/core.js` | `runtime/core` | `common-runtime` | 3 | 26 | shared/all pages | nativeInnerHtmlDescriptor | js/state.js |
-| `js/legacy-unclassified.js` | `route/legacy-unclassified` | `route-bundle` | 15 | 0 | shared/all pages | — | — |
-| `js/main.js` | `runtime/bootstrap` | `route-bundle` | 16 | 2 | shared/all pages | initSearchPage, initWatchlistPage, initGlobalMarketPage, loadYahooSectorCategory | js/api.js, js/core.js, js/page-global-market-assethub.js, js/page-global-market-options.js, js/page-home.js, js/page-tw.js, js/page-us.js, js/state.js |
-| `js/page-global-market-assethub.js` | `route/global-market-assethub` | `route-bundle` | 13 | 145 | bonds.html, derivatives-ai.html, derivatives-analytics.html, derivatives-assets.html, international-finance.html, precious-metals.html | — | js/api.js, js/core.js, js/page-global-market-futures.js, js/page-global-market-options.js, js/render-shared.js, js/shared-calc.js, js/state.js |
-| `js/page-global-market-futures.js` | `route/global-market-futures` | `route-bundle` | 11 | 92 | futures.html, us-market-overview.html, us-stocks.html | — | js/api.js, js/charts.js, js/core.js, js/page-global-market-assethub.js, js/page-global-market-options.js, js/render-shared.js, js/shared-calc.js, js/state.js |
-| `js/page-global-market-options.js` | `route/global-market-options` | `route-bundle` | 12 | 131 | options.html | — | js/api.js, js/charts.js, js/core.js, js/page-global-market-assethub.js, js/page-global-market-futures.js, js/render-shared.js, js/state.js |
+| `js/legacy-unclassified.js` | `route/legacy-unclassified` | `route-bundle` | 18 | 0 | shared/all pages | — | — |
+| `js/main.js` | `runtime/bootstrap` | `route-bundle` | 19 | 2 | shared/all pages | initSearchPage, initWatchlistPage, initGlobalMarketPage, loadYahooSectorCategory | js/api.js, js/core.js, js/page-global-market-assethub.js, js/page-global-market-derivatives.js, js/page-global-market-options.js, js/page-home.js, js/page-tw.js, js/page-us.js, js/state.js |
+| `js/page-global-market-asset-finance.js` | `route/global-market-asset-finance` | `route-bundle` | 14 | 79 | shared/all pages | — | js/core.js, js/page-global-market-shared.js, js/render-shared.js, js/state.js |
+| `js/page-global-market-assethub.js` | `route/global-market-assethub` | `route-bundle` | 16 | 7 | bonds.html, derivatives-ai.html, derivatives-analytics.html, derivatives-assets.html, international-finance.html, precious-metals.html | — | js/api.js, js/core.js, js/page-global-market-asset-finance.js, js/page-global-market-derivatives.js, js/page-global-market-futures.js, js/page-global-market-options.js, js/page-global-market-shared.js, js/render-shared.js, js/state.js |
+| `js/page-global-market-derivatives.js` | `route/global-market-derivatives` | `route-bundle` | 15 | 23 | shared/all pages | — | js/api.js, js/core.js, js/page-global-market-futures.js, js/page-global-market-options.js, js/page-global-market-shared.js, js/render-shared.js, js/shared-calc.js |
+| `js/page-global-market-futures.js` | `route/global-market-futures` | `route-bundle` | 12 | 92 | futures.html, us-market-overview.html, us-stocks.html | — | js/api.js, js/charts.js, js/core.js, js/page-global-market-options.js, js/page-global-market-shared.js, js/render-shared.js, js/shared-calc.js, js/state.js |
+| `js/page-global-market-options.js` | `route/global-market-options` | `route-bundle` | 13 | 131 | options.html | — | js/api.js, js/charts.js, js/core.js, js/page-global-market-futures.js, js/page-global-market-shared.js, js/render-shared.js, js/state.js |
+| `js/page-global-market-shared.js` | `route/global-market-shared` | `route-bundle` | 11 | 36 | shared/all pages | — | js/core.js, js/page-global-market-options.js, js/render-shared.js, js/state.js |
 | `js/page-home.js` | `route/page-home` | `route-bundle` | 9 | 33 | index.html, market-overview.html, news.html | — | js/api.js, js/charts.js, js/core.js, js/render-shared.js, js/state.js |
-| `js/page-tw.js` | `route/page-tw` | `route-bundle` | 14 | 111 | tw-etf.html, tw-Optional-stocks.html, tw-stock-search.html, tw-stocks.html | — | js/api.js, js/charts.js, js/core.js, js/main.js, js/render-shared.js, js/shared-calc.js, js/state.js, js/stock-detail.js |
+| `js/page-tw.js` | `route/page-tw` | `route-bundle` | 17 | 111 | tw-etf.html, tw-Optional-stocks.html, tw-stock-search.html, tw-stocks.html | — | js/api.js, js/charts.js, js/core.js, js/main.js, js/render-shared.js, js/shared-calc.js, js/state.js, js/stock-detail.js |
 | `js/page-us.js` | `route/page-us` | `route-bundle` | 10 | 65 | us-etf.html, us-stock-search.html, us-watchlist.html | — | js/api.js, js/charts.js, js/core.js, js/render-shared.js, js/shared-calc.js, js/state.js, js/stock-detail.js |
 | `js/render-shared.js` | `runtime/render-shared` | `common-runtime` | 6 | 46 | shared/all pages | — | js/api.js, js/core.js, js/shared-calc.js, js/state.js |
 | `js/shared-calc.js` | `runtime/shared-calc` | `common-runtime` | 5 | 72 | shared/all pages | PORTFOLIO_COST_MODEL, PORTFOLIO_COST_MODEL | js/core.js, js/state.js |
@@ -59,34 +62,52 @@
 | `js/core.js` | `js/state.js` (`runtime/state`) | `nativeInnerHtmlDescriptor` |
 | `js/main.js` | `js/api.js` (`runtime/api`) | `fetchWithTimeout` |
 | `js/main.js` | `js/core.js` (`runtime/core`) | `setText` |
-| `js/main.js` | `js/page-global-market-assethub.js` (`route/global-market-assethub`) | `initAssetHubPage`, `initDerivativesAiPage`, `initDerivativesAnalyticsPage` |
+| `js/main.js` | `js/page-global-market-assethub.js` (`route/global-market-assethub`) | `initAssetHubPage` |
+| `js/main.js` | `js/page-global-market-derivatives.js` (`route/global-market-derivatives`) | `initDerivativesAiPage`, `initDerivativesAnalyticsPage` |
 | `js/main.js` | `js/page-global-market-options.js` (`route/global-market-options`) | `initGlobalMarketPage` |
 | `js/main.js` | `js/page-home.js` (`route/page-home`) | `formatUpdateText`, `renderHome`, `renderMarketPage` |
 | `js/main.js` | `js/page-tw.js` (`route/page-tw`) | `initSearchPage`, `initTwEtfPage`, `initWatchlistPage`, `loadYahooSectorCategory`, `renderSectorPageV2`, `renderWatchlist`, `startVixPolling` |
 | `js/main.js` | `js/page-us.js` (`route/page-us`) | `initUsEtfPage`, `initUsStockSearchPage`, `initUsWatchlistPage` |
 | `js/main.js` | `js/state.js` (`runtime/state`) | `data`, `localAllStocks` |
+| `js/page-global-market-asset-finance.js` | `js/core.js` (`runtime/core`) | `assetHubTone`, `escapeHtml`, `formatGlobalValue`, `formatGlobalVolume`, `parseMarketNumber` |
+| `js/page-global-market-asset-finance.js` | `js/page-global-market-shared.js` (`route/global-market-shared`) | `clampAssetHubScore`, `findAssetHubItem`, `findAssetHubItemAny`, `findAssetHubUsableItemAny`, `getAssetHubItems`, `getAssetHubItemsBySymbols`, `getAssetHubMetric`, `getAssetHubRegion`, `getAssetHubUsableBySymbols`, `getAssetHubUsableItems`, `renderAssetHubOnlineTable`, `renderAssetHubQuoteGrid`, `renderAssetHubRegionalGroups`, `renderAssetHubSummary`, `uniqueAssetHubItemsBySymbol` |
+| `js/page-global-market-asset-finance.js` | `js/render-shared.js` (`runtime/render-shared`) | `buildPath`, `normalizeGlobalOhlcvSeries`, `normalizeGlobalSeries` |
+| `js/page-global-market-asset-finance.js` | `js/state.js` (`runtime/state`) | `ASSET_FINANCE_TREND_FILTERS`, `ASSET_FINANCE_TREND_RANGES`, `assetFinanceBondEtfBucketKey`, `assetFinanceBondFocusKey`, `assetFinanceTrendChartCounter` |
 | `js/page-global-market-assethub.js` | `js/api.js` (`runtime/api`) | `fetchWithTimeout` |
-| `js/page-global-market-assethub.js` | `js/core.js` (`runtime/core`) | `assetHubTone`, `escapeHtml`, `formatAssetHubExpiration`, `formatAssetOptionIv`, `formatAssetOptionNumber`, `formatAssetOptionWhole`, `formatGlobalValue`, `formatGlobalVolume`, `parseMarketNumber`, `safeUrl` |
-| `js/page-global-market-assethub.js` | `js/page-global-market-futures.js` (`route/global-market-futures`) | `buildFuturesCenterModel`, `buildGlobalMarketInsight`, `formatFuturesIndicatorValue`, `getAssetPlatformConfig`, `getFuturesMarketScope`, `renderDerivativeNameMappingCard`, `renderGlobalMarketSections` |
-| `js/page-global-market-assethub.js` | `js/page-global-market-options.js` (`route/global-market-options`) | `buildOptionsAiFunctionalModel`, `buildOptionsStrategyRows`, `getActiveTaiwanOptionUnderlying`, `getTaiwanOptionProductLabel`, `renderTaiwanOptionProductTabs` |
-| `js/page-global-market-assethub.js` | `js/render-shared.js` (`runtime/render-shared`) | `buildPath`, `buildYahooFinanceUrl`, `fetchDerivativesApi`, `getVixSentimentBand`, `normalizeFuturesTechnicalCandles`, `normalizeGlobalOhlcvSeries`, `normalizeGlobalSeries`, `optionsDecimal`, `optionsPct`, `optionsWhole`, `renderUsBacktestLearningCard` |
-| `js/page-global-market-assethub.js` | `js/shared-calc.js` (`runtime/shared-calc`) | `averageFuturesValues`, `buildFuturesTechnicalSnapshot` |
-| `js/page-global-market-assethub.js` | `js/state.js` (`runtime/state`) | `ASSET_FINANCE_TREND_FILTERS`, `ASSET_FINANCE_TREND_RANGES`, `ASSET_HUB_OPTION_CHAIN_UNDERLYINGS`, `ASSET_HUB_REGION_ORDER`, `ASSET_HUB_SCHEMA_FALLBACK`, `assetFinanceBondEtfBucketKey`, `assetFinanceBondFocusKey`, `assetFinanceTrendChartCounter`, `derivativesOptionsChainSource`, `derivativesOptionsSelectedStrike`, `derivativesOptionsSelectedUnderlying` |
+| `js/page-global-market-assethub.js` | `js/core.js` (`runtime/core`) | `escapeHtml`, `parseMarketNumber`, `safeUrl` |
+| `js/page-global-market-assethub.js` | `js/page-global-market-asset-finance.js` (`route/global-market-asset-finance`) | `initAssetFinanceTrendSwitchers`, `initAssetFinanceVolumeSelectors`, `renderAssetHubFinanceDashboard` |
+| `js/page-global-market-assethub.js` | `js/page-global-market-derivatives.js` (`route/global-market-derivatives`) | `renderDerivativesMarketOverview` |
+| `js/page-global-market-assethub.js` | `js/page-global-market-futures.js` (`route/global-market-futures`) | `buildGlobalMarketInsight`, `getAssetPlatformConfig`, `renderGlobalMarketSections` |
+| `js/page-global-market-assethub.js` | `js/page-global-market-options.js` (`route/global-market-options`) | `getActiveTaiwanOptionUnderlying` |
+| `js/page-global-market-assethub.js` | `js/page-global-market-shared.js` (`route/global-market-shared`) | `createAssetHubPlaceholder`, `findAssetHubItem`, `getAssetHubItems`, `getAssetHubUsableItems`, `renderAssetHubOnlineTable`, `renderAssetHubPublicOptionChainCard`, `renderAssetHubRegionalGroups`, `renderAssetHubSchemaPanel`, `renderAssetHubSummary`, `renderAssetHubTaiwanFuturesCard`, `renderTaiwanOptionAnalysis`, `renderTaiwanOptionChainCard` |
+| `js/page-global-market-assethub.js` | `js/render-shared.js` (`runtime/render-shared`) | `getVixSentimentBand` |
+| `js/page-global-market-assethub.js` | `js/state.js` (`runtime/state`) | `assetFinanceBondEtfBucketKey`, `assetFinanceBondFocusKey`, `derivativesOptionsChainSource`, `derivativesOptionsSelectedStrike`, `derivativesOptionsSelectedUnderlying` |
+| `js/page-global-market-derivatives.js` | `js/api.js` (`runtime/api`) | `fetchWithTimeout` |
+| `js/page-global-market-derivatives.js` | `js/core.js` (`runtime/core`) | `assetHubTone`, `escapeHtml`, `formatAssetOptionNumber`, `formatAssetOptionWhole`, `formatGlobalValue`, `formatGlobalVolume`, `parseMarketNumber`, `safeUrl` |
+| `js/page-global-market-derivatives.js` | `js/page-global-market-futures.js` (`route/global-market-futures`) | `buildFuturesCenterModel`, `formatFuturesIndicatorValue`, `getFuturesMarketScope`, `renderDerivativeNameMappingCard` |
+| `js/page-global-market-derivatives.js` | `js/page-global-market-options.js` (`route/global-market-options`) | `buildOptionsAiFunctionalModel`, `buildOptionsStrategyRows`, `getTaiwanOptionProductLabel` |
+| `js/page-global-market-derivatives.js` | `js/page-global-market-shared.js` (`route/global-market-shared`) | `clampAssetHubScore`, `createAssetHubPlaceholder`, `findAssetHubItem`, `findAssetHubItemAny`, `getAssetHubItems`, `getAssetHubMetric`, `getAssetHubRegion`, `getAssetHubUsableItems`, `renderAssetHubPublicOptionChainCard`, `renderAssetHubRegionChips`, `renderAssetHubSchemaPanel`, `renderAssetHubTaiwanFuturesCard`, `renderTaiwanOptionAnalysis`, `renderTaiwanOptionDistribution` |
+| `js/page-global-market-derivatives.js` | `js/render-shared.js` (`runtime/render-shared`) | `fetchDerivativesApi`, `normalizeFuturesTechnicalCandles`, `optionsDecimal`, `optionsPct`, `optionsWhole` |
+| `js/page-global-market-derivatives.js` | `js/shared-calc.js` (`runtime/shared-calc`) | `averageFuturesValues`, `buildFuturesTechnicalSnapshot` |
 | `js/page-global-market-futures.js` | `js/api.js` (`runtime/api`) | `fetchWithTimeout` |
 | `js/page-global-market-futures.js` | `js/charts.js` (`runtime/charts`) | `bindHorizontalChartPan`, `getChartHistory`, `renderTechnicalChart` |
 | `js/page-global-market-futures.js` | `js/core.js` (`runtime/core`) | `escapeHtml`, `formatAssetOptionWhole`, `formatGlobalValue`, `formatGlobalVolume`, `parseMarketNumber`, `safeUrl`, `toneClass` |
-| `js/page-global-market-futures.js` | `js/page-global-market-assethub.js` (`route/global-market-assethub`) | `clampAssetHubScore`, `findAssetHubItem`, `getAssetHubItems`, `getAssetHubMetric`, `getAssetHubRegion`, `getAssetHubUsableItems`, `groupAssetHubItemsByRegion`, `renderAssetHubOnlineTable`, `renderAssetHubQuoteGrid`, `renderFuturesBacktestLearningCard` |
 | `js/page-global-market-futures.js` | `js/page-global-market-options.js` (`route/global-market-options`) | `renderGlobalMarketPage` |
+| `js/page-global-market-futures.js` | `js/page-global-market-shared.js` (`route/global-market-shared`) | `clampAssetHubScore`, `findAssetHubItem`, `getAssetHubItems`, `getAssetHubMetric`, `getAssetHubRegion`, `getAssetHubUsableItems`, `groupAssetHubItemsByRegion`, `renderAssetHubOnlineTable`, `renderAssetHubQuoteGrid`, `renderFuturesBacktestLearningCard` |
 | `js/page-global-market-futures.js` | `js/render-shared.js` (`runtime/render-shared`) | `buildPath`, `buildTechnicalTrendSummary`, `buildUsStockSearchUrl`, `getVixSentimentBand`, `normalizeGlobalOhlcvSeries`, `normalizeGlobalSeries`, `renderTechnicalTrendForecastSummary` |
 | `js/page-global-market-futures.js` | `js/shared-calc.js` (`runtime/shared-calc`) | `analyzeTechnicalTheories`, `averageFuturesValues`, `buildFuturesTechnicalSnapshot`, `buildMarketBreadthIndicators`, `technicalSma` |
 | `js/page-global-market-futures.js` | `js/state.js` (`runtime/state`) | `DERIVATIVES_WATCHLIST_STORAGE_KEY`, `DERIVATIVE_ASSET_NAME_MAP`, `FUTURES_TECHNICAL_INTERVAL_OPTIONS`, `TECHNICAL_PANEL_INDICATOR_KEYS`, `TECHNICAL_PANEL_INDICATOR_OPTIONS`, `US_INDUSTRY_SECTOR_SYMBOLS`, `US_MAJOR_INDEX_SECTOR_SYMBOLS`, `US_MAJOR_INDEX_SYMBOLS`, `US_NYSE_DIRECTORY_PAGE_SIZE`, `US_SECTOR_STOCK_SELECTION_KEY`, `US_SP500_SECTOR_SYMBOLS`, `derivativesFuturesDetailSymbol`, `derivativesFuturesFrameworkScope`, `derivativesFuturesMarketScope`, `derivativesFuturesRegionalExpandedKeys`, `derivativesFuturesStockStyleMaState`, `derivativesFuturesStockStyleOverlayState`, `derivativesFuturesStockStylePanState`, `derivativesFuturesStockStylePanelState`, `derivativesFuturesStockStyleVisibleState`, `getFuturesTechnicalCachedPayload`, `getFuturesTechnicalIndicatorStateKey`, `getFuturesTechnicalIntervalLabel`, `getSelectedFuturesTechnicalContract`, `getSelectedFuturesTechnicalInterval`, `twEtfState`, `usMajorIndexChartSymbol`, `usMajorIndexChartSymbols`, `usMajorIndexPanOffsets`, `usMajorIndexShowVix`, `usMajorIndexZoomCounts`, `usSectorBenchmarkSymbol`, `usSectorCompareSymbol`, `usSectorNyseStockState`, `usSectorStockBenchmarkSymbol`, `usSectorStockSymbol` |
 | `js/page-global-market-options.js` | `js/api.js` (`runtime/api`) | `fetchWithTimeout` |
 | `js/page-global-market-options.js` | `js/charts.js` (`runtime/charts`) | `bindChartHover`, `bindHorizontalChartPan` |
 | `js/page-global-market-options.js` | `js/core.js` (`runtime/core`) | `assetHubTone`, `escapeHtml`, `formatAssetHubExpiration`, `formatGlobalValue`, `formatGlobalVolume`, `parseMarketNumber`, `safeUrl`, `toneClass` |
-| `js/page-global-market-options.js` | `js/page-global-market-assethub.js` (`route/global-market-assethub`) | `clampAssetHubScore`, `findAssetHubItemAny`, `getAssetHubItemUrl`, `getAssetHubItems`, `getAssetHubMetric`, `getAssetHubRegion`, `getAssetHubUsableItems`, `pickTaiwanOptionRows`, `renderAssetHubOnlineTable`, `renderAssetHubRegionalGroups`, `renderTaiwanOptionAnalysis`, `renderTaiwanOptionChainCard`, `renderTaiwanOptionExpiryTabs` |
 | `js/page-global-market-options.js` | `js/page-global-market-futures.js` (`route/global-market-futures`) | `bindDerivativeWatchlistControls`, `bindUsMajorIndexVixCard`, `bindUsSectorIndexComparisonCard`, `bindUsSectorStocksBrowser`, `buildUsMarketPulseAnalysis`, `getAssetPlatformConfig`, `getFuturesMarketScope`, `getFuturesScopeDetailConfig`, `getFuturesStockStyleMaPeriods`, `getFuturesStockStyleOverlayIndicators`, `getFuturesStockStylePanelIndicators`, `getUsBenchmarkDisplayName`, `getUsMarketPayloadCounts`, `getUsSectorDisplayName`, `loadUsSectorStocks`, `renderAssetPlatformDashboard`, `renderDerivativeWatchButton`, `renderDerivativesFuturesPanel`, `renderFuturesAnalysisCenter`, `renderGlobalMarketSections`, `renderGlobalSummaryCard`, `renderUsMajorIndexVixCard`, `renderUsSectorIndexComparisonCard`, `renderUsSectorStocksBrowser`, `setFuturesStockStyleStateList` |
+| `js/page-global-market-options.js` | `js/page-global-market-shared.js` (`route/global-market-shared`) | `clampAssetHubScore`, `findAssetHubItemAny`, `getAssetHubItemUrl`, `getAssetHubItems`, `getAssetHubMetric`, `getAssetHubRegion`, `getAssetHubUsableItems`, `pickTaiwanOptionRows`, `renderAssetHubOnlineTable`, `renderAssetHubRegionalGroups`, `renderTaiwanOptionAnalysis`, `renderTaiwanOptionChainCard`, `renderTaiwanOptionExpiryTabs` |
 | `js/page-global-market-options.js` | `js/render-shared.js` (`runtime/render-shared`) | `buildPath`, `buildUsStockSearchUrl`, `buildYahooFinanceUrl`, `fetchDerivativesApi`, `getVixSentimentBand`, `normalizeFuturesTechnicalCandles`, `normalizeGlobalSeries`, `optionsDecimal`, `optionsNumber`, `optionsPct`, `optionsWhole` |
 | `js/page-global-market-options.js` | `js/state.js` (`runtime/state`) | `DERIVATIVES_OPTIONS_AUTO_REFRESH_MS`, `FUTURES_TECHNICAL_INDICATOR_OPTIONS`, `FUTURES_TECHNICAL_INTERVAL_OPTIONS`, `OPTIONS_DOCUMENT_CATEGORY_ORDER`, `OPTIONS_MARKET_CHAIN_FUTURES_SYMBOLS`, `OPTIONS_MARKET_CHAIN_SYMBOL_ALIASES`, `TAIWAN_OPTION_CHAIN_UNDERLYINGS`, `TAIWAN_OPTION_PRODUCT_FALLBACKS`, `TECHNICAL_PANEL_INDICATOR_KEYS`, `US_INDUSTRY_SECTOR_SYMBOLS`, `US_MAJOR_INDEX_SECTOR_SYMBOLS`, `US_MAJOR_INDEX_SYMBOLS`, `US_SP500_SECTOR_SYMBOLS`, `derivativesFuturesDetailSymbol`, `derivativesFuturesFrameworkScope`, `derivativesFuturesMarketScope`, `derivativesFuturesRegionalExpandedKeys`, `derivativesFuturesStockStyleMaState`, `derivativesFuturesStockStyleOverlayState`, `derivativesFuturesStockStylePanState`, `derivativesFuturesStockStylePanelState`, `derivativesFuturesStockStyleVisibleState`, `derivativesFuturesTechnicalContractState`, `derivativesFuturesTechnicalIndicatorState`, `derivativesFuturesTechnicalIntervalState`, `derivativesFuturesTechnicalLoadingKeys`, `derivativesFuturesTechnicalSeriesCache`, `derivativesOptionsAutoRefreshInFlight`, `derivativesOptionsAutoRefreshPayload`, `derivativesOptionsAutoRefreshTimer`, `derivativesOptionsChainSource`, `derivativesOptionsMarketChainInFlightKey`, `derivativesOptionsRegionalExpandedKeys`, `derivativesOptionsSelectedFocus`, `derivativesOptionsSelectedStrategy`, `derivativesOptionsSelectedStrike`, `derivativesOptionsSelectedUnderlying`, `getFuturesTechnicalSeriesCacheKey`, `getSelectedFuturesTechnicalContract`, `optionsAiExtrasLoading`, `usMarketSectorRankingState` |
+| `js/page-global-market-shared.js` | `js/core.js` (`runtime/core`) | `assetHubTone`, `escapeHtml`, `formatAssetHubExpiration`, `formatAssetOptionIv`, `formatAssetOptionNumber`, `formatAssetOptionWhole`, `formatGlobalValue`, `formatGlobalVolume`, `parseMarketNumber`, `safeUrl` |
+| `js/page-global-market-shared.js` | `js/page-global-market-options.js` (`route/global-market-options`) | `getActiveTaiwanOptionUnderlying`, `getTaiwanOptionProductLabel`, `renderTaiwanOptionProductTabs` |
+| `js/page-global-market-shared.js` | `js/render-shared.js` (`runtime/render-shared`) | `buildYahooFinanceUrl`, `renderUsBacktestLearningCard` |
+| `js/page-global-market-shared.js` | `js/state.js` (`runtime/state`) | `ASSET_HUB_OPTION_CHAIN_UNDERLYINGS`, `ASSET_HUB_REGION_ORDER`, `ASSET_HUB_SCHEMA_FALLBACK` |
 | `js/page-home.js` | `js/api.js` (`runtime/api`) | `fetchWithTimeout` |
 | `js/page-home.js` | `js/charts.js` (`runtime/charts`) | `renderSectorLineChart` |
 | `js/page-home.js` | `js/core.js` (`runtime/core`) | `clampScore`, `escapeHtml`, `parseMarketNumber`, `safeUrl`, `setText`, `toneClass` |
@@ -112,7 +133,7 @@
 | `js/render-shared.js` | `js/shared-calc.js` (`runtime/shared-calc`) | `buildBacktestLearningModel`, `buildGlobalMarketDetail`, `buildPortfolioTheoryAssessment`, `getSimulationSignal` |
 | `js/render-shared.js` | `js/state.js` (`runtime/state`) | `EXCLUDED_SECTOR_SOURCE_NAMES`, `PORTFOLIO_FACTOR_SOURCE`, `US_PORTFOLIO_SIM_STORAGE_KEY`, `US_WATCHLIST_STORAGE_KEY`, `activeYahooSectorCategories`, `data`, `sectorSortState`, `usWatchlistAnalysisCache`, `usWatchlistDetailCache`, `yahooSectorQuoteCache` |
 | `js/shared-calc.js` | `js/core.js` (`runtime/core`) | `formatGlobalVolume`, `parseAnalysisNumber`, `parseMarketNumber` |
-| `js/shared-calc.js` | `js/state.js` (`runtime/state`) | `BACKTEST_BENCHMARK_SOURCE`, `BACKTEST_DRIFT_SOURCE`, `BACKTEST_FACTOR_BASELINE`, `PORTFOLIO_COST_MODEL`, `data` |
+| `js/shared-calc.js` | `js/state.js` (`runtime/state`) | `BACKTEST_BENCHMARK_SOURCE`, `BACKTEST_DRIFT_SOURCE`, `BACKTEST_FACTOR_BASELINE`, `PORTFOLIO_COST_MODEL` |
 | `js/stock-detail.js` | `js/api.js` (`runtime/api`) | `fetchWithTimeout` |
 | `js/stock-detail.js` | `js/charts.js` (`runtime/charts`) | `bindChartHover`, `bindHorizontalChartPan`, `getChartHistory`, `renderTechnicalChart` |
 | `js/stock-detail.js` | `js/core.js` (`runtime/core`) | `escapeHtml`, `formatChartDate`, `formatRocDateFromDate`, `parseAnalysisNumber`, `parseMarketNumber`, `safeUrl`, `toneClass` |
@@ -125,7 +146,7 @@
 循環依賴不可在 TD02-01 直接消除：
 
 - `js/main.js ↔ js/page-tw.js`：mutual cross-slice references; do not perform direct ESM cutover until TD02-02 defines a deferred entrypoint or temporary bridge
-- `js/page-global-market-assethub.js ↔ js/page-global-market-futures.js ↔ js/page-global-market-options.js`：mutual cross-slice references; do not perform direct ESM cutover until TD02-02 defines a deferred entrypoint or temporary bridge
+- `js/page-global-market-futures.js ↔ js/page-global-market-options.js ↔ js/page-global-market-shared.js`：mutual cross-slice references; do not perform direct ESM cutover until TD02-02 defines a deferred entrypoint or temporary bridge
 
 頂層立即執行引用：
 
@@ -145,7 +166,7 @@
 | `TWSE_ALL_STOCKS` | external/server-seeded window property | 2 | — | state.js reads an optional preloaded seed before live fetch; preserve as an explicit runtime input |
 | `TWSE_DATA` | external/server-seeded window property | 1 | — | state.js reads an optional preloaded seed before live fetch; preserve as an explicit runtime input |
 | `__MARKET_PULSE_SAFE_INNER_HTML__` | js/core.js | 64 | 68 | idempotence sentinel for the innerHTML safety guard; keep private to the safety adapter |
-| `currentGlobalMarketPayload` | js/page-us.js + js/page-global-market-options.js | 1925, 2066, 2101, 2107, 2120 | 1288, 3862 | cross-route window payload handoff; replace with an explicit store/import before removing the bridge |
+| `currentGlobalMarketPayload` | js/page-us.js + js/page-global-market-options.js | 1935, 2076, 2111, 2117, 2130 | 1290, 3879 | cross-route window payload handoff; replace with an explicit store/import before removing the bridge |
 
 ## 7. TD02-02 handoff rules
 
@@ -157,7 +178,7 @@
 
 ## 8. 回退與明確排除
 
-回退方式：將 HTML script list 恢復為 lockfile 的 classic 順序：`pwa.js → js/state.js → js/core.js → js/api.js → js/shared-calc.js → js/render-shared.js → js/charts.js → js/stock-detail.js → js/page-home.js → js/page-us.js → js/page-global-market-futures.js → js/page-global-market-options.js → js/page-global-market-assethub.js → js/page-tw.js → js/legacy-unclassified.js → js/main.js → app.js`；`derivatives-status.html` 再接 `derivatives-ui.js`。本批沒有改動可回退的 production wiring。
+回退方式：將 HTML script list 恢復為 lockfile 的 classic 順序：`pwa.js → js/state.js → js/core.js → js/api.js → js/shared-calc.js → js/render-shared.js → js/charts.js → js/stock-detail.js → js/page-home.js → js/page-us.js → js/page-global-market-shared.js → js/page-global-market-futures.js → js/page-global-market-options.js → js/page-global-market-asset-finance.js → js/page-global-market-derivatives.js → js/page-global-market-assethub.js → js/page-tw.js → js/legacy-unclassified.js → js/main.js → app.js`；`derivatives-status.html` 再接 `derivatives-ui.js`。本批沒有改動可回退的 production wiring。
 
 本批明確不做：ESM 接線、移除 classic slices、改變頁面行為、更新 global-symbol baseline、CSP、Service Worker、cache、部署設定、SQLite 或 `twse-cache.json`。
 

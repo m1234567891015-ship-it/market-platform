@@ -1,9 +1,33 @@
 from __future__ import annotations
 
 import hashlib
+import sqlite3
+import tempfile
 import unittest
+from contextlib import contextmanager
+from pathlib import Path
 
 from scripts import p203_tx_contract_roll_audit as audit
+
+FIXTURE_ROOT = Path(__file__).resolve().parent / "fixtures" / "p203"
+V1_FIXTURE_DIR = FIXTURE_ROOT / "historical-v1"
+HISTORICAL_INPUT = FIXTURE_ROOT / "historical-asof" / "taifex_tx_daily_normalized.json"
+
+
+@contextmanager
+def _isolated_logical_ledger():
+    """Create the frozen one-decision/no-outcome logical state in a temp DB."""
+    with tempfile.TemporaryDirectory(prefix="p203-tx-roll-ledger-") as directory:
+        db_path = Path(directory) / "prospective-ledger.sqlite3"
+        connection = sqlite3.connect(db_path)
+        try:
+            connection.execute("CREATE TABLE decision_ledger (id INTEGER PRIMARY KEY)")
+            connection.execute("CREATE TABLE decision_outcome (id INTEGER PRIMARY KEY)")
+            connection.execute("INSERT INTO decision_ledger DEFAULT VALUES")
+            connection.commit()
+        finally:
+            connection.close()
+        yield db_path
 
 
 def _fixture_inputs():
@@ -93,17 +117,20 @@ class TxContractRollAuditTests(unittest.TestCase):
         self.assertEqual(1, item["targetRollAffectedTrainingLabels"])
         self.assertEqual(2, item["anyRollAffectedTrainingLabels"])
 
-    def test_real_artifacts_and_prospective_database_remain_unchanged(self):
-        before_artifacts = {name: hashlib.sha256((audit.V1_DIR / name).read_bytes()).hexdigest() for name in audit.EXPECTED_V1_SHA256}
-        before_db = audit._db_snapshot()
-        inputs = audit.load_inputs()
-        first = audit.analyze(inputs)
-        second = audit.analyze(inputs)
-        after_artifacts = {name: hashlib.sha256((audit.V1_DIR / name).read_bytes()).hexdigest() for name in audit.EXPECTED_V1_SHA256}
-        after_db = audit._db_snapshot()
+    def test_frozen_fixtures_and_isolated_database_remain_unchanged(self):
+        before_artifacts = {name: hashlib.sha256((V1_FIXTURE_DIR / name).read_bytes()).hexdigest() for name in audit.EXPECTED_V1_SHA256}
+        with _isolated_logical_ledger() as db_path:
+            before_db = audit._db_snapshot(db_path)
+            inputs = audit.load_inputs(input_path=HISTORICAL_INPUT, v1_dir=V1_FIXTURE_DIR)
+            first = audit.analyze(inputs)
+            second = audit.analyze(inputs)
+            after_artifacts = {name: hashlib.sha256((V1_FIXTURE_DIR / name).read_bytes()).hexdigest() for name in audit.EXPECTED_V1_SHA256}
+            after_db = audit._db_snapshot(db_path)
         self.assertEqual(audit.EXPECTED_V1_SHA256, before_artifacts)
         self.assertEqual(before_artifacts, after_artifacts)
         self.assertEqual(before_db, after_db)
+        self.assertEqual(1, before_db["decisionCount"])
+        self.assertEqual(0, before_db["outcomeCount"])
         self.assertEqual(first, second)
         report = __import__("json").loads(first["roll_integrity_report.json"])
         self.assertEqual(audit.EXPECTED_INPUT_SHA256, report["dataset"]["sha256"])

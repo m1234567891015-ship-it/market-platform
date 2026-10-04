@@ -2,6 +2,10 @@
 # 預設:所有文字檔在 repo 內統一存 LF
 * text=auto eol=lf
 
+# Frozen P2-03 evidence fixtures must retain their authorized bytes verbatim.
+# Treat their preserved CRLF endings as line endings during whitespace checks.
+regression/fixtures/p203/** -text -eol whitespace=cr-at-eol
+
 # Windows 批次檔必須保持 CRLF,否則舊版 cmd 可能誤解析
 *.bat text eol=crlf
 *.cmd text eol=crlf

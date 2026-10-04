@@ -1,0 +1,38 @@
+{
+  "manifestVersion": "P2-03-RESEARCH-V2-PROTOCOL-AMENDMENT-MANIFEST-1",
+  "createdDate": "2026-10-02",
+  "status": "FORMALLY_APPROVED_FROZEN",
+  "amendmentType": "PROTOCOL_ERRATUM",
+  "reason": "Resolve the frozen protocol's initialization wording conflict while preserving the actual V1 logistic initialization.",
+  "scope": "MODEL_INITIALIZATION_SEMANTIC_ONLY",
+  "originalProtocol": {
+    "path": "docs/P2_03_RESEARCH_V2_PRE_REGISTRATION.md",
+    "sha256": "0ab04d326962a48439f0a762f5967d0268d8137fae6e26e07db5c7ca39c55290"
+  },
+  "originalFrozenManifest": {
+    "path": ".tmp/p203-v2-protocol/protocol_manifest.json",
+    "sha256": "9fbfd8cfe02bd47ace7893161bb6a5c1b6e9cba8639c6063c174cd91ef018ffb",
+    "status": "FORMALLY_APPROVED_FROZEN_NOT_EXECUTED",
+    "preservedAsHistoricalEvidence": true
+  },
+  "amendment": {
+    "id": "P2_03_RESEARCH_V2_PROTOCOL_AMENDMENT_001",
+    "path": "docs/P2_03_RESEARCH_V2_PROTOCOL_AMENDMENT_001.md",
+    "sha256": "80ae6beafeeebc68776249625162d6a18736cd1c91981708b71c9dbda852ae0a"
+  },
+  "effectiveProtocolIdentity": {
+    "path": ".tmp/p203-v2-protocol/effective_protocol_identity.json",
+    "previousSha256": "cbacebdedd3d66418590426b1b0641cf5e188c0cee5134d181a082c08e7380ad",
+    "sha256": "f229f03eb3d931aae96d1e994cb8725f8a73676132632da28c94cc9e4d8fcafc"
+  },
+  "approvalState": {
+    "status": "FORMALLY_APPROVED_FROZEN",
+    "authority": "PROJECT_OWNER",
+    "authorization": "P2-03 RESEARCH V2 PROTOCOL AMENDMENT 001 FORMAL OWNER ADJUDICATION / FREEZE",
+    "date": "2026-10-02"
+  },
+  "sourceEvidenceHashesChanged": false,
+  "v2Implementation": "NOT_STARTED",
+  "v2FinalEvaluation": "NOT_STARTED",
+  "v2HistoricalDevelopment": "READY_FOR_SEPARATE_OWNER_AUTHORIZATION"
+}

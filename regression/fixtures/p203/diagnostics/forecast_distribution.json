@@ -1,0 +1,111 @@
+{
+  "between040And060": {
+    "count": 246,
+    "percentage": 0.9044117647058824
+  },
+  "buckets": [
+    {
+      "actualPositiveRate": 0.6666666666666666,
+      "bucket": "<0.10",
+      "count": 3,
+      "meanForecast": 0.03413561321572294,
+      "percentage": 0.011029411764705883
+    },
+    {
+      "actualPositiveRate": 1,
+      "bucket": "0.10-0.20",
+      "count": 1,
+      "meanForecast": 0.13792446884740886,
+      "percentage": 0.003676470588235294
+    },
+    {
+      "actualPositiveRate": 0.5,
+      "bucket": "0.20-0.30",
+      "count": 2,
+      "meanForecast": 0.2545488910297134,
+      "percentage": 0.007352941176470588
+    },
+    {
+      "actualPositiveRate": 0.5,
+      "bucket": "0.30-0.40",
+      "count": 10,
+      "meanForecast": 0.3644075027998718,
+      "percentage": 0.03676470588235294
+    },
+    {
+      "actualPositiveRate": 0.625,
+      "bucket": "0.40-0.45",
+      "count": 24,
+      "meanForecast": 0.4292264592166449,
+      "percentage": 0.08823529411764706
+    },
+    {
+      "actualPositiveRate": 0.5151515151515151,
+      "bucket": "0.45-0.50",
+      "count": 66,
+      "meanForecast": 0.48064141339110233,
+      "percentage": 0.2426470588235294
+    },
+    {
+      "actualPositiveRate": 0.5214285714285715,
+      "bucket": "0.50-0.55",
+      "count": 140,
+      "meanForecast": 0.5217274097803433,
+      "percentage": 0.5147058823529411
+    },
+    {
+      "actualPositiveRate": 0.4375,
+      "bucket": "0.55-0.60",
+      "count": 16,
+      "meanForecast": 0.5622620786614474,
+      "percentage": 0.058823529411764705
+    },
+    {
+      "actualPositiveRate": 0.875,
+      "bucket": "0.60-0.70",
+      "count": 8,
+      "meanForecast": 0.6688776359463835,
+      "percentage": 0.029411764705882353
+    },
+    {
+      "actualPositiveRate": null,
+      "bucket": "0.70-0.80",
+      "count": 0,
+      "meanForecast": null,
+      "percentage": 0.0
+    },
+    {
+      "actualPositiveRate": null,
+      "bucket": "0.80-0.90",
+      "count": 0,
+      "meanForecast": null,
+      "percentage": 0.0
+    },
+    {
+      "actualPositiveRate": 0.5,
+      "bucket": ">0.90",
+      "count": 2,
+      "meanForecast": 0.9618537473009645,
+      "percentage": 0.007352941176470588
+    }
+  ],
+  "count": 272,
+  "extremes": {
+    "pGt080": 2,
+    "pGt090": 2,
+    "pLt010": 3,
+    "pLt020": 4
+  },
+  "max": 0.9626739152441287,
+  "mean": 0.4990074692410631,
+  "median": 0.5087972470311665,
+  "min": 0.00386433828249795,
+  "p05": 0.38559448204630037,
+  "p10": 0.43045421625851815,
+  "p25": 0.4788435874145933,
+  "p50": 0.5087972470311665,
+  "p75": 0.5294116159784156,
+  "p90": 0.5498400065393496,
+  "p95": 0.5685641282778665,
+  "stdPopulation": 0.08727367650489332
+}

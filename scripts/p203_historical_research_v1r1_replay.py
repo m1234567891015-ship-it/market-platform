@@ -555,11 +555,12 @@ def _rows_to_csv_bytes(rows: list[dict[str, Any]], columns: list[str]) -> bytes:
     return buffer.getvalue().encode("utf-8")
 
 
-def _db_snapshot() -> dict[str, Any]:
+def _db_snapshot(db_path: Path | None = None) -> dict[str, Any]:
     import sqlite3
 
-    before_hash = sha256_file(DB_PATH)
-    connection = sqlite3.connect(DB_PATH.resolve().as_uri() + "?mode=ro&immutable=1", uri=True)
+    db_path = db_path or DB_PATH
+    before_hash = sha256_file(db_path)
+    connection = sqlite3.connect(db_path.resolve().as_uri() + "?mode=ro&immutable=1", uri=True)
     try:
         decisions = connection.execute("SELECT COUNT(*) FROM decision_ledger").fetchone()[0]
         outcomes = connection.execute("SELECT COUNT(*) FROM decision_outcome").fetchone()[0]
@@ -568,15 +569,17 @@ def _db_snapshot() -> dict[str, Any]:
     return {"sha256": before_hash, "decision_ledger": decisions, "decision_outcome": outcomes}
 
 
-def _verify_frozen_inputs() -> dict[str, Any]:
-    contract_hash = sha256_file(CONTRACT_PATH)
+def _verify_frozen_inputs(v1_dir: Path | None = None) -> dict[str, Any]:
+    v1_dir = v1_dir or V1_DIR
+    contract_path = v1_dir / "feature_contract.json"
+    contract_hash = sha256_file(contract_path)
     if contract_hash != EXPECTED_CONTRACT_SHA256:
         raise RuntimeError(f"frozen V1 contract drift: {contract_hash}")
-    v1_hashes = {name: sha256_file(V1_DIR / name) for name in EXPECTED_V1_FILE_HASHES}
+    v1_hashes = {name: sha256_file(v1_dir / name) for name in EXPECTED_V1_FILE_HASHES}
     for name, expected in EXPECTED_V1_FILE_HASHES.items():
         if v1_hashes[name] != expected:
             raise RuntimeError(f"frozen V1 artifact drift: {name}: {v1_hashes[name]}")
-    report = json.loads((V1_DIR / "calibration_report.json").read_text(encoding="utf-8"))
+    report = json.loads((v1_dir / "calibration_report.json").read_text(encoding="utf-8"))
     for name, expected in EXPECTED_V1_INTERNAL_HASHES.items():
         key = {"featureRows": "featureMatrixSha256", "forecasts": "forecastSha256", "pairs": "oosPairsSha256"}[name]
         if report[key] != expected:

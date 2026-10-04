@@ -3,11 +3,19 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import sqlite3
+import tempfile
 import unittest
+from contextlib import contextmanager
 from datetime import date, timedelta
+from pathlib import Path
 
 from scripts import p203_historical_research_replay as v1
 from scripts import p203_historical_research_v1r1_replay as v1r1
+
+FIXTURE_ROOT = Path(__file__).resolve().parent / "fixtures" / "p203"
+V1_FIXTURE_DIR = FIXTURE_ROOT / "historical-v1"
+V1R1_FIXTURE_DIR = FIXTURE_ROOT / "historical-v1r1"
 
 
 def _rows(count: int = 150, monotonic: bool = False) -> list[dict[str, object]]:
@@ -40,6 +48,22 @@ def _raw_row(day: str, contract_month: str, volume: str, close: str) -> list[str
     row.extend([""] * (17 - len(row)))
     row.append("一般")
     return row
+
+
+@contextmanager
+def _isolated_logical_ledger():
+    """Create the frozen one-decision/no-outcome logical state in a temp DB."""
+    with tempfile.TemporaryDirectory(prefix="p203-v1r1-ledger-") as directory:
+        db_path = Path(directory) / "prospective-ledger.sqlite3"
+        connection = sqlite3.connect(db_path)
+        try:
+            connection.execute("CREATE TABLE decision_ledger (id INTEGER PRIMARY KEY)")
+            connection.execute("CREATE TABLE decision_outcome (id INTEGER PRIMARY KEY)")
+            connection.execute("INSERT INTO decision_ledger DEFAULT VALUES")
+            connection.commit()
+        finally:
+            connection.close()
+        yield db_path
 
 
 class HistoricalResearchV1R1Tests(unittest.TestCase):
@@ -135,17 +159,19 @@ class HistoricalResearchV1R1Tests(unittest.TestCase):
             self.assertAlmostEqual(mean, first_trace["normalizationMeans"][feature_index])
 
     def test_v1_contract_and_artifacts_and_prospective_db_are_unchanged(self):
-        before_v1 = v1r1._verify_frozen_inputs()
-        before_db = v1r1._db_snapshot()
-        rows = _rows(30)
-        v1r1.run_clean_replay(rows, "integrity-fixture")
-        after_v1 = v1r1._verify_frozen_inputs()
-        after_db = v1r1._db_snapshot()
-        self.assertEqual(before_v1["artifactSha256"], after_v1["artifactSha256"])
-        self.assertEqual(before_db, after_db)
-        self.assertEqual(v1r1.EXPECTED_DB_SHA256, before_db["sha256"])
-        self.assertEqual(1, before_db["decision_ledger"])
-        self.assertEqual(0, before_db["decision_outcome"])
+        before_v1 = v1r1._verify_frozen_inputs(V1_FIXTURE_DIR)
+        with _isolated_logical_ledger() as db_path:
+            before_db = v1r1._db_snapshot(db_path)
+            rows = _rows(30)
+            v1r1.run_clean_replay(rows, "integrity-fixture")
+            after_v1 = v1r1._verify_frozen_inputs(V1_FIXTURE_DIR)
+            after_db = v1r1._db_snapshot(db_path)
+            self.assertEqual(before_v1["artifactSha256"], after_v1["artifactSha256"])
+            self.assertEqual(before_db, after_db)
+            self.assertEqual("73db5d58f9cc1b2f5723ddbb86678036a6e5c67d322cf492d3b2d0f4d2f23df4",
+                             v1r1.EXPECTED_DB_SHA256)
+            self.assertEqual(1, before_db["decision_ledger"])
+            self.assertEqual(0, before_db["decision_outcome"])
 
     def test_complete_replay_is_deterministic(self):
         rows = _rows(70)
@@ -165,9 +191,7 @@ class HistoricalResearchV1R1Tests(unittest.TestCase):
         self.assertEqual(0, result["openInterestMismatches"])
 
     def test_persisted_v1r1_artifacts_are_clean_and_metrics_round_trip(self):
-        output_dir = v1r1.OUTPUT_DIR
-        if not output_dir.exists() or not (output_dir / "calibration_report.json").exists():
-            self.skipTest("V1R1 live-source artifacts have not been captured in this workspace")
+        output_dir = V1R1_FIXTURE_DIR
         def read_csv(name):
             with (output_dir / name).open(encoding="utf-8", newline="") as handle:
                 return list(csv.DictReader(handle))
@@ -241,10 +265,12 @@ class HistoricalResearchV1R1Tests(unittest.TestCase):
         raw = json.loads((output_dir / "raw_data_inventory.json").read_text(encoding="utf-8"))
         for entry in raw["rawFiles"]:
             self.assertEqual(entry["sha256"], hashlib.sha256((output_dir / "raw" / entry["file"]).read_bytes()).hexdigest())
-        frozen = v1r1._verify_frozen_inputs()
+        frozen = v1r1._verify_frozen_inputs(V1_FIXTURE_DIR)
         self.assertEqual(v1r1.EXPECTED_V1_FILE_HASHES, frozen["artifactSha256"])
-        db = v1r1._db_snapshot()
-        self.assertEqual(v1r1.EXPECTED_DB_SHA256, db["sha256"])
+        with _isolated_logical_ledger() as db_path:
+            db = v1r1._db_snapshot(db_path)
+        self.assertEqual("73db5d58f9cc1b2f5723ddbb86678036a6e5c67d322cf492d3b2d0f4d2f23df4",
+                         v1r1.EXPECTED_DB_SHA256)
         self.assertEqual(1, db["decision_ledger"])
         self.assertEqual(0, db["decision_outcome"])
 

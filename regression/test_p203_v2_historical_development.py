@@ -3,11 +3,57 @@ from __future__ import annotations
 import copy
 import math
 import random
+import shutil
+import tempfile
 import unittest
+from contextlib import contextmanager, ExitStack
 from datetime import date, timedelta
+from pathlib import Path
 from unittest.mock import patch
 
 from scripts import p203_v2_historical_development as v2
+
+FIXTURE_ROOT = Path(__file__).resolve().parent / "fixtures" / "p203"
+
+
+@contextmanager
+def _materialized_frozen_inputs():
+    """Materialize immutable tracked evidence under an isolated temporary root."""
+    with tempfile.TemporaryDirectory(prefix="p203-v2-frozen-inputs-") as temporary:
+        root = Path(temporary)
+        temp_artifacts = root / ".tmp"
+        temp_artifacts.mkdir()
+        materialized = {}
+        for fixture_name, temporary_name in (
+            ("protocol", "p203-v2-protocol"),
+            ("historical-v1r1", "p203-historical-research-v1r1"),
+            ("diagnostics", "p203-v1r1-diagnostic"),
+            ("historical-v1", "p203-historical-research-v1"),
+        ):
+            destination = temp_artifacts / temporary_name
+            shutil.copytree(FIXTURE_ROOT / fixture_name, destination)
+            materialized[fixture_name] = destination
+
+        protocol_dir = materialized["protocol"]
+        input_dir = materialized["historical-v1r1"]
+        v1_dir = materialized["historical-v1"]
+        with ExitStack() as stack:
+            for name, value in {
+                "ROOT": root,
+                "PROTOCOL_PATH": FIXTURE_ROOT / "docs" / "P2_03_RESEARCH_V2_PRE_REGISTRATION.md",
+                "AMENDMENT_PATH": FIXTURE_ROOT / "docs" / "P2_03_RESEARCH_V2_PROTOCOL_AMENDMENT_001.md",
+                "ORIGINAL_MANIFEST_PATH": protocol_dir / "protocol_manifest.json",
+                "IDENTITY_PATH": protocol_dir / "effective_protocol_identity.json",
+                "AMENDMENT_MANIFEST_PATH": protocol_dir / "protocol_amendment_001_manifest.json",
+                "INPUT_DIR": input_dir,
+                "INPUT_INVENTORY_PATH": input_dir / "raw_data_inventory.json",
+                "SERIES_PATH": input_dir / "rebuilt_daily_series.csv",
+                "SELECTION_TRACE_PATH": input_dir / "selection_trace.csv",
+            }.items():
+                stack.enter_context(patch.object(v2, name, value))
+            stack.enter_context(patch.object(v2.v1r1, "V1_DIR", v1_dir))
+            stack.enter_context(patch.object(v2.v1r1, "CONTRACT_PATH", v1_dir / "feature_contract.json"))
+            yield
 
 
 def _fixture_rows(count: int = 130) -> list[dict[str, object]]:
@@ -48,6 +94,13 @@ def _run_fixture(rows: list[dict[str, object]]) -> dict[str, object]:
 
 
 class HistoricalResearchV2DevelopmentTests(unittest.TestCase):
+    def setUp(self):
+        self._frozen_inputs_context = _materialized_frozen_inputs()
+        self._frozen_inputs_context.__enter__()
+
+    def tearDown(self):
+        self._frozen_inputs_context.__exit__(None, None, None)
+
     def test_effective_protocol_hashes_and_source_inventory_are_frozen(self):
         protocol = v2._verify_effective_protocol()
         self.assertEqual(v2.EXPECTED_HASHES["originalProtocol"], protocol["hashes"]["originalProtocol"])

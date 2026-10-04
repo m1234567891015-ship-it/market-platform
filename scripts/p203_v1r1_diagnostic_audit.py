@@ -217,15 +217,23 @@ def _database_snapshot(path: Path) -> dict[str, Any]:
         connection.close()
 
 
-def analyze(input_dir: Path = INPUT_DIR, output_dir: Path = OUTPUT_DIR) -> dict[str, Any]:
+def analyze(
+    input_dir: Path = INPUT_DIR,
+    output_dir: Path = OUTPUT_DIR,
+    *,
+    contract_path: Path = CONTRACT_PATH,
+    db_path: Path = DB_PATH,
+    expected_db_sha256: str | None = EXPECTED_DB_SHA256,
+) -> dict[str, Any]:
     if not input_dir.is_dir():
         raise FileNotFoundError(input_dir)
     before_tree = _fingerprint_tree(input_dir)
-    contract_hash = _sha256(CONTRACT_PATH)
+    contract_hash = _sha256(contract_path)
     if contract_hash != EXPECTED_CONTRACT_SHA256:
         raise ValueError(f"frozen contract hash mismatch: {contract_hash}")
-    db_before = _database_snapshot(DB_PATH)
-    if db_before["sha256"] != EXPECTED_DB_SHA256 or db_before["counts"] != {"decision_ledger": 1, "decision_outcome": 0}:
+    db_before = _database_snapshot(db_path)
+    if (db_before["counts"] != {"decision_ledger": 1, "decision_outcome": 0}
+            or (expected_db_sha256 is not None and db_before["sha256"] != expected_db_sha256)):
         raise ValueError(f"prospective DB integrity mismatch: {db_before}")
 
     summary = json.loads((input_dir / "research_summary.json").read_text(encoding="utf-8"))
@@ -480,7 +488,7 @@ def analyze(input_dir: Path = INPUT_DIR, output_dir: Path = OUTPUT_DIR) -> dict[
 
     # Freeze check after all reads/calculations; no source artifact may change.
     after_tree = _fingerprint_tree(input_dir)
-    db_after = _database_snapshot(DB_PATH)
+    db_after = _database_snapshot(db_path)
     if before_tree != after_tree:
         raise RuntimeError("V1R1 input artifacts changed during diagnostic")
     if db_before != db_after:
