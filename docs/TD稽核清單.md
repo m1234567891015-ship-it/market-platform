@@ -204,3 +204,11 @@ TD-15 目前狀態（2026-09-01）：REMAIN-01～07 已完成全量 review closu
 | ⚪ 延後/未立案 | TD-18、TD-19 | 分別是前端打包效能評估/導入，以及 schema required-key allowlist；本週期未實作。 |
 
 可重現驗證證據：目前 Unit 為 126 tests、security guardrail 為 16 項；最近一次批次 G 完成後的 `e2e_smoke.py` 為 `E2E_SMOKE_OK`，`regression/verify_against_baseline.py --full` 為 `VERIFY_OK`。詳細的後續優先序、回退策略與暫不處理邊界，以 [技術債改善計畫 V2（2026-08-30）](../技術債改善計畫_V2_2026-08-30.md) 為準。
+
+## 2026-10-10 待處理：風險分類前端契約測試
+
+完整 pytest 首次以 4 個隔離 worker 執行（444.11 秒）有 620 passed、1 skipped、1 failed。失敗位於 `regression/test_p1_03_risk_classification.py::RiskClassificationTests::test_active_consumers_declare_their_risk_type`：測試要求 `js/page-global-market-assethub.js` 包含 `const riskType = "UNKNOWN"`，實際宣告已在 `js/page-global-market-derivatives.js`。經另案授權後，已將測試檢查位置改至實際檔案、保留相同的 `UNKNOWN` 斷言；該測試檔 9 個案例通過。
+
+## 2026-10-10 待處理：系統維護頁截圖字型差異
+
+`regression/frontend_check.py --compare` 對 `derivatives-status.html` 的像素差異為 13.806%（門檻 2%），卡片仍為 6 個、表格列仍為 13、外部錯誤為 0。`build/frontend-diagnostics/` 的基準、目前與 diff 圖顯示主要差異集中在文字字形與邊緣；頁面內容和布局未見明顯變化。驗證器目前仍判定為失敗，未更新截圖基準。須另案核對瀏覽器／字型渲染環境或取得基準更新授權。

@@ -21,7 +21,7 @@ class RiskClassificationTests(unittest.TestCase):
             "js/page-us.js": 'riskType: "MARKET_RISK"',
             "js/page-global-market-futures.js": 'riskType: "MARKET_RISK"',
             "js/page-global-market-options.js": 'riskType: "STRATEGY_RISK"',
-            "js/page-global-market-assethub.js": 'const riskType = "UNKNOWN"',
+            "js/page-global-market-derivatives.js": 'const riskType = "UNKNOWN"',
             "js/page-tw.js": 'riskType: "PORTFOLIO_RISK"',
             "js/render-shared.js": 'riskType: "PORTFOLIO_RISK"',
         }
