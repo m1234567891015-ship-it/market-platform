@@ -48,12 +48,14 @@ batch B0 commit for the corresponding `security_guardrail_check.py` change.
 from __future__ import annotations
 
 import json
+import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from flask import Blueprint, Response, abort, jsonify, redirect, request, send_from_directory
 
-from cache import cache_data, cache_lock
+from cache import PROVIDER_STALE_AFTER_SECONDS, cache_data, cache_lock
 from market_config import ASSET_STATIC_FILES, JS_MODULE_STATIC_FILES, PAGE_ROUTES, ROOT_STATIC_FILES
 
 
@@ -92,17 +94,36 @@ bp = Blueprint("system", __name__)
 
 @bp.route("/api/health")
 def api_health():
+    import app
+
     with cache_lock:
-        providers = cache_data.get("provider_status") or {}
+        now = time.time()
+        providers = {}
+        for name, current in (cache_data.get("provider_status") or {}).items():
+            provider = dict(current)
+            last_success = provider.get("lastSuccessAt")
+            refresh_age = max(0, int(now - last_success)) if isinstance(last_success, (int, float)) else None
+            provider["refreshAgeSeconds"] = refresh_age
+            provider["stale"] = refresh_age is None or refresh_age >= PROVIDER_STALE_AFTER_SECONDS
+            providers[name] = provider
         tpex_status = (providers.get("tpex") or {}).get("status")
         twse_status = (providers.get("twse") or {}).get("status")
         readiness = "warming" if not cache_data["site_data"] else ("degraded" if twse_status in {"timeout", "network_error", "parse_error"} else ("partial" if tpex_status in {"timeout", "network_error", "parse_error"} else "ready"))
         overall_status = "ok" if readiness == "ready" else readiness
+        data_age_seconds = None
+        cached_at = cache_data["cached_at"]
+        if cached_at:
+            try:
+                cached_at_value = datetime.strptime(str(cached_at), "%Y-%m-%d %H:%M:%S").replace(tzinfo=app.TZ)
+                data_age_seconds = max(0, int((app.taipei_now() - cached_at_value).total_seconds()))
+            except (TypeError, ValueError, OverflowError):
+                data_age_seconds = None
         return jsonify(
             {
                 "status": overall_status,
                 "readiness": readiness,
-                "cachedAt": cache_data["cached_at"],
+                "cachedAt": cached_at,
+                "dataAgeSeconds": data_age_seconds,
                 "lastError": cache_data["last_error"],
                 "providers": providers,
             }

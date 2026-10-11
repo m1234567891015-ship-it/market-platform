@@ -1,5 +1,33 @@
 {
   "cachedAt": "<DYNAMIC>",
-  "lastError": null,
+  "dataAgeSeconds": "<DYNAMIC>",
+  "lastError": "<DYNAMIC>",
+  "providers": {
+    "tpex": {
+      "consecutiveFailures": "<DYNAMIC>",
+      "lastAttemptAt": "<DYNAMIC>",
+      "lastDurationMs": "<DYNAMIC>",
+      "lastError": "<DYNAMIC>",
+      "lastFailureAt": "<DYNAMIC>",
+      "lastSuccessAt": "<DYNAMIC>",
+      "nextRetryAt": "<DYNAMIC>",
+      "refreshAgeSeconds": "<DYNAMIC>",
+      "stale": "<DYNAMIC>",
+      "status": "<DYNAMIC>"
+    },
+    "twse": {
+      "consecutiveFailures": "<DYNAMIC>",
+      "lastAttemptAt": "<DYNAMIC>",
+      "lastDurationMs": "<DYNAMIC>",
+      "lastError": "<DYNAMIC>",
+      "lastFailureAt": "<DYNAMIC>",
+      "lastSuccessAt": "<DYNAMIC>",
+      "nextRetryAt": "<DYNAMIC>",
+      "refreshAgeSeconds": "<DYNAMIC>",
+      "stale": "<DYNAMIC>",
+      "status": "<DYNAMIC>"
+    }
+  },
+  "readiness": "ready",
   "status": "ok"
 }
